@@ -20,7 +20,7 @@ Desktop app for tracking ARAM Mayhem match history in League of Legends. Connect
 
 **Windows:** grab `BetterMayhemTracker.exe` from the [latest release](https://github.com/rambo0247/better-mayhem-tracker/releases/latest) and run it. It's a portable Windows build with no installer, so it can live anywhere.
 
-**macOS:** grab `BetterMayhemTracker-mac-arm64.dmg` (Apple silicon) or `BetterMayhemTracker-mac-x64.dmg` (Intel) from the same release, open it, and drag Better Mayhem Tracker into Applications. The app is not notarized by Apple, so the first time you open it macOS will refuse; right-click the app in Applications and choose **Open**, or allow it under **System Settings → Privacy & Security**. If macOS instead says the app "is damaged", clear the download quarantine flag with `xattr -cr "/Applications/Better Mayhem Tracker.app"`.
+**macOS:** grab `BetterMayhemTracker-mac-arm64.dmg` (Apple silicon) or `BetterMayhemTracker-mac-x64.dmg` (Intel) from the same release, open it, and drag Better Mayhem Tracker into Applications. The app is not notarized by Apple, so the first time you open it macOS will refuse. Close that dialog, open **System Settings → Privacy & Security**, scroll down to **Security**, click **Open Anyway** next to Better Mayhem Tracker, and confirm. You only do this once; updates the app installs itself open normally. If macOS instead says the app "is damaged", clear the download quarantine flag with `xattr -cr "/Applications/Better Mayhem Tracker.app"`.
 
 ## Usage
 
