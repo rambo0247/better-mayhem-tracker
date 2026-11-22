@@ -34,11 +34,11 @@ import RiotId from "./RiotId";
 // fold into one column like the match row's StatBars, the build stacks into
 // the row's 3x2 grid and multikills drop out (the row above shows them).
 const WIDE_COLS =
-  "@min-[1088px]:grid-cols-[58px_minmax(104px,1fr)_48px_84px_minmax(76px,92px)_minmax(76px,92px)_minmax(76px,92px)_52px_178px_100px_94px]";
+  "@min-[1088px]:grid-cols-[58px_minmax(100px,1fr)_48px_84px_minmax(72px,92px)_minmax(72px,92px)_minmax(72px,92px)_52px_178px_100px_110px]";
 const GRID_COLS = `grid-cols-[58px_minmax(96px,1fr)_48px_80px_150px_48px_108px_72px] ${WIDE_COLS}`;
 // The card asks for multikills whatever its width: it has no match row above
 // it to show them, and is always drawn wide enough for the column anyway.
-const GRID_COLS_MULTIKILLS = `grid-cols-[58px_minmax(96px,1fr)_48px_80px_150px_48px_108px_72px_94px] ${WIDE_COLS}`;
+const GRID_COLS_MULTIKILLS = `grid-cols-[58px_minmax(96px,1fr)_48px_80px_150px_48px_108px_72px_110px] ${WIDE_COLS}`;
 
 // Shown only in one of the two layouts
 const WIDE_ONLY = "hidden @min-[1088px]:block";
@@ -456,9 +456,13 @@ function PlayerRow({
         <ItemIcon itemId={p.items[6] ?? 0} size={22} patch={patch} />
       </div>
 
-      {/* Augments; past four they spill into a third column, as the match row's do */}
+      {/* Augments: up to four in a line when the table is wide, otherwise two
+          rows (three columns once there are more than four, as the match row
+          lays them out), so a fifth or sixth never runs into the next column */}
       <div
-        className={`grid w-fit ${p.augments.length > 4 ? "grid-cols-3" : "grid-cols-2"} gap-[3px] @min-[1088px]:flex`}
+        className={`grid w-fit gap-[3px] ${
+          p.augments.length > 4 ? "grid-cols-3" : "grid-cols-2 @min-[1088px]:grid-cols-4"
+        }`}
       >
         {p.augments.map((augId, i) => (
           <AugmentIcon key={i} augmentId={augId} size={22} patch={patch} />
@@ -466,7 +470,7 @@ function PlayerRow({
       </div>
 
       {/* Multikills */}
-      <div className={multikills ? "flex" : "hidden @min-[1088px]:flex"}>
+      <div className={`min-w-0 ${multikills ? "flex" : "hidden @min-[1088px]:flex"}`}>
         <MultikillBadge
           compact
           doubles={p.doubleKills}
