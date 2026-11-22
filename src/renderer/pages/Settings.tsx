@@ -691,8 +691,9 @@ export default function Settings() {
               title="Install updates automatically"
               description={
                 <>
-                  Check for a new version each time the program starts and install it right away.
-                  Never happens during champion select or a game.
+                  Install new versions on their own: when the program starts, and while it sits in
+                  the tray or minimized. Never while you're using it, in champion select or in a
+                  game. When it's off, new versions show up in the sidebar to install yourself.
                   {!packaged && NOT_INSTALLED_NOTE}
                 </>
               }

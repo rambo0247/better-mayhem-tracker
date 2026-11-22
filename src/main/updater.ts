@@ -9,7 +9,7 @@ import { getSetting, setSetting } from "./db";
 import { hasDurableInstall, macAppBundle, portableExe, WINDOWS_EXE_NAME } from "./install-location";
 import { macSwapScript } from "./mac-update-script";
 import { sendToRenderer } from "./ipc";
-import { isMatchUnderway } from "./lcu";
+import { isBackfillRunning, isMatchUnderway } from "./lcu";
 import { isGameRunning } from "./live";
 import type { ReleaseNote, UpdateInfo, UpdateNotes } from "../shared/api";
 
@@ -454,6 +454,56 @@ export async function installUpdateOnLaunch(win: BrowserWindow): Promise<void> {
     console.log("Launch update failed:", error);
     sendToRenderer(win, "update:install-failed", error);
   }
+}
+
+// While the app runs, a release that lands is installed in the background, but
+// only at a moment nobody is using it: the window is in the tray or minimized,
+// no match is on and no history import is running. With the window in view the
+// update waits for the sidebar's "Update available" card instead, so the app
+// never restarts under someone who is looking at it.
+const BACKGROUND_CHECK_MS = 45 * 60 * 1000;
+// How long the window has to stay put away before an update found earlier
+// installs, so closing it for a moment doesn't set off a restart
+const AWAY_SETTLE_MS = 2 * 60 * 1000;
+
+function windowInUse(win: BrowserWindow): boolean {
+  return !win.isDestroyed() && win.isVisible() && !win.isMinimized();
+}
+
+async function installInBackground(win: BrowserWindow): Promise<void> {
+  if (installInProgress || win.isDestroyed() || windowInUse(win)) return;
+  if (!hasDurableInstall() || getSetting("auto_update") === "false") return;
+  if (isBackfillRunning()) return;
+
+  const info = await checkForUpdate();
+  if (!info.hasUpdate || !info.assetUrl) return;
+  // Checked again after the request: the window may have come back meanwhile
+  if (windowInUse(win) || (await matchUnderway())) return;
+
+  console.log(`Installing update ${info.latest} in the background`);
+  launchInstall = info;
+  sendToRenderer(win, "update:installing", info);
+  const result = await downloadAndInstall(win, info.assetUrl, async () => !(await matchUnderway()));
+  if (!result.success) {
+    launchInstall = null;
+    const error = result.error ?? "Update failed";
+    console.log("Background update failed:", error);
+    sendToRenderer(win, "update:install-failed", error);
+  }
+}
+
+export function startBackgroundUpdates(win: BrowserWindow): void {
+  const run = () =>
+    installInBackground(win).catch((err) => console.error("Background update failed:", err));
+  setInterval(run, BACKGROUND_CHECK_MS);
+
+  let settle: NodeJS.Timeout | null = null;
+  const away = () => {
+    if (settle) clearTimeout(settle);
+    settle = setTimeout(run, AWAY_SETTLE_MS);
+  };
+  win.on("hide", away);
+  win.on("minimize", away);
 }
 
 // The version this install ran as before the current one, when this launch is

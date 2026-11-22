@@ -14,7 +14,7 @@ import { registerAssetScheme, startGameAssets } from "./game-assets";
 import { applySecurityPolicy } from "./security";
 import { APP_USER_MODEL_ID, ensureStartMenuShortcut } from "./shortcut";
 import { syncAutoStart, HIDDEN_FLAG } from "./autostart";
-import { installUpdateOnLaunch, recordLaunchVersion } from "./updater";
+import { installUpdateOnLaunch, recordLaunchVersion, startBackgroundUpdates } from "./updater";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -215,9 +215,11 @@ app.whenReady().then(async () => {
   // client keeps no history of its own, so a day nobody writes down is gone.
   startChallengeTracking(win);
   startBackupSchedule();
-  // Last, once everything that has to run on a launch is under way. Only ever
-  // at startup, so an update never restarts the app partway through a session.
+  // Last, once everything that has to run on a launch is under way. At startup,
+  // and after that only while the window is put away, so an update never
+  // restarts the app under someone who is using it.
   installUpdateOnLaunch(win).catch((err) => console.error("Launch update failed:", err));
+  startBackgroundUpdates(win);
 });
 
 app.on("before-quit", async (event) => {
