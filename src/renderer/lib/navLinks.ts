@@ -14,20 +14,25 @@ import {
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
-export type NavLinkDef = { to: string; label: string; icon: IconComponent };
+export type NavGroup = "Play" | "Analyze" | "Social" | "Achieve";
 
+export type NavLinkDef = { to: string; label: string; icon: IconComponent; group: NavGroup };
+
+// In the order the sidebar lists them, under their group headings
 export const NAV_LINKS: NavLinkDef[] = [
-  { to: "/", label: "Match History", icon: SwordsIcon },
-  { to: "/live", label: "Live Game", icon: RadioIcon },
-  { to: "/champions", label: "Champions", icon: TrophyIcon },
-  { to: "/augments", label: "Augments", icon: CrosshairIcon },
-  { to: "/friends", label: "Friends", icon: UsersIcon },
-  { to: "/trends", label: "Trends", icon: TrendingUpIcon },
-  { to: "/records", label: "Records", icon: MedalIcon },
-  { to: "/season", label: "Season Recap", icon: CalendarIcon },
-  { to: "/challenges", label: "Challenges", icon: AwardIcon },
-  { to: "/global", label: "Total Stats", icon: GlobeIcon },
+  { to: "/", label: "Match History", icon: SwordsIcon, group: "Play" },
+  { to: "/live", label: "Live Game", icon: RadioIcon, group: "Play" },
+  { to: "/champions", label: "Champions", icon: TrophyIcon, group: "Analyze" },
+  { to: "/augments", label: "Augments", icon: CrosshairIcon, group: "Analyze" },
+  { to: "/trends", label: "Trends", icon: TrendingUpIcon, group: "Analyze" },
+  { to: "/global", label: "Total Stats", icon: GlobeIcon, group: "Analyze" },
+  { to: "/friends", label: "Friends", icon: UsersIcon, group: "Social" },
+  { to: "/records", label: "Records", icon: MedalIcon, group: "Achieve" },
+  { to: "/season", label: "Season Recap", icon: CalendarIcon, group: "Achieve" },
+  { to: "/challenges", label: "Challenges", icon: AwardIcon, group: "Achieve" },
 ];
+
+export const NAV_GROUPS: NavGroup[] = ["Play", "Analyze", "Social", "Achieve"];
 
 // The page the app opens on, so its link can't be hidden
 export const HOME_PATH = "/";

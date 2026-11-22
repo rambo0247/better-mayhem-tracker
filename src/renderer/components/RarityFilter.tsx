@@ -5,29 +5,29 @@ const filters: { key: Rarity; label: string; color: string; activeColor: string 
     key: "all",
     label: "All",
     color: "text-lol-text",
-    activeColor: "bg-lol-gold/20 text-lol-gold border-lol-gold/50",
+    activeColor: "bg-lol-text-bright text-[#0a0f24]",
   },
   {
     key: "kSilver",
     label: "Silver",
-    color: "text-gray-300",
-    activeColor: "bg-gray-400/20 text-gray-200 border-gray-400/50",
+    color: "text-[#c9d1e8]",
+    activeColor: "bg-[#c9d1e8] text-[#0a0f24]",
   },
   {
     key: "kGold",
     label: "Gold",
-    color: "text-yellow-400",
-    activeColor: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50",
+    color: "text-amber-400",
+    activeColor: "bg-amber-400 text-[#2a1c00]",
   },
   {
     key: "kPrismatic",
     label: "Prismatic",
     color: "text-fuchsia-400",
-    activeColor: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/50",
+    activeColor: "bg-gradient-to-r from-fuchsia-400 to-sky-400 text-[#140a2a]",
   },
 ];
 
-// Renders just the buttons so callers keep control of the surrounding row
+// One segmented control; the caller places it in its row
 export default function RarityFilter({
   value,
   onChange,
@@ -36,20 +36,17 @@ export default function RarityFilter({
   onChange: (rarity: Rarity) => void;
 }) {
   return (
-    <>
+    <div className="seg" role="group" aria-label="Rarity">
       {filters.map((f) => (
         <button
           key={f.key}
           onClick={() => onChange(f.key)}
-          className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
-            value === f.key
-              ? f.activeColor
-              : `${f.color} border-lol-border hover:border-lol-border/80 bg-lol-card`
-          }`}
+          aria-pressed={value === f.key}
+          className={`seg-item ${value === f.key ? f.activeColor : f.color}`}
         >
           {f.label}
         </button>
       ))}
-    </>
+    </div>
   );
 }

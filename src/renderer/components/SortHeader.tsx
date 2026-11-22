@@ -8,6 +8,8 @@ interface SortProps<K extends string> {
   compact?: boolean;
   // Right-aligned, over a column of right-aligned numbers
   numeric?: boolean;
+  // What the column holds, for headers whose label is an abbreviation
+  hint?: string;
   className?: string;
 }
 
@@ -30,14 +32,19 @@ export default function SortHeader<K extends string>({
       active={active}
       sortDir={sortDir}
       onClick={() => onSort(field)}
-      title={active ? (sortDir === "desc" ? "Sorted descending" : "Sorted ascending") : undefined}
+      title={withHint(
+        cell.hint,
+        active ? (sortDir === "desc" ? "Sorted descending" : "Sorted ascending") : undefined,
+      )}
     />
   );
 }
 
 // A header over a column that sorts by several related fields, like the
-// multikill total and then each kind on its own. Every click steps to the next
-// field and starts it descending, and the label names the field in use.
+// multikill total and then each kind on its own. A click on a field sorted
+// high-to-low flips it low-to-high; the click after that steps to the next
+// field, high-to-low. So every field can be read in either direction, and the
+// label names the field in use.
 export function CycleSortHeader<K extends string>({
   steps,
   sortKey,
@@ -48,6 +55,7 @@ export function CycleSortHeader<K extends string>({
   const index = steps.findIndex((s) => s.field === sortKey);
   const current = steps[Math.max(index, 0)];
   const next = steps[(index + 1) % steps.length];
+  const flipsNext = index >= 0 && sortDir === "desc";
 
   return (
     <HeaderCell
@@ -55,10 +63,21 @@ export function CycleSortHeader<K extends string>({
       label={current.label}
       active={index >= 0}
       sortDir={sortDir}
-      onClick={() => onSort(next.field)}
-      title={index >= 0 ? `Sorted by ${current.label}. Click for ${next.label}` : undefined}
+      onClick={() => onSort(flipsNext ? current.field : next.field)}
+      title={withHint(
+        cell.hint,
+        index < 0
+          ? `Click to sort by ${current.label}`
+          : flipsNext
+            ? `Sorted by ${current.label}, highest first. Click for lowest first`
+            : `Sorted by ${current.label}, lowest first. Click for ${next.label}`,
+      )}
     />
   );
+}
+
+function withHint(hint: string | undefined, state: string | undefined) {
+  return [hint, state].filter(Boolean).join("\n") || undefined;
 }
 
 function HeaderCell({
@@ -78,17 +97,18 @@ function HeaderCell({
   title: string | undefined;
   compact?: boolean;
   numeric?: boolean;
+  hint?: string;
   className?: string;
 }) {
   return (
     <th
       onClick={onClick}
       title={title}
-      className={`relative ${compact ? "px-2 py-2 text-[11px]" : "px-3 py-2 text-xs"} ${
+      className={`font-display relative ${compact ? "px-2 py-2.5 text-[11px]" : "px-3 py-3 text-[12px]"} ${
         numeric ? "text-right" : "text-left"
-      } font-medium uppercase tracking-wider cursor-pointer select-none whitespace-nowrap transition-colors ${
+      } font-bold uppercase tracking-[0.07em] cursor-pointer select-none whitespace-nowrap transition-colors ${
         active
-          ? "text-lol-gold bg-lol-gold/[0.06]"
+          ? "text-lol-gold-light bg-lol-gold/[0.07]"
           : "text-lol-text hover:text-lol-text-bright hover:bg-white/[0.03]"
       } ${className}`}
     >

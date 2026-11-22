@@ -21,36 +21,25 @@ import SearchInput from "../components/SearchInput";
 import FilterMenu from "../components/FilterMenu";
 import MinGamesFilter from "../components/MinGamesFilter";
 import SeasonSelect from "../components/SeasonSelect";
+import RarityFilter, { type Rarity } from "../components/RarityFilter";
+import PageHeader from "../components/PageHeader";
+import { ChevronRightIcon, SparklesIcon } from "../components/icons";
 
 type SortKey = "picks" | "winRate" | "name";
-type RarityFilter = "all" | "kSilver" | "kGold" | "kPrismatic";
 
-const rarityFilters: { key: RarityFilter; label: string; color: string; activeColor: string }[] = [
-  {
-    key: "all",
-    label: "All",
-    color: "text-lol-text",
-    activeColor: "bg-lol-gold/20 text-lol-gold border-lol-gold/50",
-  },
-  {
-    key: "kSilver",
-    label: "Silver",
-    color: "text-gray-300",
-    activeColor: "bg-gray-400/20 text-gray-200 border-gray-400/50",
-  },
-  {
-    key: "kGold",
-    label: "Gold",
-    color: "text-yellow-400",
-    activeColor: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50",
-  },
-  {
-    key: "kPrismatic",
+// The rarity tag beside each augment. The icon's ring already carries the
+// colour, so the name itself can stay in the table's one bright text colour.
+const RARITY_TAGS: Record<string, { label: string; tone: string }> = {
+  kSilver: { label: "Silver", tone: "bg-slate-300/10 text-slate-300 ring-slate-300/20" },
+  kGold: { label: "Gold", tone: "bg-amber-400/12 text-amber-400 ring-amber-400/25" },
+  kPrismatic: {
     label: "Prismatic",
-    color: "text-fuchsia-400",
-    activeColor: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/50",
+    tone: "bg-fuchsia-400/12 text-fuchsia-300 ring-fuchsia-400/30",
   },
-];
+};
+
+// Portraits shown in the collapsed row, before the rest fold into a count
+const TOP_CHAMPIONS = 5;
 
 export default function Augments() {
   const champData = useChampionData();
@@ -67,7 +56,7 @@ export default function Augments() {
   const sort = useSort<SortKey>("augments", "picks");
   const { sortKey, sortDir } = sort;
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  const [rarityFilter, setRarityFilter] = useViewState<RarityFilter>("augments.rarity", "all");
+  const [rarityFilter, setRarityFilter] = useViewState<Rarity>("augments.rarity", "all");
 
   useEffect(() => {
     const unsub = window.api.onGamesUpdated(() => refetch());
@@ -120,112 +109,166 @@ export default function Augments() {
   }
 
   return (
-    <div className="max-w-7xl space-y-4">
-      <h1 className="text-xl font-bold text-lol-text-bright">Augments</h1>
+    <div className="max-w-[1320px] space-y-6">
+      <PageHeader
+        kicker="Analyze"
+        title="Augments"
+        subtitle={
+          <>
+            <span className="font-num text-[14px] font-semibold text-lol-text-bright">
+              {sorted.length.toLocaleString(LOCALE)}
+            </span>{" "}
+            {sorted.length === 1 ? "augment" : "augments"}
+            <span className="mx-2 text-lol-text/40">·</span>
+            <span className="font-num text-[14px] font-semibold text-lol-text-bright">
+              {totalGames.toLocaleString(LOCALE)}
+            </span>{" "}
+            {totalGames === 1 ? "game" : "games"}
+          </>
+        }
+        actions={
+          <>
+            <RarityFilter value={rarityFilter} onChange={setRarityFilter} />
+            <FilterMenu
+              active={[season, patch, queue, minPicks].filter((v) => v !== undefined).length}
+              onReset={() => {
+                setSeason(undefined);
+                setPatch(undefined);
+                setQueue(undefined);
+                setMinPicks(undefined);
+              }}
+            >
+              <SeasonSelect value={season} onChange={setSeason} label="Set" />
+              <PatchSelect value={patch} onChange={setPatch} label="Patch" />
+              <QueueSelect value={queue} onChange={setQueue} label="Queue" />
+              <MinGamesFilter
+                value={minPicks}
+                onChange={setMinPicks}
+                max={Math.max(...data.augments.map((a) => a.picks))}
+                label="Min picks"
+              />
+            </FilterMenu>
+            <SearchInput value={search} onChange={setSearch} placeholder="Search augment..." />
+          </>
+        }
+      />
 
-      {/* Rarity Filter + Search */}
-      <div className="flex items-center gap-2">
-        {rarityFilters.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setRarityFilter(f.key)}
-            className={`px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
-              rarityFilter === f.key
-                ? f.activeColor
-                : `${f.color} border-lol-border hover:border-lol-border/80 bg-lol-card`
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-        <span className="text-xs text-lol-text self-center ml-2">{sorted.length} augments</span>
-        <div className="ml-auto">
-          <FilterMenu
-            active={[season, patch, queue, minPicks].filter((v) => v !== undefined).length}
-            onReset={() => {
-              setSeason(undefined);
-              setPatch(undefined);
-              setQueue(undefined);
-              setMinPicks(undefined);
-            }}
-          >
-            <SeasonSelect value={season} onChange={setSeason} label="Set" />
-            <PatchSelect value={patch} onChange={setPatch} label="Patch" />
-            <QueueSelect value={queue} onChange={setQueue} label="Queue" />
-            <MinGamesFilter
-              value={minPicks}
-              onChange={setMinPicks}
-              max={Math.max(...data.augments.map((a) => a.picks))}
-              label="Min picks"
-            />
-          </FilterMenu>
-        </div>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search augment..." />
-      </div>
-
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-lol-dark/50">
+      {/* Clipped rather than hidden, so the header row can stick while the
+          long list scrolls under it. It sticks at -top-2 to cover the page's
+          top padding, which would otherwise show rows above it. */}
+      <div className="panel overflow-clip">
+        <table className="w-full table-fixed">
+          <thead className="sticky -top-2 z-10 bg-[#0e142b] shadow-[0_1px_0_var(--color-lol-line)]">
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider w-8"></th>
+              <th className="w-11" aria-label="Expand" />
               <SortHeader {...sort} label="Augment" field="name" />
-              <SortHeader {...sort} numeric label="Picks" field="picks" className="w-24" />
-              <th className="px-3 py-2 text-right text-xs font-medium text-lol-text uppercase tracking-wider w-24">
-                Pick Rate
+              <th className="tbl-head w-28 px-3 py-3 text-left">Rarity</th>
+              <th
+                className="tbl-head w-[208px] px-3 py-3 text-left"
+                title="The champions this augment was picked on, most picks first"
+              >
+                Played on
               </th>
-              <SortHeader {...sort} numeric label="Win Rate" field="winRate" className="w-32" />
+              <SortHeader {...sort} numeric label="Picks" field="picks" className="w-20" />
+              <th className="tbl-head w-24 px-3 py-3 text-right">Pick Rate</th>
+              <SortHeader {...sort} numeric label="Win Rate" field="winRate" className="w-44" />
             </tr>
           </thead>
           <tbody>
             {sorted.map((a) => {
               const isExpanded = expanded.has(a.augment_id);
               const pickRate = formatPercent(totalGames > 0 ? a.picks / totalGames : 0);
+              const rarity = RARITY_TAGS[augmentData[a.augment_id]?.rarity ?? ""];
+              const champions = [...a.champions].sort((x, y) => y.picks - x.picks);
+              const hidden = champions.length - TOP_CHAMPIONS;
               return (
                 <Fragment key={a.augment_id}>
                   <tr
                     onClick={() => toggleExpand(a.augment_id)}
-                    className="border-t border-lol-border/50 hover:bg-lol-card-hover cursor-pointer transition-colors"
+                    aria-expanded={isExpanded}
+                    className={`group cursor-pointer border-t border-lol-line transition-colors ${
+                      isExpanded ? "bg-white/[0.045]" : "hover:bg-white/[0.03]"
+                    }`}
                   >
-                    <td className="px-3 py-2 text-xs text-lol-text">
-                      <span
-                        className={`inline-block transition-transform ${isExpanded ? "rotate-90" : ""}`}
-                      >
-                        ▶
-                      </span>
+                    <td
+                      className={`py-2.5 pl-4 ${
+                        isExpanded ? "shadow-[inset_2px_0_0_var(--color-lol-gold)]" : ""
+                      }`}
+                    >
+                      <ChevronRightIcon
+                        className={`h-4 w-4 transition-all ${
+                          isExpanded
+                            ? "rotate-90 text-lol-gold"
+                            : "text-lol-text/50 group-hover:text-lol-text-bright"
+                        }`}
+                      />
                     </td>
-                    <td className="px-3 py-2">
-                      <AugmentIcon augmentId={a.augment_id} showName />
+                    <td className="px-3 py-2.5">
+                      <AugmentIcon
+                        augmentId={a.augment_id}
+                        size={36}
+                        showName
+                        nameClassName="ml-1.5 font-display text-[16px] font-semibold text-lol-text-bright!"
+                      />
                     </td>
-                    <td className="px-3 py-2 text-sm text-lol-text-bright text-right tabular-nums">
+                    <td className="px-3 py-2.5">
+                      {rarity && (
+                        <span className={`chip ring-1 ring-inset ${rarity.tone}`}>
+                          {rarity.label}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center">
+                        <div className="flex -space-x-1">
+                          {champions.slice(0, TOP_CHAMPIONS).map((c) => (
+                            <ChampionIcon
+                              key={c.champion_id}
+                              championId={c.champion_id}
+                              size={28}
+                              title={`${getChampionName(champData, c.champion_id)} · ${c.picks.toLocaleString(LOCALE)} picks`}
+                              className="ring-2 ring-lol-card"
+                            />
+                          ))}
+                        </div>
+                        {hidden > 0 && (
+                          <span className="font-num ml-2.5 text-[14px] font-semibold text-lol-text-bright/80">
+                            +{hidden}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="font-num px-3 py-2.5 text-right text-[16px] font-semibold text-lol-text-bright">
                       {a.picks.toLocaleString(LOCALE)}
                     </td>
-                    <td className="px-3 py-2 text-sm text-lol-text text-right tabular-nums">
+                    <td className="font-num px-3 py-2.5 text-right text-[15px] text-slate-300">
                       {pickRate}
                     </td>
-                    <td className="px-3 py-2 w-32">
+                    <td className="px-3 py-2.5">
                       <WinRateBar wins={a.wins} total={a.picks} />
                     </td>
                   </tr>
                   {isExpanded &&
-                    a.champions.map((c) => (
+                    champions.map((c, i) => (
                       <tr
                         key={`${a.augment_id}-${c.champion_id}`}
-                        className="border-t border-lol-border/30 bg-lol-dark/30"
+                        className={`bg-black/25 ${i === 0 ? "border-t border-lol-line" : ""}`}
                       >
-                        <td></td>
-                        <td className="px-3 py-1.5 pl-8">
-                          <div className="flex items-center gap-2">
-                            <ChampionIcon championId={c.champion_id} size={22} />
-                            <span className="text-xs text-lol-text">
+                        <td className="shadow-[inset_2px_0_0_var(--color-lol-gold)]" />
+                        <td colSpan={3} className="py-1.5 pr-3 pl-8">
+                          <div className="flex items-center gap-2.5">
+                            <span className="h-px w-3 bg-lol-text/25" />
+                            <ChampionIcon championId={c.champion_id} size={26} />
+                            <span className="font-display text-[15px] font-medium text-lol-text-bright/85">
                               {getChampionName(champData, c.champion_id)}
                             </span>
                           </div>
                         </td>
-                        <td className="px-3 py-1.5 text-xs text-lol-text text-right tabular-nums">
+                        <td className="font-num px-3 py-1.5 text-right text-[14px] text-slate-300">
                           {c.picks.toLocaleString(LOCALE)}
                         </td>
-                        <td></td>
-                        <td className="px-3 py-1.5 w-32">
+                        <td />
+                        <td className="px-3 py-1.5">
                           <WinRateBar wins={c.wins} total={c.picks} />
                         </td>
                       </tr>
@@ -236,7 +279,12 @@ export default function Augments() {
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-sm text-lol-text">No augments found</div>
+          <div className="flex flex-col items-center gap-3 border-t border-lol-line py-14 text-center">
+            <SparklesIcon className="h-7 w-7 text-lol-gold/60" />
+            <div className="text-[14px] text-lol-text">
+              No augments match these filters. Try another rarity or search.
+            </div>
+          </div>
         )}
       </div>
     </div>

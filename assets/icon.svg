@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1c2a63"/>
+      <stop offset="0.55" stop-color="#0e1636"/>
+      <stop offset="1" stop-color="#070b1a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.5">
+      <stop offset="0" stop-color="#d4b273" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#d4b273" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="plate" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#f6e3b0"/>
+      <stop offset="0.45" stop-color="#d4b273"/>
+      <stop offset="1" stop-color="#8f6c2f"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.18"/>
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0.02"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#glow)"/>
+  <rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="url(#rim)" stroke-width="3"/>
+  <!-- the mark, 40-unit artwork scaled into the middle -->
+  <g transform="translate(250 236) scale(14)">
+    <path d="M9 4h20l5 5-7.4 29H1z" fill="url(#plate)"/>
+    <path d="M9 4h20l5 5-2.3 9H5.6z" fill="url(#sheen)"/>
+    <path d="M7.6 31.5 11.9 11l6.3 11.2L26.6 11l-4.3 20.5" fill="none" stroke="#0a1024" stroke-width="4" stroke-linejoin="miter" stroke-miterlimit="12"/>
+    <path d="M35.5 0.5 36.6 3.4l2.9 1.1-2.9 1.1-1.1 2.9-1.1-2.9-2.9-1.1 2.9-1.1z" fill="#f2dca6"/>
+  </g>
+</svg>

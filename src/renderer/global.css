@@ -1,32 +1,76 @@
 @import "tailwindcss";
 /* Bundled rather than linked: the renderer loads from disk and renders with no
-   network of any kind. */
-@import "@fontsource-variable/figtree";
+   network of any kind. Barlow for running text, Barlow Condensed for titles,
+   labels and the numbers the app is mostly made of. */
+@import "@fontsource/barlow/400.css";
+@import "@fontsource/barlow/500.css";
+@import "@fontsource/barlow/600.css";
+@import "@fontsource/barlow/700.css";
+@import "@fontsource/barlow-condensed/500.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/barlow-condensed/700.css";
+@import "@fontsource/barlow-condensed/700-italic.css";
+@import "@fontsource/barlow-condensed/800-italic.css";
 
 @theme {
-  --font-sans:
-    "Figtree Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Barlow", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Barlow", sans-serif;
 
   /* Keep lol-dark in step with the window background in index.html,
      src/main/index.ts and src/main/export-image.ts, which paint before this
      stylesheet loads */
-  --color-lol-dark: #151923;
-  --color-lol-card: #1e2331;
-  --color-lol-card-hover: #262d3d;
-  --color-lol-border: #333a4d;
-  --color-lol-gold: #c8a355;
-  --color-lol-gold-light: #f0e6d2;
-  --color-lol-win: #3ecf8e;
-  --color-lol-loss: #e5636e;
-  --color-lol-text: #a3aabd;
-  --color-lol-text-bright: #ebeef4;
+  --color-lol-dark: #0a1024;
+  --color-lol-deep: #070b1a;
+  --color-lol-card: #111936;
+  --color-lol-card-hover: #172146;
+  --color-lol-raised: #1b2652;
+  --color-lol-border: #27315e;
+  --color-lol-line: rgb(255 255 255 / 0.06);
+  --color-lol-gold: #d4b273;
+  --color-lol-gold-light: #f2dca6;
+  --color-lol-blue: #4f7cff;
+  --color-lol-win: #3dd68c;
+  --color-lol-loss: #f2606f;
+  --color-lol-text: #a0a9d4;
+  --color-lol-text-bright: #e9edff;
+
+  /* The accent hues the stats lean on, tuned to sit on navy */
+  --color-sky-400: #5aaeff;
+  --color-sky-500: #3b93f5;
+  --color-purple-400: #b48cff;
+  --color-purple-500: #9a6bff;
+  --color-amber-300: #ffd780;
+  --color-amber-400: #f7c04a;
+  --color-amber-500: #eaa828;
+  --color-emerald-400: #3dd68c;
+  --color-red-400: #ff6b7a;
+  --color-red-500: #f24c5e;
+  --color-slate-300: #c5cbe6;
+  --color-slate-400: #a0a9d4;
+
+  /* Crisp corners throughout: a hair of rounding, never a pill, except for
+     avatars and dots which use rounded-full */
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --radius-2xl: 8px;
+
+  --ease-snap: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
   background-color: var(--color-lol-dark);
   color: var(--color-lol-text);
   font-family: var(--font-sans);
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
+  font-feature-settings: "tnum" 0;
   overflow: hidden;
 }
 
@@ -35,49 +79,373 @@ body {
   display: flex;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--color-lol-gold) 35%, transparent);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-lol-gold-light);
+  outline-offset: 2px;
+}
+
+/* The page behind every view: a cool glow from the top and a faint diagonal
+   grain, after the broadcast look of the stage it's drawn on */
+.app-stage {
+  background:
+    radial-gradient(70rem 36rem at 78% -14%, rgb(79 124 255 / 0.13), transparent 62%),
+    radial-gradient(50rem 30rem at 0% 0%, rgb(212 178 115 / 0.05), transparent 60%),
+    linear-gradient(165deg, #0d1430, var(--color-lol-dark) 45%, #080d1e);
+}
+
+.app-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    115deg,
+    rgb(255 255 255 / 0.014) 0 2px,
+    transparent 2px 5.5rem
+  );
+}
+
+@utility font-num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* The slanted edge the brand, tabs and result tags share */
+@utility slant {
+  clip-path: polygon(0.45rem 0, 100% 0, calc(100% - 0.45rem) 100%, 0 100%);
+}
+
+@utility slant-sm {
+  clip-path: polygon(0.3rem 0, 100% 0, calc(100% - 0.3rem) 100%, 0 100%);
+}
+
 @layer components {
+  /* ---------- Type ---------- */
+
+  .page-title {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 800;
+    font-size: 2.125rem;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    color: var(--color-lol-text-bright);
+  }
+
+  .kicker {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 800;
+    font-size: 0.8125rem;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-lol-gold);
+  }
+
+  .label {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-lol-text);
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.0625rem;
+    line-height: 1.25rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-lol-text-bright);
+  }
+
+  /* ---------- Surfaces ---------- */
+
+  .panel {
+    position: relative;
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.022), transparent 40%), var(--color-lol-card);
+    border: 1px solid var(--color-lol-border);
+    border-radius: var(--radius-xl);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.035),
+      0 10px 30px -18px rgb(0 0 0 / 0.7);
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-height: 3.25rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--color-lol-line);
+    background: rgb(0 0 0 / 0.18);
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+  }
+
+  .menu {
+    background: #121b3c;
+    border: 1px solid var(--color-lol-border);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      0 18px 40px -12px rgb(0 0 0 / 0.75),
+      inset 0 1px 0 rgb(255 255 255 / 0.04);
+  }
+
+  /* ---------- Controls ---------- */
+
   .select {
     appearance: none;
-    background-color: var(--color-lol-card);
+    background-color: #0b1230;
     border: 1px solid var(--color-lol-border);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-lg);
     color: var(--color-lol-text-bright);
-    font-size: 0.875rem;
+    font-family: var(--font-display);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     line-height: 1.25rem;
-    padding: 0.375rem 1.75rem 0.375rem 0.625rem;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3aabd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    padding: 0.4375rem 2rem 0.4375rem 0.75rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4b273' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 0.5rem center;
-    background-size: 0.875rem;
-    transition: border-color 150ms;
+    background-position: right 0.6rem center;
+    background-size: 0.8rem;
+    transition:
+      border-color 150ms,
+      background-color 150ms;
+    cursor: pointer;
+  }
+
+  .select:hover {
+    border-color: #3a4682;
+    background-color: #0e1638;
+  }
+
+  .select option {
+    background: var(--color-lol-card);
+    color: var(--color-lol-text-bright);
   }
 
   .input {
-    background-color: var(--color-lol-card);
+    background-color: #0b1230;
     border: 1px solid var(--color-lol-border);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-lg);
     color: var(--color-lol-text-bright);
     font-size: 0.875rem;
+    font-weight: 500;
     line-height: 1.25rem;
-    padding: 0.375rem 0.75rem;
+    padding: 0.4375rem 0.75rem;
     transition: border-color 150ms;
   }
 
+  .input:hover {
+    border-color: #3a4682;
+  }
+
   .input::placeholder {
-    color: color-mix(in srgb, var(--color-lol-text) 50%, transparent);
+    color: color-mix(in srgb, var(--color-lol-text) 65%, transparent);
   }
 
   .select:focus,
   .input:focus {
     outline: none;
-    border-color: color-mix(in srgb, var(--color-lol-gold) 50%, transparent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-lol-gold) 10%, transparent);
+    border-color: color-mix(in srgb, var(--color-lol-gold) 70%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-lol-gold) 14%, transparent);
   }
+
+  /* A button in the toolbar's language: condensed caps, crisp edge */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    height: 2.25rem;
+    padding: 0 0.9rem;
+    border: 1px solid var(--color-lol-border);
+    border-radius: var(--radius-lg);
+    background: #0f1735;
+    color: var(--color-lol-text-bright);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition:
+      background-color 150ms,
+      border-color 150ms,
+      color 150ms;
+  }
+
+  .btn:hover:not(:disabled) {
+    border-color: #3d4a8a;
+    background: var(--color-lol-raised);
+  }
+
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: linear-gradient(180deg, #e2c487, var(--color-lol-gold));
+    border-color: var(--color-lol-gold);
+    color: #140f04;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(180deg, #ecd29b, #dcbc7f);
+    border-color: var(--color-lol-gold-light);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--color-lol-text);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background: rgb(255 255 255 / 0.05);
+    border-color: transparent;
+    color: var(--color-lol-text-bright);
+  }
+
+  .btn-danger {
+    color: var(--color-lol-loss);
+    border-color: color-mix(in srgb, var(--color-lol-loss) 45%, var(--color-lol-border));
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-lol-loss) 12%, transparent);
+    border-color: var(--color-lol-loss);
+  }
+
+  .btn-icon {
+    width: 2.25rem;
+    padding: 0;
+  }
+
+  .btn-sm {
+    height: 1.75rem;
+    padding: 0 0.6rem;
+    font-size: 0.8125rem;
+  }
+
+  .btn-active {
+    border-color: color-mix(in srgb, var(--color-lol-gold) 65%, transparent);
+    background: color-mix(in srgb, var(--color-lol-gold) 12%, #0f1735);
+    color: var(--color-lol-gold-light);
+  }
+
+  /* Segmented control: options side by side in one trough */
+  .seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--color-lol-border);
+    border-radius: var(--radius-lg);
+    background: #0b1230;
+  }
+
+  .seg-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 1.625rem;
+    padding: 0 0.75rem;
+    border-radius: 3px;
+    color: var(--color-lol-text);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.8125rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition:
+      background-color 150ms,
+      color 150ms;
+  }
+
+  .seg-item:hover {
+    color: var(--color-lol-text-bright);
+    background: rgb(255 255 255 / 0.05);
+  }
+
+  .seg-item[aria-pressed="true"],
+  .seg-item[aria-selected="true"],
+  .seg-item.is-active {
+    background: var(--color-lol-text-bright);
+    color: #0a0f24;
+  }
+
+  /* Small tag: a count, a state, a category */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    height: 1.25rem;
+    padding: 0 0.45rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* ---------- Tables ---------- */
+
+  .tbl-head {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-lol-text);
+  }
+}
+
+/* Range sliders: a thin track with a gold thumb */
+input[type="range"] {
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-lol-border);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: var(--color-lol-gold);
+  box-shadow: 0 0 0 3px rgb(212 178 115 / 0.18);
+  cursor: pointer;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--color-lol-gold);
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -85,12 +453,19 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-lol-border);
-  border-radius: 3px;
+  background: #263063;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #474e62;
+  background: #36428a;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Scroll containers flush against the window edge: the frameless window keeps a
@@ -120,6 +495,42 @@ body {
 
 .titlebar-no-drag {
   -webkit-app-region: no-drag;
+}
+
+/* Each view eases in as it's opened */
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.view-in {
+  animation: view-in 220ms var(--ease-snap);
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.live-pulse {
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 /* The game card gets a window of its own, sized to the card itself. Nothing

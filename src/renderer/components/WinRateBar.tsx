@@ -9,15 +9,17 @@ export default function WinRateBar({ wins, total }: WinRateBarProps) {
   const rate = total > 0 ? (wins / total) * 100 : 0;
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 bg-lol-loss/30 rounded-full overflow-hidden min-w-16">
+    <div className="flex items-center gap-2.5">
+      <div className="relative h-1.5 min-w-16 flex-1 overflow-hidden rounded-[2px] bg-lol-loss/25">
         <div
-          className="h-full bg-lol-win rounded-full transition-all"
+          className="h-full rounded-[2px] bg-gradient-to-r from-lol-win/70 to-lol-win transition-all"
           style={{ width: `${rate}%` }}
         />
+        {/* The even-odds line, so 49% and 51% don't read the same */}
+        <span className="absolute inset-y-0 left-1/2 w-px bg-lol-dark/70" />
       </div>
       <span
-        className={`text-xs font-medium min-w-10 text-right tabular-nums ${winRateColor(wins, total)}`}
+        className={`font-num min-w-11 text-right text-[14px] font-semibold ${winRateColor(wins, total)}`}
       >
         {winRatePercent(wins, total)}
       </span>

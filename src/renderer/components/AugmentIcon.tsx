@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useAugmentData } from "../hooks/useChampions";
+import { nameFromIconPath, useAugmentData } from "../hooks/useChampions";
 import { GAME_ASSET_URL } from "../lib/constants";
 import HoverCard from "./HoverCard";
 import RiotText from "./RiotText";
@@ -13,16 +13,19 @@ interface AugmentIconProps {
   patch?: string | null;
 }
 
+// The ring around the icon carries the rarity, so a name beside it can stay in
+// the page's own text colour instead of shouting in gold or pink. The colours
+// match the rarity filter's.
 const rarityBorder: Record<string, string> = {
-  kSilver: "ring-1 ring-gray-400/60",
-  kGold: "ring-1 ring-yellow-500/70",
+  kSilver: "ring-1 ring-[#c9d1e8]/45",
+  kGold: "ring-1 ring-amber-400/75",
   kPrismatic: "ring-1 ring-fuchsia-400/80",
 };
 
-const rarityTextColor: Record<string, string> = {
-  kSilver: "text-gray-300",
-  kGold: "text-yellow-400",
-  kPrismatic: "text-fuchsia-400",
+const rarityLabelColor: Record<string, string> = {
+  kSilver: "text-[#c9d1e8]",
+  kGold: "text-amber-400",
+  kPrismatic: "bg-gradient-to-r from-fuchsia-400 to-sky-400 bg-clip-text text-transparent",
 };
 
 // One lookup per augment for the whole renderer: a retired augment shows up on
@@ -115,9 +118,10 @@ export default function AugmentIcon({
     };
   }, [exhausted, resolved, augmentId, patch]);
 
-  const name = aug?.name || `Augment ${augmentId}`;
+  const name =
+    aug?.name?.trim() || nameFromIconPath(aug?.iconPath) || `Unknown augment ${augmentId}`;
   const borderClass = rarityBorder[aug?.rarity ?? ""] || "";
-  const nameColor = rarityTextColor[aug?.rarity ?? ""] || "text-lol-text-bright";
+  const labelColor = rarityLabelColor[aug?.rarity ?? ""] || "text-lol-text";
   const src = sources[attempt] ?? fallback;
 
   const rarityLabel = getAugmentRarityLabel(aug?.rarity ?? "");
@@ -127,12 +131,12 @@ export default function AugmentIcon({
       content={
         aug ? (
           <>
-            <div className="mb-1 flex items-baseline justify-between gap-2">
-              <span className={`font-semibold ${nameColor}`}>{name}</span>
+            <div className="mb-1.5 flex items-baseline justify-between gap-3 border-b border-lol-line pb-1.5">
+              <span className="font-display text-[15px] font-bold leading-tight text-lol-text-bright">
+                {name}
+              </span>
               {rarityLabel && (
-                <span className={`shrink-0 text-[10px] uppercase tracking-wide ${nameColor}`}>
-                  {rarityLabel}
-                </span>
+                <span className={`label shrink-0 text-[11px] ${labelColor}`}>{rarityLabel}</span>
               )}
             </div>
             {aug.desc ? (
@@ -155,7 +159,7 @@ export default function AugmentIcon({
             alt={name}
             width={size}
             height={size}
-            className={`rounded shrink-0 ${borderClass}`}
+            className={`rounded-[3px] shrink-0 ${borderClass}`}
             onError={() => {
               // Step down the live paths first, remembering the dead one so no
               // other icon retries it; a failed fallback has nothing left to try,
@@ -170,11 +174,15 @@ export default function AugmentIcon({
           // Keeps the rarity ring and the hover tooltip so an augment with no art
           // anywhere still reads as an augment rather than a gap in the row.
           <div
-            className={`rounded shrink-0 bg-white/5 border border-white/10 ${borderClass}`}
-            style={{ width: size, height: size }}
-          />
+            className={`flex shrink-0 items-center justify-center rounded-[3px] border border-white/[0.06] bg-black/25 font-display font-bold text-lol-text/70 ${borderClass}`}
+            style={{ width: size, height: size, fontSize: Math.max(10, size * 0.45) }}
+          >
+            ?
+          </div>
         )}
-        {showName && <span className={`truncate ${nameClassName} ${nameColor}`}>{name}</span>}
+        {showName && (
+          <span className={`truncate text-lol-text-bright ${nameClassName}`}>{name}</span>
+        )}
       </div>
     </HoverCard>
   );

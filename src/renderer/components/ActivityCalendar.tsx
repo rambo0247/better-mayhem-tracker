@@ -7,12 +7,18 @@ export interface CalendarDay {
   wins: number;
 }
 
-// How strongly each step up from an empty day is shaded, the busiest day on
-// show at full strength
-const LEVELS = [0.25, 0.45, 0.7, 1];
-// The weekdays whose rows get a label, 0 = Sunday, as GitHub labels its
-// calendar. They keep their names wherever the regional week puts them.
-const LABELLED_WEEKDAYS = [1, 3, 5];
+// Each step up from an empty day, the busiest day on show at full strength.
+// A blue ramp mixed into the panel's navy: it stays clean at every step, where
+// gold dimmed toward navy passes through olive greys on the way down.
+const LEVELS = [
+  "color-mix(in srgb, var(--color-sky-500) 30%, #141d42)",
+  "color-mix(in srgb, var(--color-sky-500) 55%, #141d42)",
+  "color-mix(in srgb, var(--color-sky-400) 85%, #141d42)",
+  "#b4dcff",
+];
+// Every row gets its weekday's name, 0 = Sunday. They keep their names
+// wherever the regional week puts them.
+const LABELLED_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 const GAP = 3;
 const DAY_MS = 86_400_000;
 
@@ -40,7 +46,9 @@ function describe(day: number, played: CalendarDay | undefined): string {
  * how much of it is left.
  *
  * Columns are `cell` pixels wide where there is room and narrower where there
- * isn't, so a long span shrinks to fit rather than scrolling.
+ * isn't, so a long span shrinks to fit rather than scrolling. With `fill` they
+ * share out the whole width instead, for a calendar that is its panel's only
+ * content and would otherwise leave half of it empty.
  */
 export default function ActivityCalendar({
   days,
@@ -48,12 +56,14 @@ export default function ActivityCalendar({
   last,
   through = last,
   cell,
+  fill = false,
 }: {
   days: ReadonlyMap<number, CalendarDay>;
   first: number;
   last: number;
   through?: number;
   cell: number;
+  fill?: boolean;
 }) {
   // The week's opening day on or before the first day, which starts the first column
   const start = addDays(first, -daysIntoWeek(new Date(first).getDay(), WEEK_START));
@@ -81,7 +91,7 @@ export default function ActivityCalendar({
           <div
             key={week}
             style={{ gridColumn: week + 2, gridRow: 1 }}
-            className="w-0 whitespace-nowrap text-[10px] leading-none text-lol-text"
+            className="w-0 whitespace-nowrap pb-0.5 font-display text-[11px] font-semibold uppercase leading-none tracking-[0.08em] text-lol-text"
           >
             {MONTH_FORMAT.format(shown)}
           </div>,
@@ -99,7 +109,7 @@ export default function ActivityCalendar({
           <div
             key={day}
             style={place}
-            className="aspect-square rounded-[2px] border border-white/10"
+            className="aspect-square rounded-[2px] border border-white/[0.07]"
           />,
         );
         continue;
@@ -112,19 +122,19 @@ export default function ActivityCalendar({
         <div
           key={day}
           title={describe(day, played)}
-          style={level > 0 ? { ...place, opacity: LEVELS[level - 1] } : place}
-          className={`aspect-square rounded-[2px] ${level > 0 ? "bg-lol-gold" : "bg-white/5"}`}
+          style={level > 0 ? { ...place, background: LEVELS[level - 1] } : place}
+          className={`aspect-square rounded-[2px] ${level > 0 ? "" : "bg-white/[0.045]"}`}
         />,
       );
     }
   }
 
   return (
-    <div className="w-fit max-w-full">
+    <div className={fill ? "w-full" : "w-fit max-w-full"}>
       <div
         className="grid"
         style={{
-          gridTemplateColumns: `auto repeat(${weeks}, minmax(0, ${cell}px))`,
+          gridTemplateColumns: `auto repeat(${weeks}, minmax(0, ${fill ? "1fr" : `${cell}px`}))`,
           gap: GAP,
         }}
       >
@@ -134,8 +144,11 @@ export default function ActivityCalendar({
           // the cells beside it
           <div
             key={weekday}
-            style={{ gridColumn: 1, gridRow: daysIntoWeek(weekday, WEEK_START) + 2 }}
-            className="flex h-0 items-center self-center pr-1 text-[9px] leading-none text-lol-text"
+            style={{
+              gridColumn: 1,
+              gridRow: daysIntoWeek(weekday, WEEK_START) + 2,
+            }}
+            className="flex h-0 items-center self-center pr-2 font-display text-[11px] font-semibold uppercase leading-none tracking-[0.06em] text-lol-text"
           >
             {/* January 2, 2000 was a Sunday */}
             {WEEKDAY_FORMAT.format(new Date(2000, 0, 2 + weekday))}
@@ -143,17 +156,13 @@ export default function ActivityCalendar({
         ))}
         {cells}
       </div>
-      <div className="mt-2 flex items-center justify-end gap-1 text-[10px] text-lol-text">
-        <span className="mr-1">Less</span>
-        <span className="h-2.5 w-2.5 rounded-[2px] bg-white/5" />
-        {LEVELS.map((opacity) => (
-          <span
-            key={opacity}
-            className="h-2.5 w-2.5 rounded-[2px] bg-lol-gold"
-            style={{ opacity }}
-          />
+      <div className="mt-3 flex items-center justify-end gap-1 font-display text-[11px] font-semibold uppercase tracking-[0.08em] text-lol-text">
+        <span className="mr-1.5">Less</span>
+        <span className="h-3.5 w-3.5 rounded-[2px] bg-white/[0.045]" />
+        {LEVELS.map((background) => (
+          <span key={background} className="h-3.5 w-3.5 rounded-[2px]" style={{ background }} />
         ))}
-        <span className="ml-1">More</span>
+        <span className="ml-1.5">More</span>
       </div>
     </div>
   );

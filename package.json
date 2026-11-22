@@ -29,7 +29,8 @@
     "league-connect": "^6.0.0-rc13"
   },
   "devDependencies": {
-    "@fontsource-variable/figtree": "^5.3.0",
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.13.6",

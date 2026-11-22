@@ -7,12 +7,21 @@ import type {
   StreakRecord,
 } from "../lib/types";
 import { getChampionName } from "../hooks/useChampions";
-import { LOCALE, formatDecimal, formatDuration, kdaRatio, scoreColor } from "../lib/format";
+import {
+  LOCALE,
+  formatDecimal,
+  formatDuration,
+  formatShortDate,
+  kdaRatio,
+  scoreColor,
+} from "../lib/format";
 import ChampionIcon from "./ChampionIcon";
 import Kda from "./Kda";
 import { ACCENTS, type StatAccent } from "./StatCard";
 import {
+  ChevronRightIcon,
   CoinsIcon,
+  CrosshairIcon,
   FlameIcon,
   HeartIcon,
   HourglassIcon,
@@ -30,16 +39,13 @@ import {
 // Records are moments, not recency — "3 months ago" undersells a trophy, so
 // they get a real date.
 export function recordDate(ts: number): string {
-  return new Date(ts).toLocaleDateString(LOCALE, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatShortDate(ts);
 }
 
-// The same tile treatment as StatCard, with the game the record was set in
-// along the bottom. A button when there is somewhere to open that game, as on
-// the Records page; a plain tile on a card that is only ever looked at.
+// The same tile treatment as StatCard, the record itself set large, with the
+// game it was set in along the bottom. A button when there is somewhere to
+// open that game, as on the Records page; a plain tile on a card that is only
+// ever looked at.
 export function RecordCard({
   label,
   icon,
@@ -54,44 +60,69 @@ export function RecordCard({
   onOpen?: (match: RecordMatchRef) => void;
 }) {
   const a = ACCENTS[accent];
+  const accentText = a.chip.split(" ").find((c) => c.startsWith("text-"));
   const body = (
     <>
-      <div className="flex items-center gap-1.5 mb-1">
-        <span className={`flex h-5 w-5 items-center justify-center rounded-md ${a.chip}`}>
-          {icon}
-        </span>
-        <span className="text-[11px] text-lol-text uppercase tracking-wider">{label}</span>
+      <span
+        className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r ${a.bar} to-transparent`}
+      />
+      {/* The category's icon again, large and faint, so a wall of cards reads
+          as distinct trophies at a glance. Inset and fading out toward the
+          card's middle, rather than cut off by its corner. */}
+      <span
+        className={`pointer-events-none absolute right-4 top-4 opacity-[0.09] [mask-image:linear-gradient(225deg,black_25%,transparent_80%)] [&>svg]:h-[72px] [&>svg]:w-[72px] ${accentText}`}
+      >
+        {icon}
+      </span>
+      <div className="relative flex flex-1 flex-col px-4 pt-4 pb-3.5">
+        <div className="flex items-center gap-2">
+          <span
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md [&>svg]:h-3.5 [&>svg]:w-3.5 ${a.chip}`}
+          >
+            {icon}
+          </span>
+          <span className="label truncate">{label}</span>
+        </div>
+        <div className="font-num mt-3.5 text-[40px] font-semibold leading-none text-lol-text-bright">
+          {value}
+        </div>
+        {/* The line is held on every card, so cards in a row stay the same
+            height whether or not theirs has something to say */}
+        <div className="mt-2 min-h-5 truncate text-[13px] leading-5 text-lol-text">{sub}</div>
       </div>
-      <div className="text-2xl font-bold text-lol-text-bright">{value}</div>
-      {sub && <div className="text-xs text-lol-text mt-0.5">{sub}</div>}
-      <div className="mt-auto pt-3 flex items-center gap-2">
-        <ChampionIcon championId={match.champion_id} size={24} />
+      <div className="relative mt-auto flex items-center gap-2.5 border-t border-lol-line bg-black/15 px-4 py-2.5">
+        <ChampionIcon championId={match.champion_id} size={32} />
         <div className="min-w-0 flex-1">
-          <div className="text-xs text-lol-text-bright truncate">
+          <div className="truncate font-display text-[15px] font-semibold leading-5 text-lol-text-bright">
             {getChampionName(champData, match.champion_id)}
           </div>
-          <div className="text-[11px] text-lol-text truncate">
-            <span className={match.win ? "text-lol-win" : "text-lol-loss"}>
+          <div className="flex items-center gap-1.5 truncate text-[12px] leading-4 text-lol-text">
+            <span
+              className={`font-display text-[12px] font-bold tracking-[0.06em] ${match.win ? "text-lol-win" : "text-lol-loss"}`}
+            >
               {match.win ? "W" : "L"}
             </span>
-            {" · "}
-            <Kda kills={match.kills} deaths={match.deaths} assists={match.assists} />
-            {" · "}
-            {recordDate(match.game_creation)}
+            <span className="font-num text-[13px] text-lol-text-bright/80">
+              <Kda kills={match.kills} deaths={match.deaths} assists={match.assists} />
+            </span>
+            <span className="text-lol-text/40">·</span>
+            <span className="font-num text-[13px]">{recordDate(match.game_creation)}</span>
           </div>
         </div>
+        {onOpen && (
+          <ChevronRightIcon className="h-4 w-4 shrink-0 text-lol-text/40 transition-colors group-hover:text-lol-gold" />
+        )}
       </div>
     </>
   );
-  const tile =
-    "flex flex-col overflow-hidden bg-lol-card rounded-xl border border-lol-border/60 p-4 text-left";
+  const tile = "panel group flex flex-col overflow-hidden text-left";
 
   if (!onOpen) return <div className={tile}>{body}</div>;
   return (
     <button
       onClick={() => onOpen(match)}
       title="View match"
-      className={`${tile} transition-colors cursor-pointer hover:border-lol-gold/40 hover:bg-lol-card-hover`}
+      className={`${tile} cursor-pointer transition-colors hover:border-lol-gold/45 hover:bg-lol-card-hover`}
     >
       {body}
     </button>
@@ -113,7 +144,9 @@ export function recordCards(bests: RecordsData["bests"]): RecordCardDef[] {
   const cards: RecordCardDef[] = [];
   const add = (
     record: StatRecord | null,
-    def: Omit<RecordCardDef, "match" | "value"> & { value: (r: StatRecord) => ReactNode },
+    def: Omit<RecordCardDef, "match" | "value"> & {
+      value: (r: StatRecord) => ReactNode;
+    },
   ) => {
     if (record) cards.push({ ...def, value: def.value(record), match: record.match });
   };
@@ -154,7 +187,7 @@ export function recordCards(bests: RecordsData["bests"]): RecordCardDef[] {
   add(bests.damage, {
     key: "damage",
     label: "Most Damage Dealt",
-    icon: <SwordsIcon className="w-3 h-3" />,
+    icon: <CrosshairIcon className="w-3 h-3" />,
     accent: "sky",
     value: (r) => n(r.value),
   });
@@ -221,7 +254,14 @@ export function streakCard(streak: StreakRecord, win: boolean): RecordCardDef {
     label: win ? "Longest Win Streak" : "Longest Loss Streak",
     icon: win ? <TrendingUpIcon className="w-3 h-3" /> : <TrendingDownIcon className="w-3 h-3" />,
     accent: win ? "win" : "purple",
-    value: `${streak.length} ${win ? "wins" : "losses"}`,
+    value: (
+      <>
+        {streak.length}
+        <span className="ml-1.5 text-[20px] font-medium text-lol-text">
+          {win ? "wins" : "losses"}
+        </span>
+      </>
+    ),
     sub: range,
     match: streak.match,
   };

@@ -304,13 +304,15 @@ export function getGlobalStats(patch?: string, queue?: number): GlobalStats {
 
   const champions = db
     .prepare(`
-      SELECT mp.champion_id, COUNT(*) as games, SUM(mp.win) as wins
+      SELECT mp.champion_id, COUNT(*) as games, SUM(mp.win) as wins,
+             SUM(mp.kills) as kills, SUM(mp.deaths) as deaths, SUM(mp.assists) as assists,
+             CAST(ROUND(AVG(mp.total_damage_dealt)) AS INTEGER) as avgDamage
       FROM match_participants mp
       WHERE ${mp.sql} AND mp.champion_id > 0
       GROUP BY mp.champion_id
       ORDER BY games DESC
     `)
-    .all(...mp.params) as { champion_id: number; games: number; wins: number }[];
+    .all(...mp.params) as GlobalStats["champions"];
 
   const augments = db
     .prepare(`

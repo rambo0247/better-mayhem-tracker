@@ -13,10 +13,10 @@ function formatReleaseDate(iso: string): string {
 
 function ReleaseBody({ release }: { release: ReleaseNote }) {
   if (!release.body) {
-    return <p className="text-[12px] text-lol-text/50 italic">No notes for this release.</p>;
+    return <p className="text-[13px] italic text-lol-text">No notes for this release.</p>;
   }
   return (
-    <div className="text-[12px] text-lol-text">
+    <div className="text-[13px] leading-[1.5] text-lol-text">
       <Markdown text={release.body} />
     </div>
   );
@@ -40,30 +40,39 @@ export default function ReleaseNotes({ releases }: { releases: ReleaseNote[] }) 
   };
 
   return (
-    <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-md border border-lol-border bg-black/20 p-3">
+    <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border border-lol-line bg-black/25">
       {releases.map((release, i) => {
         // A single release needs no accordion around it.
-        if (releases.length === 1) return <ReleaseBody key={release.version} release={release} />;
+        if (releases.length === 1) {
+          return (
+            <div key={release.version} className="px-4 py-3.5">
+              <ReleaseBody release={release} />
+            </div>
+          );
+        }
         const open = openVersions.has(release.version);
         return (
-          <div
-            key={release.version}
-            className={i > 0 ? "mt-1 border-t border-lol-border/50 pt-1" : ""}
-          >
+          <div key={release.version} className={i > 0 ? "border-t border-lol-line" : ""}>
             <button
               onClick={() => toggleVersion(release.version)}
-              className="flex w-full items-center gap-1.5 rounded py-1 text-left hover:bg-white/5 transition-colors cursor-pointer"
+              aria-expanded={open}
+              className="flex h-10 w-full items-center gap-2.5 px-4 text-left transition-colors hover:bg-white/[0.03]"
             >
               <ChevronRightIcon
-                className={`w-3 h-3 shrink-0 text-lol-text/50 transition-transform ${open ? "rotate-90" : ""}`}
+                className={`h-3.5 w-3.5 shrink-0 text-lol-gold/70 transition-transform ${open ? "rotate-90" : ""}`}
               />
-              <span className="text-[12px] font-semibold text-lol-gold">v{release.version}</span>
-              <span className="ml-auto text-[11px] text-lol-text/40">
+              <span
+                className={`font-num text-[15px] font-semibold ${open ? "text-lol-gold-light" : "text-lol-text-bright"}`}
+              >
+                v{release.version}
+              </span>
+              {i === 0 && <span className="chip bg-lol-gold/12 text-lol-gold">Latest</span>}
+              <span className="ml-auto font-num text-[13px] text-lol-text">
                 {formatReleaseDate(release.publishedAt)}
               </span>
             </button>
             {open && (
-              <div className="pb-2 pl-[18px]">
+              <div className="pb-3.5 pl-10 pr-4">
                 <ReleaseBody release={release} />
               </div>
             )}

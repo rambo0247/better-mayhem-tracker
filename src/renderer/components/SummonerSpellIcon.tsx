@@ -13,7 +13,7 @@ export default function SummonerSpellIcon({ spellId, size = 16 }: SummonerSpellI
   if (!spellId || !spell?.iconPath) {
     return (
       <div
-        className="rounded bg-white/5 border border-white/10"
+        className="rounded-[3px] bg-black/25 border border-white/[0.06]"
         style={{ width: size, height: size }}
       />
     );
@@ -25,7 +25,7 @@ export default function SummonerSpellIcon({ spellId, size = 16 }: SummonerSpellI
       title={spell.name}
       width={size}
       height={size}
-      className="rounded"
+      className="rounded-[3px]"
     />
   );
 }

@@ -33,40 +33,66 @@ export default function ActivityToast() {
   if (!running && !result) return null;
 
   return (
-    <div className="fixed bottom-4 right-6 z-40 w-72 rounded-lg border border-lol-border bg-lol-card px-3 py-2.5 shadow-lg shadow-black/40">
+    <div
+      role="status"
+      className="menu view-in fixed right-6 bottom-5 z-40 w-80 overflow-hidden px-4 py-3"
+    >
       {running ? (
         <>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-lol-text-bright truncate">
-              {progress && progress.total > 0
-                ? `Importing history ${progress.current.toLocaleString(LOCALE)}/${progress.total.toLocaleString(LOCALE)}`
-                : "Importing history..."}
+          <div className="flex items-center gap-3">
+            <span className="live-pulse h-1.5 w-1.5 shrink-0 rounded-full bg-lol-gold" />
+            <span className="label min-w-0 flex-1 truncate text-lol-text-bright">
+              Importing history
             </span>
             <button
               onClick={() => window.api.cancelBackfill()}
-              className="text-xs text-lol-text hover:text-lol-text-bright transition-colors shrink-0"
+              className="btn btn-sm btn-ghost -mr-2 shrink-0"
             >
               Cancel
             </button>
           </div>
-          <div className="mt-2 h-1 rounded-full bg-lol-border overflow-hidden">
-            <div
-              className="h-full bg-lol-gold transition-all duration-300"
-              style={{ width: `${percent}%` }}
-            />
+          <div className="mt-1.5 flex items-center gap-3">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-white/[0.07]">
+              <div
+                className="h-full rounded-sm bg-gradient-to-r from-lol-gold/70 to-lol-gold-light transition-all duration-300"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+            <span className="shrink-0 font-num text-[13px] text-lol-text">
+              {progress && progress.total > 0 ? (
+                <>
+                  <span className="font-semibold text-lol-text-bright">
+                    {progress.current.toLocaleString(LOCALE)}
+                  </span>
+                  {" / "}
+                  {progress.total.toLocaleString(LOCALE)}
+                </>
+              ) : (
+                "..."
+              )}
+            </span>
           </div>
         </>
       ) : (
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-lol-text truncate" title={result ?? undefined}>
+        <div className="flex items-center gap-3">
+          <span
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+              result?.startsWith("Import failed") ? "bg-lol-loss" : "bg-lol-win"
+            }`}
+          />
+          <span
+            className="min-w-0 flex-1 truncate text-[13px] text-lol-text-bright"
+            title={result ?? undefined}
+          >
             {result}
           </span>
           <button
             onClick={() => setResult(null)}
             title="Dismiss"
-            className="text-lol-text hover:text-lol-text-bright transition-colors shrink-0"
+            aria-label="Dismiss"
+            className="btn btn-sm btn-ghost btn-icon -mr-2 h-7 w-7 shrink-0"
           >
-            <XIcon className="w-3.5 h-3.5" />
+            <XIcon className="h-3.5 w-3.5" />
           </button>
         </div>
       )}

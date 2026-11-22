@@ -122,5 +122,20 @@ export function getChampionName(data: ChampionData, id: number): string {
 }
 
 export function getAugmentName(data: AugmentData, id: number): string {
-  return data[id]?.name || `Augment ${id}`;
+  const aug = data[id];
+  return aug?.name?.trim() || nameFromIconPath(aug?.iconPath) || `Unknown augment ${id}`;
+}
+
+// Riot ships a few augments with a blank name; their icon file still says what
+// they are ("…/Pentakill_small.png" → "Pentakill")
+export function nameFromIconPath(iconPath: string | undefined): string | null {
+  const file = iconPath?.split("/").pop();
+  if (!file) return null;
+  const words = file
+    .replace(/\.[^.]+$/, "")
+    .replace(/_(small|large)$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim();
+  return words || null;
 }

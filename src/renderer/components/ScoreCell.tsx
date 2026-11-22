@@ -7,13 +7,11 @@ type Badge = "MVP" | "ACE" | null;
 export function ScoreBadge({ badge, large = false }: { badge: "MVP" | "ACE"; large?: boolean }) {
   return (
     <div
-      className={`${
+      className={`slant-sm font-display font-extrabold italic tracking-[0.06em] ${
         large
-          ? "rounded px-1.5 text-[11px] leading-[18px]"
-          : "rounded px-1 text-[9px] leading-[15px] w-fit mx-auto"
-      } font-bold ${
-        badge === "MVP" ? "bg-amber-400/20 text-amber-300" : "bg-purple-500/20 text-purple-400"
-      }`}
+          ? "px-2.5 text-[13px] leading-[20px]"
+          : "mx-auto w-fit px-1.5 text-[11px] leading-[15px]"
+      } ${badge === "MVP" ? "bg-amber-400 text-[#2a1c00]" : "bg-purple-400 text-[#1b0b3a]"}`}
     >
       {badge}
     </div>
@@ -25,17 +23,19 @@ export function ScoreBadge({ badge, large = false }: { badge: "MVP" | "ACE"; lar
 // column empty rather than showing a zero.
 export default function ScoreCell({ score, badge }: { score: number | null; badge: Badge }) {
   return (
-    <div className="w-10 shrink-0 text-center">
+    <div className="w-11 shrink-0 text-center">
       {score != null && (
         <>
-          <div className={`text-sm font-semibold tabular-nums ${scoreColor(score)}`}>
+          <div className={`font-num text-[20px] font-semibold leading-none ${scoreColor(score)}`}>
             {formatDecimal(score)}
           </div>
-          {badge ? (
-            <ScoreBadge badge={badge} />
-          ) : (
-            <div className="text-[10px] text-lol-text uppercase tracking-wider">score</div>
-          )}
+          <div className="mt-1">
+            {badge ? (
+              <ScoreBadge badge={badge} />
+            ) : (
+              <div className="label text-[11px] leading-[15px] text-lol-text/80">score</div>
+            )}
+          </div>
         </>
       )}
     </div>

@@ -1,7 +1,24 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode, type SVGProps } from "react";
+import PageHeader from "../components/PageHeader";
+import BrandMark from "../components/BrandMark";
+import { DownloadIcon, RefreshIcon } from "../components/icons";
+import {
+  SlidersIcon,
+  PanelLeftIcon,
+  DatabaseIcon,
+  ArchiveIcon,
+  WrenchIcon,
+  InfoIcon,
+  UploadIcon,
+  HistoryIcon,
+  FolderOpenIcon,
+  ExternalLinkIcon,
+  GithubIcon,
+  LockIcon,
+} from "../components/SettingsIcons";
 import { useBackfill } from "../hooks/useBackfill";
 import { queueLabel } from "../components/QueueSelect";
-import { LOCALE, formatDecimal } from "../lib/format";
+import { LOCALE, formatDecimal, formatShortDate, formatDateTime } from "../lib/format";
 import { setRemembering } from "../lib/viewState";
 import { NAV_LINKS, HOME_PATH, toggleNavLink } from "../lib/navLinks";
 import { useHiddenNavLinks } from "../hooks/useHiddenNavLinks";
@@ -23,6 +40,9 @@ const NOT_INSTALLED_NOTE = IS_MAC
   ? " Only available once the app is in your Applications folder."
   : " Only available in the packaged program.";
 
+// The same, short enough to sit beside the switch
+const NOT_INSTALLED_SHORT = IS_MAC ? "Needs the app in Applications" : "Packaged program only";
+
 const SESSION_GROUPING_OPTIONS: { value: SessionGrouping; label: string }[] = [
   { value: "day", label: "Day" },
   { value: "week", label: "Week" },
@@ -42,10 +62,11 @@ function formatSize(bytes: number): string {
   return `${formatDecimal(bytes / 1024 / 1024)} MB`;
 }
 
+// A backup's date the way the rest of the app writes dates, with the time,
+// since several can be taken on one day
 function formatTaken(timestamp: number): string {
-  const date = new Date(timestamp);
-  return `${date.toLocaleDateString(LOCALE)} ${date.toLocaleTimeString(LOCALE, {
-    hour: "2-digit",
+  return `${formatShortDate(timestamp)}, ${new Date(timestamp).toLocaleTimeString(LOCALE, {
+    hour: "numeric",
     minute: "2-digit",
   })}`;
 }
@@ -58,32 +79,168 @@ function formatHistoryStart(timestamp: number): string {
   });
 }
 
+// A crisp-cornered switch in the toolbar's language: a dark outlined trough
+// with a muted knob when off, gold with a dark knob when on. A switch held on
+// (the home page, the last queue) reads as on, in dimmed gold with a lock in
+// the knob; one that is `unavailable` here fades right back with a lock beside
+// it. Either way `lockedNote` says why as a tooltip, and `shortNote` in a few
+// words beside it.
 function Switch({
   checked,
   onChange,
   disabled = false,
+  label,
+  lockedNote,
+  shortNote,
+  unavailable = false,
 }: {
   checked: boolean;
   onChange: () => void;
   disabled?: boolean;
+  label?: string;
+  lockedNote?: string;
+  // The reason in a few words, shown beside the switch while it can't be flipped
+  shortNote?: string;
+  // Can't be used here at all, rather than held in place
+  unavailable?: boolean;
+}) {
+  const lockedOn = disabled && checked && !unavailable;
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-2"
+      title={disabled ? lockedNote : undefined}
+    >
+      {disabled && (shortNote || !lockedOn) && (
+        <span className="flex items-center gap-1.5 text-[13px] text-lol-text">
+          <LockIcon className="h-4 w-4 shrink-0" aria-hidden />
+          {shortNote}
+        </span>
+      )}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={onChange}
+        className={`relative inline-flex h-[22px] w-10 shrink-0 rounded-md border transition-colors duration-200 ${
+          disabled ? "cursor-not-allowed" : "cursor-pointer"
+        } ${lockedOn ? "opacity-60" : disabled ? "opacity-40" : ""} ${
+          checked
+            ? "border-lol-gold bg-gradient-to-b from-[#e2c487] to-lol-gold"
+            : `border-[#3a4680] bg-[#1a2247] ${disabled ? "" : "hover:border-[#4d5a9c] hover:bg-[#1f2853]"}`
+        }`}
+      >
+        <span
+          className={`pointer-events-none absolute top-[2px] left-[2px] flex h-4 w-4 items-center justify-center rounded-sm transition-transform duration-200 ease-snap ${
+            checked
+              ? "translate-x-[18px] bg-[#1a1407] text-lol-gold shadow-[0_1px_2px_rgb(0_0_0/0.4)]"
+              : "translate-x-0 bg-[#8a90b0] shadow-[0_1px_2px_rgb(0_0_0/0.45)]"
+          }`}
+        ></span>
+      </button>
+    </span>
+  );
+}
+
+type SectionId =
+  | "general"
+  | "sidebar"
+  | "updates"
+  | "data"
+  | "backups"
+  | "troubleshooting"
+  | "about";
+
+type IconComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
+
+const SECTIONS: { id: SectionId; title: string; icon: IconComponent }[] = [
+  { id: "general", title: "General", icon: SlidersIcon },
+  { id: "sidebar", title: "Sidebar", icon: PanelLeftIcon },
+  { id: "updates", title: "Updates", icon: DownloadIcon },
+  { id: "data", title: "Match Data", icon: DatabaseIcon },
+  { id: "backups", title: "Backups", icon: ArchiveIcon },
+  { id: "troubleshooting", title: "Troubleshooting", icon: WrenchIcon },
+  { id: "about", title: "About", icon: InfoIcon },
+];
+
+const sectionDomId = (id: SectionId) => `settings-${id}`;
+
+// One card of settings: a header strip naming the group, then its rows split
+// by hairlines
+function Section({
+  id,
+  actions,
+  children,
+}: {
+  id: SectionId;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  const { title, icon: Icon } = SECTIONS.find((s) => s.id === id)!;
+  return (
+    <section id={sectionDomId(id)} className="panel scroll-mt-4 overflow-hidden">
+      <header className="panel-head gap-3 px-5">
+        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-lol-gold/10 text-lol-gold">
+          <Icon className="h-4 w-4" />
+        </span>
+        <h2 className="section-title">{title}</h2>
+        {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+      </header>
+      <div className="divide-y divide-lol-line">{children}</div>
+    </section>
+  );
+}
+
+// A setting: what it is and what it does on the left, its control on the right,
+// and room underneath for anything it reports back
+function Row({
+  title,
+  description,
+  control,
+  children,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  control?: ReactNode;
+  children?: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={onChange}
-      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
-        disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
-      } ${checked ? "bg-lol-gold" : "bg-lol-border"}`}
+    <div className="px-5 py-4">
+      <div className="flex items-center justify-between gap-10">
+        <div className="min-w-0 max-w-[600px]">
+          <p className="text-[14px] font-semibold leading-5 text-lol-text-bright">{title}</p>
+          {description && (
+            <p className="mt-1 text-[13px] leading-[1.5] text-lol-text">{description}</p>
+          )}
+        </div>
+        {control && <div className="flex shrink-0 items-center gap-2">{control}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// The line a data action leaves behind: how far it has got while it runs, then
+// how it went
+function Status({ text, running = false }: { text: string | null; running?: boolean }) {
+  if (!text) return null;
+  const failed = text.startsWith("Error");
+  return (
+    <p
+      className={`mt-3 flex items-start gap-2.5 rounded-md border px-3 py-2 text-[13px] leading-[1.45] ${
+        failed
+          ? "border-lol-loss/30 bg-lol-loss/[0.07] text-lol-loss"
+          : "border-lol-line bg-black/20 text-lol-text-bright/90"
+      }`}
     >
       <span
-        className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200 ${
-          checked ? "translate-x-5" : "translate-x-0"
+        className={`mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full ${
+          failed ? "bg-lol-loss" : running ? "live-pulse bg-lol-gold" : "bg-lol-win"
         }`}
       />
-    </button>
+      <span className="min-w-0 break-words">{text}</span>
+    </p>
   );
 }
 
@@ -346,68 +503,68 @@ export default function Settings() {
 
   if (loading) return null;
 
-  return (
-    <div className="max-w-2xl 2xl:max-w-[86rem] space-y-6">
-      <h1 className="text-xl font-bold text-lol-text-bright">Settings</h1>
+  const shownQueueCount = queues.filter((id) => !hiddenQueues.has(id)).length;
 
-      {/* Two stacks on a wide window, preferences on the left and data on the
-          right. Narrower, the stacks dissolve into one column, where order-*
-          puts the cards back in reading order. */}
-      <div className="flex flex-col gap-6 2xl:grid 2xl:grid-cols-2 2xl:items-start">
-        <div className="contents 2xl:flex 2xl:flex-col 2xl:gap-6">
-          {/* General */}
-          <div className="order-1 bg-lol-card rounded-xl border border-lol-border/60 p-5">
-            <h2 className="text-sm font-semibold text-lol-text-bright mb-4">General</h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">
-                    {IS_MAC ? "Open at login" : "Start with Windows"}
-                  </p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    Open the program in the {IS_MAC ? "menu bar" : "system tray"} when you sign in
-                    to {IS_MAC ? "your Mac" : "Windows"}, so your games are recorded without having
-                    to remember to start it.
-                    {!packaged && NOT_INSTALLED_NOTE}
-                  </p>
-                </div>
+  return (
+    <div className="max-w-[1320px]">
+      <PageHeader
+        kicker="App"
+        title="Settings"
+        subtitle="How the tracker runs, what it shows, and where your match data lives"
+      />
+
+      <div className="xl:grid xl:grid-cols-[200px_minmax(0,1fr)] xl:items-start xl:gap-8">
+        <SectionNav />
+
+        <div className="space-y-6">
+          <Section id="general">
+            <Row
+              title={IS_MAC ? "Open at login" : "Start with Windows"}
+              description={
+                <>
+                  Open the program in the {IS_MAC ? "menu bar" : "system tray"} when you sign in to{" "}
+                  {IS_MAC ? "your Mac" : "Windows"}, so your games are recorded without having to
+                  remember to start it.
+                  {!packaged && NOT_INSTALLED_NOTE}
+                </>
+              }
+              control={
                 <Switch
+                  label={IS_MAC ? "Open at login" : "Start with Windows"}
                   checked={autoStart}
                   onChange={toggle("auto_start", autoStart, setAutoStart)}
                   disabled={!packaged}
+                  lockedNote={NOT_INSTALLED_NOTE.trim()}
+                  unavailable
+                  shortNote={NOT_INSTALLED_SHORT}
                 />
-              </div>
-
-              <div className="border-t border-lol-border" />
-
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">
-                    {IS_MAC ? "Keep running in the menu bar on close" : "Minimize to tray on close"}
-                  </p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    When enabled, the program can keep storing your games even when the window is
-                    closed. You can still close the program from the{" "}
-                    {IS_MAC ? "menu bar icon or with ⌘Q" : "system tray"}.
-                  </p>
-                </div>
+              }
+            />
+            <Row
+              title={IS_MAC ? "Keep running in the menu bar on close" : "Minimize to tray on close"}
+              description={
+                <>
+                  When enabled, the program can keep storing your games even when the window is
+                  closed. You can still close the program from the{" "}
+                  {IS_MAC ? "menu bar icon or with ⌘Q" : "system tray"}.
+                </>
+              }
+              control={
                 <Switch
+                  label={
+                    IS_MAC ? "Keep running in the menu bar on close" : "Minimize to tray on close"
+                  }
                   checked={minimizeToTray}
                   onChange={toggle("minimize_to_tray", minimizeToTray, setMinimizeToTray)}
                 />
-              </div>
-
-              <div className="border-t border-lol-border" />
-
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">Remember filters and sorting</p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    Reopen every page with the filters, search, and sort order you last used. When
-                    off, each page starts on its defaults again every time the program opens.
-                  </p>
-                </div>
+              }
+            />
+            <Row
+              title="Remember filters and sorting"
+              description="Reopen every page with the filters, search, and sort order you last used. When off, each page starts on its defaults again every time the program opens."
+              control={
                 <Switch
+                  label="Remember filters and sorting"
                   checked={rememberFilters}
                   onChange={toggle(
                     "remember_filters",
@@ -416,36 +573,26 @@ export default function Settings() {
                     setRemembering,
                   )}
                 />
-              </div>
-
-              <div className="border-t border-lol-border" />
-
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">Hide remakes</p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    Leave remade games out of the match history. They are still recorded, and were
-                    never counted toward your stats either way.
-                  </p>
-                </div>
+              }
+            />
+            <Row
+              title="Hide remakes"
+              description="Leave remade games out of the match history. They are still recorded, and were never counted toward your stats either way."
+              control={
                 <Switch
+                  label="Hide remakes"
                   checked={hideRemakes}
                   onChange={toggle("hide_remakes", hideRemakes, setHideRemakes)}
                 />
-              </div>
-
-              <div className="border-t border-lol-border" />
-
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">Group match history by</p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    Break the match list into sessions, each under a heading with its own record and
-                    averages. Days start at 5am.
-                  </p>
-                </div>
+              }
+            />
+            <Row
+              title="Group match history by"
+              description="Break the match list into sessions, each under a heading with its own record and averages. Days start at 5am."
+              control={
                 <select
-                  className="select shrink-0"
+                  className="select w-[148px]"
+                  aria-label="Group match history by"
                   value={sessionGrouping}
                   onChange={(e) => handleSessionGroupingChange(e.target.value as SessionGrouping)}
                 >
@@ -455,321 +602,391 @@ export default function Settings() {
                     </option>
                   ))}
                 </select>
-              </div>
+              }
+            />
+            {/* A single queue has nothing to choose between, so the whole block
+                waits until a second one shows up in the database */}
+            {queues.length > 1 && (
+              <Row
+                title="Queues to include"
+                description="Stats and match history only count the queues switched on here. Games from the others are still recorded, and can be counted again by switching their queue back on."
+              >
+                <div className="mt-3 divide-y divide-lol-line overflow-hidden rounded-lg border border-lol-line bg-black/15">
+                  {queues.map((q) => {
+                    const shown = !hiddenQueues.has(q);
+                    return (
+                      <div key={q} className="flex h-11 items-center justify-between gap-6 px-4">
+                        <span
+                          className={`text-[14px] font-medium ${shown ? "text-lol-text-bright" : "text-lol-text"}`}
+                        >
+                          {queueLabel(q)}
+                        </span>
+                        {/* Switching off the last one would empty every page */}
+                        <Switch
+                          label={queueLabel(q)}
+                          checked={shown}
+                          disabled={shown && shownQueueCount === 1}
+                          lockedNote="At least one queue has to stay on"
+                          shortNote="Last one on"
+                          onChange={() => handleQueueToggle(q)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </Row>
+            )}
+          </Section>
 
-              {/* A single queue has nothing to choose between, so the whole block
-                  waits until a second one shows up in the database */}
-              {queues.length > 1 && (
-                <>
-                  <div className="border-t border-lol-border" />
-
-                  <div>
-                    <p className="text-sm text-lol-text-bright">Queues to include</p>
-                    <p className="text-xs text-lol-text mt-0.5">
-                      Stats and match history only count the queues switched on here. Games from the
-                      others are still recorded, and can be counted again by switching their queue
-                      back on.
-                    </p>
-                    <div className="mt-3 space-y-3">
-                      {queues.map((q, _i, all) => {
-                        const shown = !hiddenQueues.has(q);
-                        const shownCount = all.filter((id) => !hiddenQueues.has(id)).length;
-                        return (
-                          <div key={q} className="flex items-center justify-between gap-8">
-                            <p className="text-sm text-lol-text">{queueLabel(q)}</p>
-                            {/* Switching off the last one would empty every page */}
-                            <Switch
-                              checked={shown}
-                              disabled={shown && shownCount === 1}
-                              onChange={() => handleQueueToggle(q)}
-                            />
-                          </div>
-                        );
-                      })}
+          <Section id="sidebar">
+            <Row
+              title="Pages in the sidebar"
+              description="Switch off the pages you never visit. A hidden page keeps recording, and Match History always stays since it's where the app opens."
+            >
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {NAV_LINKS.map(({ to, label, icon: Icon }) => {
+                  const shown = !hiddenNavLinks.has(to);
+                  return (
+                    <div
+                      key={to}
+                      className={`flex h-12 items-center gap-3 rounded-lg border px-3 transition-colors ${
+                        shown
+                          ? "border-lol-line bg-white/[0.025]"
+                          : "border-dashed border-lol-border/70 bg-transparent"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors ${
+                          shown
+                            ? "bg-lol-gold/10 text-lol-gold"
+                            : "bg-white/[0.04] text-lol-text/75"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span
+                        className={`min-w-0 flex-1 truncate text-[14px] font-medium ${
+                          shown ? "text-lol-text-bright" : "text-lol-text"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                      <Switch
+                        label={label}
+                        checked={shown}
+                        disabled={to === HOME_PATH}
+                        lockedNote="Match History is where the app opens, so it always stays"
+                        shortNote="Always shown"
+                        onChange={() => toggleNavLink(to)}
+                      />
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
+            </Row>
+          </Section>
+
+          <Section id="updates">
+            <Row
+              title="Install updates automatically"
+              description={
+                <>
+                  Check for a new version each time the program starts and install it right away.
+                  Never happens during champion select or a game.
+                  {!packaged && NOT_INSTALLED_NOTE}
                 </>
-              )}
-            </div>
-          </div>
-
-          {/* Customization */}
-          <div className="order-2 bg-lol-card rounded-xl border border-lol-border/60 p-5">
-            <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Customization</h2>
-            <p className="text-sm text-lol-text-bright">Header links</p>
-            <div className="mt-3 space-y-3">
-              {NAV_LINKS.map(({ to, label, icon: Icon }) => (
-                <div key={to} className="flex items-center justify-between gap-8">
-                  <div className="flex items-center gap-2 text-sm text-lol-text">
-                    <Icon className="w-4 h-4 shrink-0" />
-                    {label}
-                  </div>
-                  <Switch
-                    checked={!hiddenNavLinks.has(to)}
-                    disabled={to === HOME_PATH}
-                    onChange={() => toggleNavLink(to)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Updates */}
-          <div className="order-5 bg-lol-card rounded-xl border border-lol-border/60 p-5">
-            <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Updates</h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">Install updates automatically</p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    Check for a new version each time the program starts and install it right away.
-                    Never happens during champion select or a game.
-                    {!packaged && NOT_INSTALLED_NOTE}
-                  </p>
-                </div>
+              }
+              control={
                 <Switch
+                  label="Install updates automatically"
                   checked={autoUpdate}
                   onChange={toggle("auto_update", autoUpdate, setAutoUpdate)}
                   disabled={!packaged}
+                  lockedNote={NOT_INSTALLED_NOTE.trim()}
+                  unavailable
+                  shortNote={NOT_INSTALLED_SHORT}
                 />
-              </div>
-
-              <div className="border-t border-lol-border" />
-
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">Show what's new after updating</p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    Open the release notes for the versions you just got the first time the program
-                    starts on a new version.
-                  </p>
-                </div>
+              }
+            />
+            <Row
+              title="Show what's new after updating"
+              description="Open the release notes for the versions you just got the first time the program starts on a new version."
+              control={
                 <Switch
+                  label="Show what's new after updating"
                   checked={showReleaseNotes}
                   onChange={toggle("show_release_notes", showReleaseNotes, setShowReleaseNotes)}
                 />
-              </div>
-            </div>
-          </div>
+              }
+            />
+          </Section>
 
-          {/* Troubleshooting */}
-          <div className="order-6 bg-lol-card rounded-xl border border-lol-border/60 p-5">
-            <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Troubleshooting</h2>
-            <div className="flex items-center justify-between gap-8">
-              <div>
-                <p className="text-sm text-lol-text-bright">Log file</p>
-                <p className="text-xs text-lol-text mt-0.5">
-                  A record of what the program does in the background, like connecting to the client
-                  and recording games. If something goes wrong, main.log is the file to attach to a
-                  bug report.
-                </p>
-              </div>
-              <button
-                onClick={() => window.api.openLogsFolder()}
-                className="px-4 py-1.5 rounded text-sm shrink-0 bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
-              >
-                Open folder
-              </button>
-            </div>
-          </div>
-
-          {/* About */}
-          <div className="order-7 bg-lol-card rounded-xl border border-lol-border/60 p-5">
-            <h2 className="text-sm font-semibold text-lol-text-bright mb-4">About</h2>
-            <div className="flex items-center justify-between gap-8">
-              <p className="text-sm text-lol-text-bright">Better Mayhem Tracker v{version}</p>
-              <div className="flex items-center gap-2 shrink-0">
-                {[
-                  { label: "GitHub", url: REPO_URL },
-                  { label: "Release notes", url: `${REPO_URL}/releases/tag/v${version}` },
-                ].map(({ label, url }) => (
-                  <button
-                    key={label}
-                    onClick={() => window.api.openUrl(url)}
-                    className="px-4 py-1.5 rounded text-sm bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="contents 2xl:flex 2xl:flex-col 2xl:gap-6">
-          {/* Data Management */}
-          <div className="order-3 bg-lol-card rounded-xl border border-lol-border/60 p-5">
-            <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Data Management</h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">Backfill match history</p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    Pull your older Mayhem games from Riot and add any that aren't stored yet. This
-                    runs automatically the first time an account connects; use this to run it again,
-                    or to finish an import you cancelled.
-                  </p>
-                </div>
-                <button
-                  onClick={handleBackfill}
-                  disabled={backfilling}
-                  className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+          <Section id="data">
+            <Row
+              title="Backfill match history"
+              description="Pull your older Mayhem games from Riot and add any that aren't stored yet. This runs automatically the first time an account connects; use this to run it again, or to finish an import you cancelled."
+              control={
+                <button onClick={handleBackfill} disabled={backfilling} className="btn w-[124px]">
+                  <RefreshIcon className={`h-4 w-4 ${backfilling ? "animate-spin" : ""}`} />
                   {backfilling ? "Working..." : "Backfill"}
                 </button>
-              </div>
-              {backfillLine && <p className="text-xs text-lol-text">{backfillLine}</p>}
-
-              <div className="border-t border-lol-border" />
-
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">Export data</p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    Save all match data to a JSON file for backup
-                  </p>
-                </div>
-                <button
-                  onClick={handleExport}
-                  className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors"
-                >
+              }
+            >
+              <Status text={backfillLine} running={backfilling} />
+            </Row>
+            <Row
+              title="Export data"
+              description="Save all match data to a JSON file for backup"
+              control={
+                <button onClick={handleExport} className="btn w-[124px]">
+                  <UploadIcon className="h-4 w-4" />
                   Export
                 </button>
-              </div>
-              {exportStatus && <p className="text-xs text-lol-text">{exportStatus}</p>}
-
-              <div className="border-t border-lol-border" />
-
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">Import data</p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    Load match data from a previously exported file
-                  </p>
-                </div>
-                <button
-                  onClick={handleImport}
-                  disabled={importing}
-                  className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+              }
+            >
+              <Status text={exportStatus} />
+            </Row>
+            <Row
+              title="Import data"
+              description="Load match data from a previously exported file"
+              control={
+                <button onClick={handleImport} disabled={importing} className="btn w-[124px]">
+                  <DownloadIcon className="h-4 w-4" />
                   {importing ? "Working..." : "Import"}
                 </button>
-              </div>
-              {importLine && <p className="text-xs text-lol-text">{importLine}</p>}
-
-              <div className="border-t border-lol-border" />
-
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">Repair account data</p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    Re-detect which accounts are yours by analyzing game history, then rebuild
-                    stored stats, augments, and performance scores from the raw game data. Use this
-                    if games are attributed to the wrong account or scores look stale.
-                  </p>
-                </div>
-                <button
-                  onClick={handleRepair}
-                  className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors"
-                >
+              }
+            >
+              <Status text={importLine} running={importing} />
+            </Row>
+            <Row
+              title="Repair account data"
+              description="Re-detect which accounts are yours by analyzing game history, then rebuild stored stats, augments, and performance scores from the raw game data. Use this if games are attributed to the wrong account or scores look stale."
+              control={
+                <button onClick={handleRepair} className="btn w-[124px]">
+                  <WrenchIcon className="h-4 w-4" />
                   Repair
                 </button>
-              </div>
-              {repairStatus && <p className="text-xs text-lol-text">{repairStatus}</p>}
-            </div>
-          </div>
+              }
+            >
+              <Status text={repairStatus} />
+            </Row>
+          </Section>
 
-          {/* Backups */}
-          <div className="order-4 bg-lol-card rounded-xl border border-lol-border/60 p-5">
-            <h2 className="text-sm font-semibold text-lol-text-bright mb-4">Backups</h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-8">
-                <div>
-                  <p className="text-sm text-lol-text-bright">Automatic backups</p>
-                  <p className="text-xs text-lol-text mt-0.5">
-                    Keep a daily copy of your database on this computer, plus one before any import
-                    or repair. Older copies thin out to weekly and monthly. If the database ever
-                    goes missing or won't open, the newest working copy is restored on startup.
-                  </p>
-                </div>
+          <Section
+            id="backups"
+            actions={
+              <>
+                <button
+                  onClick={() => window.api.openBackupFolder()}
+                  className="btn btn-sm btn-ghost"
+                >
+                  <FolderOpenIcon className="h-3.5 w-3.5" />
+                  Open folder
+                </button>
+                <button onClick={handleBackupNow} disabled={backupBusy} className="btn btn-sm">
+                  <ArchiveIcon className="h-3.5 w-3.5" />
+                  {backupBusy ? "Working..." : "Back up now"}
+                </button>
+              </>
+            }
+          >
+            <Row
+              title="Automatic backups"
+              description="Keep a daily copy of your database on this computer, plus one before any import or repair. Older copies thin out to weekly and monthly. If the database ever goes missing or won't open, the newest working copy is restored on startup."
+              control={
                 <Switch
+                  label="Automatic backups"
                   checked={autoBackup}
                   onChange={toggle("auto_backup", autoBackup, setAutoBackup)}
                 />
+              }
+            >
+              <Status text={backupStatus} running={backupBusy} />
+            </Row>
+
+            <div>
+              <div className="flex items-center gap-2 bg-black/15 px-5 py-2.5">
+                <span className="label">Saved copies</span>
+                <span className="font-num text-[13px] text-lol-text">{backups.length}</span>
               </div>
-
-              <div className="border-t border-lol-border" />
-
               {backups.length === 0 ? (
-                <p className="text-xs text-lol-text">No backups yet.</p>
+                <p className="border-t border-lol-line px-5 py-4 text-[13px] text-lol-text">
+                  No backups yet.
+                </p>
               ) : (
-                <div className="space-y-1">
-                  {backups.map((backup) => (
-                    <div
-                      key={backup.file}
-                      className="flex items-center justify-between gap-3 text-xs py-1"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-lol-text-bright">{formatTaken(backup.created)}</p>
-                        <p className="text-lol-text">
-                          {BACKUP_REASONS[backup.reason] ?? backup.reason} ·{" "}
-                          {backup.games === null
-                            ? "unreadable"
-                            : `${backup.games.toLocaleString(LOCALE)} games`}{" "}
-                          · {formatSize(backup.size)}
-                        </p>
-                      </div>
-                      {confirmRestore === backup.file ? (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-lol-text">Replace current data?</span>
-                          <button
-                            onClick={() => handleRestore(backup.file)}
-                            disabled={backupBusy}
-                            className="px-3 py-1 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors disabled:opacity-50"
-                          >
-                            Restore
-                          </button>
-                          <button
-                            onClick={() => setConfirmRestore(null)}
-                            className="px-3 py-1 rounded bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
+                backups.map((backup) => (
+                  <div
+                    key={backup.file}
+                    className={`flex min-h-[56px] items-center gap-4 border-t border-lol-line px-5 py-2.5 transition-colors ${
+                      confirmRestore === backup.file
+                        ? "bg-lol-loss/[0.05]"
+                        : "hover:bg-white/[0.02]"
+                    }`}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-lol-text">
+                      <HistoryIcon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="font-num text-[15px] font-semibold leading-5 text-lol-text-bright"
+                        title={formatDateTime(backup.created)}
+                      >
+                        {formatTaken(backup.created)}
+                      </p>
+                      <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-lol-text">
+                        <span>{BACKUP_REASONS[backup.reason] ?? backup.reason}</span>
+                        <span className="text-lol-text/50">·</span>
+                        {backup.games === null ? (
+                          <span className="text-lol-loss">unreadable</span>
+                        ) : (
+                          <span className="font-num text-[13px]">
+                            {backup.games.toLocaleString(LOCALE)} games
+                          </span>
+                        )}
+                        <span className="text-lol-text/50">·</span>
+                        <span className="font-num text-[13px]">{formatSize(backup.size)}</span>
+                      </p>
+                    </div>
+                    {confirmRestore === backup.file ? (
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="mr-1 text-[13px] text-lol-text-bright">
+                          Replace current data?
+                        </span>
                         <button
-                          onClick={() => setConfirmRestore(backup.file)}
-                          disabled={backupBusy || backup.games === null}
-                          className="px-3 py-1 rounded shrink-0 bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => setConfirmRestore(null)}
+                          className="btn btn-sm btn-ghost"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleRestore(backup.file)}
+                          disabled={backupBusy}
+                          className="btn btn-sm btn-danger"
                         >
                           Restore
                         </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmRestore(backup.file)}
+                        disabled={backupBusy || backup.games === null}
+                        className="btn btn-sm shrink-0"
+                      >
+                        Restore
+                      </button>
+                    )}
+                  </div>
+                ))
               )}
+            </div>
+          </Section>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleBackupNow}
-                  disabled={backupBusy}
-                  className="px-4 py-1.5 rounded text-sm bg-lol-gold/20 text-lol-gold hover:bg-lol-gold/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {backupBusy ? "Working..." : "Back up now"}
-                </button>
-                <button
-                  onClick={() => window.api.openBackupFolder()}
-                  className="px-4 py-1.5 rounded text-sm bg-lol-border/40 text-lol-text hover:bg-lol-border/60 transition-colors"
-                >
+          <Section id="troubleshooting">
+            <Row
+              title="Log file"
+              description="A record of what the program does in the background, like connecting to the client and recording games. If something goes wrong, main.log is the file to attach to a bug report."
+              control={
+                <button onClick={() => window.api.openLogsFolder()} className="btn w-[124px]">
+                  <FolderOpenIcon className="h-4 w-4" />
                   Open folder
                 </button>
+              }
+            />
+          </Section>
+
+          <Section id="about">
+            <div className="flex flex-wrap items-center justify-between gap-6 px-5 py-5">
+              <div className="flex items-center gap-4">
+                <BrandMark className="h-12 w-12 shrink-0 drop-shadow-[0_4px_14px_rgb(212_178_115/0.25)]" />
+                <div>
+                  <p className="font-display text-[20px] font-extrabold uppercase italic leading-none tracking-[0.03em] text-lol-text-bright">
+                    Better Mayhem Tracker
+                  </p>
+                  <p className="mt-1.5 flex items-center gap-2 text-[13px] text-lol-text">
+                    <span className="chip bg-lol-gold/12 font-num normal-case text-lol-gold">
+                      v{version}
+                    </span>
+                    Your ARAM Mayhem games, kept on this computer
+                  </p>
+                </div>
               </div>
-              {backupStatus && <p className="text-xs text-lol-text">{backupStatus}</p>}
+              <div className="flex shrink-0 items-center gap-2">
+                <button onClick={() => window.api.openUrl(REPO_URL)} className="btn">
+                  <GithubIcon className="h-4 w-4" />
+                  GitHub
+                </button>
+                <button
+                  onClick={() => window.api.openUrl(`${REPO_URL}/releases/tag/v${version}`)}
+                  className="btn"
+                >
+                  <ExternalLinkIcon className="h-4 w-4" />
+                  Release notes
+                </button>
+              </div>
             </div>
-          </div>
+          </Section>
         </div>
       </div>
     </div>
+  );
+}
+
+// Jump links down the side of a wide window, marking the section in view
+function SectionNav() {
+  const [active, setActive] = useState<SectionId>("general");
+
+  useEffect(() => {
+    const scroller = document.getElementById(sectionDomId("general"))?.closest("main");
+    if (!scroller) return;
+    // The section in view is the last one whose top has passed a line a little
+    // below the top of the page, or the last section once the page bottoms out
+    const update = () => {
+      const top = scroller.getBoundingClientRect().top + 120;
+      const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4;
+      let current: SectionId = SECTIONS[0].id;
+      for (const { id } of SECTIONS) {
+        const el = document.getElementById(sectionDomId(id));
+        if (el && el.getBoundingClientRect().top <= top) current = id;
+      }
+      setActive(atBottom ? SECTIONS[SECTIONS.length - 1].id : current);
+    };
+    update();
+    scroller.addEventListener("scroll", update, { passive: true });
+    return () => scroller.removeEventListener("scroll", update);
+  }, []);
+
+  return (
+    <nav className="sticky top-4 hidden xl:block" aria-label="Settings sections">
+      <div className="space-y-0.5">
+        {SECTIONS.map(({ id, title, icon: Icon }) => {
+          const isActive = active === id;
+          return (
+            <button
+              key={id}
+              onClick={() =>
+                document
+                  .getElementById(sectionDomId(id))
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+              aria-current={isActive ? "true" : undefined}
+              className={`relative flex h-9 w-full items-center gap-3 rounded-md px-3 text-left text-[14px] font-medium transition-colors ${
+                isActive
+                  ? "bg-gradient-to-r from-lol-gold/16 to-lol-gold/[0.03] text-lol-text-bright"
+                  : "text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright"
+              }`}
+            >
+              {isActive && (
+                <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-sm bg-lol-gold shadow-[0_0_10px_rgb(212_178_115/0.7)]" />
+              )}
+              <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-lol-gold" : ""}`} />
+              {title}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-4 border-t border-lol-line px-3 pt-3.5 text-[12px] text-lol-text">
+        Changes save automatically
+      </p>
+    </nav>
   );
 }

@@ -48,7 +48,7 @@ export default function ItemIcon({ itemId, size = 24, patch }: ItemIconProps) {
   if (!itemId || itemId === 0 || !src) {
     return (
       <div
-        className="rounded bg-white/5 border border-white/10"
+        className="rounded-[3px] bg-black/25 border border-white/[0.06]"
         style={{ width: size, height: size }}
       />
     );
@@ -72,7 +72,7 @@ export default function ItemIcon({ itemId, size = 24, patch }: ItemIconProps) {
         // and sit on top of the card showing the same name.
         width={size}
         height={size}
-        className="rounded"
+        className="rounded-[3px]"
         onError={() => setAttempt((a) => a + 1)}
       />
     </HoverCard>

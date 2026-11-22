@@ -1,9 +1,14 @@
-import { useState, useMemo, useEffect, Fragment } from "react";
+import { useState, useMemo, useEffect, Fragment, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import { useSort } from "../hooks/useSort";
-import { useChampionData, getChampionName, useAugmentData } from "../hooks/useChampions";
+import {
+  useChampionData,
+  getChampionName,
+  useAugmentData,
+  useItemData,
+} from "../hooks/useChampions";
 import type {
   ChampionStats,
   AugmentStats,
@@ -21,9 +26,11 @@ import SortHeader, { CycleSortHeader } from "../components/SortHeader";
 import FilterMenu from "../components/FilterMenu";
 import MinGamesFilter from "../components/MinGamesFilter";
 import SeasonSelect from "../components/SeasonSelect";
-import { ChevronRightIcon } from "../components/icons";
+import PageHeader from "../components/PageHeader";
+import { ChevronRightIcon, TrophyIcon } from "../components/icons";
 import {
   LOCALE,
+  formatCompact,
   formatDecimal,
   formatDuration,
   formatTimeAgo,
@@ -54,8 +61,8 @@ type SortKey =
   | "quadra_kills"
   | "penta_kills";
 
-// The badge and multikill columns sort by their total first, then by each part
-// on its own
+// The badge, multikill and K/D/A columns sort by their headline figure first,
+// then by each part on its own
 const BADGE_STEPS: { field: SortKey; label: string }[] = [
   { field: "badges", label: "MVP / ACE" },
   { field: "mvps", label: "MVP" },
@@ -68,9 +75,96 @@ const MULTIKILL_STEPS: { field: SortKey; label: string }[] = [
   { field: "quadra_kills", label: "Quadras" },
   { field: "penta_kills", label: "Pentas" },
 ];
+// The averages share one cell with the ratio under them, the way a game row
+// shows them, so one header steps through all four
+const KDA_STEPS: { field: SortKey; label: string }[] = [
+  { field: "kda", label: "KDA" },
+  { field: "avg_kills", label: "Avg Kills" },
+  { field: "avg_deaths", label: "Avg Deaths" },
+  { field: "avg_assists", label: "Avg Assists" },
+];
+
+// The multikill slots, in MultikillBadge's compact look, hues and rule: the
+// letter alone for one, the letter and count for more. Each kind keeps its own
+// slot, empty or not, so the counts line up down the table.
+const MULTIKILL_SLOTS = [
+  {
+    key: "double_kills",
+    letter: "D",
+    name: "Double",
+    tone: "bg-sky-400/14 text-sky-400 ring-sky-400/25",
+  },
+  {
+    key: "triple_kills",
+    letter: "T",
+    name: "Triple",
+    tone: "bg-amber-400/14 text-amber-400 ring-amber-400/25",
+  },
+  {
+    key: "quadra_kills",
+    letter: "Q",
+    name: "Quadra",
+    tone: "bg-purple-400/14 text-purple-400 ring-purple-400/25",
+  },
+  {
+    key: "penta_kills",
+    letter: "P",
+    name: "Penta",
+    tone: "bg-red-400/16 text-red-400 ring-red-400/35",
+  },
+] as const;
+
+// One side of the MVP / ACE pair: its badge colour when earned, the same dim
+// as the separator's neighbours when not, whichever side it is
+function BadgeCount({ count, tone }: { count: number; tone: string }) {
+  return (
+    <span className={count > 0 ? tone : "text-lol-text/45"}>{count.toLocaleString(LOCALE)}</span>
+  );
+}
 
 // Table columns, for the expanded row's colSpan
-const COLUMN_COUNT = 13;
+const COLUMN_COUNT = 10;
+
+// One of the three lists in an expanded row: a labelled block on the darker
+// floor the row opens onto
+function DetailBlock({
+  title,
+  aside,
+  children,
+}: {
+  title: string;
+  aside?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="min-w-0 rounded-lg border border-lol-line bg-white/[0.018]">
+      <div className="flex h-9 items-center justify-between border-b border-lol-line px-3">
+        <h3 className="label">{title}</h3>
+        {aside}
+      </div>
+      <div className="space-y-0.5 p-1.5">{children}</div>
+    </section>
+  );
+}
+
+function EmptyLine({ children }: { children: ReactNode }) {
+  return <div className="px-2 py-3 text-[13px] text-lol-text/70">{children}</div>;
+}
+
+// Picks and win rate at the end of an augment or item line
+function PickStats({ picks, wins }: { picks: number; wins: number }) {
+  return (
+    <>
+      <span className="font-num ml-auto shrink-0 text-[13px] text-lol-text">
+        {picks.toLocaleString(LOCALE)}
+        <span className="text-lol-text/50">×</span>
+      </span>
+      <div className="w-30 shrink-0">
+        <WinRateBar wins={wins} total={picks} />
+      </div>
+    </>
+  );
+}
 
 function ChampionExpanded({
   championId,
@@ -85,6 +179,7 @@ function ChampionExpanded({
 }) {
   const navigate = useNavigate();
   const augData = useAugmentData();
+  const itemData = useItemData(patch);
   const [augStats, setAugStats] = useState<AugmentStats[] | null>(null);
   const [itemStats, setItemStats] = useState<ItemStats[] | null>(null);
   const [matches, setMatches] = useState<MatchListItem[] | null>(null);
@@ -99,8 +194,8 @@ function ChampionExpanded({
 
   if (!augStats || !itemStats || !matches) {
     return (
-      <td colSpan={COLUMN_COUNT} className="px-4 py-4">
-        <div className="text-sm text-lol-text text-center">Loading...</div>
+      <td colSpan={COLUMN_COUNT} className="bg-black/25 px-5 py-10">
+        <div className="text-center text-[13px] text-lol-text">Loading…</div>
       </td>
     );
   }
@@ -109,112 +204,116 @@ function ChampionExpanded({
   const topItems = itemStats.slice(0, 6);
 
   return (
-    <td colSpan={COLUMN_COUNT} className="px-4 py-4">
-      <div className="grid grid-cols-3 gap-6">
-        {/* Augments */}
-        <div className="min-w-0">
-          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Top Augments</h3>
-          <div className="space-y-1">
-            {topAugments.length > 0 ? (
-              topAugments.map((a) => (
-                <div key={a.augment_id} className="flex items-center gap-2 h-7">
-                  <div className="shrink-0">
-                    <AugmentIcon augmentId={a.augment_id} />
-                  </div>
-                  <span className="text-xs text-lol-text-bright truncate min-w-0">
-                    {augData[a.augment_id]?.name ?? `Augment ${a.augment_id}`}
-                  </span>
-                  <span className="text-[11px] text-lol-text shrink-0 ml-auto">
-                    {a.picks.toLocaleString(LOCALE)}x
-                  </span>
-                  <div className="shrink-0">
-                    <WinRateBar wins={a.wins} total={a.picks} />
-                  </div>
+    <td
+      colSpan={COLUMN_COUNT}
+      className="bg-black/25 px-5 pt-4 pb-5 shadow-[inset_0_10px_14px_-12px_rgb(0_0_0/0.7)]"
+    >
+      <div className="grid grid-cols-3 gap-4">
+        <DetailBlock title="Top Augments">
+          {topAugments.length > 0 ? (
+            topAugments.map((a) => (
+              <div
+                key={a.augment_id}
+                className="flex h-9 items-center gap-2.5 rounded-[3px] px-1.5 hover:bg-white/[0.03]"
+              >
+                <div className="shrink-0">
+                  <AugmentIcon augmentId={a.augment_id} size={26} />
                 </div>
-              ))
-            ) : (
-              <span className="text-xs text-lol-text">No data</span>
-            )}
-          </div>
-        </div>
+                <span className="min-w-0 truncate text-[13px] font-medium text-lol-text-bright">
+                  {augData[a.augment_id]?.name ?? `Augment ${a.augment_id}`}
+                </span>
+                <PickStats picks={a.picks} wins={a.wins} />
+              </div>
+            ))
+          ) : (
+            <EmptyLine>No augments recorded</EmptyLine>
+          )}
+        </DetailBlock>
 
-        {/* Items */}
-        <div className="min-w-0">
-          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Top Items</h3>
-          <div className="space-y-1">
-            {topItems.length > 0 ? (
-              topItems.map((item) => (
-                <div key={item.item_id} className="flex items-center gap-2 h-7">
-                  <div className="shrink-0">
-                    <ItemIcon itemId={item.item_id} size={24} patch={patch} />
-                  </div>
-                  <span className="text-[11px] text-lol-text shrink-0 ml-auto">
-                    {item.picks.toLocaleString(LOCALE)}x
-                  </span>
-                  <div className="shrink-0">
-                    <WinRateBar wins={item.wins} total={item.picks} />
-                  </div>
+        <DetailBlock title="Top Items">
+          {topItems.length > 0 ? (
+            topItems.map((item) => (
+              <div
+                key={item.item_id}
+                className="flex h-9 items-center gap-2.5 rounded-[3px] px-1.5 hover:bg-white/[0.03]"
+              >
+                <div className="shrink-0">
+                  <ItemIcon itemId={item.item_id} size={26} patch={patch} />
                 </div>
-              ))
-            ) : (
-              <span className="text-xs text-lol-text">No data</span>
-            )}
-          </div>
-        </div>
+                <span className="min-w-0 truncate text-[13px] font-medium text-lol-text-bright">
+                  {itemData[item.item_id]?.name ?? ""}
+                </span>
+                <PickStats picks={item.picks} wins={item.wins} />
+              </div>
+            ))
+          ) : (
+            <EmptyLine>No items recorded</EmptyLine>
+          )}
+        </DetailBlock>
 
-        {/* Recent Games */}
-        <div className="min-w-0">
-          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Recent Games</h3>
-          <div className="space-y-1">
-            {matches.length > 0 ? (
-              matches.map((m) => (
-                <div
-                  key={m.game_id}
-                  className={`flex items-center gap-2 px-2 h-7 rounded text-xs ${
+        <DetailBlock
+          title="Recent Games"
+          aside={
+            matches.length > 0 && (
+              <button
+                onClick={() =>
+                  navigate("/", {
+                    state: { championId, patch, queue, season } satisfies MatchHistoryLink,
+                  })
+                }
+                className="label flex items-center gap-0.5 text-[11px] text-lol-gold transition-colors hover:text-lol-gold-light"
+              >
+                View all in Match History
+                <ChevronRightIcon className="h-3 w-3" />
+              </button>
+            )
+          }
+        >
+          {matches.length > 0 ? (
+            matches.map((m) => (
+              <div
+                key={m.game_id}
+                className={`flex h-9 items-center gap-3 rounded-[3px] border-l-2 bg-gradient-to-r to-transparent pr-2 pl-2 ${
+                  m.is_remake
+                    ? "border-lol-text/30 from-white/[0.03]"
+                    : m.win
+                      ? "border-lol-win from-lol-win/[0.11]"
+                      : "border-lol-loss from-lol-loss/[0.11]"
+                }`}
+              >
+                <span
+                  className={`slant-sm font-display w-12 shrink-0 py-px text-center text-[11px] font-extrabold tracking-[0.08em] uppercase italic ${
                     m.is_remake
-                      ? "bg-white/[0.03]"
+                      ? "bg-white/[0.06] text-lol-text"
                       : m.win
-                        ? "bg-lol-win/[0.07]"
-                        : "bg-lol-loss/[0.07]"
+                        ? "bg-lol-win/15 text-lol-win"
+                        : "bg-lol-loss/15 text-lol-loss"
                   }`}
                 >
+                  {m.is_remake ? "Remake" : m.win ? "Win" : "Loss"}
+                </span>
+                <span className="font-num shrink-0 text-[14px] font-semibold text-lol-text-bright">
+                  <Kda kills={m.kills} deaths={m.deaths} assists={m.assists} />
+                </span>
+                {m.score != null && !m.is_remake && (
                   <span
-                    className={`font-bold shrink-0 w-4 text-center ${m.is_remake ? "text-gray-500" : m.win ? "text-lol-win" : "text-lol-loss"}`}
+                    className={`font-num shrink-0 text-[14px] font-semibold ${scoreColor(m.score)}`}
                   >
-                    {m.is_remake ? "-" : m.win ? "W" : "L"}
+                    {formatDecimal(m.score)}
                   </span>
-                  <span className="text-lol-text-bright shrink-0">
-                    <Kda kills={m.kills} deaths={m.deaths} assists={m.assists} />
-                  </span>
-                  {m.score != null && !m.is_remake && (
-                    <span className={`font-semibold shrink-0 tabular-nums ${scoreColor(m.score)}`}>
-                      {formatDecimal(m.score)}
-                    </span>
-                  )}
-                  <span className="text-lol-text ml-auto shrink-0 tabular-nums">
-                    {formatDuration(m.game_duration)}
-                  </span>
-                  <span className="text-lol-text shrink-0">{formatTimeAgo(m.game_creation)}</span>
-                </div>
-              ))
-            ) : (
-              <span className="text-xs text-lol-text">No games</span>
-            )}
-          </div>
-          {matches.length > 0 && (
-            <button
-              onClick={() =>
-                navigate("/", {
-                  state: { championId, patch, queue, season } satisfies MatchHistoryLink,
-                })
-              }
-              className="mt-2 flex items-center gap-0.5 text-xs text-lol-text hover:text-lol-gold transition-colors"
-            >
-              View all in Match History
-              <ChevronRightIcon className="h-3 w-3" />
-            </button>
+                )}
+                <span className="font-num ml-auto shrink-0 text-[13px] text-lol-text">
+                  {formatDuration(m.game_duration)}
+                </span>
+                <span className="font-num w-14 shrink-0 text-right text-[13px] text-lol-text/70">
+                  {formatTimeAgo(m.game_creation)}
+                </span>
+              </div>
+            ))
+          ) : (
+            <EmptyLine>No games</EmptyLine>
           )}
-        </div>
+        </DetailBlock>
       </div>
     </td>
   );
@@ -283,187 +382,218 @@ export default function Champions() {
     return <div className="text-lol-text text-center mt-20">Loading...</div>;
   }
 
-  return (
-    <div className="max-w-6xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Champions</h1>
-        <div className="flex items-center gap-2">
-          <FilterMenu
-            active={[season, patch, queue, minGames].filter((v) => v !== undefined).length}
-            onReset={() => {
-              setSeason(undefined);
-              setPatch(undefined);
-              setQueue(undefined);
-              setMinGames(undefined);
-            }}
-          >
-            <SeasonSelect value={season} onChange={setSeason} label="Set" />
-            <PatchSelect value={patch} onChange={setPatch} label="Patch" />
-            <QueueSelect value={queue} onChange={setQueue} label="Queue" />
-            <MinGamesFilter
-              value={minGames}
-              onChange={setMinGames}
-              max={Math.max(...data.map((c) => c.games))}
-            />
-          </FilterMenu>
-          <SearchInput value={search} onChange={setSearch} placeholder="Search champion..." />
-        </div>
-      </div>
+  const shownGames = sorted.reduce((sum, c) => sum + c.games, 0);
 
-      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-lol-dark/50">
+  return (
+    <div className="max-w-[1320px] space-y-6">
+      <PageHeader
+        kicker="Analyze"
+        title="Champions"
+        subtitle={
+          <>
+            <span className="font-num text-[14px] font-semibold text-lol-text-bright">
+              {sorted.length.toLocaleString(LOCALE)}
+            </span>{" "}
+            {sorted.length === 1 ? "champion" : "champions"}
+            <span className="mx-2 text-lol-text/40">·</span>
+            <span className="font-num text-[14px] font-semibold text-lol-text-bright">
+              {shownGames.toLocaleString(LOCALE)}
+            </span>{" "}
+            {shownGames === 1 ? "game" : "games"}
+          </>
+        }
+        actions={
+          <>
+            <FilterMenu
+              active={[season, patch, queue, minGames].filter((v) => v !== undefined).length}
+              onReset={() => {
+                setSeason(undefined);
+                setPatch(undefined);
+                setQueue(undefined);
+                setMinGames(undefined);
+              }}
+            >
+              <SeasonSelect value={season} onChange={setSeason} label="Set" />
+              <PatchSelect value={patch} onChange={setPatch} label="Patch" />
+              <QueueSelect value={queue} onChange={setQueue} label="Queue" />
+              <MinGamesFilter
+                value={minGames}
+                onChange={setMinGames}
+                max={Math.max(...data.map((c) => c.games))}
+              />
+            </FilterMenu>
+            <SearchInput value={search} onChange={setSearch} placeholder="Search champion..." />
+          </>
+        }
+      />
+
+      {/* Clipped rather than hidden, so the header row can stick while the
+          long list scrolls under it. It sticks at -top-2 to cover the page's
+          top padding, which would otherwise show rows above it. */}
+      <div className="panel overflow-clip">
+        <table className="w-full table-fixed">
+          <thead className="sticky -top-2 z-10 bg-[#0e142b] shadow-[0_1px_0_var(--color-lol-line)]">
             <tr>
-              <th className="px-2 py-2 text-right text-xs font-medium text-lol-text uppercase tracking-wider whitespace-nowrap w-12">
-                #
-              </th>
-              <th className="px-2 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider whitespace-nowrap">
-                Champion
-              </th>
-              <SortHeader {...sort} compact numeric label="Games" field="games" className="w-16" />
-              <SortHeader {...sort} compact numeric label="Win %" field="wins" />
-              <SortHeader {...sort} compact numeric label="K" field="avg_kills" className="w-12" />
-              <SortHeader {...sort} compact numeric label="D" field="avg_deaths" className="w-12" />
-              <SortHeader
+              <th className="tbl-head w-12 px-3 py-3 text-right">#</th>
+              <th className="tbl-head px-3 py-3 text-left">Champion</th>
+              <SortHeader {...sort} numeric label="Games" field="games" className="w-[76px]" />
+              <SortHeader {...sort} numeric label="Win Rate" field="wins" className="w-[168px]" />
+              <CycleSortHeader
                 {...sort}
-                compact
                 numeric
-                label="A"
-                field="avg_assists"
-                className="w-12"
+                steps={KDA_STEPS}
+                hint="Average kills / deaths / assists, with the KDA ratio under them"
+                className="w-32"
               />
-              <SortHeader {...sort} compact numeric label="KDA" field="kda" className="w-12" />
-              <SortHeader
+              <SortHeader {...sort} numeric label="Score" field="avg_score" className="w-[72px]" />
+              <CycleSortHeader
                 {...sort}
-                compact
                 numeric
-                label="Score"
-                field="avg_score"
-                className="w-14"
+                steps={BADGE_STEPS}
+                hint="MVP / ACE: games as the best player on the winning team / on the losing team"
+                className="w-24"
               />
-              <CycleSortHeader {...sort} compact steps={BADGE_STEPS} className="w-22" />
-              <SortHeader
+              <SortHeader {...sort} numeric label="Dmg" field="avg_damage" className="w-[76px]" />
+              <SortHeader {...sort} numeric label="Gold" field="avg_gold" className="w-[76px]" />
+              <CycleSortHeader
                 {...sort}
-                compact
-                numeric
-                label="Dmg"
-                field="avg_damage"
-                className="w-16"
+                steps={MULTIKILL_STEPS}
+                hint="Multikills: D double, T triple, Q quadra, P penta kills"
+                className="w-46"
               />
-              <SortHeader
-                {...sort}
-                compact
-                numeric
-                label="Gold"
-                field="avg_gold"
-                className="w-16"
-              />
-              <CycleSortHeader {...sort} compact steps={MULTIKILL_STEPS} className="w-36" />
             </tr>
           </thead>
           <tbody>
-            {sorted.map((c, i) => (
-              <Fragment key={c.champion_id}>
-                <tr
-                  onClick={() => toggleExpand(c.champion_id)}
-                  className={`border-t border-lol-border/50 hover:bg-lol-card-hover cursor-pointer transition-colors ${
-                    expandedId === c.champion_id ? "bg-lol-card-hover" : ""
-                  }`}
-                >
-                  <td className="px-2 py-2 text-xs text-lol-text text-right tabular-nums">
-                    {i + 1}
-                  </td>
-                  <td className="px-2 py-2">
-                    <div className="flex items-center gap-2">
-                      <ChampionIcon championId={c.champion_id} size={28} />
-                      <span className="text-sm text-lol-text-bright">
-                        {getChampionName(champData, c.champion_id)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-2 py-2 text-sm text-lol-text-bright text-right tabular-nums">
-                    {c.games.toLocaleString(LOCALE)}
-                  </td>
-                  <td className="px-2 py-2 w-32">
-                    <WinRateBar wins={c.wins} total={c.games} />
-                  </td>
-                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
-                    {formatDecimal(c.avg_kills)}
-                  </td>
-                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
-                    {formatDecimal(c.avg_deaths)}
-                  </td>
-                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
-                    {formatDecimal(c.avg_assists)}
-                  </td>
-                  <td
-                    className={`px-2 py-2 text-sm text-right tabular-nums ${kdaColor(c.deaths > 0 ? (c.kills + c.assists) / c.deaths : Infinity)}`}
-                  >
-                    {kdaRatio(c.kills, c.deaths, c.assists)}
-                  </td>
-                  <td
-                    className={`px-2 py-2 text-sm font-semibold text-right tabular-nums ${
-                      c.avg_score != null ? scoreColor(c.avg_score) : "text-lol-text"
+            {sorted.map((c, i) => {
+              const isExpanded = expandedId === c.champion_id;
+              const ratio = c.deaths > 0 ? (c.kills + c.assists) / c.deaths : Infinity;
+              return (
+                <Fragment key={c.champion_id}>
+                  <tr
+                    onClick={() => toggleExpand(c.champion_id)}
+                    className={`group cursor-pointer border-t border-lol-line transition-colors ${
+                      isExpanded ? "bg-white/[0.045]" : "hover:bg-white/[0.03]"
                     }`}
                   >
-                    {c.avg_score != null ? formatDecimal(c.avg_score) : "—"}
-                  </td>
-                  <td className="px-2 py-2 text-sm whitespace-nowrap tabular-nums">
-                    <span className={c.mvps > 0 ? "text-amber-300" : "text-lol-text/40"}>
-                      {c.mvps}
-                    </span>
-                    <span className="text-lol-text/40"> / </span>
-                    <span className={c.aces > 0 ? "text-purple-400" : "text-lol-text/40"}>
-                      {c.aces}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
-                    {(c.avg_damage ?? 0).toLocaleString(LOCALE)}
-                  </td>
-                  <td className="px-2 py-2 text-sm text-lol-gold text-right tabular-nums">
-                    {(c.avg_gold ?? 0).toLocaleString(LOCALE)}
-                  </td>
-                  <td className="px-2 py-2">
-                    <div className="flex gap-1 text-[10px] tabular-nums">
-                      <span
-                        className={`w-7 shrink-0 text-center ${c.double_kills > 0 ? "text-sky-400" : "text-transparent"}`}
+                    <td
+                      className={`font-num px-3 py-2.5 text-right text-[14px] text-lol-text/60 ${
+                        isExpanded ? "shadow-[inset_2px_0_0_var(--color-lol-gold)]" : ""
+                      }`}
+                    >
+                      {i + 1}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <ChampionIcon championId={c.champion_id} size={36} />
+                        <div className="min-w-0">
+                          <div className="font-display truncate text-[16px] leading-tight font-semibold text-lol-text-bright">
+                            {getChampionName(champData, c.champion_id)}
+                          </div>
+                          <div className="font-num text-[12px] leading-tight text-lol-text">
+                            {c.wins.toLocaleString(LOCALE)}W
+                            <span className="mx-1 text-lol-text/35">·</span>
+                            {(c.games - c.wins).toLocaleString(LOCALE)}L
+                          </div>
+                        </div>
+                        <ChevronRightIcon
+                          className={`ml-auto h-4 w-4 shrink-0 transition-all ${
+                            isExpanded
+                              ? "rotate-90 text-lol-gold"
+                              : "text-lol-text/0 group-hover:text-lol-text/60"
+                          }`}
+                        />
+                      </div>
+                    </td>
+                    <td className="font-num px-3 py-2.5 text-right text-[16px] font-semibold text-lol-text-bright">
+                      {c.games.toLocaleString(LOCALE)}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <WinRateBar wins={c.wins} total={c.games} />
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="font-num text-[15px] leading-tight text-slate-300">
+                        <Kda
+                          kills={formatDecimal(c.avg_kills)}
+                          deaths={formatDecimal(c.avg_deaths)}
+                          assists={formatDecimal(c.avg_assists)}
+                        />
+                      </div>
+                      <div
+                        className={`font-num text-[12px] leading-tight font-semibold ${kdaColor(ratio)}`}
                       >
-                        D{c.double_kills}
-                      </span>
-                      <span
-                        className={`w-7 shrink-0 text-center ${c.triple_kills > 0 ? "text-amber-400" : "text-transparent"}`}
-                      >
-                        T{c.triple_kills}
-                      </span>
-                      <span
-                        className={`w-7 shrink-0 text-center ${c.quadra_kills > 0 ? "text-purple-400" : "text-transparent"}`}
-                      >
-                        Q{c.quadra_kills}
-                      </span>
-                      <span
-                        className={`w-7 shrink-0 text-center ${c.penta_kills > 0 ? "text-red-400" : "text-transparent"}`}
-                      >
-                        P{c.penta_kills}
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-                {expandedId === c.champion_id && (
-                  <tr className="border-t border-lol-border/30 bg-lol-dark/30">
-                    <ChampionExpanded
-                      championId={c.champion_id}
-                      patch={patch}
-                      queue={queue}
-                      season={season}
-                    />
+                        {kdaRatio(c.kills, c.deaths, c.assists)}
+                        <span className="ml-1 text-[11px] tracking-[0.06em] text-lol-text/70">
+                          KDA
+                        </span>
+                      </div>
+                    </td>
+                    <td
+                      className={`font-num px-3 py-2.5 text-right text-[16px] font-semibold ${
+                        c.avg_score != null ? scoreColor(c.avg_score) : "text-lol-text/40"
+                      }`}
+                    >
+                      {c.avg_score != null ? formatDecimal(c.avg_score) : "—"}
+                    </td>
+                    <td className="font-num px-3 py-2.5 text-right text-[15px] whitespace-nowrap">
+                      <BadgeCount count={c.mvps} tone="text-amber-300" />
+                      <span className="mx-1 text-lol-text/30">/</span>
+                      <BadgeCount count={c.aces} tone="text-purple-400" />
+                    </td>
+                    <td
+                      className="font-num px-3 py-2.5 text-right text-[15px] text-slate-300"
+                      title={(c.avg_damage ?? 0).toLocaleString(LOCALE)}
+                    >
+                      {formatCompact(c.avg_damage ?? 0)}
+                    </td>
+                    <td
+                      className="font-num px-3 py-2.5 text-right text-[15px] text-slate-300"
+                      title={(c.avg_gold ?? 0).toLocaleString(LOCALE)}
+                    >
+                      {formatCompact(c.avg_gold ?? 0)}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex gap-1.5">
+                        {MULTIKILL_SLOTS.map((slot) => {
+                          const count = c[slot.key];
+                          return (
+                            <span key={slot.key} className="w-[34px] shrink-0">
+                              {count > 0 && (
+                                <span
+                                  title={`${slot.name} kill${count > 1 ? `s x${count.toLocaleString(LOCALE)}` : ""}`}
+                                  className={`font-num inline-block rounded-[2px] px-1.5 py-1 text-[13px] leading-none font-bold whitespace-nowrap ring-1 ring-inset ${slot.tone}`}
+                                >
+                                  {slot.letter}
+                                  {count > 1 ? count.toLocaleString(LOCALE) : ""}
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
+                  {isExpanded && (
+                    <tr className="border-t border-lol-line">
+                      <ChampionExpanded
+                        championId={c.champion_id}
+                        patch={patch}
+                        queue={queue}
+                        season={season}
+                      />
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
         {sorted.length === 0 && (
-          <div className="py-8 text-center text-sm text-lol-text">No champions found</div>
+          <div className="flex flex-col items-center gap-3 border-t border-lol-line py-14 text-center">
+            <TrophyIcon className="h-7 w-7 text-lol-gold/60" />
+            <div className="text-[14px] text-lol-text">
+              No champions match these filters. Try a different search or reset the filters.
+            </div>
+          </div>
         )}
       </div>
     </div>

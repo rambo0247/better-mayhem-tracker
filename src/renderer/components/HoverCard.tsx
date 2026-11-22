@@ -121,7 +121,7 @@ export default function HoverCard({
               width,
               visibility: pos ? "visible" : "hidden",
             }}
-            className="fixed z-50 pointer-events-none rounded-lg border border-lol-border bg-lol-card px-3 py-2 text-xs leading-relaxed text-lol-text shadow-xl shadow-black/50"
+            className="menu fixed z-50 pointer-events-none max-w-80 px-3.5 py-2.5 text-[13px] leading-relaxed text-lol-text"
           >
             {content}
           </div>,

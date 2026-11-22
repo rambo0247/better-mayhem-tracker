@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useExpandedMatch } from "../hooks/useExpandedMatch";
 import { useIpc } from "../hooks/useIpc";
@@ -11,11 +11,25 @@ import type {
 } from "../lib/types";
 import BackToFriends from "../components/BackToFriends";
 import ChampionIcon from "../components/ChampionIcon";
+import PageHeader from "../components/PageHeader";
 import SummonerIcon from "../components/SummonerIcon";
-import ScoreCell from "../components/ScoreCell";
 import SharedGameRow from "../components/SharedGameRow";
 import StatBars from "../components/StatBars";
+import StatCard from "../components/StatCard";
 import WinRateBar from "../components/WinRateBar";
+import {
+  BadgeCounts,
+  GamesHeading,
+  KdaTotals,
+  ProfileHero,
+  RowPlayer,
+  RowScore,
+  RecordTogetherCard,
+  ScoreMeter,
+  ScoreValue,
+  TaggedRiotId,
+} from "../components/SharedStats";
+import { ChevronDownIcon, StarIcon, SwordsIcon, UsersIcon } from "../components/icons";
 import {
   LOCALE,
   formatDecimal,
@@ -26,7 +40,6 @@ import {
   scoreColor,
 } from "../lib/format";
 import Kda from "../components/Kda";
-import RiotId from "../components/RiotId";
 
 export default function FriendDetail() {
   const { key = "" } = useParams();
@@ -46,22 +59,22 @@ export default function FriendDetail() {
   // page it is about to update. null is an answer too ("no games together"), so
   // the check can't be on data alone.
   if (loading && !data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="label mt-20 text-center">Loading…</div>;
   }
 
   if (!data) {
     return (
-      <div className="max-w-6xl space-y-4">
-        <BackToFriends />
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 p-8 text-center text-lol-text">
-          No games found with this player.
+      <div className="max-w-[1320px] space-y-6">
+        <PageHeader kicker={<BackToFriends />} title="Friend" className="pb-0" />
+        <div className="panel flex flex-col items-center gap-3 px-8 py-14 text-center">
+          <UsersIcon className="h-8 w-8 text-lol-gold/60" />
+          <div className="text-[14px] text-lol-text">No games found with this player.</div>
         </div>
       </div>
     );
   }
 
   const { player, matches } = data;
-  const losses = player.games - player.wins;
   const avg = (total: number) => formatDecimal(player.games > 0 ? total / player.games : 0);
   const ratio =
     player.deaths > 0
@@ -74,95 +87,163 @@ export default function FriendDetail() {
     : null;
   const mvps = matches.filter((m) => m.friend.score_badge === "MVP").length;
   const aces = matches.filter((m) => m.friend.score_badge === "ACE").length;
+  const scoredWins = scored.filter((m) => m.friend.win).length;
 
   return (
-    <div className="max-w-6xl space-y-4">
-      <BackToFriends />
-
-      <div className="grid grid-cols-[1fr_22rem] gap-4 items-stretch">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <SummonerIcon iconId={player.profileIcon} size={56} />
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold text-lol-text-bright truncate">
-                <RiotId id={player.name} />
-              </h1>
-              <span className="text-sm text-lol-text">
-                {player.games.toLocaleString(LOCALE)} games together · last played{" "}
-                {formatTimeAgo(player.lastPlayed)}
-              </span>
-            </div>
+    <div className="max-w-[1320px] space-y-6">
+      <ProfileHero
+        portrait={
+          <div className="rounded-full bg-gradient-to-b from-lol-gold-light to-lol-gold/30 p-[2px]">
+            <SummonerIcon
+              iconId={player.profileIcon}
+              size={76}
+              className="border-[3px] border-lol-dark"
+            />
           </div>
-
-          {/* items-center keeps the columns at content height, so the dividers
-              stop short of the card's top and bottom edges */}
-          <div className="flex-1 flex items-center bg-lol-card rounded-xl border border-lol-border/60 divide-x divide-lol-border/60">
-            <div className="flex-1 px-4 py-2.5">
-              <div className="text-[11px] text-lol-text uppercase tracking-wider">Record</div>
-              <div className="text-xl font-bold text-lol-text-bright">
-                {player.wins.toLocaleString(LOCALE)}W{" "}
-                <span className="text-lol-text/60">{losses.toLocaleString(LOCALE)}L</span>
-              </div>
-              <div className="mt-1">
-                <WinRateBar wins={player.wins} total={player.games} />
-              </div>
-            </div>
-            <div className="flex-1 px-4 py-2.5">
-              <div className="text-[11px] text-lol-text uppercase tracking-wider">Their KDA</div>
-              <div className={`text-xl font-bold ${kdaColor(ratio)}`}>
-                {kdaRatio(player.kills, player.deaths, player.assists)}
-              </div>
-              <div className="text-xs text-lol-text mt-1">
-                <Kda
-                  kills={avg(player.kills)}
-                  deaths={avg(player.deaths)}
-                  assists={avg(player.assists)}
-                />{" "}
-                per game
-              </div>
-            </div>
-            <div className="flex-1 px-4 py-2.5">
-              <div className="text-[11px] text-lol-text uppercase tracking-wider">
-                Their Avg Score
-              </div>
-              <div
-                className={`text-xl font-bold ${avgScore != null ? scoreColor(avgScore) : "text-lol-text"}`}
-              >
-                {avgScore != null ? formatDecimal(avgScore) : "—"}
-              </div>
-              <div className="text-xs text-lol-text mt-1">
-                {mvps} MVP · {aces} ACE
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
-          <div className="px-3 py-2 border-b border-lol-border/60 flex items-center justify-between">
-            <span className="text-[11px] text-lol-text uppercase tracking-wider">
-              Their Champions
+        }
+      >
+        <PageHeader
+          kicker={<BackToFriends />}
+          title={
+            // A Riot ID keeps its own casing, which the title's caps would lose
+            <span className="normal-case">
+              <TaggedRiotId id={player.name} tagClassName="text-lol-text/45" />
             </span>
-            <span className="text-[11px] text-lol-text">{player.champions.length}</span>
-          </div>
-          {/* Sets the height of the whole top block — the stat card stretches
-              to match it — then scrolls */}
-          <div className="max-h-44 overflow-y-auto divide-y divide-lol-border/40">
-            {player.champions.map((c) => (
-              <ChampionRow key={c.champion_id} champ={c} champData={champData} />
-            ))}
-          </div>
-        </div>
+          }
+          subtitle={
+            <>
+              <span className="font-num text-[14px] font-semibold text-lol-text-bright">
+                {player.games.toLocaleString(LOCALE)}
+              </span>{" "}
+              {player.games === 1 ? "game" : "games"} together · last played{" "}
+              <span className="text-lol-text-bright/85">{formatTimeAgo(player.lastPlayed)}</span>
+            </>
+          }
+          className="pb-0"
+        />
+      </ProfileHero>
+
+      <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-4">
+        <RecordTogetherCard wins={player.wins} games={player.games} recent={matches} />
+
+        <StatCard
+          label="Their KDA"
+          accent="sky"
+          icon={<SwordsIcon className="h-3.5 w-3.5" />}
+          value={
+            /* Three numbers where the other cards show one — a notch smaller
+               keeps it on one line in the narrowest column */
+            <span className="text-[26px]">
+              <Kda
+                kills={avg(player.kills)}
+                deaths={avg(player.deaths)}
+                assists={avg(player.assists)}
+              />
+            </span>
+          }
+          subtext={
+            <span className={`font-num text-[15px] font-semibold ${kdaColor(ratio)}`}>
+              {kdaRatio(player.kills, player.deaths, player.assists)}{" "}
+              <span className="text-[12px] tracking-[0.08em]">KDA</span>
+            </span>
+          }
+        >
+          {/* Their totals across our games, as tiles like Match History's */}
+          <KdaTotals kills={player.kills} deaths={player.deaths} assists={player.assists} />
+        </StatCard>
+
+        <StatCard
+          label="Their Avg Score"
+          accent="gold"
+          icon={<StarIcon className="h-3.5 w-3.5" />}
+          value={
+            <ScoreValue score={avgScore} color={avgScore != null ? scoreColor(avgScore) : ""} />
+          }
+          subtext={<ScoreMeter score={avgScore} />}
+        >
+          <BadgeCounts
+            mvps={mvps}
+            aces={aces}
+            scoredWins={scoredWins}
+            scoredLosses={scored.length - scoredWins}
+          />
+        </StatCard>
       </div>
 
-      <h2 className="text-sm font-semibold text-lol-text-bright uppercase tracking-wider pt-1">
-        Games Played Together
-      </h2>
+      <ChampionsPanel champions={player.champions} champData={champData} />
 
-      <div className="space-y-1">
-        {matches.map((m) => (
-          <SharedGameRow key={m.game_id} match={m} champData={champData} expansion={expansion}>
-            <GameBlocks match={m} champData={champData} friendName={player.name} />
-          </SharedGameRow>
+      <div>
+        <GamesHeading games={matches.length} />
+        {/* The stat bars come in once there's room for both players' */}
+        <div className="@container space-y-2">
+          {matches.map((m) => (
+            <SharedGameRow key={m.game_id} match={m} champData={champData} expansion={expansion}>
+              <GameBlocks match={m} champData={champData} friendName={player.name} />
+            </SharedGameRow>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Three rows of a champion grid, the height every row of which is fixed so the
+// cut always falls between rows
+const CHAMPION_ROW_PX = 52;
+const CHAMPION_ROWS_SHOWN = 3;
+
+// Every champion they've played with us, three rows of it until asked for the
+// rest: a long-time friend has played most of the roster
+function ChampionsPanel({
+  champions,
+  champData,
+}: {
+  champions: TeammateChampionStats[];
+  champData: ChampionData;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const grid = useRef<HTMLDivElement>(null);
+  const collapsed = CHAMPION_ROW_PX * CHAMPION_ROWS_SHOWN;
+
+  // How many fit in three rows depends on how many columns the width allows,
+  // so the toggle only shows once the grid is measured to hold more
+  useLayoutEffect(() => {
+    const el = grid.current;
+    if (!el) return;
+    const measure = () => setOverflows(el.scrollHeight > collapsed + 1);
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    measure();
+    return () => observer.disconnect();
+  }, [champions, collapsed]);
+
+  return (
+    <div className="panel overflow-hidden">
+      <div className="panel-head">
+        <span className="section-title">Their Champions</span>
+        <span className="font-num text-[14px] text-lol-text">{champions.length}</span>
+        {(overflows || showAll) && (
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            aria-expanded={showAll}
+            className="btn btn-ghost btn-sm ml-auto -mr-2"
+          >
+            {showAll ? "Show fewer" : `Show all ${champions.length}`}
+            <ChevronDownIcon
+              className={`h-3.5 w-3.5 transition-transform ${showAll ? "rotate-180" : ""}`}
+            />
+          </button>
+        )}
+      </div>
+      {/* The last row's rule tucks under the panel's own border */}
+      <div
+        ref={grid}
+        style={{ maxHeight: showAll ? undefined : collapsed, gridAutoRows: CHAMPION_ROW_PX }}
+        className="-mb-px grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-x-8 overflow-hidden px-4"
+      >
+        {champions.map((c) => (
+          <ChampionRow key={c.champion_id} champ={c} champData={champData} />
         ))}
       </div>
     </div>
@@ -180,20 +261,20 @@ function ChampionRow({
     champ.deaths > 0 ? (champ.kills + champ.assists) / champ.deaths : champ.kills + champ.assists;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5">
-      <ChampionIcon championId={champ.champion_id} size={26} />
-      <div className="min-w-0 flex-1">
-        <div className="text-xs text-lol-text-bright truncate">
+    <div className="flex items-center gap-2.5 border-b border-lol-line">
+      <ChampionIcon championId={champ.champion_id} size={34} />
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="truncate font-display text-[15px] font-semibold text-lol-text-bright">
           {getChampionName(champData, champ.champion_id)}
         </div>
-        <div className="text-[10px] text-lol-text">
+        <div className="font-num truncate text-[12px] text-lol-text">
           {champ.games} {champ.games === 1 ? "game" : "games"} ·{" "}
           <span className={kdaColor(ratio)}>
             {kdaRatio(champ.kills, champ.deaths, champ.assists)} KDA
           </span>
         </div>
       </div>
-      <div className="w-28 shrink-0">
+      <div className="w-[7.5rem] shrink-0">
         <WinRateBar wins={champ.wins} total={champ.games} />
       </div>
     </div>
@@ -202,6 +283,7 @@ function ChampionRow({
 
 function PlayerBlock({
   label,
+  you = false,
   championId,
   champData,
   kills,
@@ -215,6 +297,7 @@ function PlayerBlock({
   max,
 }: {
   label: string;
+  you?: boolean;
   championId: number;
   champData: ChampionData;
   kills: number;
@@ -230,24 +313,34 @@ function PlayerBlock({
   const kda = kdaRatio(kills, deaths, assists);
 
   return (
-    <div className="flex items-center gap-2 min-w-0">
-      <ChampionIcon championId={championId} size={32} />
-      <div className="min-w-0 w-24">
-        <div className="text-[10px] text-lol-text uppercase tracking-wider truncate" title={label}>
-          <RiotId id={label} />
-        </div>
-        <div className="text-xs text-lol-text-bright truncate">
-          {getChampionName(champData, championId)}
-        </div>
+    <div className="relative flex min-w-0 items-center gap-2.5">
+      <ChampionIcon championId={championId} size={44} />
+      {/* The name alone: the tag is in the page title, and the column is narrow */}
+      <div className="w-[96px] min-w-0">
+        <RowPlayer name={you ? label : label.split("#")[0]} you={you}>
+          <div className="truncate font-display text-[16px] font-semibold text-lol-text-bright">
+            {getChampionName(champData, championId)}
+          </div>
+        </RowPlayer>
       </div>
-      <div className="w-20 shrink-0">
-        <div className="text-xs text-lol-text-bright">
+      <div className="w-[84px] shrink-0">
+        <div className="font-num text-[17px] font-semibold leading-tight text-lol-text-bright">
           <Kda kills={kills} deaths={deaths} assists={assists} />
         </div>
-        <div className={`text-[10px] ${kdaHighlight(kills, deaths, assists)}`}>{kda} KDA</div>
+        <div
+          className={`font-num text-[13px] font-semibold ${kdaHighlight(kills, deaths, assists)}`}
+        >
+          {kda} <span className="text-[11px] tracking-[0.06em]">KDA</span>
+        </div>
       </div>
-      <ScoreCell score={score} badge={badge} />
-      <StatBars damage={damage} taken={taken} heal={heal} max={max} className="w-32" />
+      <RowScore score={score} badge={badge} />
+      <StatBars
+        damage={damage}
+        taken={taken}
+        heal={heal}
+        max={max}
+        className="hidden w-[124px] @min-[70rem]:block"
+      />
     </div>
   );
 }
@@ -272,6 +365,7 @@ function GameBlocks({
     <>
       <PlayerBlock
         label="You"
+        you
         championId={match.champion_id}
         champData={champData}
         kills={match.kills}
@@ -285,7 +379,7 @@ function GameBlocks({
         max={max}
       />
 
-      <span className="w-px self-stretch bg-lol-border/60 shrink-0" />
+      <span className="relative w-px shrink-0 self-stretch bg-lol-line" />
 
       <PlayerBlock
         label={friendName}

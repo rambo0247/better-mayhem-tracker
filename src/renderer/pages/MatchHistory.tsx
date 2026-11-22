@@ -28,12 +28,15 @@ import MatchScoreboard from "../components/MatchScoreboard";
 import MultikillBadge from "../components/MultikillBadge";
 import StatBars from "../components/StatBars";
 import ScoreCell from "../components/ScoreCell";
+import { BadgeCounts, ScoreMeter } from "../components/SharedStats";
 import StatCard from "../components/StatCard";
+import PageHeader from "../components/PageHeader";
 import SummonerIcon from "../components/SummonerIcon";
 import SummonerSpellIcon from "../components/SummonerSpellIcon";
 import WinRateBar from "../components/WinRateBar";
 import {
   ArrowDownIcon,
+  ChevronDownIcon,
   CopyIcon,
   ImageIcon,
   StarIcon,
@@ -49,7 +52,6 @@ import {
   formatDateTime,
   formatDecimal,
   formatDuration,
-  formatPercent,
   formatPlaytime,
   formatTimeAgo,
   formatKDA,
@@ -91,10 +93,10 @@ function emptyStateMessage(
 
 // The multikill filters, toggled from the stat card or the filter menu
 const MULTIKILL_KINDS: { kind: MultikillType; label: string; name: string; color: string }[] = [
-  { kind: "doubles", label: "D", name: "double", color: "text-sky-400" },
-  { kind: "triples", label: "T", name: "triple", color: "text-amber-400" },
-  { kind: "quadras", label: "Q", name: "quadra", color: "text-purple-400" },
-  { kind: "pentas", label: "P", name: "penta", color: "text-red-400" },
+  { kind: "doubles", label: "Double", name: "double", color: "text-sky-400" },
+  { kind: "triples", label: "Triple", name: "triple", color: "text-amber-400" },
+  { kind: "quadras", label: "Quadra", name: "quadra", color: "text-purple-400" },
+  { kind: "pentas", label: "Penta", name: "penta", color: "text-red-400" },
 ];
 
 // The unselected state is the default sort (date), so it isn't listed here
@@ -561,28 +563,235 @@ export default function MatchHistory() {
       dashboard.multikills.pentas
     : 0;
 
+  const actions = (
+    <>
+      <FilterMenu active={activeFilters} onReset={clearFilters}>
+        {/* A single-account database doesn't need an account dropdown */}
+        {(filterOptions.accounts.length > 1 || accountFilter !== undefined) && (
+          <FilterField label="Account">
+            <select
+              value={accountFilter ?? ""}
+              onChange={(e) => setAccountFilter(e.target.value === "" ? undefined : e.target.value)}
+              className="select w-full"
+            >
+              <option value="">All Accounts</option>
+              {filterOptions.accounts.map((a) => (
+                <option key={a.puuid} value={a.puuid}>
+                  {a.name ?? "Unknown account"}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+        )}
+        <FilterField label="Champion">
+          <select
+            value={championFilter ?? ""}
+            onChange={(e) =>
+              setChampionFilter(e.target.value === "" ? undefined : Number(e.target.value))
+            }
+            className="select w-full"
+          >
+            <option value="">All Champions</option>
+            {championOptions.map(({ id, name }) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterField label="Set">
+          <select
+            value={seasonFilter ?? ""}
+            onChange={(e) => setSeasonFilter(e.target.value === "" ? undefined : e.target.value)}
+            className="select w-full"
+          >
+            <option value="">All Sets</option>
+            {filterOptions.seasons.map((s) => (
+              <option key={s} value={s}>
+                {seasonName(s)}
+              </option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterField label="Patch">
+          <select
+            value={patchFilter ?? ""}
+            onChange={(e) => setPatchFilter(e.target.value === "" ? undefined : e.target.value)}
+            className="select w-full"
+          >
+            <option value="">All Patches</option>
+            {filterOptions.patches.map((p) => (
+              <option key={p} value={p}>
+                Patch {formatPatch(p)}
+              </option>
+            ))}
+          </select>
+        </FilterField>
+        {(filterOptions.queues.length > 1 || queueFilter !== undefined) && (
+          <FilterField label="Queue">
+            <select
+              value={queueFilter ?? ""}
+              onChange={(e) =>
+                setQueueFilter(e.target.value === "" ? undefined : Number(e.target.value))
+              }
+              className="select w-full"
+            >
+              <option value="">All Queues</option>
+              {filterOptions.queues.map((q) => (
+                <option key={q} value={q}>
+                  {queueLabel(q)}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+        )}
+        <FilterField label="Multikills">
+          <div className="grid grid-cols-4 gap-1">
+            {MULTIKILL_KINDS.map(({ kind, name, color }) => (
+              <button
+                key={kind}
+                onClick={() => toggleMultikill(kind)}
+                title={`Only show games with a ${name} kill`}
+                className={`font-display rounded-[3px] border py-1 text-[12px] font-bold uppercase tracking-[0.06em] transition-colors ${color} ${
+                  multikillFilter.includes(kind)
+                    ? "border-lol-gold/60 bg-lol-gold/10"
+                    : "border-lol-border hover:border-lol-gold/50"
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </FilterField>
+        {filterOptions.hasFavorites && (
+          <button
+            onClick={() => setFavoritesOnly((v) => !v)}
+            className={`btn btn-sm w-full justify-start ${favoritesOnly ? "btn-active" : ""}`}
+          >
+            <StarIcon
+              className={`h-3.5 w-3.5 ${favoritesOnly ? "text-amber-400" : ""}`}
+              fill={favoritesOnly ? "currentColor" : "none"}
+            />
+            Favorites only
+          </button>
+        )}
+      </FilterMenu>
+      <div className="flex items-center">
+        <select
+          value={sort ?? ""}
+          onChange={(e) => {
+            setSort(e.target.value === "" ? undefined : (e.target.value as MatchSort));
+            setSortDir("desc");
+          }}
+          className="select rounded-r-none"
+          aria-label="Sort by"
+        >
+          <option value="">Newest</option>
+          {SORT_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
+          title={
+            !sort || sort === "date"
+              ? sortDir === "desc"
+                ? "Newest first"
+                : "Oldest first"
+              : sortDir === "desc"
+                ? "Highest first"
+                : "Lowest first"
+          }
+          className="btn btn-icon -ml-px rounded-l-none"
+        >
+          <ArrowDownIcon
+            className={`h-3.5 w-3.5 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
+    </>
+  );
+
   return (
-    <div className="max-w-7xl space-y-4">
+    <div className="max-w-[1320px] space-y-6">
+      <PageHeader
+        kicker="Play"
+        title="Match History"
+        subtitle={
+          dashboard && dashboard.totalGames > 0 ? (
+            <>
+              <span className="font-num text-[14px] text-lol-text-bright">
+                {dashboard.totalGames.toLocaleString(LOCALE)}
+              </span>{" "}
+              {dashboard.totalGames === 1 ? "game" : "games"} recorded
+              {dashboard.totalDuration > 0 && (
+                <>
+                  {" · "}
+                  <span className="font-num text-[14px] text-lol-text-bright">
+                    {formatPlaytime(dashboard.totalDuration)}
+                  </span>{" "}
+                  played
+                </>
+              )}
+            </>
+          ) : (
+            "Every ARAM Mayhem game you play, recorded automatically"
+          )
+        }
+        actions={actions}
+        className="pb-0"
+      />
+
       {/* Stat Cards */}
       {dashboard && dashboard.totalGames > 0 && (
-        <div className="grid grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))] gap-4 items-stretch">
+        <div className="grid grid-cols-[minmax(0,1.45fr)_repeat(3,minmax(0,1fr))] items-stretch gap-4">
           <ProfileCard profile={profileShown} dashboard={dashboard} />
 
           <StatCard
             label="Avg Score"
             accent="gold"
-            icon={<StarIcon className="w-3 h-3" />}
+            icon={<StarIcon className="h-3.5 w-3.5" />}
             value={
               dashboard.avgScore != null ? (
                 <span className={scoreColor(dashboard.avgScore)}>
                   {formatDecimal(dashboard.avgScore)}
-                  <span className="text-sm font-semibold text-lol-text/60"> / 10</span>
+                  <span className="text-[17px] font-medium text-lol-text/60"> / 10</span>
                 </span>
               ) : (
                 "—"
               )
             }
-            subtext={<ScoreMeter score={dashboard.avgScore} />}
+            subtext={
+              <>
+                <ScoreMeter score={dashboard.avgScore} />
+                {/* The ramp every score in the app is coloured by: ticks on the
+                    0–10 track where the colour changes, and what each step means */}
+                <div className="relative -mt-1.5 h-1.5">
+                  {[5, 7, 9].map((at) => (
+                    <span
+                      key={at}
+                      className="absolute top-0 h-1.5 w-px bg-lol-dark"
+                      style={{ left: `${at * 10}%` }}
+                    />
+                  ))}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-2.5 text-[12px]">
+                  {(
+                    [
+                      ["5+", "solid", "text-lol-text-bright"],
+                      ["7+", "great", "text-sky-400"],
+                      ["9+", "elite", "text-amber-400"],
+                    ] as const
+                  ).map(([at, word, color]) => (
+                    <span key={at} className={color}>
+                      <span className="font-num font-semibold">{at}</span> {word}
+                    </span>
+                  ))}
+                </div>
+              </>
+            }
           >
             <BadgeCounts
               mvps={dashboard.mvps}
@@ -595,35 +804,56 @@ export default function MatchHistory() {
           <StatCard
             label="Avg KDA"
             accent="sky"
-            icon={<SwordsIcon className="w-3 h-3" />}
+            icon={<SwordsIcon className="h-3.5 w-3.5" />}
             value={
               /* Three numbers where the other cards show one — a notch smaller
                  keeps it on one line in the narrowest column */
-              <span className="text-xl">
+              <span className="text-[26px]">
                 <Kda kills={avgKills} deaths={avgDeaths} assists={avgAssists} />
               </span>
             }
             subtext={
-              <span className={kdaColor(kdaValue)}>
-                {kdaRatio(dashboard.totalKills, dashboard.totalDeaths, dashboard.totalAssists)} KDA
+              <span className={`font-num text-[15px] font-semibold ${kdaColor(kdaValue)}`}>
+                {kdaRatio(dashboard.totalKills, dashboard.totalDeaths, dashboard.totalAssists)}{" "}
+                <span className="text-[12px] tracking-[0.08em]">KDA</span>
               </span>
             }
           >
-            <div className="text-[11px] text-lol-text">
-              <Kda
-                kills={dashboard.totalKills.toLocaleString(LOCALE)}
-                deaths={dashboard.totalDeaths.toLocaleString(LOCALE)}
-                assists={dashboard.totalAssists.toLocaleString(LOCALE)}
-              />{" "}
-              total
+            {/* Career totals as tiles, built like the multikill card's beside it */}
+            <div className="grid grid-cols-3 gap-1">
+              {(
+                [
+                  ["Kills", dashboard.totalKills],
+                  ["Deaths", dashboard.totalDeaths],
+                  ["Assists", dashboard.totalAssists],
+                ] as const
+              ).map(([label, total]) => (
+                <div
+                  key={label}
+                  className="rounded-[3px] border border-lol-line bg-black/15 px-1 py-1 text-center"
+                >
+                  <div className="font-num text-[16px] font-semibold leading-tight text-lol-text-bright">
+                    {total.toLocaleString(LOCALE)}
+                  </div>
+                  <div className="label text-[11px] leading-3 text-lol-text">{label}</div>
+                </div>
+              ))}
             </div>
           </StatCard>
 
           <StatCard
             label="Multikills"
             accent="purple"
-            icon={<ZapIcon className="w-3 h-3" />}
+            icon={<ZapIcon className="h-3.5 w-3.5" />}
             value={totalMultikills.toLocaleString(LOCALE)}
+            subtext={
+              <>
+                <span className="font-num text-[14px] text-lol-text-bright">
+                  {formatDecimal(totalMultikills / dashboard.totalGames)}
+                </span>{" "}
+                per game
+              </>
+            }
           >
             <div className="grid grid-cols-4 gap-1">
               {MULTIKILL_KINDS.map(({ kind, label, name, color }) => {
@@ -633,16 +863,16 @@ export default function MatchHistory() {
                     key={kind}
                     onClick={() => toggleMultikill(kind)}
                     title={`Only show games with a ${name} kill`}
-                    className={`text-center rounded-md border px-1 py-0.5 transition-colors ${
+                    className={`rounded-[3px] border px-1 py-1 text-center transition-colors ${
                       active
                         ? "border-lol-gold/60 bg-lol-gold/10"
-                        : "border-transparent hover:border-lol-border hover:bg-white/5"
+                        : "border-lol-line bg-black/15 hover:border-lol-border hover:bg-white/5"
                     }`}
                   >
-                    <div className={`text-base font-bold ${color}`}>
+                    <div className={`font-num text-[17px] font-bold leading-tight ${color}`}>
                       {dashboard.multikills[kind].toLocaleString(LOCALE)}
                     </div>
-                    <div className="text-[10px] text-lol-text">{label}</div>
+                    <div className="label text-[11px] leading-3 text-lol-text">{label}</div>
                   </button>
                 );
               })}
@@ -651,254 +881,111 @@ export default function MatchHistory() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Match History</h1>
-        <div className="flex items-center gap-2">
-          <FilterMenu active={activeFilters} onReset={clearFilters}>
-            {/* A single-account database doesn't need an account dropdown */}
-            {(filterOptions.accounts.length > 1 || accountFilter !== undefined) && (
-              <FilterField label="Account">
-                <select
-                  value={accountFilter ?? ""}
-                  onChange={(e) =>
-                    setAccountFilter(e.target.value === "" ? undefined : e.target.value)
-                  }
-                  className="select w-full"
-                >
-                  <option value="">All Accounts</option>
-                  {filterOptions.accounts.map((a) => (
-                    <option key={a.puuid} value={a.puuid}>
-                      {a.name ?? "Unknown account"}
-                    </option>
-                  ))}
-                </select>
-              </FilterField>
-            )}
-            <FilterField label="Champion">
-              <select
-                value={championFilter ?? ""}
-                onChange={(e) =>
-                  setChampionFilter(e.target.value === "" ? undefined : Number(e.target.value))
-                }
-                className="select w-full"
-              >
-                <option value="">All Champions</option>
-                {championOptions.map(({ id, name }) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
-            <FilterField label="Set">
-              <select
-                value={seasonFilter ?? ""}
-                onChange={(e) =>
-                  setSeasonFilter(e.target.value === "" ? undefined : e.target.value)
-                }
-                className="select w-full"
-              >
-                <option value="">All Sets</option>
-                {filterOptions.seasons.map((s) => (
-                  <option key={s} value={s}>
-                    {seasonName(s)}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
-            <FilterField label="Patch">
-              <select
-                value={patchFilter ?? ""}
-                onChange={(e) => setPatchFilter(e.target.value === "" ? undefined : e.target.value)}
-                className="select w-full"
-              >
-                <option value="">All Patches</option>
-                {filterOptions.patches.map((p) => (
-                  <option key={p} value={p}>
-                    Patch {formatPatch(p)}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
-            {(filterOptions.queues.length > 1 || queueFilter !== undefined) && (
-              <FilterField label="Queue">
-                <select
-                  value={queueFilter ?? ""}
-                  onChange={(e) =>
-                    setQueueFilter(e.target.value === "" ? undefined : Number(e.target.value))
-                  }
-                  className="select w-full"
-                >
-                  <option value="">All Queues</option>
-                  {filterOptions.queues.map((q) => (
-                    <option key={q} value={q}>
-                      {queueLabel(q)}
-                    </option>
-                  ))}
-                </select>
-              </FilterField>
-            )}
-            <FilterField label="Multikills">
-              <div className="grid grid-cols-4 gap-1">
-                {MULTIKILL_KINDS.map(({ kind, name, color }) => (
+      <div>
+        {matches.length === 0 && !loading && (
+          <div className="panel flex flex-col items-center gap-3 px-8 py-14 text-center">
+            <SwordsIcon className="h-8 w-8 text-lol-gold/60" />
+            <div className="max-w-md text-[14px] text-lol-text">
+              {activeFilters > 0 ? (
+                <>
+                  No games match the current filters.{" "}
                   <button
-                    key={kind}
-                    onClick={() => toggleMultikill(kind)}
-                    title={`Only show games with a ${name} kill`}
-                    className={`rounded-md border py-1 text-xs capitalize transition-colors ${color} ${
-                      multikillFilter.includes(kind)
-                        ? "border-lol-gold/60 bg-lol-gold/10"
-                        : "border-lol-border hover:border-lol-gold/60"
-                    }`}
+                    onClick={clearFilters}
+                    className="font-semibold text-lol-gold hover:underline"
                   >
-                    {name}
+                    Clear filters
                   </button>
-                ))}
-              </div>
-            </FilterField>
-            {filterOptions.hasFavorites && (
-              <button
-                onClick={() => setFavoritesOnly((v) => !v)}
-                className={`flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors ${
-                  favoritesOnly
-                    ? "border-lol-gold/60 bg-lol-gold/10 text-amber-400"
-                    : "border-lol-border text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright"
-                }`}
-              >
-                <StarIcon className="h-3.5 w-3.5" fill={favoritesOnly ? "currentColor" : "none"} />
-                Favorites only
-              </button>
-            )}
-          </FilterMenu>
-          <div className="flex items-center gap-1">
-            <select
-              value={sort ?? ""}
-              onChange={(e) => {
-                setSort(e.target.value === "" ? undefined : (e.target.value as MatchSort));
-                setSortDir("desc");
+                </>
+              ) : (
+                emptyStateMessage(lcuStatus, backfill)
+              )}
+            </div>
+          </div>
+        )}
+
+        {(() => {
+          const renderMatch = (m: MatchListItem) => (
+            <GameRow
+              key={m.game_id}
+              match={m}
+              champData={champData}
+              expanded={expandedId === m.game_id}
+              detail={expandedId === m.game_id ? detail : null}
+              detailLoading={expandedId === m.game_id && detailLoading}
+              puuids={puuids}
+              onToggle={() => toggleExpand(m.game_id)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setContextMenu({ x: e.clientX, y: e.clientY, match: m });
               }}
-              className="select"
-            >
-              <option value="">Sort</option>
-              {SORT_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
+            />
+          );
+          return sessions ? (
+            <div className="space-y-6">
+              {sessions.map((s) => (
+                <section key={s.key}>
+                  <SessionHeader session={s} />
+                  <div className="space-y-1.5">{s.matches.map(renderMatch)}</div>
+                </section>
               ))}
-            </select>
-            <button
-              onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
-              title={
-                !sort || sort === "date"
-                  ? sortDir === "desc"
-                    ? "Newest first"
-                    : "Oldest first"
-                  : sortDir === "desc"
-                    ? "Highest first"
-                    : "Lowest first"
-              }
-              className="flex items-center rounded-lg border border-lol-border bg-lol-card px-2 py-1.5 text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright"
-            >
-              {/* h-5 matches the selects' line-height so the boxes end up the same height */}
-              <span className="flex h-5 items-center">
-                <ArrowDownIcon
-                  className={`h-3.5 w-3.5 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`}
-                />
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {matches.length === 0 && !loading && (
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 p-8 text-center text-lol-text">
-          {activeFilters > 0 ? (
-            <>
-              No games match the current filters.{" "}
-              <button onClick={clearFilters} className="text-lol-gold hover:underline">
-                Clear filters
-              </button>
-            </>
+            </div>
           ) : (
-            emptyStateMessage(lcuStatus, backfill)
-          )}
-        </div>
-      )}
-
-      {(() => {
-        const renderMatch = (m: MatchListItem) => (
-          <GameRow
-            key={m.game_id}
-            match={m}
-            champData={champData}
-            expanded={expandedId === m.game_id}
-            detail={expandedId === m.game_id ? detail : null}
-            detailLoading={expandedId === m.game_id && detailLoading}
-            puuids={puuids}
-            onToggle={() => toggleExpand(m.game_id)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              setContextMenu({ x: e.clientX, y: e.clientY, match: m });
-            }}
-          />
-        );
-        return sessions ? (
-          <div className="space-y-4">
-            {sessions.map((s) => (
-              <div key={s.key}>
-                <SessionHeader session={s} />
-                <div className="space-y-1">{s.matches.map(renderMatch)}</div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-1">{matches.map(renderMatch)}</div>
-        );
-      })()}
+            <div className="space-y-1.5">{matches.map(renderMatch)}</div>
+          );
+        })()}
+      </div>
 
       {hasMore && <div ref={sentinelRef} className="h-1" />}
       {loading && matches.length > 0 && (
-        <div className="text-center py-3 text-sm text-lol-text">Loading...</div>
+        <div className="label py-3 text-center text-[12px]">Loading…</div>
       )}
 
       {contextMenu && (
         <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
-          <button
-            onClick={() => handleToggleFavorite(contextMenu.match)}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-lol-text-bright hover:bg-white/5 text-left"
-          >
-            <span className={contextMenu.match.favorite ? "text-amber-400" : "text-lol-text"}>
-              {contextMenu.match.favorite ? "★" : "☆"}
-            </span>
+          <MenuItem onClick={() => handleToggleFavorite(contextMenu.match)}>
+            <StarIcon
+              className={`h-3.5 w-3.5 ${contextMenu.match.favorite ? "text-amber-400" : "text-lol-text"}`}
+              fill={contextMenu.match.favorite ? "currentColor" : "none"}
+            />
             {contextMenu.match.favorite ? "Remove from Favorites" : "Add to Favorites"}
-          </button>
-          <button
+          </MenuItem>
+          <div className="my-1 h-px bg-lol-line" />
+          <MenuItem
             onClick={() => {
               const gameId = contextMenu.match.game_id;
               setContextMenu(null);
               void exporting.run({ kind: "game", gameId }, "copy");
             }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-lol-text-bright hover:bg-white/5 text-left"
           >
             <CopyIcon className="h-3.5 w-3.5 text-lol-text" />
             Copy Image
-          </button>
-          <button
+          </MenuItem>
+          <MenuItem
             onClick={() => {
               const gameId = contextMenu.match.game_id;
               setContextMenu(null);
               void exporting.run({ kind: "game", gameId }, "save");
             }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-lol-text-bright hover:bg-white/5 text-left"
           >
             <ImageIcon className="h-3.5 w-3.5 text-lol-text" />
             Export as PNG
-          </button>
+          </MenuItem>
         </ContextMenu>
       )}
 
       <ExportImageMessage message={exporting.message} />
     </div>
+  );
+}
+
+function MenuItem({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-[3px] px-2.5 py-1.5 text-left text-[13px] font-medium text-lol-text-bright hover:bg-white/[0.06]"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -916,20 +1003,25 @@ function ProfileCard({
   const pips = dashboard.recentForm.slice().reverse();
 
   return (
-    <div className="flex flex-col gap-3 overflow-hidden bg-lol-card rounded-xl border border-lol-border/60 p-4">
-      <div className="flex items-center gap-3">
-        <SummonerIcon
-          iconId={profile?.profileIcon ?? null}
-          size={40}
-          className="ring-2 ring-lol-gold/30"
-        />
+    <div className="panel relative flex flex-col gap-4 overflow-hidden p-5">
+      {/* A wash of gold behind the portrait, so the card reads as the lead */}
+      <span className="pointer-events-none absolute -left-16 -top-24 h-64 w-64 rounded-full bg-lol-gold/[0.07] blur-3xl" />
+      <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-lol-gold/80 via-lol-gold/30 to-transparent" />
+      <div className="relative flex items-center gap-3.5">
+        <div className="rounded-full bg-gradient-to-b from-lol-gold-light to-lol-gold/40 p-[2px]">
+          <SummonerIcon
+            iconId={profile?.profileIcon ?? null}
+            size={48}
+            className="border-2 border-lol-card"
+          />
+        </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-lol-text-bright truncate">
+          <div className="truncate font-display text-[22px] font-bold leading-tight text-lol-text-bright">
             {profile?.name ? <RiotId id={profile.name} /> : "Summoner"}
           </div>
           {/* The totals below pool every tracked account, so say when the name
               above only accounts for part of them */}
-          <div className="text-[11px] text-lol-text truncate">
+          <div className="truncate text-[12px] text-lol-text">
             {dashboard.totalGames.toLocaleString(LOCALE)}{" "}
             {dashboard.totalGames === 1 ? "game" : "games"}
             {dashboard.totalDuration > 0 && ` · ${formatPlaytime(dashboard.totalDuration)} played`}
@@ -938,75 +1030,31 @@ function ProfileCard({
         </div>
       </div>
 
-      <div className="mt-auto">
-        <div className="flex items-end justify-between gap-3 mb-1.5">
-          <div className="text-2xl font-bold leading-none">
-            <span className="text-lol-win">{dashboard.wins.toLocaleString(LOCALE)}W</span>{" "}
-            <span className="text-lol-loss/70">{losses.toLocaleString(LOCALE)}L</span>
+      <div className="relative mt-auto">
+        <div className="mb-2.5 flex items-end justify-between gap-3">
+          <div className="font-num text-[32px] font-semibold leading-none">
+            <span className="text-lol-win">{dashboard.wins.toLocaleString(LOCALE)}</span>
+            <span className="ml-0.5 text-[18px] text-lol-win/70">W</span>
+            <span className="ml-2.5 text-lol-loss/85">{losses.toLocaleString(LOCALE)}</span>
+            <span className="ml-0.5 text-[18px] text-lol-loss/60">L</span>
           </div>
-          <div
-            className="flex items-end gap-[3px]"
-            title={`Last ${pips.length} ${pips.length === 1 ? "game" : "games"}`}
-          >
-            {pips.map((g) => (
-              <span
-                key={g.game_id}
-                className={`h-4 w-[5px] rounded-full ${g.win ? "bg-lol-win" : "bg-lol-loss/70"}`}
-              />
-            ))}
+          <div className="text-right">
+            <div className="label mb-1 text-[11px] text-lol-text/80">Last {pips.length}</div>
+            <div
+              className="flex items-end gap-[3px]"
+              title={`Last ${pips.length} ${pips.length === 1 ? "game" : "games"}`}
+            >
+              {pips.map((g) => (
+                <span
+                  key={g.game_id}
+                  className={`slant-sm h-4 w-[9px] ${g.win ? "bg-lol-win" : "bg-lol-loss/75"}`}
+                />
+              ))}
+            </div>
           </div>
         </div>
         <WinRateBar wins={dashboard.wins} total={dashboard.totalGames} />
       </div>
-    </div>
-  );
-}
-
-// Muted separators keep the three averages on one line in a narrow card
-// 0-10 track for the average score, warming up as the score climbs
-function ScoreMeter({ score }: { score: number | null }) {
-  return (
-    <div className="h-1.5 rounded-full bg-lol-border/60 overflow-hidden">
-      <div
-        className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-sky-400 to-lol-gold transition-all"
-        style={{ width: `${Math.min(100, Math.max(0, (score ?? 0) * 10))}%` }}
-      />
-    </div>
-  );
-}
-
-// MVP is the best player on the winning team and ACE the best on the losing
-// one, so each rate is out of the games that could have produced it.
-function BadgeCounts({
-  mvps,
-  aces,
-  scoredWins,
-  scoredLosses,
-}: {
-  mvps: number;
-  aces: number;
-  scoredWins: number;
-  scoredLosses: number;
-}) {
-  const rate = (n: number, of: number) => (of > 0 ? formatPercent(n / of) : "—");
-
-  return (
-    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1">
-      <span className="rounded bg-amber-400/20 px-1 text-[9px] font-bold leading-[15px] text-amber-300">
-        MVP
-      </span>
-      <span className="text-xs font-semibold text-lol-text-bright">{mvps}</span>
-      <span className="text-[11px] text-lol-text" title="Share of wins">
-        {rate(mvps, scoredWins)}
-      </span>
-
-      <span className="rounded bg-purple-500/20 px-1 text-[9px] font-bold leading-[15px] text-purple-400">
-        ACE
-      </span>
-      <span className="text-xs font-semibold text-lol-text-bright">{aces}</span>
-      <span className="text-[11px] text-lol-text" title="Share of losses">
-        {rate(aces, scoredLosses)}
-      </span>
     </div>
   );
 }
@@ -1050,11 +1098,7 @@ function ContextMenu({
   }, [x, y]);
 
   return (
-    <div
-      ref={ref}
-      style={{ left: x, top: y }}
-      className="fixed z-50 min-w-44 py-1 bg-lol-card border border-lol-border rounded-md shadow-lg shadow-black/40"
-    >
+    <div ref={ref} style={{ left: x, top: y }} className="menu fixed z-50 min-w-52 py-1">
       {children}
     </div>
   );
@@ -1068,32 +1112,39 @@ function SessionHeader({ session }: { session: Session }) {
   const ratio = session.deaths > 0 ? (session.kills + session.assists) / session.deaths : Infinity;
 
   return (
-    <div className="flex items-baseline gap-3 px-1 pb-1.5">
-      <span className="text-sm font-semibold text-lol-text-bright">{session.label}</span>
-      <span className="text-xs text-lol-text">
-        {session.games} {session.games === 1 ? "game" : "games"}
+    <div className="mb-2.5 flex items-center gap-4 px-0.5">
+      <span className="font-display text-[17px] font-bold uppercase italic tracking-[0.04em] text-lol-text-bright">
+        {session.label}
       </span>
-      {played > 0 && (
-        <>
-          <span className="text-xs font-semibold">
-            <span className="text-lol-win">{session.wins}W</span>{" "}
-            <span className="text-lol-loss/70">{session.losses}L</span>
-          </span>
-          <span
-            className={`text-xs ${kdaColor(ratio)}`}
-            title={formatKDA(session.kills, session.deaths, session.assists)}
-          >
-            {kdaRatio(session.kills, session.deaths, session.assists)} KDA
-          </span>
-          {session.avgScore != null && (
-            <span className={`text-xs font-semibold ${scoreColor(session.avgScore)}`}>
-              {formatDecimal(session.avgScore)}
-              <span className="font-normal text-lol-text"> score</span>
+      <div className="flex items-center gap-3.5 text-[13px]">
+        <span className="text-lol-text">
+          {session.games} {session.games === 1 ? "game" : "games"}
+        </span>
+        {played > 0 && (
+          <>
+            <span className="font-num text-[14px] font-semibold">
+              <span className="text-lol-win">{session.wins}W</span>{" "}
+              <span className="text-lol-loss/85">{session.losses}L</span>
             </span>
-          )}
-        </>
-      )}
-      <span className="flex-1 self-center border-t border-lol-border/40" />
+            <span
+              className={`font-num text-[14px] font-semibold ${kdaColor(ratio)}`}
+              title={formatKDA(session.kills, session.deaths, session.assists)}
+            >
+              {kdaRatio(session.kills, session.deaths, session.assists)}
+              <span className="ml-1 text-[11px] tracking-[0.08em] text-lol-text">KDA</span>
+            </span>
+            {session.avgScore != null && (
+              <span
+                className={`font-num text-[14px] font-semibold ${scoreColor(session.avgScore)}`}
+              >
+                {formatDecimal(session.avgScore)}
+                <span className="ml-1 text-[11px] tracking-[0.08em] text-lol-text">SCORE</span>
+              </span>
+            )}
+          </>
+        )}
+      </div>
+      <span className="h-px flex-1 bg-gradient-to-r from-lol-border to-transparent" />
     </div>
   );
 }
@@ -1120,9 +1171,9 @@ function AugmentGrid({ augmentIds, patch }: { augmentIds: number[]; patch?: stri
   // grid stays two rows tall and rows keep a uniform height.
   const cols = augmentIds.length > 4 ? "grid-cols-3" : "grid-cols-2";
   return (
-    <div className={`grid ${cols} gap-0.5 w-fit`}>
+    <div className={`grid ${cols} w-fit gap-[3px]`}>
       {augmentIds.map((id, i) => (
-        <AugmentIcon key={i} augmentId={id} size={22} patch={patch} />
+        <AugmentIcon key={i} augmentId={id} size={24} patch={patch} />
       ))}
     </div>
   );
@@ -1144,52 +1195,77 @@ function GameRow({
   const kda = kdaRatio(match.kills, match.deaths, match.assists);
   const augmentIds = parseAugmentIds(match.augment_ids);
 
-  const accent = isFavorite
-    ? "bg-amber-400"
-    : isRemake
-      ? "bg-white/25"
-      : isWin
-        ? "bg-lol-win"
-        : "bg-lol-loss";
+  const edge = isRemake ? "bg-white/25" : isWin ? "bg-lol-win" : "bg-lol-loss";
   const tint = isRemake
-    ? "from-white/[0.03] to-white/[0.01]"
+    ? "from-white/[0.03]"
     : isWin
-      ? "from-lol-win/12 to-lol-win/[0.04]"
-      : "from-lol-loss/12 to-lol-loss/[0.04]";
+      ? "from-lol-win/[0.11]"
+      : "from-lol-loss/[0.11]";
+  const tag = isRemake
+    ? "bg-white/10 text-lol-text"
+    : isWin
+      ? "bg-lol-win/15 text-lol-win"
+      : "bg-lol-loss/15 text-lol-loss";
 
   return (
-    <div>
+    <div
+      className={`@container overflow-hidden rounded-md border transition-colors ${
+        expanded ? "border-lol-border bg-lol-card" : "border-lol-line bg-lol-card/80"
+      }`}
+    >
       <button
         onClick={onToggle}
         onContextMenu={onContextMenu}
-        className={`relative overflow-hidden w-full flex items-center gap-3 pl-4 pr-3 py-2.5 border border-lol-border/60 bg-lol-card hover:bg-lol-card-hover transition-colors text-left ${
-          expanded ? "rounded-t-lg" : "rounded-lg"
-        }`}
+        aria-expanded={expanded}
+        data-match-row
+        className="group relative flex w-full items-center justify-between gap-4 py-2.5 pl-5 pr-4 text-left transition-colors hover:bg-white/[0.025] @max-[1080px]:gap-3"
       >
-        <span className={`absolute left-0 inset-y-0 w-[3px] ${accent}`} />
-        <span className={`absolute inset-0 pointer-events-none bg-gradient-to-r ${tint}`} />
-        <div
-          className={`text-xs font-bold shrink-0 ${isRemake ? "text-gray-500 w-8" : isWin ? "text-lol-win w-8" : "text-lol-loss w-8"}`}
-        >
-          {isRemake ? "RMK" : isWin ? "WIN" : "LOSS"}
+        <span className={`absolute inset-y-0 left-0 w-[3px] ${edge}`} />
+        <span
+          className={`pointer-events-none absolute inset-y-0 left-0 w-[45%] bg-gradient-to-r ${tint} to-transparent`}
+        />
+
+        {/* Result and when */}
+        <div className="relative w-[68px] shrink-0">
+          <div
+            className={`slant-sm inline-block px-2 font-display text-[13px] font-extrabold italic leading-5 tracking-[0.08em] ${tag}`}
+          >
+            {isRemake ? "REMAKE" : isWin ? "VICTORY" : "DEFEAT"}
+          </div>
+          <div className="font-num mt-1 flex items-center gap-1 text-[13px] text-lol-text">
+            {formatDuration(match.game_duration)}
+            {isFavorite && (
+              <StarIcon
+                className="h-3 w-3 text-amber-400"
+                fill="currentColor"
+                aria-label="Favorite"
+              />
+            )}
+          </div>
         </div>
-        <ChampionIcon championId={match.champion_id} size={36} />
-        {/* Two 17px spells + the 2px gap match the portrait's 36px height */}
-        <div className="flex flex-col gap-0.5 shrink-0">
-          <SummonerSpellIcon spellId={match.spell1} size={17} />
-          <SummonerSpellIcon spellId={match.spell2} size={17} />
-        </div>
-        <div className="w-24 shrink-0">
-          <div className="text-sm text-lol-text-bright truncate">
+
+        {/* Champion */}
+        <div className="relative flex w-[176px] shrink-0 items-center gap-2.5">
+          <ChampionIcon championId={match.champion_id} size={46} />
+          {/* Two 22px spells and the 2px gap match the portrait's height */}
+          <div className="flex shrink-0 flex-col gap-0.5">
+            <SummonerSpellIcon spellId={match.spell1} size={22} />
+            <SummonerSpellIcon spellId={match.spell2} size={22} />
+          </div>
+          <div className="min-w-0 truncate font-display text-[17px] font-semibold text-lol-text-bright">
             {getChampionName(champData, match.champion_id)}
           </div>
         </div>
-        <div className="w-24 shrink-0">
-          <div className="text-sm text-lol-text-bright">
+
+        {/* KDA */}
+        <div className="relative w-[104px] shrink-0">
+          <div className="font-num text-[19px] font-semibold leading-tight text-lol-text-bright">
             <Kda kills={match.kills} deaths={match.deaths} assists={match.assists} />
           </div>
-          <div className={`text-xs ${kdaHighlight(match.kills, match.deaths, match.assists)}`}>
-            {kda} KDA
+          <div
+            className={`font-num text-[13px] font-semibold ${kdaHighlight(match.kills, match.deaths, match.assists)}`}
+          >
+            {kda} <span className="text-[11px] tracking-[0.08em]">KDA</span>
           </div>
         </div>
 
@@ -1206,43 +1282,54 @@ function GameRow({
             taken: match.game_max_taken,
             heal: match.game_max_heal,
           }}
-          className="w-40"
+          className="w-[180px] @max-[1080px]:w-[128px]"
         />
 
         {/* Augments – reserve 3 columns so mixed-queue lists stay aligned */}
-        <div className="w-[70px] shrink-0">
+        <div className="w-[78px] shrink-0">
           <AugmentGrid augmentIds={augmentIds} patch={match.game_version} />
         </div>
 
         {/* Items – 3x2 grid, no trinket (slot 6) */}
-        <div className="shrink-0 grid grid-cols-3 gap-0.5">
+        <div className="grid shrink-0 grid-cols-3 gap-[3px]">
           {[match.item0, match.item1, match.item2, match.item3, match.item4, match.item5].map(
             (itemId, i) => (
-              <ItemIcon key={i} itemId={itemId ?? 0} size={22} patch={match.game_version} />
+              <ItemIcon key={i} itemId={itemId ?? 0} size={24} patch={match.game_version} />
             ),
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
+        {/* Initials, the same compact chips every table uses, each spelled out
+            in its tooltip. A fixed width like every column here, so the row's
+            spare room is shared between the columns instead of pooling. */}
+        <div className="w-[104px] shrink-0 @max-[1080px]:w-[76px]">
           <MultikillBadge
             doubles={match.double_kills}
             triples={match.triple_kills}
             quadras={match.quadra_kills}
             pentas={match.penta_kills}
+            compact
           />
         </div>
-        <div className="text-xs text-lol-text text-right shrink-0">
-          <div className="tabular-nums">{formatDuration(match.game_duration)}</div>
-          <div className="w-fit ml-auto" title={formatDateTime(match.game_creation)}>
+        <div className="w-[60px] shrink-0 text-right">
+          <div
+            className="w-fit ml-auto text-[13px] font-medium text-lol-text-bright/85"
+            title={formatDateTime(match.game_creation)}
+          >
             {formatTimeAgo(match.game_creation)}
           </div>
+          <ChevronDownIcon
+            className={`ml-auto mt-1 h-4 w-4 text-lol-text/80 transition-transform group-hover:text-lol-text-bright ${
+              expanded ? "rotate-180 text-lol-gold" : ""
+            }`}
+          />
         </div>
       </button>
 
       {expanded && (
-        <div className="mb-1 bg-lol-card rounded-b-lg border border-t-0 border-lol-border/60 p-3">
+        <div className="overflow-x-auto border-t border-lol-line bg-black/20 p-4">
           {detailLoading ? (
-            <div className="text-sm text-lol-text text-center py-4">Loading...</div>
+            <div className="label py-6 text-center text-[12px]">Loading…</div>
           ) : detail ? (
             <MatchScoreboard detail={detail} champData={champData} puuids={puuids} />
           ) : null}

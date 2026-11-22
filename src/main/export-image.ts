@@ -92,7 +92,7 @@ function createCardWindow(): BrowserWindow {
     // exactly the width of the image it ends up in
     useContentSize: true,
     show: false,
-    backgroundColor: "#151923",
+    backgroundColor: "#0a1024",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       additionalArguments: localeArguments(),

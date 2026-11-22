@@ -88,15 +88,17 @@ export function ExportImageMessage({ message }: { message: ExportMessage | null 
   if (!message) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
+    <div className="pointer-events-none fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
       <div
-        className={`max-w-[600px] truncate rounded-lg border px-3 py-2 text-xs shadow-lg shadow-black/40 ${
-          message.failed
-            ? "border-lol-loss/40 bg-lol-card text-lol-loss"
-            : "border-lol-border bg-lol-card text-lol-text-bright"
+        role="status"
+        className={`menu view-in flex max-w-[600px] items-center gap-2.5 px-3.5 py-2.5 text-[13px] ${
+          message.failed ? "border-lol-loss/45 text-lol-loss" : "text-lol-text-bright"
         }`}
       >
-        {message.text}
+        <span
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${message.failed ? "bg-lol-loss" : "bg-lol-win"}`}
+        />
+        <span className="truncate">{message.text}</span>
       </div>
     </div>
   );
@@ -134,9 +136,9 @@ export function ExportImageButton({
       onClick={() => exporting.run(card, action)}
       disabled={busy}
       title={labels.title(SUBJECTS[card.kind].noun)}
-      className="flex items-center gap-1.5 rounded-lg border border-lol-border bg-lol-card px-2 py-1 text-xs text-lol-text transition-colors hover:border-lol-gold/60 hover:text-lol-text-bright disabled:opacity-60"
+      className="btn"
     >
-      <Icon className="h-3.5 w-3.5" />
+      <Icon className="h-4 w-4" />
       {busy ? labels.busy : labels.idle}
     </button>
   );

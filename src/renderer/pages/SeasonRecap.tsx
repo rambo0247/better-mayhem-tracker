@@ -11,10 +11,11 @@ import { CARD_WIDTH, type CardSpec } from "../../shared/card";
 const FRAME_WIDTH = CARD_WIDTH + 2;
 import { LOCALE } from "../lib/format";
 import SeasonRecapCard from "../components/SeasonRecapCard";
+import PageHeader from "../components/PageHeader";
 import QueueSelect from "../components/QueueSelect";
 import AccountSelect from "../components/AccountSelect";
 import { ExportImageButton, ExportImageMessage, useImageExport } from "../components/ExportImage";
-import { EyeOffIcon } from "../components/icons";
+import { CalendarIcon, EyeOffIcon } from "../components/icons";
 
 function seasonOption(season: SeasonSummary): string {
   const games = `${season.games.toLocaleString(LOCALE)} ${season.games === 1 ? "game" : "games"}`;
@@ -57,7 +58,7 @@ export default function SeasonRecap() {
   }, [loading, data, seasonId, setSeasonId]);
 
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="mt-20 text-center text-[14px] text-lol-text">Loading...</div>;
   }
 
   // The season on show, which is the one picked or the default while none has
@@ -73,60 +74,63 @@ export default function SeasonRecap() {
   return (
     // As wide as the card preview at full size, so the controls line up with
     // its right edge instead of running past it
-    <div className="space-y-4" style={{ maxWidth: FRAME_WIDTH }}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-lol-text-bright">Season Recap</h1>
-        <div className="flex items-center gap-3">
-          <select
-            value={data.season.id}
-            onChange={(e) => setSeasonId(e.target.value)}
-            className="select"
-          >
-            {data.seasons.map((season) => (
-              <option
-                key={season.id}
-                value={season.id}
-                disabled={season.games === 0 && season.id !== data.season.id}
-              >
-                {seasonOption(season)}
-              </option>
-            ))}
-          </select>
-          <AccountSelect value={account} onChange={setAccount} />
-          <QueueSelect value={queue} onChange={setQueue} />
-          {data.friends.length > 0 && (
-            <button
-              onClick={() => setHideFriends((v) => !v)}
-              aria-pressed={hideFriends}
-              title={
-                hideFriends
-                  ? "Your friends' names are hidden on the card"
-                  : "Hide your friends' names on the card, for sharing"
-              }
-              className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition-colors ${
-                hideFriends
-                  ? "border-lol-gold/60 bg-lol-gold/10 text-lol-gold"
-                  : "border-lol-border bg-lol-card text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright"
-              }`}
+    <div style={{ maxWidth: FRAME_WIDTH }}>
+      <PageHeader
+        kicker="Achieve"
+        title="Season Recap"
+        subtitle="Your season on one card, ready to copy or save as an image"
+        actions={
+          <>
+            <select
+              value={data.season.id}
+              onChange={(e) => setSeasonId(e.target.value)}
+              className="select"
             >
-              <EyeOffIcon className="h-3.5 w-3.5" />
-              Hide friends
-            </button>
-          )}
-          {data.games > 0 && (
-            <>
-              <ExportImageButton action="copy" card={card} exporting={exporting} />
-              <ExportImageButton action="save" card={card} exporting={exporting} />
-            </>
-          )}
-        </div>
-      </div>
+              {data.seasons.map((season) => (
+                <option
+                  key={season.id}
+                  value={season.id}
+                  disabled={season.games === 0 && season.id !== data.season.id}
+                >
+                  {seasonOption(season)}
+                </option>
+              ))}
+            </select>
+            <AccountSelect value={account} onChange={setAccount} />
+            <QueueSelect value={queue} onChange={setQueue} />
+            {data.friends.length > 0 && (
+              <button
+                onClick={() => setHideFriends((v) => !v)}
+                aria-pressed={hideFriends}
+                title={
+                  hideFriends
+                    ? "Your friends' names are hidden on the card"
+                    : "Hide your friends' names on the card, for sharing"
+                }
+                className={`btn ${hideFriends ? "btn-active" : ""}`}
+              >
+                <EyeOffIcon className="h-4 w-4" />
+                Hide friends
+              </button>
+            )}
+            {data.games > 0 && (
+              <>
+                <ExportImageButton action="copy" card={card} exporting={exporting} />
+                <ExportImageButton action="save" card={card} exporting={exporting} />
+              </>
+            )}
+          </>
+        }
+      />
 
       {data.games === 0 ? (
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 py-16 text-center text-sm text-lol-text">
-          {account || queue != null
-            ? "No games in this season match this filter."
-            : "No games recorded in this season."}
+        <div className="panel flex flex-col items-center gap-3 py-16 text-center">
+          <CalendarIcon className="h-8 w-8 text-lol-gold/60" />
+          <p className="text-[14px] text-lol-text">
+            {account || queue != null
+              ? "No games in this season match this filter."
+              : "No games recorded in this season."}
+          </p>
         </div>
       ) : (
         <CardPreview>
@@ -157,10 +161,11 @@ function CardPreview({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div ref={frame} className="overflow-hidden rounded-xl border border-lol-border/60 bg-lol-dark">
-      <div className="p-6" style={{ width: CARD_WIDTH, zoom }}>
-        {children}
-      </div>
+    <div
+      ref={frame}
+      className="overflow-hidden rounded-xl border border-lol-border bg-lol-dark shadow-[0_30px_60px_-30px_rgb(0_0_0/0.85)]"
+    >
+      <div style={{ width: CARD_WIDTH, zoom }}>{children}</div>
     </div>
   );
 }

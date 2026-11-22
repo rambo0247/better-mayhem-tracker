@@ -486,7 +486,18 @@ export interface RecordsData {
 }
 
 export interface GlobalStats {
-  champions: { champion_id: number; games: number; wins: number }[];
+  champions: {
+    champion_id: number;
+    games: number;
+    wins: number;
+    // Summed over every game, so the KDA is the pooled ratio rather than an
+    // average of per-game ratios
+    kills: number;
+    deaths: number;
+    assists: number;
+    // Damage to champions, per game
+    avgDamage: number;
+  }[];
   augments: { augment_id: number; picks: number; wins: number }[];
   items: { item_id: number; picks: number; wins: number }[];
   totalParticipantSlots: number;

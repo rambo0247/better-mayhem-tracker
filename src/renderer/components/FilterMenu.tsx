@@ -41,32 +41,26 @@ export default function FilterMenu({
         onClick={() => setOpen((o) => !o)}
         title="Filters"
         aria-expanded={open}
-        className={`relative flex items-center rounded-lg border px-2 py-1.5 transition-colors ${
-          active > 0 || open
-            ? "border-lol-gold/60 bg-lol-gold/10 text-lol-gold"
-            : "border-lol-border bg-lol-card text-lol-text hover:border-lol-gold/60 hover:text-lol-text-bright"
-        }`}
+        className={`btn relative ${active > 0 || open ? "btn-active" : ""}`}
       >
-        {/* h-5 matches the selects' line-height so the boxes end up the same height */}
-        <span className="flex h-5 items-center">
-          <FunnelIcon className="h-3.5 w-3.5" />
-        </span>
+        <FunnelIcon className="h-3.5 w-3.5" />
+        <span>Filters</span>
         {active > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-lol-gold px-1 text-[10px] font-bold text-lol-dark">
+          <span className="font-num flex h-[18px] min-w-[18px] items-center justify-center rounded-[3px] bg-lol-gold px-1 text-[12px] font-bold text-lol-dark">
             {active}
           </span>
         )}
       </button>
 
       <div
-        className={`${open ? "" : "hidden"} absolute right-0 top-full z-30 mt-1.5 w-72 space-y-3 rounded-lg border border-lol-border bg-lol-card p-3 shadow-lg shadow-black/40`}
+        className={`${open ? "" : "hidden"} menu absolute right-0 top-full z-30 mt-2 w-76 space-y-3.5 p-4`}
       >
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-lol-text-bright">Filters</span>
+          <span className="section-title">Filters</span>
           <button
             onClick={onReset}
             disabled={active === 0}
-            className="text-xs text-lol-text transition-colors hover:text-lol-gold disabled:opacity-40 disabled:hover:text-lol-text"
+            className="label text-[11px] transition-colors hover:text-lol-gold disabled:opacity-40 disabled:hover:text-lol-text"
           >
             Reset
           </button>
@@ -80,8 +74,8 @@ export default function FilterMenu({
 // One labelled control in a filter menu
 export function FilterField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="space-y-1">
-      <div className="text-[11px] font-medium uppercase tracking-wider text-lol-text">{label}</div>
+    <div className="space-y-1.5">
+      <div className="label text-[11px]">{label}</div>
       {children}
     </div>
   );

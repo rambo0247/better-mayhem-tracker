@@ -9,11 +9,19 @@ import type {
   LiveGameSnapshot,
 } from "../lib/types";
 import { MAYHEM_QUEUE_IDS } from "../../shared/queues";
-import { formatDuration } from "../lib/format";
+import { formatDuration, formatTimeAgo } from "../lib/format";
 import { queueLabel } from "../components/QueueSelect";
 import GameRecap from "../components/GameRecap";
 import LiveScoreboard, { LiveEventFeed } from "../components/LiveScoreboard";
-import { MapPinIcon, RadioIcon, SwordsIcon } from "../components/icons";
+import PageHeader from "../components/PageHeader";
+import {
+  HourglassIcon,
+  MapPinIcon,
+  RadioIcon,
+  SwordsIcon,
+  TrophyIcon,
+  UsersIcon,
+} from "../components/icons";
 import { ExportImageButton, ExportImageMessage, useImageExport } from "../components/ExportImage";
 
 // How long to keep waiting for a finished game's results before giving up and
@@ -41,7 +49,7 @@ export default function LiveGame() {
   }, []);
 
   // Nothing has been asked yet, as opposed to asked and answered with no game
-  if (!snapshot) return <div className="mt-20 text-center text-lol-text">Loading...</div>;
+  if (!snapshot) return <div className="label mt-20 text-center">Loading…</div>;
 
   if (snapshot.inGame || snapshot.starting) {
     return <LiveView snapshot={snapshot} receivedAt={receivedAt} champData={champData} />;
@@ -84,36 +92,82 @@ function LiveView({
     return totals;
   }, [snapshot.players]);
 
+  const subtitle = [
+    snapshot.mapName,
+    snapshot.queueId != null && snapshot.queueId > 0 ? queueLabel(snapshot.queueId) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const header = (
+    <PageHeader
+      kicker="Play"
+      title="Live Game"
+      subtitle={subtitle || "Live scoreboard"}
+      actions={<LiveTag inGame={snapshot.inGame} />}
+      className="pb-0"
+    />
+  );
+
   if (snapshot.players.length === 0) {
     return (
-      <div className="max-w-7xl space-y-4">
+      <div className="max-w-[1320px] space-y-6">
+        {header}
         <LiveHeader snapshot={snapshot} elapsed={0} teamKills={teamKills} />
-        <div className="rounded-xl border border-lol-border/60 bg-lol-card p-10 text-center text-sm text-lol-text">
-          The game is loading. Champions, items and scores appear as soon as it starts.
+        <div className="panel flex flex-col items-center gap-3 px-8 py-14 text-center">
+          <HourglassIcon className="h-8 w-8 text-lol-gold/60" />
+          <div className="max-w-md text-[14px] text-lol-text">
+            The game is loading. Champions, items and scores appear as soon as it starts.
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl space-y-4">
+    <div className="max-w-[1320px] space-y-6">
+      {header}
       <LiveHeader snapshot={snapshot} elapsed={elapsed} teamKills={teamKills} />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
         <LiveScoreboard players={snapshot.players} champData={champData} />
 
-        <div className="rounded-xl border border-lol-border/60 bg-lol-card p-4">
-          <div className="mb-2 flex items-baseline gap-2">
-            <SwordsIcon className="h-3.5 w-3.5 text-lol-text" />
-            <span className="text-sm font-semibold text-lol-text-bright">Feed</span>
+        <div className="panel overflow-hidden">
+          <div className="panel-head">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-lol-gold/12 text-lol-gold">
+              <SwordsIcon className="h-3.5 w-3.5" />
+            </span>
+            <span className="section-title">Feed</span>
+            {snapshot.events.length > 0 && (
+              <span className="font-num ml-auto text-[13px] text-lol-text/70">
+                {snapshot.events.length}
+              </span>
+            )}
           </div>
-          <LiveEventFeed events={snapshot.events} />
+          <div className="p-3">
+            <LiveEventFeed events={snapshot.events} />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
+// The slanted red tag broadcasts put in the corner while a match is on air
+function LiveTag({ inGame }: { inGame: boolean }) {
+  return (
+    <span
+      className={`slant inline-flex h-7 items-center gap-2 px-4 font-display text-[14px] font-extrabold italic tracking-[0.12em] uppercase ${
+        inGame ? "bg-lol-loss text-[#1a0508]" : "bg-amber-400 text-[#1a1204]"
+      }`}
+    >
+      <span className="live-pulse h-1.5 w-1.5 rounded-full bg-current" />
+      {inGame ? "Live" : "Starting"}
+    </span>
+  );
+}
+
+// The broadcast score bug: each side's kills either side of the game clock,
+// with the player's own side marked.
 function LiveHeader({
   snapshot,
   elapsed,
@@ -123,37 +177,63 @@ function LiveHeader({
   elapsed: number;
   teamKills: Record<number, number>;
 }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-lol-border/60 bg-lol-card px-4 py-3">
-      <span className="flex items-center gap-2 text-sm font-bold text-lol-text-bright">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-lol-loss opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-lol-loss" />
-        </span>
-        {snapshot.inGame ? "Live" : "Starting"}
-      </span>
+  const ourTeam = snapshot.players.find((p) => p.isSelf)?.teamId ?? null;
 
-      {snapshot.mapName && (
-        <span className="inline-flex items-center gap-1 rounded-md border border-lol-border bg-white/5 px-2 py-0.5 text-[11px] text-lol-text-bright">
-          <MapPinIcon className="h-3 w-3" />
-          {snapshot.mapName}
-        </span>
-      )}
-      {snapshot.queueId != null && snapshot.queueId > 0 && (
-        <span className="text-[11px] text-lol-text">{queueLabel(snapshot.queueId)}</span>
-      )}
-
-      <div className="ml-auto flex items-center gap-4">
+  const side = (teamId: 100 | 200) => {
+    const blue = teamId === 100;
+    return (
+      <div className={`flex items-center gap-5 ${blue ? "" : "flex-row-reverse text-right"}`}>
+        <div className="min-w-0">
+          <div
+            className={`font-display text-[20px] font-extrabold uppercase italic leading-none tracking-[0.04em] ${
+              blue ? "text-sky-400" : "text-lol-loss"
+            }`}
+          >
+            {blue ? "Blue Team" : "Red Team"}
+          </div>
+          <div className="label mt-1.5 text-[11px] text-lol-text/70">
+            {ourTeam === teamId ? "Your team" : ourTeam != null ? "Opponents" : " "}
+          </div>
+        </div>
         {snapshot.inGame && (
-          <span className="text-sm font-semibold">
-            <span className="text-sky-400">{teamKills[100] ?? 0}</span>
-            <span className="mx-1.5 text-lol-text/40">vs</span>
-            <span className="text-lol-loss">{teamKills[200] ?? 0}</span>
+          <span
+            className={`font-num text-[44px] font-semibold leading-none ${
+              blue ? "text-sky-400" : "text-lol-loss"
+            }`}
+          >
+            {teamKills[teamId] ?? 0}
           </span>
         )}
-        <span className="text-lg font-bold tabular-nums text-lol-text-bright">
-          {formatDuration(elapsed)}
-        </span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="panel relative overflow-hidden">
+      {/* Each side tinted in its own colour, fading toward the clock */}
+      <span className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-sky-400/[0.10] to-transparent" />
+      <span className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-lol-loss/[0.10] to-transparent" />
+      <span className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-sky-400" />
+      <span className="pointer-events-none absolute inset-y-0 right-0 w-[3px] bg-lol-loss" />
+
+      <div className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-6 px-7 py-5">
+        {side(100)}
+        <div className="flex flex-col items-center">
+          <span className="font-num text-[34px] font-semibold leading-none text-lol-text-bright">
+            {formatDuration(elapsed)}
+          </span>
+          <span className="label mt-1.5 flex items-center gap-1 text-[11px] text-lol-text/70">
+            {snapshot.mapName ? (
+              <>
+                <MapPinIcon className="h-3 w-3" />
+                {snapshot.mapName}
+              </>
+            ) : (
+              "Game time"
+            )}
+          </span>
+        </div>
+        {side(200)}
       </div>
     </div>
   );
@@ -237,25 +317,48 @@ function RecapView({
 
   const waiting = target != null && !resolved && !gaveUp;
 
+  if (loading && !recap && !waiting) {
+    return <div className="label mt-20 text-center">Loading…</div>;
+  }
+
+  const state = waiting
+    ? "Game over, fetching the results"
+    : status === "disconnected"
+      ? "League client offline"
+      : "Standing by for your next game";
+  const header = (
+    <PageHeader
+      kicker="Play"
+      title="Live Game"
+      subtitle={
+        <>
+          {state}
+          {recap && ` · last game ${formatTimeAgo(recap.detail.game.game_creation)}`}
+        </>
+      }
+      actions={recap ? <ExportActions recap={recap} exporting={exporting} /> : undefined}
+      className="pb-0"
+    />
+  );
+
   if (waiting) {
     return (
-      <div className="max-w-7xl space-y-4">
-        <div className="rounded-xl border border-lol-border/60 bg-lol-card p-10 text-center">
-          <div className="text-sm text-lol-text-bright">Game over. Fetching the results...</div>
-          <div className="mt-1 text-[11px] text-lol-text">
-            The client publishes the scoreboard a few seconds after the nexus falls.
-          </div>
-        </div>
+      <div className="max-w-[1320px] space-y-6">
+        {header}
+        <StatusPanel
+          kicker="Game over"
+          title="Fetching the results…"
+          pulse
+          icon={<HourglassIcon className="h-7 w-7" />}
+        >
+          The client publishes the scoreboard a few seconds after the nexus falls.
+        </StatusPanel>
         {recap && (
           <GameRecap
             recap={recap}
             champData={champData}
             puuids={puuids}
-            heading={
-              <RecapHeading recap={recap} exporting={exporting}>
-                <span className="text-xs text-lol-text">Meanwhile, the game before it:</span>
-              </RecapHeading>
-            }
+            heading={<RecapHeading title="Meanwhile">The game before it</RecapHeading>}
           />
         )}
         <ExportImageMessage message={exporting.message} />
@@ -263,36 +366,46 @@ function RecapView({
     );
   }
 
-  if (loading && !recap) {
-    return <div className="mt-20 text-center text-lol-text">Loading...</div>;
-  }
+  const offline = status === "disconnected";
+  const standby = (
+    <StatusPanel
+      kicker="Standby"
+      title="Waiting for your next game"
+      icon={<RadioIcon className="h-7 w-7" />}
+      pulse={!offline}
+      aside={<ClientStatus status={status} />}
+      features
+    >
+      {offline
+        ? "Start the League client and this tab follows your next game live."
+        : recap
+          ? "The moment your next game loads, this tab switches to a live scoreboard."
+          : "No recorded games yet. Play a Mayhem game and it shows up here the moment it ends."}
+    </StatusPanel>
+  );
 
   if (!recap) {
     return (
-      <div className="max-w-7xl">
-        <div className="rounded-xl border border-lol-border/60 bg-lol-card py-16 text-center text-sm text-lol-text">
-          {status === "disconnected"
-            ? "Start the League client and this tab follows your next game live."
-            : "No recorded games yet. Play a Mayhem game and it shows up here the moment it ends."}
-        </div>
+      <div className="max-w-[1320px] space-y-6">
+        {header}
+        {standby}
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl">
+    <div className="max-w-[1320px] space-y-6">
+      {header}
+      {standby}
       <GameRecap
         recap={recap}
         champData={champData}
         puuids={puuids}
         heading={
-          <RecapHeading recap={recap} exporting={exporting}>
-            <RadioIcon className="h-3.5 w-3.5 text-lol-text" />
-            <span className="text-xs text-lol-text">
-              {gaveUp
-                ? "That game never produced results, so here is your most recent recorded one."
-                : "Your most recent game. This tab switches to a live scoreboard when the next one starts."}
-            </span>
+          <RecapHeading title="Last game">
+            {gaveUp
+              ? "That game never produced results, so here is your most recent recorded one."
+              : "Your most recent recorded game"}
           </RecapHeading>
         }
       />
@@ -301,26 +414,116 @@ function RecapView({
   );
 }
 
-// The line above the recap: what this game is, and what can be done with it
-// besides read it.
-function RecapHeading({
+// What a live game brings, so the page reads as waiting for something rather
+// than as empty
+const LIVE_FEATURES = [
+  { icon: UsersIcon, text: "Both teams' levels, KDA, CS and items as they change" },
+  { icon: TrophyIcon, text: "Your history with every player you've met" },
+  { icon: SwordsIcon, text: "A running feed of kills and objectives" },
+];
+
+// The panel that stands in for the scoreboard when no game is running: what
+// the page is waiting for, and whether the client it waits on is there at all.
+function StatusPanel({
+  kicker,
+  title,
+  icon,
+  pulse = false,
+  aside,
+  features = false,
+  children,
+}: {
+  kicker: string;
+  title: string;
+  icon: ReactNode;
+  pulse?: boolean;
+  aside?: ReactNode;
+  features?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="panel relative overflow-hidden">
+      <span className="pointer-events-none absolute -left-20 -top-28 h-72 w-72 rounded-full bg-lol-gold/[0.06] blur-3xl" />
+      <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-lol-gold/70 via-lol-gold/25 to-transparent" />
+
+      <div className="relative flex items-center gap-5 px-6 py-5">
+        <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-lol-gold/25 bg-lol-gold/[0.08] text-lol-gold">
+          {icon}
+          {pulse && (
+            <span className="live-pulse absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-lol-card bg-lol-gold" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="kicker text-[12px]">{kicker}</div>
+          <div className="mt-1.5 font-display text-[24px] font-bold uppercase leading-none tracking-[0.02em] text-lol-text-bright">
+            {title}
+          </div>
+          <div className="mt-2 text-[14px] text-lol-text">{children}</div>
+        </div>
+        {aside}
+      </div>
+
+      {features && (
+        <div className="relative grid grid-cols-3 border-t border-lol-line bg-black/15">
+          {LIVE_FEATURES.map(({ icon: Icon, text }) => (
+            <div
+              key={text}
+              className="flex items-center gap-3 border-l border-lol-line px-6 py-3.5 first:border-l-0"
+            >
+              <Icon className="h-4 w-4 shrink-0 text-lol-text/70" />
+              <span className="text-[13px] text-lol-text">{text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const CLIENT_STATUS: Record<LcuStatus, { dot: string; label: string }> = {
+  connected: { dot: "bg-lol-win", label: "Client connected" },
+  ingame: { dot: "bg-sky-400", label: "In game" },
+  connecting: { dot: "bg-amber-400", label: "Connecting…" },
+  disconnected: { dot: "bg-lol-loss", label: "Client offline" },
+};
+
+function ClientStatus({ status }: { status: LcuStatus }) {
+  const { dot, label } = CLIENT_STATUS[status];
+  return (
+    <span className="flex h-8 shrink-0 items-center gap-2 rounded-lg border border-lol-border bg-black/20 px-3">
+      <span className={`h-2 w-2 rounded-full ${dot}`} />
+      <span className="label text-lol-text-bright">{label}</span>
+    </span>
+  );
+}
+
+// Copy and save for the game on screen, in the page's toolbar
+function ExportActions({
   recap,
   exporting,
-  children,
 }: {
   recap: GameRecapData;
   exporting: ReturnType<typeof useImageExport>;
-  children: ReactNode;
 }) {
   const card = { kind: "game", gameId: recap.detail.game.game_id } as const;
-
   return (
-    <div className="flex items-center gap-2 px-1">
-      {children}
-      <div className="ml-auto flex items-center gap-2">
-        <ExportImageButton action="copy" card={card} exporting={exporting} />
-        <ExportImageButton action="save" card={card} exporting={exporting} />
-      </div>
+    <>
+      <ExportImageButton action="copy" card={card} exporting={exporting} />
+      <ExportImageButton action="save" card={card} exporting={exporting} />
+    </>
+  );
+}
+
+// The line above the recap: which game this is, in the day-header style of
+// Match History.
+function RecapHeading({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-4 px-0.5">
+      <span className="font-display text-[17px] font-bold uppercase italic tracking-[0.04em] text-lol-text-bright">
+        {title}
+      </span>
+      <span className="text-[13px] text-lol-text">{children}</span>
+      <span className="h-px flex-1 bg-gradient-to-r from-lol-border to-transparent" />
     </div>
   );
 }

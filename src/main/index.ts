@@ -69,7 +69,7 @@ function createWindow(): BrowserWindow {
     ...(isMac
       ? { titleBarStyle: "hidden" as const, trafficLightPosition: { x: 16, y: 15 } }
       : { frame: false }),
-    backgroundColor: "#151923",
+    backgroundColor: "#0a1024",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       additionalArguments: localeArguments(),

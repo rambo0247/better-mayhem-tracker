@@ -47,23 +47,26 @@ export function kdaRatio(kills: number, deaths: number, assists: number): string
   return formatDecimal((kills + assists) / deaths, 2);
 }
 
-// A KDA worth pointing out: 3 or better, or a deathless "Perfect"
+// A game's KDA in the same ramp as every other KDA; a deathless "Perfect" tops it
 export function kdaHighlight(kills: number, deaths: number, assists: number): string {
-  return deaths === 0 || (kills + assists) / deaths >= 3 ? "text-lol-gold" : "text-lol-text";
+  return kdaColor(deaths === 0 ? Infinity : (kills + assists) / deaths);
 }
 
+// One quality ramp for every "how well did you play" number: dim, then bright,
+// then blue, then gold at the top. Green and red stay reserved for winning and
+// losing, so a colour never means two things.
 export function kdaColor(ratio: number): string {
   if (ratio >= 5) return "text-amber-400";
   if (ratio >= 4) return "text-sky-400";
-  if (ratio >= 3) return "text-emerald-400";
-  return "text-slate-300";
+  if (ratio >= 3) return "text-lol-text-bright";
+  return "text-lol-text";
 }
 
 export function scoreColor(score: number): string {
   if (score >= 9) return "text-amber-400";
   if (score >= 7) return "text-sky-400";
-  if (score >= 5) return "text-emerald-400";
-  return "text-slate-400";
+  if (score >= 5) return "text-lol-text-bright";
+  return "text-lol-text";
 }
 
 // Large stats at a glance, for table cells and bar labels: 12345 reads "12.3k",
@@ -98,8 +101,18 @@ export function formatTimeAgo(timestamp: number): string {
 
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
-  if (days < 30) return `${days}d ago`;
-  return new Date(timestamp).toLocaleDateString(LOCALE);
+  if (days < 7) return `${days}d ago`;
+  return formatShortDate(timestamp);
+}
+
+// A day without the time: "Sep 12", with the year only when it isn't this one
+export function formatShortDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleDateString(LOCALE, {
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() !== new Date().getFullYear() && { year: "numeric" }),
+  });
 }
 
 // The exact moment behind a relative timestamp, for tooltips
@@ -128,12 +141,11 @@ export function winRatePercent(wins: number, total: number): string {
   return formatPercent(wins / total);
 }
 
+// Win rate is the one diverging scale: winning records in the win colour,
+// losing ones in the loss colour
 export function winRateColor(wins: number, total: number): string {
-  if (total === 0) return "text-slate-400";
-  const rate = wins / total;
-  if (rate >= 0.6) return "text-emerald-400";
-  if (rate >= 0.5) return "text-sky-400";
-  return "text-lol-loss";
+  if (total === 0) return "text-lol-text";
+  return wins / total >= 0.5 ? "text-lol-win" : "text-lol-loss";
 }
 
 const TOTAL_FORMAT = new Intl.NumberFormat(LOCALE, {

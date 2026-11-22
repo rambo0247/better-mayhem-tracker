@@ -21,15 +21,13 @@ export default function Panel({
 }) {
   const a = ACCENTS[accent];
   return (
-    <div
-      className={`flex flex-col overflow-hidden rounded-xl border border-lol-border/60 bg-lol-card p-4 ${className}`}
-    >
-      <div className="mb-3 flex items-baseline gap-2">
-        <span className={`flex h-5 w-5 items-center justify-center rounded-md ${a.chip}`}>
+    <div className={`panel flex flex-col overflow-hidden p-4 ${className}`}>
+      <div className="mb-3 flex items-center gap-2">
+        <span className={`flex h-6 w-6 items-center justify-center rounded-md ${a.chip}`}>
           {icon}
         </span>
-        <span className="text-sm font-semibold text-lol-text-bright">{title}</span>
-        {subtitle && <span className="text-[11px] text-lol-text">{subtitle}</span>}
+        <span className="section-title">{title}</span>
+        {subtitle && <span className="text-xs text-lol-text">{subtitle}</span>}
       </div>
       <div className="flex-1">{children}</div>
     </div>

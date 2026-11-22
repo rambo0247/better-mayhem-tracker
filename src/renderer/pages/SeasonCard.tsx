@@ -54,8 +54,9 @@ export default function SeasonCard() {
   if (error) return <div className="p-6 text-sm text-lol-text">{error}</div>;
   if (!drawn) return <div className="p-6 text-sm text-lol-text">Drawing...</div>;
 
+  // No margin around the card: it paints its own background edge to edge
   return (
-    <div ref={root} className="w-full p-6">
+    <div ref={root} className="w-full">
       <SeasonRecapCard recap={recap} champData={champData} hideFriends={hideFriends} />
     </div>
   );

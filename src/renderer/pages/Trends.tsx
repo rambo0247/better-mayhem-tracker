@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
 import type { TrendsData, TrendsDay } from "../lib/types";
@@ -13,6 +13,8 @@ import {
 } from "../lib/format";
 import QueueSelect from "../components/QueueSelect";
 import ActivityCalendar from "../components/ActivityCalendar";
+import PageHeader from "../components/PageHeader";
+import { TrendingUpIcon } from "../components/icons";
 import { dayKey, daysIntoWeek } from "../../shared/session";
 
 // ---- Time helpers ----
@@ -123,6 +125,8 @@ function useContainerWidth<T extends HTMLElement>() {
   return { ref, width };
 }
 
+// A chart panel: the title strip with its legend or controls on the right,
+// then the chart. Every chart on the page sits in one of these.
 function Card({
   title,
   right,
@@ -135,15 +139,67 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`bg-lol-card rounded-xl border border-lol-border/60 p-4 ${className}`}>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-lol-text-bright">{title}</h2>
+    <section className={`panel flex flex-col ${className}`}>
+      <div className="panel-head justify-between">
+        <h2 className="section-title">{title}</h2>
         {right}
       </div>
-      {children}
+      <div className="flex-1 px-4 pt-4 pb-3">{children}</div>
+    </section>
+  );
+}
+
+// The chart palette, one meaning per hue across every chart on the page
+const C = {
+  win: "var(--color-lol-win)",
+  loss: "var(--color-lol-loss)",
+  accent: "var(--color-lol-gold)",
+  secondary: "var(--color-sky-400)",
+  grid: "rgb(255 255 255 / 0.055)",
+  axis: "var(--color-lol-text)",
+} as const;
+
+// Axis text in the condensed display face, as every other label in the app
+const AXIS_TEXT = {
+  fontFamily: "var(--font-display)",
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  fill: C.axis,
+} as const;
+
+// Swatches naming what each mark in a chart stands for
+function Legend({ items }: { items: { label: string; swatch: React.ReactNode }[] }) {
+  return (
+    <div className="flex items-center gap-4">
+      {items.map(({ label, swatch }) => (
+        <span key={label} className="label flex items-center gap-1.5">
+          {swatch}
+          {label}
+        </span>
+      ))}
     </div>
   );
 }
+
+const lineSwatch = (color: string) => (
+  <span className="h-[3px] w-3.5 rounded-full" style={{ background: color }} />
+);
+const barSwatch = (color: string, opacity = 1) => (
+  <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: color, opacity }} />
+);
+const dotSwatch = (color: string) => (
+  <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+);
+// Diagonal stripes, the mark for a bar standing on too few games to trust
+const hatchSwatch = (color: string) => (
+  <span
+    className="h-2.5 w-2.5 rounded-[2px] opacity-70"
+    style={{
+      background: `repeating-linear-gradient(135deg, ${color} 0 1.5px, transparent 1.5px 3.5px)`,
+    }}
+  />
+);
 
 // Floating hover readout shared by every chart on the page: a bright label
 // line, muted detail line(s), and the headline value in gold. Positioned at a
@@ -163,15 +219,21 @@ function HoverTooltip({
 }) {
   return (
     <div
-      className="absolute top-1 pointer-events-none bg-lol-dark border border-lol-border rounded-lg px-2.5 py-1.5 text-xs shadow-lg z-10 whitespace-nowrap"
+      className="menu pointer-events-none absolute top-1 z-10 whitespace-nowrap px-3 py-2 text-[12px]"
       style={{
-        left: Math.min(Math.max(x, 70), Math.max(width - 70, 70)),
+        left: Math.min(Math.max(x, 80), Math.max(width - 80, 80)),
         transform: "translateX(-50%)",
       }}
     >
-      <div className="text-lol-text-bright font-medium">{label}</div>
+      <div className="font-display text-[13px] font-bold uppercase tracking-[0.06em] text-lol-text-bright">
+        {label}
+      </div>
       <div className="text-lol-text">{detail}</div>
-      {value != null && <div className="text-lol-gold font-medium">{value}</div>}
+      {value != null && (
+        <div className="font-num mt-0.5 text-[18px] font-semibold leading-tight text-lol-gold">
+          {value}
+        </div>
+      )}
     </div>
   );
 }
@@ -198,43 +260,75 @@ function TimeSeriesChart({
   ticks,
   refValue,
   format,
-  height = 190,
+  height = 250,
+  labelSpacing = 46,
 }: {
   points: SeriesPoint[];
   yMin: number;
   yMax: number;
   ticks: number[];
+  // A reference level drawn dashed; points above it read as wins, below as losses
   refValue?: number;
   format: (v: number) => string;
   height?: number;
+  // The room an axis label needs, so short labels can sit under every point
+  labelSpacing?: number;
 }) {
   const { ref, width } = useContainerWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
+  const fadeId = useId();
 
-  const M = { top: 8, right: 8, bottom: 20, left: 38 };
+  const M = { top: 10, right: 4, bottom: 24, left: 40 };
+  // The games bars get a band of their own under the metric's plot, with
+  // their own baseline, so they read as volume rather than as low values on
+  // the metric's axis
+  const volumeHeight = 36;
+  const volumeGap = 22;
   const iw = Math.max(width - M.left - M.right, 0);
-  const ih = height - M.top - M.bottom;
+  const plotHeight = height - M.top - M.bottom;
+  const ih = plotHeight - volumeHeight - volumeGap;
   const n = points.length;
   const step = n > 0 ? iw / n : 0;
   const x = (i: number) => M.left + step * (i + 0.5);
   const y = (v: number) => M.top + ih - ((v - yMin) / (yMax - yMin)) * ih;
   const maxGames = Math.max(...points.map((p) => p.games), 1);
-  const barWidth = Math.max(Math.min(step * 0.6, 28), 2);
-  const labelEvery = Math.max(1, Math.ceil(n / Math.max(Math.floor(iw / 64), 1)));
+  const barWidth = Math.max(Math.min(step * 0.5, 24), 2);
+  const labelEvery = Math.max(1, Math.ceil(n / Math.max(Math.floor(iw / labelSpacing), 1)));
+  const baseline = M.top + ih;
+  const volumeBase = M.top + plotHeight;
 
   // Null values (empty buckets) break the line into segments instead of
-  // interpolating across periods that were never played.
-  const segments: [number, number][][] = [];
-  let current: [number, number][] = [];
+  // interpolating across periods that were never played. Each point keeps
+  // its bucket index, to measure the gaps between segments.
+  const segments: [number, number, number][][] = [];
+  let current: [number, number, number][] = [];
   points.forEach((p, i) => {
     if (p.value == null) {
       if (current.length > 0) segments.push(current);
       current = [];
     } else {
-      current.push([x(i), y(p.value)]);
+      current.push([x(i), y(p.value), i]);
     }
   });
   if (current.length > 0) segments.push(current);
+
+  // A gap of a bucket or two is bridged with a dashed line; a longer one is a
+  // stretch of its own, shaded and named, since a line across it would read
+  // as a trend
+  const MAX_BRIDGED = 2;
+  const gaps = segments.slice(1).map((seg, k) => {
+    const prev = segments[k][segments[k].length - 1];
+    const next = seg[0];
+    const missing = points.slice(prev[2] + 1, next[2]);
+    return {
+      prev,
+      next,
+      bridged: missing.length <= MAX_BRIDGED,
+      played: missing.some((p) => p.games > 0),
+    };
+  });
+
+  const pointColor = (v: number) => (refValue == null ? C.accent : v >= refValue ? C.win : C.loss);
 
   const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (step === 0) return;
@@ -251,73 +345,146 @@ function TimeSeriesChart({
         <svg
           width={width}
           height={height}
+          className="block"
           onMouseMove={handleMove}
           onMouseLeave={() => setHover(null)}
         >
+          <defs>
+            <linearGradient id={fadeId} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor={C.accent} stopOpacity={0.13} />
+              <stop offset="100%" stopColor={C.accent} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          {gaps
+            .filter((g) => !g.bridged)
+            .map((g) => {
+              const x1 = x(g.prev[2] + 1) - step / 2;
+              const x2 = x(g.next[2] - 1) + step / 2;
+              return (
+                <g key={g.prev[2]}>
+                  <rect
+                    x={x1}
+                    y={M.top}
+                    width={x2 - x1}
+                    height={ih}
+                    fill="white"
+                    fillOpacity={0.018}
+                  />
+                  <text
+                    x={(x1 + x2) / 2}
+                    y={M.top + 16}
+                    textAnchor="middle"
+                    {...AXIS_TEXT}
+                    fillOpacity={0.7}
+                  >
+                    {g.played ? "TOO FEW GAMES" : "NO GAMES"}
+                  </text>
+                </g>
+              );
+            })}
           {ticks.map((t) => (
             <g key={t}>
-              <line
-                x1={M.left}
-                x2={width - M.right}
-                y1={y(t)}
-                y2={y(t)}
-                stroke="var(--color-lol-border)"
-                strokeOpacity={0.5}
-              />
-              <text
-                x={M.left - 6}
-                y={y(t) + 3}
-                textAnchor="end"
-                fontSize={10}
-                fill="var(--color-lol-text)"
-              >
+              <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} stroke={C.grid} />
+              <text x={M.left - 8} y={y(t) + 4} textAnchor="end" {...AXIS_TEXT}>
                 {format(t)}
               </text>
             </g>
           ))}
+          {hover != null && (
+            <rect
+              x={x(hover) - step / 2}
+              y={M.top}
+              width={step}
+              height={plotHeight}
+              fill="white"
+              fillOpacity={0.035}
+            />
+          )}
+          <line
+            x1={M.left}
+            x2={width - M.right}
+            y1={volumeBase + 0.5}
+            y2={volumeBase + 0.5}
+            stroke={C.grid}
+          />
+          <text
+            x={M.left - 8}
+            y={volumeBase - volumeHeight + 8}
+            textAnchor="end"
+            {...AXIS_TEXT}
+            fillOpacity={0.7}
+          >
+            {maxGames.toLocaleString(LOCALE)}
+          </text>
+          {/* Names the strip, so its lone top value reads as a game count */}
+          <text x={M.left - 8} y={volumeBase} textAnchor="end" {...AXIS_TEXT} fillOpacity={0.55}>
+            GAMES
+          </text>
+          {points.map((p, i) =>
+            p.games > 0 ? (
+              <rect
+                key={i}
+                x={x(i) - barWidth / 2}
+                y={volumeBase - Math.max((p.games / maxGames) * volumeHeight, 2)}
+                width={barWidth}
+                height={Math.max((p.games / maxGames) * volumeHeight, 2)}
+                rx={1.5}
+                fill={C.secondary}
+                fillOpacity={hover === i ? 0.4 : 0.22}
+              />
+            ) : null,
+          )}
           {refValue != null && (
             <line
               x1={M.left}
               x2={width - M.right}
               y1={y(refValue)}
               y2={y(refValue)}
-              stroke="var(--color-lol-text)"
-              strokeOpacity={0.35}
-              strokeDasharray="4 4"
+              stroke="var(--color-lol-text-bright)"
+              strokeOpacity={0.28}
+              strokeDasharray="3 4"
             />
           )}
-          {hover != null && (
-            <rect
-              x={x(hover) - step / 2}
-              y={M.top}
-              width={step}
-              height={ih}
-              fill="white"
-              fillOpacity={0.05}
-            />
-          )}
-          {points.map((p, i) =>
-            p.games > 0 ? (
-              <rect
+          {segments.map((seg, i) =>
+            seg.length > 1 ? (
+              <polygon
                 key={i}
-                x={x(i) - barWidth / 2}
-                y={M.top + ih - (p.games / maxGames) * ih * 0.45}
-                width={barWidth}
-                height={(p.games / maxGames) * ih * 0.45}
-                rx={2}
-                fill="white"
-                fillOpacity={hover === i ? 0.16 : 0.08}
+                points={[
+                  ...seg.map(([px, py]) => `${px},${py}`),
+                  `${seg[seg.length - 1][0]},${baseline}`,
+                  `${seg[0][0]},${baseline}`,
+                ].join(" ")}
+                fill={`url(#${CSS.escape(fadeId)})`}
               />
             ) : null,
           )}
+          {/* Periods with no games between two that had some: a dashed bridge,
+              so the line reads as interrupted rather than as stray dots */}
+          {gaps
+            .filter((g) => g.bridged)
+            .map(({ prev: [x1, y1, i], next: [x2, y2] }) => (
+              <line
+                key={i}
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke={C.accent}
+                strokeOpacity={0.5}
+                strokeWidth={1.5}
+                strokeDasharray="2 5"
+                strokeLinecap="round"
+              />
+            ))}
           {segments.map((seg, i) => (
             <polyline
               key={i}
               points={seg.map(([px, py]) => `${px},${py}`).join(" ")}
               fill="none"
-              stroke="var(--color-lol-gold)"
-              strokeWidth={2}
+              stroke={C.accent}
+              strokeWidth={2.25}
               strokeLinejoin="round"
+              strokeLinecap="round"
             />
           ))}
           {points.map((p, i) =>
@@ -326,10 +493,10 @@ function TimeSeriesChart({
                 key={i}
                 cx={x(i)}
                 cy={y(p.value)}
-                r={hover === i ? 4 : 2.5}
-                fill="var(--color-lol-gold)"
+                r={hover === i ? 5 : 3.5}
+                fill={pointColor(p.value)}
                 stroke="var(--color-lol-card)"
-                strokeWidth={1.5}
+                strokeWidth={2}
               />
             ) : null,
           )}
@@ -338,10 +505,10 @@ function TimeSeriesChart({
               <text
                 key={i}
                 x={x(i)}
-                y={height - 5}
+                y={height - 6}
                 textAnchor="middle"
-                fontSize={10}
-                fill="var(--color-lol-text)"
+                {...AXIS_TEXT}
+                fill={hover === i ? "var(--color-lol-text-bright)" : C.axis}
               >
                 {p.label}
               </text>
@@ -364,7 +531,8 @@ function TimeSeriesChart({
 
 // ---- Activity heatmap ----
 
-// The trailing 52 full weeks plus the current partial one, at GitHub's size
+// The trailing 52 full weeks plus the current partial one. The cells stretch
+// to the panel's width; the size is only the calendar's floor.
 const HEATMAP_WEEKS = 53;
 const HEATMAP_CELL = 11;
 
@@ -384,21 +552,41 @@ function ActivityHeatmap({ daily }: { daily: TrendsDay[] }) {
       first={first.getTime()}
       last={today.getTime()}
       cell={HEATMAP_CELL}
+      fill
     />
   );
 }
 
 // ---- Patch bars ----
 
-function patchBarColor(rate: number): string {
-  if (rate >= 60) return "var(--color-lol-win)";
-  if (rate >= 50) return "#38bdf8";
-  return "var(--color-lol-loss)";
+// Win rate reads the same binary way everywhere in the app: mint at 50% and
+// over, coral under
+const PATCH_TIERS = [
+  { min: 50, color: C.win },
+  { min: -Infinity, color: C.loss },
+];
+
+// A patch with fewer games than this gets a hatched, dimmed bar: two games at
+// 100% shouldn't tower over a hundred at 55%
+const MIN_PATCH_GAMES = 5;
+
+function patchTier(rate: number): number {
+  return PATCH_TIERS.findIndex((t) => rate >= t.min);
 }
+
+const PATCH_LEGEND = [
+  { label: "50%+", swatch: barSwatch(C.win) },
+  { label: "Under 50%", swatch: barSwatch(C.loss) },
+  {
+    label: `Under ${MIN_PATCH_GAMES} games`,
+    swatch: hatchSwatch("var(--color-lol-text)"),
+  },
+];
 
 function PatchBars({ patches }: { patches: TrendsData["patches"] }) {
   const { ref, width } = useContainerWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
+  const gradientId = useId();
   // Which sides have bars scrolled out of view, for the edge fades
   const [clipped, setClipped] = useState({ left: false, right: false });
   // The chart opens scrolled to the newest patch and stays there through
@@ -406,13 +594,18 @@ function PatchBars({ patches }: { patches: TrendsData["patches"] }) {
   // patches (a queue switch, a new patch) returns it to the newest.
   const pinned = useRef(true);
   const patchKey = patches.map((p) => p.patch).join();
-  const barPitch = 56;
-  const chartWidth = Math.max(width, patches.length * barPitch + 16);
-  const top = 18;
-  const plotHeight = 110;
-  const height = top + plotHeight + 34;
+  // Bars spread out to fill the panel when they fit, and scroll at their
+  // narrowest pitch when they don't
+  const minPitch = 56;
+  const pad = 8;
+  const chartWidth = Math.max(width, patches.length * minPitch + pad * 2);
+  const barPitch = patches.length > 0 ? (chartWidth - pad * 2) / patches.length : minPitch;
+  const barWidth = Math.min(barPitch * 0.56, 40);
+  const top = 22;
+  const plotHeight = 130;
+  const height = top + plotHeight + 40;
   const y = (rate: number) => top + plotHeight - (rate / 100) * plotHeight;
-  const barX = (i: number) => i * barPitch + barPitch / 2 + 8;
+  const barX = (i: number) => i * barPitch + barPitch / 2 + pad;
 
   const updateClipped = (el: HTMLDivElement) => {
     const left = el.scrollLeft >= 1;
@@ -439,7 +632,7 @@ function PatchBars({ patches }: { patches: TrendsData["patches"] }) {
 
   const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const i = Math.floor((e.clientX - rect.left - 8) / barPitch);
+    const i = Math.floor((e.clientX - rect.left - pad) / barPitch);
     setHover(i >= 0 && i < patches.length ? i : null);
   };
 
@@ -460,60 +653,115 @@ function PatchBars({ patches }: { patches: TrendsData["patches"] }) {
               onMouseMove={handleMove}
               onMouseLeave={() => setHover(null)}
             >
-              <line
-                x1={0}
-                x2={chartWidth}
-                y1={y(50)}
-                y2={y(50)}
-                stroke="var(--color-lol-text)"
-                strokeOpacity={0.3}
-                strokeDasharray="4 4"
-              />
+              <defs>
+                {/* Each tier's bar fades from its colour at the value down to the
+                    baseline, so the tops carry the reading */}
+                {PATCH_TIERS.map((t, i) => (
+                  <linearGradient key={i} id={`${gradientId}-${i}`} x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor={t.color} stopOpacity={0.62} />
+                    <stop offset="100%" stopColor={t.color} stopOpacity={0.14} />
+                  </linearGradient>
+                ))}
+                <pattern
+                  id={`${gradientId}-ghost`}
+                  width={6}
+                  height={6}
+                  patternUnits="userSpaceOnUse"
+                  patternTransform="rotate(45)"
+                >
+                  <rect width={2} height={6} fill={C.axis} fillOpacity={0.45} />
+                </pattern>
+              </defs>
+              {[0, 25, 75, 100].map((t) => (
+                <line key={t} x1={0} x2={chartWidth} y1={y(t)} y2={y(t)} stroke={C.grid} />
+              ))}
               {patches.map((p, i) => {
                 const rate = p.games > 0 ? (p.wins / p.games) * 100 : 0;
                 const cx = barX(i);
-                const barHeight = Math.max(top + plotHeight - y(rate), 2);
+                const thin = p.games < MIN_PATCH_GAMES;
+                const tier = patchTier(rate);
+                const color = PATCH_TIERS[tier].color;
+                // Too few games to read: a short colourless stub, so its rate is on
+                // record without the bar towering over the patches that count
+                const barHeight = thin ? 12 : Math.max(top + plotHeight - y(rate), 2);
                 return (
                   <g key={p.patch}>
+                    {hover === i && (
+                      <rect
+                        x={cx - barPitch / 2}
+                        y={top - 16}
+                        width={barPitch}
+                        height={plotHeight + 16}
+                        fill="white"
+                        fillOpacity={0.035}
+                      />
+                    )}
                     <rect
-                      x={cx - 15}
+                      x={cx - barWidth / 2}
                       y={top + plotHeight - barHeight}
-                      width={30}
+                      width={barWidth}
                       height={barHeight}
-                      rx={3}
-                      fill={patchBarColor(rate)}
-                      fillOpacity={hover === i ? 1 : 0.8}
+                      rx={2}
+                      fill={`url(#${CSS.escape(`${gradientId}-${thin ? "ghost" : tier}`)})`}
+                      opacity={hover === i ? 1 : 0.85}
+                    />
+                    {/* A bright cap on the bar's top edge, the broadcast-graphic way of
+                        marking the value */}
+                    <rect
+                      x={cx - barWidth / 2}
+                      y={top + plotHeight - barHeight}
+                      width={barWidth}
+                      height={Math.min(3, barHeight)}
+                      rx={1}
+                      fill={thin ? C.axis : color}
+                      fillOpacity={thin ? 0.5 : 1}
                     />
                     <text
                       x={cx}
-                      y={top + plotHeight - barHeight - 5}
+                      y={top + plotHeight - barHeight - 7}
                       textAnchor="middle"
-                      fontSize={10}
-                      fill="var(--color-lol-text-bright)"
+                      {...AXIS_TEXT}
+                      fontSize={thin ? 12 : 14}
+                      fontWeight={700}
+                      fill={thin ? C.axis : color}
                     >
-                      {formatPercent(rate / 100, 0)}
+                      {/* A stub's record, not a rate: "2–0" reads as the tiny
+                          sample it is, where "100%" reads as a missing bar */}
+                      {thin ? `${p.wins}–${p.games - p.wins}` : formatPercent(rate / 100, 0)}
                     </text>
                     <text
                       x={cx}
-                      y={top + plotHeight + 14}
+                      y={top + plotHeight + 18}
                       textAnchor="middle"
-                      fontSize={10}
+                      {...AXIS_TEXT}
+                      fontSize={13}
+                      fontWeight={700}
                       fill="var(--color-lol-text-bright)"
                     >
                       {formatPatch(p.patch)}
                     </text>
                     <text
                       x={cx}
-                      y={top + plotHeight + 27}
+                      y={top + plotHeight + 33}
                       textAnchor="middle"
-                      fontSize={9}
-                      fill="var(--color-lol-text)"
+                      {...AXIS_TEXT}
+                      fontSize={12}
+                      fontWeight={600}
                     >
                       {p.games.toLocaleString(LOCALE)} games
                     </text>
                   </g>
                 );
               })}
+              <line
+                x1={0}
+                x2={chartWidth}
+                y1={y(50)}
+                y2={y(50)}
+                stroke="var(--color-lol-text-bright)"
+                strokeOpacity={0.28}
+                strokeDasharray="3 4"
+              />
             </svg>
             {hovered && hover != null && (
               <HoverTooltip
@@ -572,6 +820,45 @@ function clockPoint(label: string, long: string, games: number, wins: number): S
   };
 }
 
+// Win rate on an axis fitted to the data, in steps of ten, so a line that
+// moves between 45% and 70% isn't squashed into a sliver of a 0–100 plot. The
+// 50% reference always stays on the axis.
+function WinRateChart({
+  points,
+  labelSpacing,
+  tickStep = 10,
+}: {
+  points: SeriesPoint[];
+  labelSpacing?: number;
+  // Wider steps for a short plot crowded with points
+  tickStep?: number;
+}) {
+  const values = points.map((p) => p.value).filter((v): v is number => v != null);
+  let lo = 0;
+  let hi = 100;
+  if (values.length > 0) {
+    // Ticks counted out from 50 in both directions, so the reference line
+    // always lands on one
+    const below = Math.max(0, 50 - (Math.min(...values) - 5));
+    const above = Math.max(0, Math.max(...values) + 5 - 50);
+    lo = Math.max(0, 50 - Math.ceil(below / tickStep) * tickStep);
+    hi = Math.min(100, 50 + Math.ceil(above / tickStep) * tickStep);
+  }
+  const ticks: number[] = [];
+  for (let t = lo; t <= hi; t += tickStep) ticks.push(t);
+  return (
+    <TimeSeriesChart
+      points={points}
+      yMin={lo}
+      yMax={hi}
+      ticks={ticks}
+      refValue={50}
+      format={(v) => formatPercent(v / 100, 0)}
+      labelSpacing={labelSpacing}
+    />
+  );
+}
+
 function WeekdayChart({ weekdays }: { weekdays: TrendsData["weekdays"] }) {
   const byDay = new Map(weekdays.map((w) => [w.weekday, w]));
   const points = WEEKDAY_ORDER.map((dow) =>
@@ -582,16 +869,7 @@ function WeekdayChart({ weekdays }: { weekdays: TrendsData["weekdays"] }) {
       byDay.get(dow)?.wins ?? 0,
     ),
   );
-  return (
-    <TimeSeriesChart
-      points={points}
-      yMin={0}
-      yMax={100}
-      ticks={[0, 25, 50, 75, 100]}
-      refValue={50}
-      format={(v) => formatPercent(v / 100, 0)}
-    />
-  );
+  return <WinRateChart points={points} />;
 }
 
 function HourChart({ hours }: { hours: TrendsData["hours"] }) {
@@ -604,16 +882,7 @@ function HourChart({ hours }: { hours: TrendsData["hours"] }) {
       byHour.get(hour)?.wins ?? 0,
     ),
   );
-  return (
-    <TimeSeriesChart
-      points={points}
-      yMin={0}
-      yMax={100}
-      ticks={[0, 25, 50, 75, 100]}
-      refValue={50}
-      format={(v) => formatPercent(v / 100, 0)}
-    />
-  );
+  return <WinRateChart points={points} labelSpacing={64} tickStep={20} />;
 }
 
 // ---- Page ----
@@ -678,20 +947,38 @@ export default function Trends() {
     if (values.length === 0) return null;
     const min = Math.floor(Math.min(...values) - 0.5);
     const max = Math.ceil(Math.max(...values) + 0.5);
-    const ticks = Array.from({ length: 5 }, (_, i) => min + ((max - min) * i) / 4);
+    // Whole-number ticks while the range is narrow enough to label every one,
+    // quarters of the range past that
+    const ticks =
+      max - min <= 6
+        ? Array.from({ length: max - min + 1 }, (_, i) => min + i)
+        : Array.from({ length: 5 }, (_, i) => min + ((max - min) * i) / 4);
     return { min, max, ticks };
   }, [scorePoints]);
 
+  const header = (subtitle?: React.ReactNode) => (
+    <PageHeader
+      kicker="Analyze"
+      title="Trends"
+      subtitle={subtitle}
+      actions={<QueueSelect value={queue} onChange={setQueue} />}
+      className="pb-0"
+    />
+  );
+
   if (!data) {
-    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+    return <div className="label mt-20 text-center text-[12px]">Loading…</div>;
   }
 
   if (data.daily.length === 0) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-xl font-bold text-lol-text-bright">Trends</h1>
-        <div className="bg-lol-card rounded-xl border border-lol-border/60 py-16 text-center text-sm text-lol-text">
-          No games recorded yet — sync your match history to start tracking trends.
+      <div className="max-w-[1320px] space-y-6">
+        {header()}
+        <div className="panel flex flex-col items-center gap-3 px-8 py-14 text-center">
+          <TrendingUpIcon className="h-8 w-8 text-lol-gold/60" />
+          <div className="max-w-md text-[14px] text-lol-text">
+            No games recorded yet — sync your match history to start tracking trends.
+          </div>
         </div>
       </div>
     );
@@ -700,16 +987,13 @@ export default function Trends() {
   const totalGames = data.daily.reduce((sum, d) => sum + d.games, 0);
 
   const granularityToggle = (
-    <div className="flex items-center gap-1">
+    <div className="seg">
       {(["month", "week"] as const).map((g) => (
         <button
           key={g}
           onClick={() => setGranularity(g)}
-          className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
-            effectiveGranularity === g
-              ? "bg-lol-gold/20 text-lol-gold border-lol-gold/50"
-              : "text-lol-text border-lol-border bg-lol-card hover:border-lol-border/80"
-          }`}
+          aria-pressed={effectiveGranularity === g}
+          className="seg-item"
         >
           {g === "month" ? "Monthly" : "Weekly"}
         </button>
@@ -717,66 +1001,105 @@ export default function Trends() {
     </div>
   );
 
+  const winRateLegend = (
+    <Legend
+      items={[
+        { label: "Win rate", swatch: lineSwatch(C.accent) },
+        { label: "50%+", swatch: dotSwatch(C.win) },
+        { label: "Under 50%", swatch: dotSwatch(C.loss) },
+        { label: "Games", swatch: barSwatch(C.secondary, 0.45) },
+      ]}
+    />
+  );
+
+  // The span the games actually cover, which is what the count is out of: the
+  // calendar above always shows a full year whatever the history holds
+  const since = parseDay(data.daily[0].day).toLocaleDateString(LOCALE, {
+    month: "short",
+    year: "numeric",
+  });
+  const num = (v: number) => (
+    <span className="font-num text-[14px] font-semibold text-lol-text-bright">
+      {v.toLocaleString(LOCALE)}
+    </span>
+  );
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-lol-text-bright">Trends</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-lol-text">
-            {totalGames.toLocaleString(LOCALE)} games over {data.daily.length} days
-          </span>
-          <QueueSelect value={queue} onChange={setQueue} />
+    <div className="max-w-[1320px] space-y-6">
+      {header(
+        <>
+          {num(totalGames)} {totalGames === 1 ? "game" : "games"} across {num(data.daily.length)}{" "}
+          {data.daily.length === 1 ? "day" : "days"} played since {since}
+        </>,
+      )}
+
+      <Card title="Activity" right={<span className="label">Last 12 months</span>}>
+        <ActivityHeatmap daily={data.daily} />
+      </Card>
+
+      {data.patches.length > 1 && (
+        <Card title="Win Rate by Patch" right={<Legend items={PATCH_LEGEND} />}>
+          <PatchBars patches={data.patches} />
+        </Card>
+      )}
+
+      {/* The bucket size drives both charts below it, so its switch heads the
+          pair rather than either one panel */}
+      <section>
+        <SectionHead title="Over time">{granularityToggle}</SectionHead>
+        {/* Side by side once each chart still gets a full-size plot of its own */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <Card title="Win Rate" right={winRateLegend}>
+            <WinRateChart points={winRatePoints} />
+          </Card>
+
+          {scoreDomain && (
+            <Card
+              title="Average Score"
+              right={
+                <Legend
+                  items={[
+                    { label: "Avg score", swatch: lineSwatch(C.accent) },
+                    { label: "Games", swatch: barSwatch(C.secondary, 0.45) },
+                  ]}
+                />
+              }
+            >
+              <TimeSeriesChart
+                points={scorePoints}
+                yMin={scoreDomain.min}
+                yMax={scoreDomain.max}
+                ticks={scoreDomain.ticks}
+                format={(v) => formatDecimal(v)}
+              />
+            </Card>
+          )}
         </div>
-      </div>
+      </section>
 
-      {/* The heatmap has a fixed size, so on a wide window the patch chart takes
-          the room beside it, scrolled to the newest patch as it is everywhere */}
-      <div className="flex flex-col gap-4 2xl:flex-row">
-        <Card title="Activity" className="2xl:shrink-0">
-          <ActivityHeatmap daily={data.daily} />
-        </Card>
-
-        {data.patches.length > 1 && (
-          <Card title="Win Rate by Patch" className="2xl:flex-1 2xl:min-w-0">
-            <PatchBars patches={data.patches} />
+      <section>
+        <SectionHead title="When you play" />
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <Card title="By Day of Week" right={winRateLegend}>
+            <WeekdayChart weekdays={data.weekdays} />
           </Card>
-        )}
-      </div>
-
-      {/* Side by side once each chart still gets a full-size plot of its own */}
-      <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
-        <Card title="Win Rate Over Time" right={granularityToggle}>
-          <TimeSeriesChart
-            points={winRatePoints}
-            yMin={0}
-            yMax={100}
-            ticks={[0, 25, 50, 75, 100]}
-            refValue={50}
-            format={(v) => formatPercent(v / 100, 0)}
-          />
-        </Card>
-
-        {scoreDomain && (
-          <Card title="Average Score Over Time">
-            <TimeSeriesChart
-              points={scorePoints}
-              yMin={scoreDomain.min}
-              yMax={scoreDomain.max}
-              ticks={scoreDomain.ticks}
-              format={(v) => formatDecimal(v)}
-            />
+          <Card title="By Hour of Day" right={winRateLegend}>
+            <HourChart hours={data.hours} />
           </Card>
-        )}
-      </div>
+        </div>
+      </section>
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Card title="By Day of Week">
-          <WeekdayChart weekdays={data.weekdays} />
-        </Card>
-        <Card title="By Hour of Day">
-          <HourChart hours={data.hours} />
-        </Card>
-      </div>
+// A group's title with a hairline running out to its controls, as Match
+// History heads its days
+function SectionHead({ title, children }: { title: string; children?: React.ReactNode }) {
+  return (
+    <div className="mb-3 flex items-center gap-3">
+      <h2 className="section-title italic">{title}</h2>
+      <span className="h-px flex-1 bg-lol-line" />
+      {children}
     </div>
   );
 }

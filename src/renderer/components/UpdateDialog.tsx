@@ -3,6 +3,8 @@ import { formatDecimal, formatPercent } from "../lib/format";
 import type { UpdateInfo } from "../lib/types";
 import { RefreshIcon } from "./icons";
 import ReleaseNotes from "./ReleaseNotes";
+import DialogFrame, { VersionJump } from "./DialogFrame";
+import { AlertTriangleIcon, GithubIcon } from "./SettingsIcons";
 
 export default function UpdateDialog({
   update,
@@ -54,92 +56,84 @@ export default function UpdateDialog({
   const sizeMb = update.assetSize ? formatDecimal(update.assetSize / 1024 / 1024) : null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={downloading ? undefined : onClose}
-    >
-      <div
-        className="flex max-h-[85vh] w-[32rem] max-w-[90vw] flex-col rounded-lg border border-lol-border bg-lol-card p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-[15px] font-bold text-lol-text-bright">
-          {launchInstalling ? "Updating" : "Update Available"}
-        </h2>
-        {launchInstalling ? (
-          <p className="mt-2 text-[13px] text-lol-text">
-            Updating to <span className="text-lol-gold">v{update.latest}</span> from v
-            {update.current}. The program restarts on its own when it's done.
-          </p>
-        ) : (
-          <p className="mt-2 text-[13px] text-lol-text">
-            Version <span className="text-lol-gold">v{update.latest}</span> is available (you have v
-            {update.current}).
-          </p>
-        )}
-        {releases.length > 1 && (
-          <p className="mt-0.5 text-[12px] text-lol-text/60">
-            {releases.length} versions of changes since your install
-            {update.moreVersions ? ", plus earlier ones on GitHub" : ""}.
-          </p>
-        )}
-
-        {releases.length > 0 && <ReleaseNotes releases={releases} />}
-
-        {downloading && (
-          <div className="mt-4">
-            <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-lol-gold transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="mt-1.5 text-[11px] text-lol-text">
-              Downloading... {formatPercent(progress / 100, 0)}
-              {sizeMb ? ` of ${sizeMb} MB` : ""}
-            </p>
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-4 text-[12px] text-lol-loss">
-            {error}
-            {update.url && (
-              <button
-                onClick={() => window.api.openUrl(update.url!)}
-                className="ml-1.5 text-lol-gold hover:text-lol-gold-light transition-colors cursor-pointer"
-              >
-                Download manually
-              </button>
-            )}
-          </div>
-        )}
-
-        <div className="mt-5 flex items-center justify-between gap-2">
-          <button
-            onClick={() => window.api.openUrl(update.url!)}
-            className="text-[12px] text-lol-gold hover:text-lol-gold-light transition-colors cursor-pointer"
-          >
+    <DialogFrame
+      kicker="Better Mayhem Tracker"
+      title={launchInstalling ? "Updating" : "Update Available"}
+      onDismiss={downloading ? undefined : onClose}
+      footer={
+        <>
+          <button onClick={() => window.api.openUrl(update.url!)} className="btn btn-ghost -ml-2">
+            <GithubIcon className="h-4 w-4" />
             View on GitHub
           </button>
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              disabled={downloading}
-              className="text-xs px-3 py-1.5 rounded-md border border-lol-border text-lol-text hover:bg-white/5 disabled:opacity-50 transition-colors"
-            >
+            <button onClick={onClose} disabled={downloading} className="btn">
               Not Now
             </button>
             <button
               onClick={handleUpdate}
               disabled={downloading || !update.assetUrl}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-lol-gold/25 bg-lol-gold/10 text-lol-gold hover:bg-lol-gold/20 disabled:opacity-50 transition-colors"
+              className="btn btn-primary"
             >
-              <RefreshIcon className={`w-3 h-3 ${downloading ? "animate-spin" : ""}`} />
+              <RefreshIcon className={`h-4 w-4 ${downloading ? "animate-spin" : ""}`} />
               {downloading ? "Updating..." : "Update & Restart"}
             </button>
           </div>
+        </>
+      }
+    >
+      <VersionJump from={update.current} to={update.latest} />
+      <p className="mt-3 text-[14px] leading-[1.5] text-lol-text">
+        {launchInstalling
+          ? "The program restarts on its own when it's done."
+          : `Version ${update.latest} is ready to install.`}
+        {releases.length > 1 && (
+          <>
+            {" "}
+            {releases.length} versions of changes since your install
+            {update.moreVersions ? ", plus earlier ones on GitHub" : ""}.
+          </>
+        )}
+      </p>
+
+      {releases.length > 0 && <ReleaseNotes releases={releases} />}
+
+      {downloading && (
+        <div className="mt-4">
+          <div className="flex items-baseline justify-between">
+            <span className="label">Downloading</span>
+            <span className="font-num text-[13px] text-lol-text">
+              <span className="text-[15px] font-semibold text-lol-text-bright">
+                {formatPercent(progress / 100, 0)}
+              </span>
+              {sizeMb ? ` of ${sizeMb} MB` : ""}
+            </span>
+          </div>
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-sm bg-white/[0.07]">
+            <div
+              className="h-full rounded-sm bg-gradient-to-r from-lol-gold/70 to-lol-gold-light transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+
+      {error && (
+        <div className="mt-4 flex items-start gap-2.5 rounded-md border border-lol-loss/30 bg-lol-loss/[0.07] px-3 py-2 text-[13px] text-lol-loss">
+          <AlertTriangleIcon className="mt-[2px] h-4 w-4 shrink-0" />
+          <span className="min-w-0">
+            {error}
+            {update.url && (
+              <button
+                onClick={() => window.api.openUrl(update.url!)}
+                className="ml-1.5 font-semibold text-lol-gold transition-colors hover:text-lol-gold-light"
+              >
+                Download manually
+              </button>
+            )}
+          </span>
+        </div>
+      )}
+    </DialogFrame>
   );
 }

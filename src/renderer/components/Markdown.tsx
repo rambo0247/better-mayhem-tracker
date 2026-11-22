@@ -12,11 +12,22 @@ function ExternalLink({ href, children }: { href: string; children: ReactNode })
   return (
     <button
       onClick={() => window.api.openUrl(href)}
-      className="text-lol-gold hover:text-lol-gold-light hover:underline underline-offset-2 transition-colors cursor-pointer break-all"
+      className="cursor-pointer text-left font-medium text-lol-gold underline-offset-2 transition-colors hover:text-lol-gold-light hover:underline"
     >
       {children}
     </button>
   );
+}
+
+// A bare URL reads as the site it points at rather than the whole address,
+// which in release notes is nearly always a long GitHub link
+function linkLabel(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return host === "github.com" ? "GitHub" : host;
+  } catch {
+    return url;
+  }
 }
 
 function renderInline(text: string): ReactNode[] {
@@ -36,7 +47,7 @@ function renderInline(text: string): ReactNode[] {
       );
     } else if (code !== undefined) {
       nodes.push(
-        <code key={key++} className="rounded bg-white/10 px-1 py-px text-[11px]">
+        <code key={key++} className="font-sans font-semibold text-lol-text-bright">
           {code}
         </code>,
       );
@@ -49,7 +60,7 @@ function renderInline(text: string): ReactNode[] {
     } else if (bareUrl !== undefined) {
       nodes.push(
         <ExternalLink key={key++} href={bareUrl}>
-          {bareUrl}
+          {linkLabel(bareUrl)}
         </ExternalLink>,
       );
     }
@@ -112,14 +123,20 @@ function parseBlocks(markdown: string): Block[] {
 
 export default function Markdown({ text }: { text: string }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       {parseBlocks(text).map((block, i) => {
         if (block.kind === "list") {
           return (
-            <ul key={i} className="space-y-1">
+            <ul key={i} className="space-y-1.5">
               {block.items.map((item, j) => (
-                <li key={j} className={`flex gap-1.5 ${item.nested ? "ml-4" : ""}`}>
-                  <span className="select-none text-lol-text/40">•</span>
+                <li key={j} className={`flex gap-2.5 ${item.nested ? "ml-5" : ""}`}>
+                  {/* A small diamond for the bullet, hollow for a nested one */}
+                  <span
+                    aria-hidden
+                    className={`mt-[7px] h-[5px] w-[5px] shrink-0 rotate-45 ${
+                      item.nested ? "border border-lol-text/50" : "bg-lol-gold/70"
+                    }`}
+                  />
                   <span className="flex-1">{renderInline(item.text)}</span>
                 </li>
               ))}
@@ -128,7 +145,7 @@ export default function Markdown({ text }: { text: string }) {
         }
         if (block.kind === "heading") {
           return (
-            <p key={i} className="font-semibold text-lol-text-bright">
+            <p key={i} className="label pt-1 text-[13px] text-lol-text-bright">
               {renderInline(block.text)}
             </p>
           );
