@@ -7,6 +7,10 @@ on:
 permissions:
   contents: write
 
+# The Windows and mac builds run side by side rather than one after the other.
+# The Windows job opens the release as a draft, which the in-app updater never
+# sees; both jobs upload into it, and the last job publishes it once every file
+# is there, so nobody is ever offered a release that is missing their build.
 jobs:
   release:
     runs-on: windows-latest
@@ -15,11 +19,6 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
 
       - name: Verify tag matches package.json version
         run: |
@@ -30,7 +29,30 @@ jobs:
             exit 1
           fi
 
-      - run: npm ci
+      # Up front, so the mac job finds the draft waiting by the time it uploads
+      - name: Open the release as a draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --draft --title "$GITHUB_REF_NAME" --generate-notes
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Electron's own binary and electron-builder's packaging tools are
+      # downloaded outside npm's cache, on every run unless kept here
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - run: npm ci --no-audit --no-fund
 
       # Before the slow steps, so a release that would not compile fails in
       # under a minute rather than after packaging
@@ -48,20 +70,15 @@ jobs:
 
       - run: npm run dist
 
-      - name: Create GitHub release
+      - name: Upload the Windows build to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" \
-            dist/BetterMayhemTracker.exe \
-            --title "$GITHUB_REF_NAME" \
-            --generate-notes
+        run: gh release upload "$GITHUB_REF_NAME" dist/BetterMayhemTracker.exe --clobber
 
-  # Runs once the Windows job has created the release, and attaches the mac
-  # builds to it. better-sqlite3 ships prebuilt darwin binaries for both
-  # architectures, so one Apple silicon runner builds arm64 and x64 alike.
+  # In parallel with the Windows job. better-sqlite3 ships prebuilt darwin
+  # binaries for both architectures, so one Apple silicon runner builds arm64
+  # and x64 alike.
   release-mac:
-    needs: release
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,16 +88,42 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - run: npm ci --no-audit --no-fund
 
       - run: npm run dist:mac
 
+      # The Windows job opens the draft within its first minute; this build
+      # takes longer than that, but waits out a slow Windows runner rather than
+      # opening a second draft of its own
       - name: Upload mac builds to the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "$GITHUB_REF_NAME" \
+          for i in $(seq 1 60); do
+            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && break
+            sleep 5
+          done
+          gh release upload "$GITHUB_REF_NAME" --clobber \
             dist/BetterMayhemTracker-mac-arm64.dmg \
             dist/BetterMayhemTracker-mac-x64.dmg \
             dist/BetterMayhemTracker-mac-arm64.zip \
             dist/BetterMayhemTracker-mac-x64.zip
+
+  # Only once both platforms have uploaded: from here the updater can see it
+  publish:
+    needs: [release, release-mac]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
