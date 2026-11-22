@@ -12,9 +12,13 @@ import { SettingsIcon, DownloadIcon, MinusIcon, MaximizeIcon, RestoreIcon, XIcon
 import { NAV_GROUPS, NAV_LINKS, type NavLinkDef } from "../lib/navLinks";
 import { useHiddenNavLinks } from "../hooks/useHiddenNavLinks";
 
-// The app is often left open for days, so a launch-only check would never
-// surface a release cut in the meantime.
-const UPDATE_POLL_MS = 6 * 60 * 60 * 1000;
+// The app is often left open in the tray for days, so a launch-only check would
+// never surface a release cut in the meantime. A check is one small request to
+// GitHub (well inside its 60-an-hour allowance), so it can run often.
+const UPDATE_POLL_MS = 45 * 60 * 1000;
+// Coming back to the window checks again once the last check is this old, so a
+// release shows up when the app is reopened rather than at the next poll
+const UPDATE_RECHECK_ON_RETURN_MS = 10 * 60 * 1000;
 
 const statusDot: Record<LcuStatus, string> = {
   connected: "bg-lol-win",
@@ -216,18 +220,43 @@ export default function Header() {
   }, [showUpdateDialog]);
 
   useEffect(() => {
-    const check = () =>
-      window.api.checkForUpdate().then((info) => {
-        // A failed poll shouldn't clear a badge an earlier check earned
-        setUpdate((prev) => (info.error && prev ? prev : info));
-      });
-    check();
-    const timer = setInterval(() => {
+    let lastCheck = 0;
+    let inFlight = false;
+    const check = () => {
       // Skip while the dialog is up: swapping the release out from under an
       // in-progress download would invalidate the URL being installed
-      if (!dialogOpenRef.current) check();
-    }, UPDATE_POLL_MS);
-    return () => clearInterval(timer);
+      if (inFlight || dialogOpenRef.current) return;
+      inFlight = true;
+      lastCheck = Date.now();
+      window.api
+        .checkForUpdate()
+        .then((info) => {
+          // A failed poll shouldn't clear a badge an earlier check earned
+          setUpdate((prev) => (info.error && prev ? prev : info));
+        })
+        .finally(() => {
+          inFlight = false;
+        });
+    };
+    // Reopening the window from the tray, or switching back to it
+    const onReturn = () => {
+      if (
+        document.visibilityState !== "hidden" &&
+        Date.now() - lastCheck > UPDATE_RECHECK_ON_RETURN_MS
+      ) {
+        check();
+      }
+    };
+
+    check();
+    const timer = setInterval(check, UPDATE_POLL_MS);
+    window.addEventListener("focus", onReturn);
+    document.addEventListener("visibilitychange", onReturn);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", onReturn);
+      document.removeEventListener("visibilitychange", onReturn);
+    };
   }, []);
 
   // The launch check installs on its own; the dialog is just there to show it
