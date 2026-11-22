@@ -1,0 +1,131 @@
+@import "tailwindcss";
+/* Bundled rather than linked: the renderer loads from disk and renders with no
+   network of any kind. */
+@import "@fontsource-variable/figtree";
+
+@theme {
+  --font-sans:
+    "Figtree Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Keep lol-dark in step with the window background in index.html,
+     src/main/index.ts and src/main/export-image.ts, which paint before this
+     stylesheet loads */
+  --color-lol-dark: #151923;
+  --color-lol-card: #1e2331;
+  --color-lol-card-hover: #262d3d;
+  --color-lol-border: #333a4d;
+  --color-lol-gold: #c8a355;
+  --color-lol-gold-light: #f0e6d2;
+  --color-lol-win: #3ecf8e;
+  --color-lol-loss: #e5636e;
+  --color-lol-text: #a3aabd;
+  --color-lol-text-bright: #ebeef4;
+}
+
+body {
+  background-color: var(--color-lol-dark);
+  color: var(--color-lol-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+}
+
+@layer components {
+  .select {
+    appearance: none;
+    background-color: var(--color-lol-card);
+    border: 1px solid var(--color-lol-border);
+    border-radius: 0.5rem;
+    color: var(--color-lol-text-bright);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    padding: 0.375rem 1.75rem 0.375rem 0.625rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3aabd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 0.875rem;
+    transition: border-color 150ms;
+  }
+
+  .input {
+    background-color: var(--color-lol-card);
+    border: 1px solid var(--color-lol-border);
+    border-radius: 0.5rem;
+    color: var(--color-lol-text-bright);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    padding: 0.375rem 0.75rem;
+    transition: border-color 150ms;
+  }
+
+  .input::placeholder {
+    color: color-mix(in srgb, var(--color-lol-text) 50%, transparent);
+  }
+
+  .select:focus,
+  .input:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--color-lol-gold) 50%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-lol-gold) 10%, transparent);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-lol-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #474e62;
+}
+
+/* Scroll containers flush against the window edge: the frameless window keeps a
+   ~5px resize border there, which swallows a thin scrollbar. Widen the track and
+   inset the thumb with a transparent border so it stays grabbable. */
+.scrollbar-edge::-webkit-scrollbar {
+  width: 16px;
+}
+
+.scrollbar-edge::-webkit-scrollbar-thumb {
+  border: 4px solid transparent;
+  background-clip: content-box;
+  border-radius: 8px;
+}
+
+/* The track keeps its room whether or not the page scrolls, so a page's width
+   never depends on its own height. The Season Recap preview scales to that
+   width, and its height decides whether the page scrolls. */
+.scrollbar-edge {
+  scrollbar-gutter: stable;
+}
+
+/* Drag region for custom title bar */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* The game card gets a window of its own, sized to the card itself. Nothing
+   scrolls there, so the root grows with its contents instead of being pinned to
+   the viewport the way the app's own layout wants. */
+body.card-window #root {
+  height: auto;
+  display: block;
+}

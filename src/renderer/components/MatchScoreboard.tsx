@@ -1,0 +1,477 @@
+import { useMemo, useState, type ReactNode } from "react";
+import type { ChampionData, MatchDetail, ParsedParticipant } from "../lib/types";
+import { parseParticipants, groupByTeam } from "../lib/participants";
+import { getChampionName } from "../hooks/useChampions";
+import {
+  formatCompact,
+  formatDecimal,
+  formatPercent,
+  kdaHighlight,
+  kdaRatio,
+  scoreColor,
+} from "../lib/format";
+import {
+  computeMatchScoreBreakdowns,
+  type ScoreBreakdown,
+  type ScoreComponent,
+  type ScoreComponentKey,
+} from "../../shared/opScore";
+import ChampionIcon from "./ChampionIcon";
+import AugmentIcon from "./AugmentIcon";
+import ItemIcon from "./ItemIcon";
+import SummonerSpellIcon from "./SummonerSpellIcon";
+import MultikillBadge from "./MultikillBadge";
+import { ScoreBadge } from "./ScoreCell";
+import Kda from "./Kda";
+import RiotId from "./RiotId";
+
+const GRID_COLS = "grid-cols-[52px_minmax(80px,1fr)_52px_76px_110px_110px_56px_56px_176px_100px]";
+// An eleventh column is only affordable where the rows are laid out wider than
+// the app lays them out: at the app's own window size every column above is
+// already at its floor, so the extra would come out of the player name.
+const GRID_COLS_MULTIKILLS =
+  "grid-cols-[52px_minmax(80px,1fr)_52px_76px_110px_110px_56px_56px_176px_100px_92px]";
+
+export default function MatchScoreboard({
+  detail,
+  champData,
+  puuids,
+  multikills = false,
+}: {
+  detail: MatchDetail;
+  champData: ChampionData;
+  puuids: string[] | null;
+  // Off by default: only a caller that knows its rows are wide should ask
+  multikills?: boolean;
+}) {
+  const participants = useMemo(
+    () => parseParticipants(detail.participants, puuids),
+    [detail, puuids],
+  );
+  const teams = useMemo(() => groupByTeam(participants), [participants]);
+  const scores = useMemo(() => {
+    const classes: Record<number, string | undefined> = {};
+    for (const p of participants) classes[p.championId] = champData[p.championId]?.class;
+    return computeMatchScoreBreakdowns(participants, classes);
+  }, [participants, champData]);
+
+  const gameMaxStats = useMemo(() => {
+    let dmg = 0,
+      taken = 0,
+      gold = 0,
+      heal = 0;
+    for (const p of participants) {
+      if (p.totalDamageDealtToChampions > dmg) dmg = p.totalDamageDealtToChampions;
+      if (p.totalDamageTaken > taken) taken = p.totalDamageTaken;
+      if (p.goldEarned > gold) gold = p.goldEarned;
+      if (p.totalHeal > heal) heal = p.totalHeal;
+    }
+    return { dmg: dmg || 1, taken: taken || 1, gold: gold || 1, heal: heal || 1 };
+  }, [participants]);
+
+  if (participants.length === 0) {
+    return (
+      <div className="text-sm text-lol-text text-center py-4">Full game data not available.</div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {Array.from(teams.entries()).map(([teamId, players]) => (
+        <TeamScoreboard
+          key={teamId}
+          teamId={teamId}
+          players={players}
+          maxStats={gameMaxStats}
+          champData={champData}
+          scores={scores}
+          patch={detail.game.game_version}
+          multikills={multikills}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TeamScoreboard({
+  teamId,
+  players,
+  maxStats,
+  champData,
+  scores,
+  patch,
+  multikills,
+}: {
+  teamId: number;
+  players: ParsedParticipant[];
+  maxStats: { dmg: number; taken: number; gold: number; heal: number };
+  champData: ChampionData;
+  scores: Map<number, ScoreBreakdown>;
+  patch?: string | null;
+  multikills: boolean;
+}) {
+  const isWin = players[0]?.win ?? false;
+  const totals = useMemo(() => computeTeamTotals(players, scores), [players, scores]);
+
+  // The team panel paints its own background rather than borrowing whatever is
+  // behind it: inside the app that's the panel it sits in, but an exported card
+  // has the page's gradient back there.
+  return (
+    <div className="rounded-lg border border-lol-border bg-lol-card overflow-hidden">
+      {/* Team header: name on the left, team totals filling the rest of the bar */}
+      <div
+        className={`px-3 py-1.5 border-b border-lol-border flex flex-wrap items-baseline gap-x-4 gap-y-1 ${isWin ? "bg-lol-win/10" : "bg-lol-loss/10"}`}
+      >
+        <span className={`text-xs font-bold ${isWin ? "text-lol-win" : "text-lol-loss"}`}>
+          Team {teamId === 100 ? "1" : "2"} — {isWin ? "Victory" : "Defeat"}
+        </span>
+        <div className="ml-auto flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <TeamStat label="Avg score">
+            <span
+              className={totals.avgScore != null ? scoreColor(totals.avgScore) : "text-lol-text"}
+            >
+              {totals.avgScore != null ? formatDecimal(totals.avgScore) : "-"}
+            </span>
+          </TeamStat>
+          <TeamStat label="KDA">
+            <span className="text-lol-text-bright">
+              <Kda kills={totals.kills} deaths={totals.deaths} assists={totals.assists} />
+            </span>
+          </TeamStat>
+          <TeamStat label="Damage">
+            <span className="text-red-400">{formatCompact(totals.dmg)}</span>
+          </TeamStat>
+          <TeamStat label="Taken">
+            <span className="text-sky-400">{formatCompact(totals.taken)}</span>
+          </TeamStat>
+          <TeamStat label="Gold">
+            <span className="text-lol-gold">{formatCompact(totals.gold)}</span>
+          </TeamStat>
+          <TeamStat label="Heal">
+            <span className="text-emerald-400">{formatCompact(totals.heal)}</span>
+          </TeamStat>
+        </div>
+      </div>
+
+      {/* Column headers */}
+      <div
+        className={`px-3 py-1 border-b border-lol-border/50 grid ${
+          multikills ? GRID_COLS_MULTIKILLS : GRID_COLS
+        } gap-2 items-center text-[10px] text-lol-text uppercase tracking-wider`}
+      >
+        <span></span>
+        <span>Player</span>
+        <span className="text-center">Score</span>
+        <span className="text-center">KDA</span>
+        <span className="text-center">Damage</span>
+        <span className="text-center">Taken</span>
+        <span className="text-right">Gold</span>
+        <span className="text-right">Heal</span>
+        <span>Items</span>
+        <span>Augments</span>
+        {multikills && <span>Multis</span>}
+      </div>
+
+      {/* Player rows */}
+      {players.map((p) => (
+        <PlayerRow
+          key={p.participantId}
+          player={p}
+          maxStats={maxStats}
+          champData={champData}
+          score={scores.get(p.participantId)}
+          patch={patch}
+          multikills={multikills}
+        />
+      ))}
+    </div>
+  );
+}
+
+function computeTeamTotals(players: ParsedParticipant[], scores: Map<number, ScoreBreakdown>) {
+  const t = {
+    kills: 0,
+    deaths: 0,
+    assists: 0,
+    dmg: 0,
+    taken: 0,
+    gold: 0,
+    heal: 0,
+    avgScore: null as number | null,
+  };
+  let scoreSum = 0,
+    scored = 0;
+
+  for (const p of players) {
+    t.kills += p.kills;
+    t.deaths += p.deaths;
+    t.assists += p.assists;
+    t.dmg += p.totalDamageDealtToChampions;
+    t.taken += p.totalDamageTaken;
+    t.gold += p.goldEarned;
+    t.heal += p.totalHeal;
+    const s = scores.get(p.participantId);
+    if (s) {
+      scoreSum += s.score;
+      scored++;
+    }
+  }
+  if (scored > 0) t.avgScore = scoreSum / scored;
+  return t;
+}
+
+function TeamStat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+      <span className="text-[9px] uppercase tracking-wider text-lol-text">{label}</span>
+      <span className="text-[11px] font-medium tabular-nums">{children}</span>
+    </div>
+  );
+}
+
+function ScoreboardBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return (
+    <div className="h-4 bg-white/5 rounded-sm overflow-hidden relative">
+      <div className={`h-full rounded-sm ${color}`} style={{ width: `${pct}%` }} />
+      <span className="absolute inset-0 flex items-center justify-end pr-1 text-[10px] font-medium text-white/90 leading-none tabular-nums">
+        {formatCompact(value)}
+      </span>
+    </div>
+  );
+}
+
+function PlayerRow({
+  player: p,
+  maxStats,
+  champData,
+  score,
+  patch,
+  multikills,
+}: {
+  player: ParsedParticipant;
+  maxStats: { dmg: number; taken: number; gold: number; heal: number };
+  champData: ChampionData;
+  score?: ScoreBreakdown;
+  patch?: string | null;
+  multikills: boolean;
+}) {
+  const kda = kdaRatio(p.kills, p.deaths, p.assists);
+
+  return (
+    <div
+      className={`px-3 py-1.5 border-b border-lol-border/30 last:border-b-0 grid ${
+        multikills ? GRID_COLS_MULTIKILLS : GRID_COLS
+      } gap-2 items-center ${p.isSelf ? "border-l-2 border-l-lol-gold bg-lol-gold/5" : ""}`}
+    >
+      {/* Champion + spells; two 15px spells and the 2px gap match the 32px portrait */}
+      <div className="flex items-center gap-0.5">
+        <ChampionIcon championId={p.championId} size={32} />
+        <div className="flex flex-col gap-0.5">
+          <SummonerSpellIcon spellId={p.spell1Id} size={15} />
+          <SummonerSpellIcon spellId={p.spell2Id} size={15} />
+        </div>
+      </div>
+
+      {/* Player name */}
+      <div className="min-w-0">
+        <div
+          className={`text-xs truncate ${p.isSelf ? "text-lol-gold font-semibold" : "text-lol-text-bright"}`}
+        >
+          <RiotId id={p.summonerName} />
+        </div>
+        <div className="text-[10px] text-lol-text truncate">
+          {getChampionName(champData, p.championId)}
+        </div>
+      </div>
+
+      {/* Score */}
+      <ScoreCell score={score} />
+
+      {/* KDA */}
+      <div className="text-center">
+        <div className="text-[11px] text-lol-text-bright">
+          <Kda kills={p.kills} deaths={p.deaths} assists={p.assists} />
+        </div>
+        <div className={`text-[10px] ${kdaHighlight(p.kills, p.deaths, p.assists)}`}>{kda}</div>
+      </div>
+
+      {/* Damage dealt */}
+      <ScoreboardBar
+        value={p.totalDamageDealtToChampions}
+        max={maxStats.dmg}
+        color="bg-red-400/50"
+      />
+
+      {/* Damage taken */}
+      <ScoreboardBar value={p.totalDamageTaken} max={maxStats.taken} color="bg-sky-400/50" />
+
+      {/* Gold */}
+      <div className="text-right text-[11px] text-lol-gold tabular-nums">
+        {formatCompact(p.goldEarned)}
+      </div>
+
+      {/* Heal */}
+      <div className="text-right text-[11px] text-emerald-400 tabular-nums">
+        {formatCompact(p.totalHeal)}
+      </div>
+
+      {/* Items */}
+      <div className="flex gap-0.5">
+        {p.items.slice(0, 6).map((itemId, i) => (
+          <ItemIcon key={i} itemId={itemId} size={22} patch={patch} />
+        ))}
+        <div className="ml-0.5">
+          <ItemIcon itemId={p.items[6] ?? 0} size={22} patch={patch} />
+        </div>
+      </div>
+
+      {/* Augments */}
+      <div className="flex gap-0.5">
+        {p.augments.map((augId, i) => (
+          <AugmentIcon key={i} augmentId={augId} size={22} patch={patch} />
+        ))}
+      </div>
+
+      {/* Multikills */}
+      {multikills && (
+        <div className="flex">
+          <MultikillBadge
+            compact
+            doubles={p.doubleKills}
+            triples={p.tripleKills}
+            quadras={p.quadraKills}
+            pentas={p.pentaKills}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScoreCell({ score }: { score?: ScoreBreakdown }) {
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+
+  return (
+    <div
+      className={`text-center ${score ? "cursor-help" : ""}`}
+      onMouseEnter={(e) => setAnchor(e.currentTarget.getBoundingClientRect())}
+      onMouseLeave={() => setAnchor(null)}
+    >
+      <div
+        className={`text-[11px] font-semibold tabular-nums ${score ? scoreColor(score.score) : "text-lol-text"}`}
+      >
+        {score ? formatDecimal(score.score) : "-"}
+      </div>
+      {score?.badge && <ScoreBadge badge={score.badge} />}
+      {score && anchor && <ScoreBreakdownTooltip breakdown={score} anchor={anchor} />}
+    </div>
+  );
+}
+
+const COMPONENT_LABELS: Record<ScoreComponentKey, string> = {
+  kda: "KDA",
+  kp: "Kill participation",
+  dmg: "Damage dealt",
+  taken: "Damage taken",
+  heal: "Healing",
+  gold: "Gold earned",
+};
+
+// How the player's stat and its full-credit reference read in the tooltip:
+// kda/kp are graded against fixed caps, the rest against the lobby's best.
+function componentValue(c: ScoreComponent): string {
+  if (c.key === "kda") return `${formatDecimal(c.value)} (full at 8)`;
+  if (c.key === "kp") return `${formatPercent(c.value, 0)} (full at ${formatPercent(0.9, 0)})`;
+  return `${formatCompact(c.value)} / ${formatCompact(c.reference)}`;
+}
+
+function ScoreBreakdownTooltip({
+  breakdown,
+  anchor,
+}: {
+  breakdown: ScoreBreakdown;
+  anchor: DOMRect;
+}) {
+  const rows =
+    breakdown.components.length +
+    (breakdown.multikill ? 1 : 0) +
+    (breakdown.carry ? 1 : 0) +
+    (breakdown.win > 0 ? 1 : 0);
+  const width = 288;
+  const height = 74 + rows * 20;
+  // Fixed positioning escapes the team card's overflow-hidden; clamp to the
+  // viewport so rows near the window edges stay readable.
+  const left = Math.min(anchor.right + 10, window.innerWidth - width - 8);
+  const top = Math.min(
+    Math.max(anchor.top + anchor.height / 2 - height / 2, 8),
+    window.innerHeight - height - 8,
+  );
+  const clamped = breakdown.raw !== breakdown.score && (breakdown.raw > 10 || breakdown.raw < 1);
+
+  return (
+    <div
+      className="fixed z-50 pointer-events-none bg-lol-dark border border-lol-border rounded-lg px-3 py-2 shadow-lg text-left"
+      style={{ left, top, width }}
+    >
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="text-xs font-semibold text-lol-text-bright">Score breakdown</span>
+        <span className="text-[10px] text-lol-text">
+          {breakdown.cls ? `${breakdown.cls} weights` : "Standard weights"}
+        </span>
+      </div>
+      {breakdown.components.map((c) => (
+        <div key={c.key} className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
+          <span className="text-[11px] text-lol-text truncate">
+            {COMPONENT_LABELS[c.key]}
+            <span className="ml-1.5 text-[10px] text-lol-text/70">{componentValue(c)}</span>
+          </span>
+          <span className="text-[11px] tabular-nums text-lol-text-bright">
+            {formatDecimal(c.points)}
+            <span className="text-[10px] text-lol-text/70"> / {formatDecimal(c.weight)}</span>
+          </span>
+        </div>
+      ))}
+      {breakdown.multikill && (
+        <div className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
+          <span className="text-[11px] text-lol-text">{breakdown.multikill.label} bonus</span>
+          <span className="text-[11px] tabular-nums text-lol-text-bright">
+            +{formatDecimal(breakdown.multikill.points)}
+          </span>
+        </div>
+      )}
+      {breakdown.carry && (
+        <div className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
+          <span className="text-[11px] text-lol-text">
+            Carry bonus
+            <span className="ml-1.5 text-[10px] text-lol-text/70">
+              {formatDecimal(breakdown.carry.lead, 2)}× next best
+            </span>
+          </span>
+          <span className="text-[11px] tabular-nums text-lol-text-bright">
+            +{formatDecimal(breakdown.carry.points)}
+          </span>
+        </div>
+      )}
+      {breakdown.win > 0 && (
+        <div className="grid grid-cols-[1fr_auto] gap-2 items-baseline leading-5">
+          <span className="text-[11px] text-lol-text">Victory bonus</span>
+          <span className="text-[11px] tabular-nums text-lol-text-bright">
+            +{formatDecimal(breakdown.win)}
+          </span>
+        </div>
+      )}
+      <div className="mt-1 pt-1 border-t border-lol-border/50 grid grid-cols-[1fr_auto] gap-2 items-baseline">
+        <span className="text-[11px] font-medium text-lol-text-bright">
+          Total
+          {clamped
+            ? ` ${formatDecimal(breakdown.raw, 2)}, ${breakdown.raw > 10 ? "capped" : "floored"} at`
+            : ""}
+        </span>
+        <span className={`text-xs font-semibold tabular-nums ${scoreColor(breakdown.score)}`}>
+          {formatDecimal(breakdown.score)}
+        </span>
+      </div>
+    </div>
+  );
+}

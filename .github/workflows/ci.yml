@@ -1,0 +1,175 @@
+name: CI
+
+# Every push and every pull request: the code checks on both platforms the app
+# ships for, then a real build of each, launched and looked at.
+on:
+  # Branches only: a release tag already runs these checks in release.yml
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch makes an older run's answer moot
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format
+        run: npm run format:check
+
+      # electron-vite does not typecheck, so this catches what tsc cannot:
+      # anything that only fails once the bundler resolves it.
+      - name: Build
+        run: npm run build
+
+  # Builds the Windows release exactly as release.yml does, then launches both
+  # the unpacked app and the portable exe the release ships.
+  smoke-windows:
+    needs: check
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Rebuild native modules for Electron
+        run: npm run rebuild
+
+      - name: Package
+        run: npm run dist
+
+      - name: Check the package
+        run: |
+          test -f dist/BetterMayhemTracker.exe
+          test -f "dist/win-unpacked/resources/app.asar.unpacked/node_modules/better-sqlite3/prebuilds/win32-x64.node"
+
+      - name: Launch the app and check its window
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist/win-unpacked/Better Mayhem Tracker.exe" -ArgumentList "--remote-debugging-port=9333" -PassThru
+          node .github/smoke/check-window.mjs window-windows.png
+          $code = $LASTEXITCODE
+          Start-Sleep -Seconds 3
+          Get-Content "$env:APPDATA/better-mayhem-tracker/logs/main.log"
+          $exited = $p.HasExited
+          Get-Process "Better Mayhem Tracker" -ErrorAction SilentlyContinue | Stop-Process -Force
+          if ($exited) { throw "The app exited on its own with code $($p.ExitCode)" }
+          if ($code -ne 0) { throw "Window check failed" }
+          if (-not (Test-Path "$env:APPDATA/better-mayhem-tracker/data/matches.db")) { throw "No database was created" }
+
+      - name: Launch the portable exe
+        shell: pwsh
+        run: |
+          Start-Sleep -Seconds 3
+          $log = "$env:APPDATA/better-mayhem-tracker/logs/main.log"
+          $before = (Get-Content $log).Count
+          Start-Process -FilePath "dist/BetterMayhemTracker.exe"
+          # The portable launcher unpacks the app before starting it
+          Start-Sleep -Seconds 40
+          $lines = Get-Content $log | Select-Object -Skip $before
+          $lines
+          Get-Process "Better Mayhem Tracker", "BetterMayhemTracker" -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not ($lines -match "INFO Better Mayhem Tracker \d")) { throw "The portable exe did not start" }
+          if ($lines -match "Failed to write Start Menu shortcut") { throw "The Start Menu shortcut was not written" }
+          $lnk = "$env:APPDATA/Microsoft/Windows/Start Menu/Programs/Better Mayhem Tracker.lnk"
+          if (-not (Test-Path $lnk)) {
+            Get-ChildItem "$env:APPDATA/Microsoft/Windows/Start Menu/Programs" -ErrorAction SilentlyContinue | Format-Table Name
+            throw "No Start Menu shortcut at $lnk"
+          }
+          "Start Menu shortcut written"
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-windows
+          path: |
+            window-windows.png
+            ${{ env.APPDATA }}/better-mayhem-tracker/logs/main.log
+          if-no-files-found: ignore
+
+  # Packages the Apple silicon app (the release also builds Intel the same
+  # way), launches it, and runs the updater's bundle swap against it.
+  smoke-mac:
+    needs: check
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Package
+        run: npm run build && npx electron-builder --mac dir --arm64
+
+      - name: Check the package
+        run: |
+          app="dist/mac-arm64/Better Mayhem Tracker.app"
+          test -f "$app/Contents/Resources/app.asar.unpacked/node_modules/better-sqlite3/prebuilds/darwin-arm64.node"
+          codesign --verify --deep --strict "$app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Contents/Info.plist")" = com.better-mayhem-tracker.app
+
+      - name: Launch the app and check its window
+        run: |
+          "dist/mac-arm64/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker" --remote-debugging-port=9333 &
+          pid=$!
+          code=0
+          node .github/smoke/check-window.mjs window-mac.png || code=$?
+          sleep 3
+          cat "$HOME/Library/Application Support/better-mayhem-tracker/logs/main.log"
+          if ! kill -0 "$pid" 2>/dev/null; then echo "The app exited on its own"; exit 1; fi
+          kill "$pid"
+          test "$code" -eq 0
+          test -f "$HOME/Library/Application Support/better-mayhem-tracker/data/matches.db"
+
+      - name: Check the updater's bundle swap
+        run: sh .github/smoke/mac-update-swap.sh "dist/mac-arm64/Better Mayhem Tracker.app"
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-mac
+          path: |
+            window-mac.png
+            ~/Library/Application Support/better-mayhem-tracker/logs/main.log
+          if-no-files-found: ignore

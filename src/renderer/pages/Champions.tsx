@@ -1,0 +1,471 @@
+import { useState, useMemo, useEffect, Fragment } from "react";
+import { useNavigate } from "react-router-dom";
+import { useIpc } from "../hooks/useIpc";
+import { useViewState } from "../hooks/useViewState";
+import { useSort } from "../hooks/useSort";
+import { useChampionData, getChampionName, useAugmentData } from "../hooks/useChampions";
+import type {
+  ChampionStats,
+  AugmentStats,
+  ItemStats,
+  MatchListItem,
+  MatchHistoryLink,
+} from "../lib/types";
+import ChampionIcon from "../components/ChampionIcon";
+import AugmentIcon from "../components/AugmentIcon";
+import ItemIcon from "../components/ItemIcon";
+import WinRateBar from "../components/WinRateBar";
+import PatchSelect from "../components/PatchSelect";
+import QueueSelect from "../components/QueueSelect";
+import SortHeader, { CycleSortHeader } from "../components/SortHeader";
+import FilterMenu from "../components/FilterMenu";
+import MinGamesFilter from "../components/MinGamesFilter";
+import SeasonSelect from "../components/SeasonSelect";
+import { ChevronRightIcon } from "../components/icons";
+import {
+  LOCALE,
+  formatDecimal,
+  formatDuration,
+  formatTimeAgo,
+  kdaRatio,
+  kdaColor,
+  scoreColor,
+} from "../lib/format";
+import { matchesSearch } from "../lib/search";
+import Kda from "../components/Kda";
+import SearchInput from "../components/SearchInput";
+
+type SortKey =
+  | "games"
+  | "wins"
+  | "avg_kills"
+  | "avg_deaths"
+  | "avg_assists"
+  | "kda"
+  | "avg_score"
+  | "badges"
+  | "mvps"
+  | "aces"
+  | "avg_damage"
+  | "avg_gold"
+  | "multikills"
+  | "double_kills"
+  | "triple_kills"
+  | "quadra_kills"
+  | "penta_kills";
+
+// The badge and multikill columns sort by their total first, then by each part
+// on its own
+const BADGE_STEPS: { field: SortKey; label: string }[] = [
+  { field: "badges", label: "MVP / ACE" },
+  { field: "mvps", label: "MVP" },
+  { field: "aces", label: "ACE" },
+];
+const MULTIKILL_STEPS: { field: SortKey; label: string }[] = [
+  { field: "multikills", label: "Multikills" },
+  { field: "double_kills", label: "Doubles" },
+  { field: "triple_kills", label: "Triples" },
+  { field: "quadra_kills", label: "Quadras" },
+  { field: "penta_kills", label: "Pentas" },
+];
+
+// Table columns, for the expanded row's colSpan
+const COLUMN_COUNT = 13;
+
+function ChampionExpanded({
+  championId,
+  patch,
+  queue,
+  season,
+}: {
+  championId: number;
+  patch?: string;
+  queue?: number;
+  season?: string;
+}) {
+  const navigate = useNavigate();
+  const augData = useAugmentData();
+  const [augStats, setAugStats] = useState<AugmentStats[] | null>(null);
+  const [itemStats, setItemStats] = useState<ItemStats[] | null>(null);
+  const [matches, setMatches] = useState<MatchListItem[] | null>(null);
+
+  useEffect(() => {
+    window.api.getAugmentStats(championId, patch, queue, season).then(setAugStats);
+    window.api.getChampionItemStats(championId, patch, queue, season).then(setItemStats);
+    window.api
+      .getChampionMatchHistory(championId, 5, 0, patch, queue, season)
+      .then((r) => setMatches(r.matches));
+  }, [championId, patch, queue, season]);
+
+  if (!augStats || !itemStats || !matches) {
+    return (
+      <td colSpan={COLUMN_COUNT} className="px-4 py-4">
+        <div className="text-sm text-lol-text text-center">Loading...</div>
+      </td>
+    );
+  }
+
+  const topAugments = augStats.slice(0, 6);
+  const topItems = itemStats.slice(0, 6);
+
+  return (
+    <td colSpan={COLUMN_COUNT} className="px-4 py-4">
+      <div className="grid grid-cols-3 gap-6">
+        {/* Augments */}
+        <div className="min-w-0">
+          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Top Augments</h3>
+          <div className="space-y-1">
+            {topAugments.length > 0 ? (
+              topAugments.map((a) => (
+                <div key={a.augment_id} className="flex items-center gap-2 h-7">
+                  <div className="shrink-0">
+                    <AugmentIcon augmentId={a.augment_id} />
+                  </div>
+                  <span className="text-xs text-lol-text-bright truncate min-w-0">
+                    {augData[a.augment_id]?.name ?? `Augment ${a.augment_id}`}
+                  </span>
+                  <span className="text-[11px] text-lol-text shrink-0 ml-auto">
+                    {a.picks.toLocaleString(LOCALE)}x
+                  </span>
+                  <div className="shrink-0">
+                    <WinRateBar wins={a.wins} total={a.picks} />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <span className="text-xs text-lol-text">No data</span>
+            )}
+          </div>
+        </div>
+
+        {/* Items */}
+        <div className="min-w-0">
+          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Top Items</h3>
+          <div className="space-y-1">
+            {topItems.length > 0 ? (
+              topItems.map((item) => (
+                <div key={item.item_id} className="flex items-center gap-2 h-7">
+                  <div className="shrink-0">
+                    <ItemIcon itemId={item.item_id} size={24} patch={patch} />
+                  </div>
+                  <span className="text-[11px] text-lol-text shrink-0 ml-auto">
+                    {item.picks.toLocaleString(LOCALE)}x
+                  </span>
+                  <div className="shrink-0">
+                    <WinRateBar wins={item.wins} total={item.picks} />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <span className="text-xs text-lol-text">No data</span>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Games */}
+        <div className="min-w-0">
+          <h3 className="text-xs text-lol-text uppercase tracking-wider mb-2">Recent Games</h3>
+          <div className="space-y-1">
+            {matches.length > 0 ? (
+              matches.map((m) => (
+                <div
+                  key={m.game_id}
+                  className={`flex items-center gap-2 px-2 h-7 rounded text-xs ${
+                    m.is_remake
+                      ? "bg-white/[0.03]"
+                      : m.win
+                        ? "bg-lol-win/[0.07]"
+                        : "bg-lol-loss/[0.07]"
+                  }`}
+                >
+                  <span
+                    className={`font-bold shrink-0 w-4 text-center ${m.is_remake ? "text-gray-500" : m.win ? "text-lol-win" : "text-lol-loss"}`}
+                  >
+                    {m.is_remake ? "-" : m.win ? "W" : "L"}
+                  </span>
+                  <span className="text-lol-text-bright shrink-0">
+                    <Kda kills={m.kills} deaths={m.deaths} assists={m.assists} />
+                  </span>
+                  {m.score != null && !m.is_remake && (
+                    <span className={`font-semibold shrink-0 tabular-nums ${scoreColor(m.score)}`}>
+                      {formatDecimal(m.score)}
+                    </span>
+                  )}
+                  <span className="text-lol-text ml-auto shrink-0 tabular-nums">
+                    {formatDuration(m.game_duration)}
+                  </span>
+                  <span className="text-lol-text shrink-0">{formatTimeAgo(m.game_creation)}</span>
+                </div>
+              ))
+            ) : (
+              <span className="text-xs text-lol-text">No games</span>
+            )}
+          </div>
+          {matches.length > 0 && (
+            <button
+              onClick={() =>
+                navigate("/", {
+                  state: { championId, patch, queue, season } satisfies MatchHistoryLink,
+                })
+              }
+              className="mt-2 flex items-center gap-0.5 text-xs text-lol-text hover:text-lol-gold transition-colors"
+            >
+              View all in Match History
+              <ChevronRightIcon className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </div>
+    </td>
+  );
+}
+
+export default function Champions() {
+  const champData = useChampionData();
+  const [patch, setPatch] = useViewState<string | undefined>("champions.patch", undefined);
+  const [queue, setQueue] = useViewState<number | undefined>("champions.queue", undefined);
+  const [season, setSeason] = useViewState<string | undefined>("champions.season", undefined);
+  const { data, refetch } = useIpc<ChampionStats[]>(
+    () => window.api.getChampionStats(patch, queue, season),
+    [patch, queue, season],
+  );
+  const [search, setSearch] = useViewState("champions.search", "");
+  const [minGames, setMinGames] = useViewState<number | undefined>("champions.minGames", undefined);
+  const sort = useSort<SortKey>("champions", "games");
+  const { sortKey, sortDir } = sort;
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const unsub = window.api.onGamesUpdated(() => refetch());
+    return unsub;
+  }, [refetch]);
+
+  const toggleExpand = (championId: number) => {
+    setExpandedId((prev) => (prev === championId ? null : championId));
+  };
+
+  const sorted = useMemo(() => {
+    if (!data) return [];
+    let filtered = data.filter((c) => {
+      if (minGames !== undefined && c.games < minGames) return false;
+      return matchesSearch(getChampionName(champData, c.champion_id), search);
+    });
+
+    filtered.sort((a, b) => {
+      let av: number, bv: number;
+      if (sortKey === "multikills") {
+        av = a.double_kills + a.triple_kills + a.quadra_kills + a.penta_kills;
+        bv = b.double_kills + b.triple_kills + b.quadra_kills + b.penta_kills;
+      } else if (sortKey === "wins") {
+        av = a.games > 0 ? a.wins / a.games : 0;
+        bv = b.games > 0 ? b.wins / b.games : 0;
+      } else if (sortKey === "kda") {
+        av = a.deaths > 0 ? (a.kills + a.assists) / a.deaths : Infinity;
+        bv = b.deaths > 0 ? (b.kills + b.assists) / b.deaths : Infinity;
+      } else if (sortKey === "badges") {
+        av = a.mvps + a.aces;
+        bv = b.mvps + b.aces;
+      } else if (sortKey === "avg_score") {
+        // Champions with no scored games sort below every scored one
+        av = a.avg_score ?? -1;
+        bv = b.avg_score ?? -1;
+      } else {
+        av = (a as any)[sortKey];
+        bv = (b as any)[sortKey];
+      }
+      return sortDir === "desc" ? bv - av : av - bv;
+    });
+
+    return filtered;
+  }, [data, search, minGames, sortKey, sortDir, champData]);
+
+  if (!data) {
+    return <div className="text-lol-text text-center mt-20">Loading...</div>;
+  }
+
+  return (
+    <div className="max-w-6xl space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-lol-text-bright">Champions</h1>
+        <div className="flex items-center gap-2">
+          <FilterMenu
+            active={[season, patch, queue, minGames].filter((v) => v !== undefined).length}
+            onReset={() => {
+              setSeason(undefined);
+              setPatch(undefined);
+              setQueue(undefined);
+              setMinGames(undefined);
+            }}
+          >
+            <SeasonSelect value={season} onChange={setSeason} label="Set" />
+            <PatchSelect value={patch} onChange={setPatch} label="Patch" />
+            <QueueSelect value={queue} onChange={setQueue} label="Queue" />
+            <MinGamesFilter
+              value={minGames}
+              onChange={setMinGames}
+              max={Math.max(...data.map((c) => c.games))}
+            />
+          </FilterMenu>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search champion..." />
+        </div>
+      </div>
+
+      <div className="bg-lol-card rounded-xl border border-lol-border/60 overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-lol-dark/50">
+            <tr>
+              <th className="px-2 py-2 text-right text-xs font-medium text-lol-text uppercase tracking-wider whitespace-nowrap w-12">
+                #
+              </th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-lol-text uppercase tracking-wider whitespace-nowrap">
+                Champion
+              </th>
+              <SortHeader {...sort} compact numeric label="Games" field="games" className="w-16" />
+              <SortHeader {...sort} compact numeric label="Win %" field="wins" />
+              <SortHeader {...sort} compact numeric label="K" field="avg_kills" className="w-12" />
+              <SortHeader {...sort} compact numeric label="D" field="avg_deaths" className="w-12" />
+              <SortHeader
+                {...sort}
+                compact
+                numeric
+                label="A"
+                field="avg_assists"
+                className="w-12"
+              />
+              <SortHeader {...sort} compact numeric label="KDA" field="kda" className="w-12" />
+              <SortHeader
+                {...sort}
+                compact
+                numeric
+                label="Score"
+                field="avg_score"
+                className="w-14"
+              />
+              <CycleSortHeader {...sort} compact steps={BADGE_STEPS} className="w-22" />
+              <SortHeader
+                {...sort}
+                compact
+                numeric
+                label="Dmg"
+                field="avg_damage"
+                className="w-16"
+              />
+              <SortHeader
+                {...sort}
+                compact
+                numeric
+                label="Gold"
+                field="avg_gold"
+                className="w-16"
+              />
+              <CycleSortHeader {...sort} compact steps={MULTIKILL_STEPS} className="w-36" />
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((c, i) => (
+              <Fragment key={c.champion_id}>
+                <tr
+                  onClick={() => toggleExpand(c.champion_id)}
+                  className={`border-t border-lol-border/50 hover:bg-lol-card-hover cursor-pointer transition-colors ${
+                    expandedId === c.champion_id ? "bg-lol-card-hover" : ""
+                  }`}
+                >
+                  <td className="px-2 py-2 text-xs text-lol-text text-right tabular-nums">
+                    {i + 1}
+                  </td>
+                  <td className="px-2 py-2">
+                    <div className="flex items-center gap-2">
+                      <ChampionIcon championId={c.champion_id} size={28} />
+                      <span className="text-sm text-lol-text-bright">
+                        {getChampionName(champData, c.champion_id)}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 text-sm text-lol-text-bright text-right tabular-nums">
+                    {c.games.toLocaleString(LOCALE)}
+                  </td>
+                  <td className="px-2 py-2 w-32">
+                    <WinRateBar wins={c.wins} total={c.games} />
+                  </td>
+                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
+                    {formatDecimal(c.avg_kills)}
+                  </td>
+                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
+                    {formatDecimal(c.avg_deaths)}
+                  </td>
+                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
+                    {formatDecimal(c.avg_assists)}
+                  </td>
+                  <td
+                    className={`px-2 py-2 text-sm text-right tabular-nums ${kdaColor(c.deaths > 0 ? (c.kills + c.assists) / c.deaths : Infinity)}`}
+                  >
+                    {kdaRatio(c.kills, c.deaths, c.assists)}
+                  </td>
+                  <td
+                    className={`px-2 py-2 text-sm font-semibold text-right tabular-nums ${
+                      c.avg_score != null ? scoreColor(c.avg_score) : "text-lol-text"
+                    }`}
+                  >
+                    {c.avg_score != null ? formatDecimal(c.avg_score) : "—"}
+                  </td>
+                  <td className="px-2 py-2 text-sm whitespace-nowrap tabular-nums">
+                    <span className={c.mvps > 0 ? "text-amber-300" : "text-lol-text/40"}>
+                      {c.mvps}
+                    </span>
+                    <span className="text-lol-text/40"> / </span>
+                    <span className={c.aces > 0 ? "text-purple-400" : "text-lol-text/40"}>
+                      {c.aces}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 text-sm text-lol-text text-right tabular-nums">
+                    {(c.avg_damage ?? 0).toLocaleString(LOCALE)}
+                  </td>
+                  <td className="px-2 py-2 text-sm text-lol-gold text-right tabular-nums">
+                    {(c.avg_gold ?? 0).toLocaleString(LOCALE)}
+                  </td>
+                  <td className="px-2 py-2">
+                    <div className="flex gap-1 text-[10px] tabular-nums">
+                      <span
+                        className={`w-7 shrink-0 text-center ${c.double_kills > 0 ? "text-sky-400" : "text-transparent"}`}
+                      >
+                        D{c.double_kills}
+                      </span>
+                      <span
+                        className={`w-7 shrink-0 text-center ${c.triple_kills > 0 ? "text-amber-400" : "text-transparent"}`}
+                      >
+                        T{c.triple_kills}
+                      </span>
+                      <span
+                        className={`w-7 shrink-0 text-center ${c.quadra_kills > 0 ? "text-purple-400" : "text-transparent"}`}
+                      >
+                        Q{c.quadra_kills}
+                      </span>
+                      <span
+                        className={`w-7 shrink-0 text-center ${c.penta_kills > 0 ? "text-red-400" : "text-transparent"}`}
+                      >
+                        P{c.penta_kills}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+                {expandedId === c.champion_id && (
+                  <tr className="border-t border-lol-border/30 bg-lol-dark/30">
+                    <ChampionExpanded
+                      championId={c.champion_id}
+                      patch={patch}
+                      queue={queue}
+                      season={season}
+                    />
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+        {sorted.length === 0 && (
+          <div className="py-8 text-center text-sm text-lol-text">No champions found</div>
+        )}
+      </div>
+    </div>
+  );
+}
