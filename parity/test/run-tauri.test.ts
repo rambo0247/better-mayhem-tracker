@@ -80,6 +80,18 @@ describe.skipIf(process.platform === "win32")("launching", () => {
     fs.rmSync(dir, { recursive: true });
   });
 
+  test("the empty data source starts with no asset cache", async () => {
+    const dir = scratch();
+    const binary = path.join(dir, "fake-tauri");
+    fs.writeFileSync(binary, "#!/bin/sh\nexec sleep 300\n", { mode: 0o755 });
+    const run = path.join(dir, "run");
+    await expect(
+      startTauri({ data: "empty", renderer: "solid", binary, runDir: run, readyTimeoutMs: 500 }),
+    ).rejects.toThrow(/no "bmt-parity-driver-v1 listening" line/);
+    expect(fs.existsSync(path.join(run, "asset-cache"))).toBe(false);
+    fs.rmSync(dir, { recursive: true });
+  });
+
   test("a run folder a parity run did not make is left alone", async () => {
     const dir = scratch();
     const run = path.join(dir, "run");

@@ -629,7 +629,11 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
         `${Date.now()}-tauri-${crypto.randomBytes(3).toString("hex")}`,
       ),
   );
-  const dataRoot = options.data === undefined ? undefined : resolveDataRoot(options.data);
+  // An empty data folder has no asset cache to serve
+  const dataRoot =
+    options.data === undefined || options.data === "empty"
+      ? undefined
+      : resolveDataRoot(options.data);
   claimRunFolder(runDir, dataRoot);
 
   const binary = options.binary ?? tauriBinary(repo);
