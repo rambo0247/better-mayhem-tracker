@@ -30,6 +30,7 @@ pub mod intl;
 pub mod js_arg;
 mod lcu;
 mod live;
+pub mod local_storage;
 pub mod locale;
 pub mod log;
 pub mod mac_update_script;
@@ -78,11 +79,28 @@ fn log(message: impl AsRef<str>) {
 }
 
 #[tauri::command]
-fn page_event(started: tauri::State<'_, StartedAt>, name: String) {
+fn page_event(
+    started: tauri::State<'_, StartedAt>,
+    paths: tauri::State<'_, Paths>,
+    clock: tauri::State<'_, Clock>,
+    confirmation: tauri::State<'_, local_storage::Confirmation>,
+    name: String,
+) {
     log(format!(
         "page {name} {} ms after process start",
         started.0.elapsed().as_millis()
     ));
+    if name == local_storage::FILLED_EVENT {
+        match confirmation.confirm(&paths, clock.now_ms()) {
+            Ok(Some(carried)) => log(format!(
+                "local storage import: page set {carried} keys, recorded"
+            )),
+            Ok(None) => {}
+            Err(error) => log(format!(
+                "local storage import: could not record it, will retry next start, {error}"
+            )),
+        }
+    }
 }
 
 /// What the app runs against besides its data root, which golden replay and
@@ -147,6 +165,7 @@ pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
         .manage(host.clock)
         .manage(paths)
         .manage(host.effects)
+        .manage(local_storage::Confirmation::default())
         .plugin(backup::schedule(clock))
         .manage(updater::State::new(github))
         .plugin(lcu::sync::plugin())
@@ -370,6 +389,18 @@ pub fn run() {
                     dragon.start();
                 });
             }
+            // Before the window, so the script runs ahead of the page's first read
+            let import_started = Instant::now();
+            let carried = local_storage::import(
+                &app.state::<Paths>(),
+                app.state::<Clock>().now_ms(),
+            );
+            app.state::<local_storage::Confirmation>().expect(&carried);
+            log(format!(
+                "{} in {:.1} ms",
+                carried.summary(),
+                import_started.elapsed().as_secs_f64() * 1000.0
+            ));
             let (width, height) = WINDOW_SIZE;
             let (min_width, min_height) = WINDOW_MIN_SIZE;
             let (r, g, b) = WINDOW_BACKGROUND;
@@ -384,6 +415,10 @@ pub fn run() {
                 .visible(!hidden)
                 .initialization_script(boot_script(locale.as_deref()))
                 .initialization_script(shell::devtools_keys_script());
+            let window = match carried.script() {
+                Some(script) => window.initialization_script(script),
+                None => window,
+            };
             // The header doubles as the title bar. macOS keeps its traffic
             // lights, inset into the header; tao lays the title bar out 9 pt
             // shorter than Electron, so its y of 24 lands where Electron's 15 does
