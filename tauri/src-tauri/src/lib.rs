@@ -21,6 +21,8 @@ pub mod import;
 pub mod install_location;
 pub mod intl;
 pub mod js_arg;
+// Its entry points carry allow(dead_code) until T08's commands and T20 call them
+mod lcu;
 pub mod locale;
 pub mod log;
 pub mod op_score;

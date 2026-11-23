@@ -59,6 +59,12 @@ jobs:
         working-directory: tauri/src-tauri
         run: cargo clippy --all-targets -- -D warnings
 
+      # Some code and tests exist only under debug_assertions, so a release
+      # lint sees what a debug one does not
+      - name: Rust lint, release
+        working-directory: tauri/src-tauri
+        run: cargo clippy --release --all-targets -- -D warnings
+
       - name: Rust test
         working-directory: tauri/src-tauri
         run: cargo test
@@ -155,7 +161,7 @@ jobs:
           # devDependencies: only package.json's version is embedded, not the
           # file (build.rs)
           for marker in bmt-parity-driver BMT_PARITY_TOKEN BMT_DATA_ROOT \
-            'Debug and parity builds never' devDependencies; do
+            'Debug and parity builds never' devDependencies BMT_PARITY_CA BMT_PARITY_LEAGUE_DIR; do
             if grep -a -q -F "$marker" "$exe"; then
               echo "release binary contains $marker"
               exit 1
@@ -234,8 +240,18 @@ jobs:
           test "$code" -eq 78
           grep -F 'Debug and parity builds never' hostile-cfg-guard.log
 
-      # The positive control: the same search finds the sentinel and the
-      # data root override in a driver build
+
+      # lcu/tls.rs stops a release build that would trust the fake League CA
+      - name: Refuse a release build with the parity CA
+        working-directory: tauri/src-tauri
+        run: |
+          if cargo check --release --features parity-ca 2> parity-ca.log; then
+            echo "a release build compiled with parity-ca"
+            exit 1
+          fi
+          grep -F 'the parity-ca feature is for debug builds only' parity-ca.log
+
+      # The positive control: the same search finds the sentinel in a driver build
       - name: Build with the parity driver and find its sentinel
         run: |
           bun run tauri build --debug --no-bundle --features parity-driver

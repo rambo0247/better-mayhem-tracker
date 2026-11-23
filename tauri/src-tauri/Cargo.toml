@@ -13,7 +13,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 custom-protocol = ["tauri/custom-protocol"]
 # The in-process driver the parity tools use. Debug builds only: a release
 # build with it fails to compile (parity_driver.rs).
-parity-driver = ["dep:sha1_smol"]
+parity-driver = ["dep:sha1_smol", "parity-ca"]
+# The parity fake League client's CA as a second anchor, and League discovery
+# limited to the folders the parity tools name. Debug builds only (lcu/tls.rs).
+parity-ca = []
 # The binary that writes ../src/bindings.ts. Gated so `tauri build` never
 # compiles it into the bundle.
 export-bindings = []
@@ -50,7 +53,7 @@ tauri-build = { version = "=3.0.0-alpha.4", features = [] }
 tauri = { version = "=3.0.0-alpha.6", features = ["devtools", "image-png", "tray-icon"] }
 tauri-runtime-wry = { version = "=3.0.0-alpha.6", features = ["devtools"] }
 tauri-plugin-dialog = "=3.0.0-alpha.4"
-tokio = { version = "=1.54.1", features = ["signal", "sync", "time"] }
+tokio = { version = "=1.54.1", features = ["macros", "net", "process", "rt", "signal", "sync", "time"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.154", features = ["float_roundtrip", "preserve_order"] }
 # preserve_order, so a payload stringifies with its keys where JSON.parse left
@@ -73,13 +76,30 @@ ryu-js = "=1.0.4"
 jiff = "=1.0.2"
 # Insertion-ordered maps and sets, as JavaScript's Map and Set iterate
 indexmap = "=2.14.2"
+base64 = "=0.23.1"
+futures-util = "=0.3.34"
+regex = "=1.13.2"
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "=0.23.46", default-features = false, features = [
+  "ring",
+  "std",
+  "tls12",
+  "logging",
+] }
+tokio-tungstenite = { version = "=0.30.0", features = ["__rustls-tls"] }
 
 [dev-dependencies]
 tauri = { version = "=3.0.0-alpha.6", features = ["test"] }
 sha2 = "=0.10.9"
-tokio = { version = "=1.54.1", features = ["macros", "rt", "sync", "test-util"] }
+tokio = { version = "=1.54.1", features = ["macros", "rt", "rt-multi-thread", "sync", "test-util"] }
 # The menu's accelerator parser, which Tauri does not re-export
 muda = "=0.20.0"
+rcgen = { version = "=0.14.10", default-features = false, features = ["crypto", "pem", "ring"] }
+tokio-rustls = { version = "=0.26.6", default-features = false, features = [
+  "logging",
+  "ring",
+  "tls12",
+] }
 
 # Webview snapshots, for the parity driver and later for card export
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -130,7 +150,6 @@ libc = "=0.2.191"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "=0.61.2", features = ["Wdk_System_SystemServices", "Win32_Foundation", "Win32_Globalization", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_DataExchange", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
-base64 = "=0.23.1"
 tauri-plugin-single-instance = "=3.0.0-alpha.3"
 webview2-com = "=0.39.1"
 windows-core = "=0.62.2"
