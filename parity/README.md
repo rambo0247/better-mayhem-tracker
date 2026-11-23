@@ -55,6 +55,10 @@ Run from the repository root.
 
 Electron runs with `--disable-gpu` by default, because GPU compositing repeats less between runs (waiver W1). `PARITY_GPU=on` turns the GPU back on, and any other value but `off` is an error. Electron also runs with `--disable-partial-raster`, since partial raster made the antialiased edges of icons depend on invalidation order. `PARITY_ELECTRON_ARGS` adds Chromium flags, such as `--disable-renderer-backgrounding`. `SEAM_DOCK=show` keeps the Dock icon for a comparison run.
 
+Opt-in seam modes, all off by default so no baseline changes. `SEAM_WEB_FAKE=<loopback http url>` sends `https://<host>/<path>` for `ddragon.leagueoflegends.com`, `raw.communitydragon.org` and `cdn.communitydragon.org` to `<url>/<host>/<path>` and keeps blocking every other host, and a value that is not a loopback http URL stops the process. `SEAM_CLOCK_LIVE=1` leaves `Date.now` running so a backoff can end, while `new Date()` stays fixed. `startElectron({ quit: "graceful" })` and `run-electron.ts --quit graceful` end the app with `app.quit()`, so `before-quit` and its final fetch run, and fall back to `app.exit(0)` after `quitTimeoutMs` (20 s). The default stays `app.exit(0)`. The seam refuses every socket to port 2999, the live client's API, whatever the host or API used. `SEAM_LIVE_PORT` and `SEAM_FORK_DEPTH` are pinned by `run-electron.ts`.
+
+The `view:` localStorage keys in `states.ts` only take effect while the `remember_filters` setting is on, so `applyState` turns it on for every state that seeds one. Each of those states asserts that its view applied.
+
 Every spawning command runs under `lib/capped.sh <headroom>`, which caps processes at the user's current count plus the headroom and exits 99 if anything was refused a process. `bun run test` and `bun run capture` use a headroom of 200. A bare `ulimit -u 200` would refuse the first fork on macOS, which counts every process the user owns.
 
 ## Known limits

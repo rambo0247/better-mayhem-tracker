@@ -261,6 +261,52 @@ describe("main-process faults under the seam", () => {
     },
     300_000,
   );
+  const quitApp = (hold: boolean) =>
+    fakeApp(`
+      const { app, BrowserWindow } = require("electron");
+      const fs = require("fs");
+      const path = require("path");
+      app.whenReady().then(() => new BrowserWindow({ show: false }).loadURL("data:text/html,<p>x</p>"));
+      app.on("window-all-closed", () => {});
+      app.on("before-quit", (event) => {
+        fs.writeFileSync(path.join(process.env.SEAM_RUN_DIR, "before-quit"), "ran");
+        ${hold ? "event.preventDefault();" : ""}
+      });
+    `);
+
+  async function endWith(
+    options: { quit?: "exit" | "graceful"; quitTimeoutMs?: number },
+    hold = false,
+  ) {
+    const running = await startElectron({ ...quitApp(hold), ...options });
+    await running.page.waitForTimeout(300);
+    const report = await running.close();
+    return { report, ranBeforeQuit: fs.existsSync(path.join(running.runDir, "before-quit")) };
+  }
+
+  test.skipIf(!hasElectron)(
+    "the default exit skips before-quit, and a graceful quit runs it",
+    async () => {
+      const exit = await endWith({});
+      expect(exit.report.quit).toBe("exit");
+      expect(exit.ranBeforeQuit).toBe(false);
+      const graceful = await endWith({ quit: "graceful" });
+      expect(graceful.report.quit).toBe("graceful");
+      expect(graceful.ranBeforeQuit).toBe(true);
+      expect(graceful.report.faults).toEqual([]);
+    },
+    300_000,
+  );
+
+  test.skipIf(!hasElectron)(
+    "a graceful quit the app refuses falls back to exit after the timeout",
+    async () => {
+      const held = await endWith({ quit: "graceful", quitTimeoutMs: 2000 }, true);
+      expect(held.ranBeforeQuit).toBe(true);
+      expect(held.report.quit).toBe("graceful-timed-out");
+    },
+    300_000,
+  );
 });
 
 describe("the real-folder guard, in the tools and in the seam", () => {

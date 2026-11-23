@@ -402,4 +402,102 @@ describe("seam", () => {
     expect(hitsAfter).toBeGreaterThan(0);
     expect(log).toContain("blocked-live-port");
   });
+  async function runAsync(script: string, env: Record<string, string>) {
+    const dir = scratch();
+    const child = spawn("node", ["-r", seam, "-e", script], {
+      env: { ...process.env, SEAM_LOG: path.join(dir, "seam.log"), ...env },
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => (stdout += chunk));
+    child.stderr.on("data", (chunk) => (stderr += chunk));
+    const code = await new Promise<number | null>((resolve) => child.on("close", resolve));
+    return { code, stdout, stderr };
+  }
+
+  test("SEAM_WEB_FAKE sends the Data Dragon and CommunityDragon hosts to a loopback server and blocks the rest", async () => {
+    const seen: string[] = [];
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: (request) => {
+        const url = new URL(request.url);
+        seen.push(url.pathname + url.search);
+        return new Response("fake");
+      },
+    });
+    try {
+      const script = `
+        (async () => {
+          const out = {};
+          for (const url of [
+            "https://ddragon.leagueoflegends.com/api/versions.json",
+            "https://raw.communitydragon.org/latest/content-metadata.json?x=1",
+            "https://cdn.communitydragon.org/latest/champion/1/splash-art/centered",
+            "https://example.com/",
+            "https://ddragon.leagueoflegends.com.example.com/api/versions.json",
+            "https://api.github.com/repos/x/y/releases",
+          ]) {
+            try { out[url] = await (await fetch(url)).text(); }
+            catch (e) { out[url] = /seam blocked/.test(e.message) ? "blocked" : "failed " + e.message; }
+          }
+          console.log(JSON.stringify(out));
+        })();
+      `;
+      const on = await runAsync(script, { SEAM_WEB_FAKE: `http://127.0.0.1:${server.port}` });
+      expect(JSON.parse(on.stdout)).toEqual({
+        "https://ddragon.leagueoflegends.com/api/versions.json": "fake",
+        "https://raw.communitydragon.org/latest/content-metadata.json?x=1": "fake",
+        "https://cdn.communitydragon.org/latest/champion/1/splash-art/centered": "fake",
+        "https://example.com/": "blocked",
+        "https://ddragon.leagueoflegends.com.example.com/api/versions.json": "blocked",
+        "https://api.github.com/repos/x/y/releases": "blocked",
+      });
+      expect(seen).toEqual([
+        "/ddragon.leagueoflegends.com/api/versions.json",
+        "/raw.communitydragon.org/latest/content-metadata.json?x=1",
+        "/cdn.communitydragon.org/latest/champion/1/splash-art/centered",
+      ]);
+
+      seen.length = 0;
+      const off = await runAsync(script, {});
+      expect(Object.values(JSON.parse(off.stdout))).toEqual(Array(6).fill("blocked"));
+      expect(seen).toEqual([]);
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("SEAM_WEB_FAKE refuses a value that is not a loopback http URL", async () => {
+    for (const value of [
+      "https://example.com",
+      "http://127.0.0.1.example.com:8080",
+      "http://8.8.8.8",
+      "ftp://127.0.0.1",
+      "not a url",
+    ]) {
+      const result = await runAsync("console.log('started')", { SEAM_WEB_FAKE: value });
+      expect([value, result.code === 0, result.stdout.includes("started")]).toEqual([
+        value,
+        false,
+        false,
+      ]);
+      expect(result.stderr).toContain("seam refuses SEAM_WEB_FAKE");
+    }
+  });
+
+  test("SEAM_CLOCK_LIVE leaves Date.now running while new Date() stays fixed", () => {
+    const fixed = Date.UTC(2020, 0, 1, 0, 0, 0);
+    const script = `
+      const before = Date.now();
+      console.log(JSON.stringify({ now: before, made: new Date().getTime(), later: Date.now() >= before }));
+    `;
+    const frozen = JSON.parse(run(script, { SEAM_FIXED_TIME: String(fixed) }).result.stdout);
+    expect(frozen).toEqual({ now: fixed, made: fixed, later: true });
+    const live = JSON.parse(
+      run(script, { SEAM_FIXED_TIME: String(fixed), SEAM_CLOCK_LIVE: "1" }).result.stdout,
+    );
+    expect(live.now).toBeGreaterThan(fixed + 24 * 60 * 60 * 1000);
+    expect(live.made).toBe(fixed);
+  });
 });

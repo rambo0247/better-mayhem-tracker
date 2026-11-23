@@ -34,6 +34,8 @@ export interface RunReport {
   faults: string[];
   /** Files that appeared or changed outside the run folder during the run. */
   leaks: string[];
+  /** How the app ended. "graceful-timed-out" is a graceful quit that fell back to exit. */
+  quit: "exit" | "graceful" | "graceful-timed-out";
 }
 
 export interface StartOptions {
@@ -41,6 +43,13 @@ export interface StartOptions {
   runDir?: string;
   repo?: string;
   viewport?: { width: number; height: number };
+  /**
+   * How close() ends the app. "exit" calls app.exit(0), which skips before-quit and so the final
+   * fetch. "graceful" calls app.quit(), as the tray's Quit does, and falls back to "exit" if the
+   * process is still running after quitTimeoutMs.
+   */
+  quit?: "exit" | "graceful";
+  quitTimeoutMs?: number;
 }
 
 export function readFaults(seamLog: string): string[] {
@@ -255,7 +264,7 @@ async function teardown(step: string, work: Promise<unknown>) {
   await work.catch((error) => console.error(`run-electron: ${step} failed: ${String(error)}`));
 }
 
-async function quit(app: ElectronApplication) {
+async function exitApp(app: ElectronApplication) {
   // exit(0) alone destroys a visible window without a close event, and macOS then emits
   // hide on the dead wrapper, where Electron's own visibilityChanged listener throws.
   await teardown(
@@ -272,6 +281,42 @@ async function quit(app: ElectronApplication) {
     app.evaluate(({ app: electron }) => electron.exit(0)),
   );
   await teardown("close", app.close());
+}
+
+async function quit(
+  app: ElectronApplication,
+  mode: "exit" | "graceful",
+  timeoutMs: number,
+): Promise<RunReport["quit"]> {
+  if (mode === "exit") {
+    await exitApp(app);
+    return "exit";
+  }
+  let exited = false;
+  const gone = new Promise<boolean>((resolve) =>
+    app.process().once("exit", () => {
+      exited = true;
+      resolve(true);
+    }),
+  );
+  await app
+    .evaluate(({ app: electron }) => electron.quit())
+    .catch((error) => {
+      if (!exited) console.error(`run-electron: quit failed: ${String(error)}`);
+    });
+  const finished = await Promise.race([
+    gone,
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+  ]);
+  if (finished) {
+    await teardown("close", app.close());
+    return "graceful";
+  }
+  console.error(
+    `run-electron: the app was still running ${timeoutMs} ms after quit(), so it exits`,
+  );
+  await exitApp(app);
+  return "graceful-timed-out";
 }
 
 export async function startElectron(options: StartOptions): Promise<RunningElectron> {
@@ -360,7 +405,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     await page.reload();
     await page.waitForLoadState("load");
   } catch (error) {
-    await quit(app);
+    await exitApp(app);
     throw error;
   }
 
@@ -379,8 +424,8 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
         path.join(runDir, "blocked-renderer.json"),
         JSON.stringify(blockedRequests, null, 1),
       );
-      await quit(app);
-      return { faults: faults(), leaks: stampDiff(before, checkoutStamp(repo)) };
+      const ended = await quit(app, options.quit ?? "exit", options.quitTimeoutMs ?? 20_000);
+      return { faults: faults(), leaks: stampDiff(before, checkoutStamp(repo)), quit: ended };
     },
   };
 }
@@ -407,6 +452,7 @@ if (import.meta.main) {
     runDir: value("--out"),
     repo: value("--repo"),
     viewport: state?.viewport,
+    quit: value("--quit") === "graceful" ? "graceful" : undefined,
   });
   try {
     if (state) await applyState(running.ctx, state, await resolveVars(running.page));

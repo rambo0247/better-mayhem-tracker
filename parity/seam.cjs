@@ -323,6 +323,27 @@ net.Socket.prototype.connect = function (...args) {
   return realSocketConnect.apply(this, args);
 };
 
+// The hosts game-assets.ts and dragon.ts fetch from. With SEAM_WEB_FAKE=<loopback url>, a request
+// for https://<host>/<path> goes to <loopback url>/<host>/<path>, and everything else stays blocked.
+const WEB_HOSTS = new Set([
+  "ddragon.leagueoflegends.com",
+  "raw.communitydragon.org",
+  "cdn.communitydragon.org",
+]);
+const webFake = (() => {
+  const given = process.env.SEAM_WEB_FAKE;
+  if (!given) return null;
+  let base;
+  try {
+    base = new URL(given);
+  } catch {
+    throw new Error(`seam refuses SEAM_WEB_FAKE, which is not a URL`);
+  }
+  if (!/^https?:$/.test(base.protocol) || !isLoopback(base.hostname)) {
+    throw new Error(`seam refuses SEAM_WEB_FAKE=${given}, which is not a loopback http URL`);
+  }
+  return base.origin + base.pathname.replace(/\/$/, "");
+})();
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : (input.url ?? String(input));
@@ -331,6 +352,11 @@ globalThis.fetch = async (input, init) => {
     host = new URL(url).hostname;
   } catch {
     // an unparseable URL is not loopback and gets blocked below
+  }
+  if (webFake && WEB_HOSTS.has(host)) {
+    const target = new URL(url);
+    log("web-fake", host, target.pathname);
+    return realFetch(`${webFake}/${host}${target.pathname}${target.search}`, init);
   }
   if (isLoopback(host)) return realFetch(input, init);
   log("fetch-blocked", url);
@@ -357,6 +383,8 @@ for (const lib of ["http", "https"]) {
   }
 }
 
+// SEAM_CLOCK_LIVE=1 leaves Date.now running, so a backoff measured against it can end. Dates built
+// with new Date() and Date() stay fixed.
 if (process.env.SEAM_FIXED_TIME) {
   const RealDate = Date;
   const fixed = Number(process.env.SEAM_FIXED_TIME);
@@ -368,7 +396,8 @@ if (process.env.SEAM_FIXED_TIME) {
       return new target(fixed).toString();
     },
     get(target, key, receiver) {
-      if (key === "now") return () => fixed;
+      if (key === "now")
+        return process.env.SEAM_CLOCK_LIVE === "1" ? () => RealDate.now() : () => fixed;
       return Reflect.get(target, key, receiver);
     },
   });
