@@ -4,8 +4,16 @@ import { gameRunning, waitForNoGame } from "./lib/no-game.ts";
 import { dumpGeometry } from "./drive.ts";
 import { isDataSource, PARITY_DIR } from "./lib/data.ts";
 import { refuseRealFolder } from "./lib/real-folder.ts";
-import { gpuSwitch, startElectron, type RunningElectron } from "./run-electron.ts";
-import { applyState, resolveVars, selectStates, stateGroups, type StateRow } from "./states.ts";
+import { openClientState } from "./capture-client.ts";
+import { gpuSwitch, startElectron, type RunReport, type RunningElectron } from "./run-electron.ts";
+import {
+  applyState,
+  resolveVars,
+  selectStates,
+  stateGroups,
+  type StateOutcome,
+  type StateRow,
+} from "./states.ts";
 
 export const baselineDir = (app: string, platform: NodeJS.Platform = process.platform) =>
   path.join(PARITY_DIR, "out", "baseline", `${app}-${platform === "darwin" ? "mac" : "win"}`);
@@ -17,6 +25,8 @@ interface Timing {
   settleTimedOut: boolean;
   ok: boolean;
   error?: string;
+  /** Client states: fake client start to the app reading "Connected" or "In Game". */
+  connectMs?: number;
 }
 
 function parse(argv: string[]) {
@@ -25,6 +35,7 @@ function parse(argv: string[]) {
     data: "fixture",
     states: undefined as string | undefined,
     all: false,
+    withClient: false,
     dir: undefined as string | undefined,
     repo: undefined as string | undefined,
   };
@@ -34,6 +45,7 @@ function parse(argv: string[]) {
     else if (arg === "--data") out.data = argv[++i]!;
     else if (arg === "--states") out.states = argv[++i];
     else if (arg === "--all") out.all = true;
+    else if (arg === "--with-client") out.withClient = true;
     else if (arg === "--out") out.dir = argv[++i];
     else if (arg === "--repo") out.repo = argv[++i];
     else throw new Error(`unknown flag ${arg}`);
@@ -80,11 +92,13 @@ async function main() {
   }
   if (!args.all && !args.states) {
     console.error(
-      `usage: bun parity/capture.ts --app electron --data <fixture|snapshot|folder> (--all | --states <ids or groups>) [--out <folder>]\ngroups: ${stateGroups().join(", ")}`,
+      `usage: bun parity/capture.ts --app electron --data <fixture|snapshot|folder> (--all [--with-client] | --states <ids or groups>) [--out <folder>]\ngroups: ${stateGroups().join(", ")}`,
     );
     process.exit(2);
   }
-  const states = selectStates(args.all ? "all" : args.states);
+  const states = selectStates(args.all ? "all" : args.states).filter(
+    (state) => !(args.all && !args.withClient && state.client),
+  );
   const dir = path.resolve(args.dir ?? baselineDir(args.app));
   refuseRealFolder(dir, "capture folder");
   takeCaptureLock();
@@ -106,8 +120,12 @@ async function main() {
   const leaks: string[] = [];
   let failures = 0;
 
-  const finish = async (session: RunningElectron, seen: number) => {
-    const report = await session.close();
+  const finish = async (
+    session: RunningElectron,
+    seen: number,
+    close: () => Promise<RunReport> = () => session.close(),
+  ) => {
+    const report = await close();
     const mainLog = path.join(session.runDir, "logs", "main.log");
     if (fs.existsSync(mainLog)) {
       fs.copyFileSync(mainLog, path.join(dir, `main.${seamLogs.length}.log`));
@@ -127,36 +145,78 @@ async function main() {
   let running: RunningElectron | undefined;
   let vars: Record<string, string> = {};
   let seenFaults = 0;
-  const relaunch = async () => {
+  const closeShared = async () => {
     if (running) await finish(running, seenFaults);
     running = undefined;
+  };
+  const relaunch = async () => {
+    await closeShared();
     await waitForNoGame();
     running = await launch();
     seenFaults = 0;
     vars = await resolveVars(running.page);
   };
   try {
-    await relaunch();
     for (const state of states) {
-      if (gameRunning()) {
-        console.log("a League game started, closing the window and waiting");
-        await relaunch();
-      }
-      if ((state.data ?? args.data) !== data) {
-        data = state.data ?? args.data;
-        await relaunch();
-      }
-      const session = running!;
-      const t0 = Date.now();
+      let session: RunningElectron;
+      let clientRun: Awaited<ReturnType<typeof openClientState>> | undefined;
+      let sessionVars = vars;
+      let clientSeen = 0;
       const record: Timing = { id: state.id, ms: 0, settleMs: 0, settleTimedOut: false, ok: true };
+      const t0 = Date.now();
+      if (state.client) {
+        await closeShared();
+        await waitForNoGame();
+        try {
+          clientRun = await openClientState(state as StateRow, {
+            data: args.data,
+            repo: args.repo,
+            dir,
+          });
+        } catch (error) {
+          record.ok = false;
+          record.error = String(error);
+          failures++;
+          record.ms = Date.now() - t0;
+          timings.push(record);
+          console.log(`FAIL ${state.id} ${record.ms} ms ${record.error}`);
+          continue;
+        }
+        session = clientRun.running;
+      } else {
+        if (running && gameRunning()) {
+          console.log("a League game started, closing the window and waiting");
+          await relaunch();
+        }
+        if (running && (state.data ?? args.data) !== data) {
+          data = state.data ?? args.data;
+          await relaunch();
+        }
+        if (!running) {
+          data = state.data ?? args.data;
+          await relaunch();
+        }
+        session = running!;
+        sessionVars = vars;
+      }
       try {
-        const outcome = await applyState(session.ctx, state as StateRow, vars);
+        let outcome: StateOutcome;
+        if (clientRun) {
+          const driven = await clientRun.drive();
+          outcome = driven.outcome;
+          sessionVars = driven.vars;
+          if (driven.connectMs != null) record.connectMs = driven.connectMs;
+        } else {
+          outcome = await applyState(session.ctx, state as StateRow, sessionVars);
+        }
         record.settleMs = outcome.settle.ms;
         record.settleTimedOut = outcome.settle.timedOut;
         const faults = session.faults();
-        if (faults.length > seenFaults) {
-          const fresh = faults.slice(seenFaults);
-          seenFaults = faults.length;
+        const seen = clientRun ? clientSeen : seenFaults;
+        if (faults.length > seen) {
+          const fresh = faults.slice(seen);
+          if (clientRun) clientSeen = faults.length;
+          else seenFaults = faults.length;
           throw new Error(`main process fault: ${fresh.join(" | ").slice(0, 400)}`);
         }
         if (outcome.settle.timedOut) {
@@ -201,7 +261,7 @@ async function main() {
           JSON.stringify(
             {
               route: state.route,
-              vars,
+              vars: sessionVars,
               viewport: state.viewport,
               data: state.data ?? dataLabel,
               card: outcome.card,
@@ -217,6 +277,10 @@ async function main() {
         failures++;
       }
       record.ms = Date.now() - t0;
+      if (clientRun) {
+        const run = clientRun;
+        await finish(session, clientSeen, () => run.finish(dir));
+      }
       timings.push(record);
       console.log(
         `${record.ok ? "ok  " : "FAIL"} ${state.id} ${record.ms} ms${record.error ? ` ${record.error}` : ""}`,

@@ -1,10 +1,13 @@
 const fs = require("fs");
 const path = require("path");
 const { fileURLToPath } = require("url");
+const net = require("net");
+const tls = require("tls");
 const Module = require("module");
 const { realDataRoots, isUnderRealFolder } = require("./lib/real-folder.cjs");
 
 const realAppendFileSync = fs.appendFileSync;
+const realReadFileSync = fs.readFileSync;
 const log = (...parts) => {
   if (process.env.SEAM_LOG) realAppendFileSync(process.env.SEAM_LOG, parts.join(" ") + "\n");
 };
@@ -223,6 +226,42 @@ const LEAGUE = /League of Legends|Riot Games/;
 const hidden = (p) => LEAGUE.test(asString(p));
 const enoent = (p) => Object.assign(new Error(`ENOENT: seam hid ${p}`), { code: "ENOENT" });
 
+// The fake client writes fake.json into this folder once it listens, so it can start before
+// or after the app and the seam reads its ports and CA only when it first needs them.
+const FAKE_DIR = process.env.SEAM_FAKE_DIR ? path.resolve(process.env.SEAM_FAKE_DIR) : null;
+if (FAKE_DIR && LEAGUE.test(FAKE_DIR)) throw new Error(`seam refused fake dir ${FAKE_DIR}`);
+let fakeInfo = null;
+function fake() {
+  if (!FAKE_DIR) return null;
+  if (fakeInfo) return fakeInfo;
+  try {
+    fakeInfo = JSON.parse(realReadFileSync(path.join(FAKE_DIR, "fake.json"), "utf8"));
+  } catch {
+    return null;
+  }
+  log("fake-found", fakeInfo.scenario, "ports", fakeInfo.ports.join(","));
+  return fakeInfo;
+}
+
+const DEFAULT_LEAGUE =
+  process.platform === "darwin"
+    ? "/Applications/League of Legends.app/Contents/LoL"
+    : process.platform === "win32"
+      ? "C:\\Riot Games\\League of Legends"
+      : null;
+// The default install folder reads as the fake client's folder. Every other League and Riot
+// path stays hidden, so a lockfile anywhere else cannot be found.
+function leagueRedirect(p) {
+  if (!FAKE_DIR || !DEFAULT_LEAGUE) return null;
+  const text = asString(p);
+  if (!text) return null;
+  const resolved = path.resolve(text);
+  const root = path.resolve(DEFAULT_LEAGUE);
+  const lower = resolved.toLowerCase();
+  if (lower !== root.toLowerCase() && !lower.startsWith(root.toLowerCase() + path.sep)) return null;
+  return path.join(FAKE_DIR, "league", resolved.slice(root.length));
+}
+
 for (const name of [
   "readFileSync",
   "readdirSync",
@@ -234,6 +273,8 @@ for (const name of [
   const orig = fs[name];
   fs[name] = function (p, ...rest) {
     if (hidden(p)) {
+      const to = leagueRedirect(p);
+      if (to) return orig.call(this, to, ...rest);
       log("hide", name, asString(p));
       throw enoent(asString(p));
     }
@@ -244,13 +285,19 @@ for (const name of [
 // Riot metadata do not.
 const realExistsSync = fs.existsSync;
 fs.existsSync = (p) => {
-  if (hidden(p)) return asString(p).endsWith("LeagueClient.app");
+  if (hidden(p)) {
+    if (asString(p).endsWith("LeagueClient.app")) return true;
+    const to = leagueRedirect(p);
+    return to ? realExistsSync(to) : false;
+  }
   return realExistsSync(p);
 };
 for (const name of ["readFile", "readdir", "stat", "lstat", "access"]) {
   const orig = fs.promises[name];
   fs.promises[name] = async function (p, ...rest) {
     if (hidden(p)) {
+      const to = leagueRedirect(p);
+      if (to) return orig.call(this, to, ...rest);
       log("hide", "promises." + name, asString(p));
       throw enoent(asString(p));
     }
@@ -294,6 +341,22 @@ cp.fork = function (modulePath, args, options) {
   return realFork.call(this, modulePath, argList, opts);
 };
 
+// With a fake client running, a `ps` or PowerShell scan must not find the operator's real
+// League client and its arguments.
+if (FAKE_DIR) {
+  for (const name of ["exec", "execFile", "spawn", "execSync", "execFileSync", "spawnSync"]) {
+    const orig = cp[name];
+    cp[name] = function (...args) {
+      const command = JSON.stringify(args.slice(0, 2));
+      if (/LeagueClient|\bps\b|powershell|wmic/i.test(command)) {
+        log("block-process", name);
+        throw new Error("seam blocked process scan");
+      }
+      return orig.apply(this, args);
+    };
+  }
+}
+
 // The names and addresses that reach this machine: localhost, all of 127.0.0.0/8, 0.0.0.0, ::1
 function isLoopback(given) {
   let host = String(given).toLowerCase();
@@ -313,7 +376,6 @@ function isLoopback(given) {
 // A running game serves its API on 2999 with no login, so no socket, whatever called it, may
 // connect to that port. http, https, fetch, net and tls all end in Socket.connect. The port is
 // SEAM_LIVE_PORT so a test can stand a listener in for it, and run-electron pins it to 2999.
-const net = require("net");
 const realSocketConnect = net.Socket.prototype.connect;
 net.Socket.prototype.connect = function (...args) {
   const first = Array.isArray(args[0]) ? args[0][0] : args[0];
@@ -351,6 +413,7 @@ const webFake = (() => {
   return base.origin + base.pathname.replace(/\/$/, "");
 })();
 const realFetch = globalThis.fetch;
+const SGP_HOST = /\.pp\.sgp\.pvp\.net$/;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : (input.url ?? String(input));
   let host = "";
@@ -365,6 +428,12 @@ globalThis.fetch = async (input, init) => {
     return realFetch(`${webFake}/${host}${target.pathname}${target.search}`, init);
   }
   if (isLoopback(host)) return realFetch(input, init);
+  const sgp = SGP_HOST.test(host) ? fake()?.sgpUrl : null;
+  if (sgp) {
+    const original = new URL(url);
+    log("fetch-redirect", host, sgp);
+    return realFetch(sgp + original.pathname + original.search, init);
+  }
   log("fetch-blocked", url);
   throw new TypeError(`seam blocked network: ${url}`);
 };
@@ -384,9 +453,74 @@ for (const lib of ["http", "https"]) {
         log("request-blocked", lib, String(host));
         throw new Error(`seam blocked network: ${host}`);
       }
+      // A running game serves its API on 2999. The app reaches the fake's port, or a port
+      // that refuses, and never a real game.
+      if (first && typeof first === "object" && !(first instanceof URL)) {
+        if (Number(first.port) === 2999) {
+          const port = fake()?.livePort ?? 1;
+          log("port-redirect", "2999", String(port));
+          args[0] = { ...first, port };
+        }
+      }
       return orig.apply(this, args);
     };
   }
+}
+
+// A scenario's CA joins every explicit trust list. The app passes Riot's root as `ca`, which
+// replaces Node's own roots, so only this hook lets it accept the fake client's certificate.
+const realCreateSecureContext = tls.createSecureContext;
+let caLogged = false;
+tls.createSecureContext = function (options, ...rest) {
+  const extra = fake()?.caPem;
+  if (extra && options && options.ca !== undefined) {
+    if (!caLogged) log("tls-ca-added");
+    caLogged = true;
+    options = { ...options, ca: [...[].concat(options.ca), extra] };
+  }
+  return realCreateSecureContext.call(this, options, ...rest);
+};
+
+// With a fake client, loopback connections go only to its ports. The log names every one.
+function connectTarget(args) {
+  let first = args[0];
+  if (Array.isArray(first)) first = first[0];
+  if (first && typeof first === "object") {
+    return first.path ? null : { host: first.host || "localhost", port: Number(first.port) };
+  }
+  if (typeof first === "number" || /^\d+$/.test(String(first))) {
+    return { host: typeof args[1] === "string" ? args[1] : "localhost", port: Number(first) };
+  }
+  return null;
+}
+if (FAKE_DIR) {
+  const realConnect = net.Socket.prototype.connect;
+  net.Socket.prototype.connect = function (...args) {
+    const target = connectTarget(args);
+    if (target && isLoopback(target.host)) {
+      if (!(fake()?.ports ?? []).includes(target.port)) {
+        log("blocked-connect", `${target.host}:${target.port}`);
+        const refused = Object.assign(
+          new Error(`connect ECONNREFUSED ${target.host}:${target.port}`),
+          { code: "ECONNREFUSED" },
+        );
+        process.nextTick(() => this.destroy(refused));
+        return this;
+      }
+      log("connect", `${target.host}:${target.port}`);
+    }
+    return realConnect.apply(this, args);
+  };
+}
+
+// Holds the connect loop's first tick forever, so the status stays on "connecting".
+if (process.env.SEAM_HOLD_CONNECT === "1") {
+  const realSetInterval = globalThis.setInterval;
+  globalThis.setInterval = function (callback, ms, ...rest) {
+    if (ms !== 5000) return realSetInterval(callback, ms, ...rest);
+    log("hold-connect-loop");
+    return realSetInterval(() => {}, 2 ** 30).unref();
+  };
 }
 
 // SEAM_CLOCK_LIVE=1 leaves Date.now running, so a backoff measured against it can end. Dates built

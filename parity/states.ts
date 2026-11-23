@@ -1,12 +1,21 @@
 import type { Page } from "playwright";
 import { expand, restoreSettings, runStep, type DriveContext, type Step } from "./drive.ts";
 import { settle, type SettleReport } from "./settle.ts";
+import { CLIENT_STATES } from "./states-client.ts";
 
 export type Viewport = { width: number; height: number };
 
 export interface StateRow {
   id: string;
-  group: "default" | "rail" | "match-history" | "champions" | "global" | "card" | "trends";
+  group:
+    | "default"
+    | "rail"
+    | "match-history"
+    | "champions"
+    | "global"
+    | "card"
+    | "trends"
+    | "client";
   route: string;
   viewport: Viewport;
   /** Run before the page loads: localStorage seeds and settings. */
@@ -159,6 +168,7 @@ export const STATES: StateRow[] = [
 
   // No games and no client: the waiting message, and the page without its dashboard header.
   row("match-history-empty-waiting", "match-history", "/", "main .panel", { data: "empty" }),
+  ...CLIENT_STATES,
 ];
 
 export const stateGroups = () => [...new Set(STATES.map((s) => s.group))];

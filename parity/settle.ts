@@ -65,7 +65,8 @@ export async function settle(
         }).length;
         const status = document.querySelector('[role="status"][aria-label^="League client:"]');
         const connecting = status?.getAttribute("aria-label")?.includes("Connecting") ?? false;
-        if (pending > 0 || connecting) lastMutation = performance.now();
+        const holdsConnecting = (window as any).__paritySkipConnecting === true;
+        if (pending > 0 || (connecting && !holdsConnecting)) lastMutation = performance.now();
         if (performance.now() - lastMutation > quiet) break;
         if (performance.now() > deadline) {
           timedOut = true;

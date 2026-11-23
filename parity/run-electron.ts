@@ -50,6 +50,8 @@ export interface StartOptions {
    */
   quit?: "exit" | "graceful";
   quitTimeoutMs?: number;
+  /** Extra environment for the seam, such as SEAM_FAKE_DIR. */
+  seamEnv?: Record<string, string>;
 }
 
 export function readFaults(seamLog: string): string[] {
@@ -339,6 +341,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
   const userData = path.join(runDir, "userdata");
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
+    ...options.seamEnv,
     SEAM_LOG: seamLog,
     SEAM_RUN_DIR: runDir,
     SEAM_FIXED_TIME: String(FIXED_TIME.getTime()),
@@ -446,7 +449,7 @@ if (import.meta.main) {
   const data = value("--data");
   if (!data) {
     console.error(
-      "usage: bun parity/run-electron.ts --data <fixture|snapshot|empty|folder> [--state <id>] [--out <run folder>] [--repo <checkout>]",
+      "usage: bun parity/run-electron.ts --data <fixture|snapshot|empty|folder> [--state <id>] [--out <run folder>] [--repo <checkout>] [--fake <fake-lcu folder>]",
     );
     process.exit(2);
   }
@@ -461,6 +464,7 @@ if (import.meta.main) {
     data,
     runDir: value("--out"),
     repo: value("--repo"),
+    seamEnv: value("--fake") ? { SEAM_FAKE_DIR: path.resolve(value("--fake")!) } : undefined,
     viewport: state?.viewport,
     quit: value("--quit") === "graceful" ? "graceful" : undefined,
   });

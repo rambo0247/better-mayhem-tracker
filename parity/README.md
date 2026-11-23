@@ -40,6 +40,23 @@ Run from the repository root.
 
 `--data` takes `fixture`, `snapshot`, `empty`, or a folder holding `data/matches.db`. The app runs on a copy inside the run folder, so the source is never changed. `empty` starts the app on an empty data folder, as on a fresh install, and states marked `data: "empty"` in `states.ts` always run on it.
 
+## The fake League client
+
+`fake-lcu.ts` stands in for the League client so the client-dependent states can be captured. It listens only on 127.0.0.1, makes a CA and a leaf at run time (`fake-lcu/ca.ts`, never Riot's), and answers the routes the app calls from a scenario in `fake-lcu/scenarios/`. `fake-live-client.ts` is the in-game API the app expects on port 2999, on a port of its own.
+
+Electron reaches the fake only through the seam. With `SEAM_FAKE_DIR` set, `seam.cjs` maps the default League install folder to `<fake dir>/league`, adds the fake CA to every explicit TLS trust list (the real Riot root stays in the app), rewrites port 2999 and Riot's match-history hosts to the fake's ports, and refuses every other loopback connection. Port 2999 is rewritten in every run, to a port that refuses when no fake runs, so a real game is never asked. `seam.log` lists each redirect and connection. The real client's lockfile is never read, and nothing here talks to the real client.
+
+| Command                                                                  | What it does                                                                                                                                                                                           |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `bun parity/fake-lcu.ts --scenario connected-idle --data fixture`        | Starts the fake, prints `ready dir=<folder> ...`, and plays the scenario's timeline from the first subscribe. `--set key=value` sets a scenario option.                                                |
+| `bun parity/run-electron.ts --data fixture --state <id> --fake <folder>` | Runs the app against a fake started separately. Either can start first.                                                                                                                                |
+| `bun parity/capture.ts --app electron --data fixture --states client`    | One app and one fake per state, since the connect loop, the socket, and the database carry what the client did before. Writes the PNG, geometry, `<state>.seam.log`, and `<state>.fake-requests.json`. |
+| `bun parity/capture.ts --all --with-client`                              | The default states and the client states. Plain `--all` skips the client states.                                                                                                                       |
+
+Scenarios: `connected-idle`, `champ-select`, `in-game-loading`, `in-game`, `end-of-game`, `results-late` (the post-game stats answer 404 until the fourth request, `--set misses=n`), `challenges-loaded`, `backfill-running` (`served`, `total`), `backfill-walking`, `backfill-done`, `backfill-error`. Frame delays in a timeline are milliseconds from the first subscribe.
+
+Client states live in `states-client.ts`. Rows with `empty` run on a copy of the data with every game removed. Rows with `hold` keep the status on "Connecting..." by holding the connect loop's first tick. The connect time of a row is printed as `connect <ms>`, and the perf probe is `for i in 1 2 3 4 5 6 7 8 9 10; do bun parity/capture.ts --states status-connected --timing --out parity/out/connect-$i; done`.
+
 ## Policies (Appendix A)
 
 - Same engine: pixelmatch `threshold` 0.03, `includeAA` on, zero differing pixels.
@@ -64,4 +81,4 @@ Every spawning command runs under `lib/capped.sh <headroom>`, which caps process
 ## Known limits
 
 - `bun lint --flavor eslint` is what lints parity. Without the flavor, Bun walks up to the root `.oxlintrc.json`, whose ignore patterns name `parity`, and lints nothing.
-- Client-dependent states, overlays, and menus belong to T03 and T04.
+- Overlays and menus belong to T04.
