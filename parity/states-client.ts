@@ -55,7 +55,11 @@ const clientRow = (
 const idle = { scenario: "connected-idle", ready: "Connected" } as const;
 const away = { scenario: null, ready: "Disconnected" } as const;
 const holding = { scenario: null, hold: true, ready: "Connecting..." } as const;
-const importing = { scenario: "backfill-running", ready: "Connected" } as const;
+const importing = {
+  scenario: "backfill-running",
+  ready: "Connected",
+  releaseImport: true,
+} as const;
 
 export const CLIENT_STATES: StateRow[] = [
   clientRow("status-connected", "/", FIRST_MATCH_ROW, idle),
@@ -145,7 +149,7 @@ export const CLIENT_STATES: StateRow[] = [
     awaitGame: true,
   }),
 
-  clientRow("backfill-toast-running", "/", "text=Importing history", importing),
+  clientRow("backfill-toast-running", "/", "text=12 / 40", importing),
   clientRow("backfill-toast-done", "/", "text=Imported 3 past game(s)", {
     scenario: "backfill-done",
     ready: "Connected",
