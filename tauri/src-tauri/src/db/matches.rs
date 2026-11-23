@@ -4,10 +4,12 @@
 
 use std::collections::HashMap;
 
-use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, Value as Sql, ValueRef};
+use rusqlite::types::{Value as Sql, ValueRef};
 use rusqlite::{Connection, OptionalExtension, params_from_iter};
 
-use super::filters::{SEASONS, Where, apply_queue_filter, apply_season_filter, hide_remakes};
+use super::filters::{
+    DAY_START_HOUR, SEASONS, Where, apply_queue_filter, apply_season_filter, hide_remakes,
+};
 use super::settings::{SESSION_GROUPING_SETTING, get_setting};
 use super::stmt::{self, FromRow};
 use super::summoner::{display_name, identity_from_game};
@@ -23,27 +25,31 @@ use crate::db_row;
 
 /// [`FromRow`] for a struct declared elsewhere, one column per named field.
 macro_rules! from_row {
-    ($name:ty { $($field:ident),* $(,)? }) => {
+    ($name:ty { $($field:ident $(= $read:ident)?),* $(,)? }) => {
         impl FromRow for $name {
             const COLUMNS: &'static [&'static str] = &[$(stringify!($field)),*];
 
             #[allow(unused_assignments)]
             fn from_row(row: &rusqlite::Row<'_>, at: &[usize]) -> rusqlite::Result<Self> {
                 let mut i = 0;
-                Ok(Self { $($field: { let v = row.get(at[i])?; i += 1; v }),* })
+                Ok(Self { $($field: { let v = from_row!(@get row, at[i] $(, $read)?); i += 1; v }),* })
             }
         }
     };
+    (@get $row:ident, $at:expr) => { $row.get($at)? };
+    (@get $row:ident, $at:expr, $read:ident) => { $read($row, $at)? };
 }
 
-impl FromSql for ScoreBadge {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        match value.as_str()? {
-            "MVP" => Ok(ScoreBadge::Mvp),
-            "ACE" => Ok(ScoreBadge::Ace),
-            _ => Err(FromSqlError::InvalidType),
-        }
-    }
+/// `score_badge` is `ScoreBadge | null` in the contract, so text other than
+/// MVP or ACE reads as no badge instead of failing the whole query. Electron
+/// passes the text through, and the renderer only compares it with the two
+/// names.
+fn badge(row: &rusqlite::Row<'_>, at: usize) -> rusqlite::Result<Option<ScoreBadge>> {
+    Ok(match row.get_ref(at)? {
+        ValueRef::Text(b"MVP") => Some(ScoreBadge::Mvp),
+        ValueRef::Text(b"ACE") => Some(ScoreBadge::Ace),
+        _ => None,
+    })
 }
 
 from_row!(MatchListItem {
@@ -74,7 +80,7 @@ from_row!(MatchListItem {
     item4,
     item5,
     score,
-    score_badge,
+    score_badge = badge,
     spell1,
     spell2,
     augment_ids,
@@ -126,7 +132,7 @@ from_row!(PlayerStatsRecord {
     largest_killing_spree,
     score,
     score_raw,
-    score_badge,
+    score_badge = badge,
     spell1,
     spell2,
     item0,
@@ -279,18 +285,21 @@ impl SessionGrouping {
 }
 
 /// `LOCAL_SESSION_DATE`, with `DAY_START_HOUR` written in.
-const LOCAL_SESSION_DATE: &str = "g.game_creation / 1000, 'unixepoch', 'localtime', '-5 hours'";
+fn local_session_date() -> String {
+    format!("g.game_creation / 1000, 'unixepoch', 'localtime', '-{DAY_START_HOUR} hours'")
+}
 
 /// `sessionKeySql`. A week opens on `week_start` (0 is Sunday): 'weekday N'
 /// moves on to the day that closes the week, and '-6 days' walks back to the
 /// one that opens it.
 fn session_key_sql(grouping: SessionGrouping, week_start: u8) -> Option<String> {
     match grouping {
-        SessionGrouping::Day => Some(format!("date({LOCAL_SESSION_DATE})")),
+        SessionGrouping::Day => Some(format!("date({})", local_session_date())),
         SessionGrouping::Week => {
             let closing_day = (week_start + 6) % 7;
             Some(format!(
-                "date({LOCAL_SESSION_DATE}, 'weekday {closing_day}', '-6 days')"
+                "date({}, 'weekday {closing_day}', '-6 days')",
+                local_session_date()
             ))
         }
         SessionGrouping::Patch => Some("COALESCE(g.game_version, '')".into()),
@@ -409,40 +418,111 @@ pub fn get_champion_match_history(
     match_page(conn, &w, "g.game_creation DESC", limit, offset)
 }
 
-/// `Number(text)` for a patch component: blank is 0, anything that isn't a
-/// decimal number is NaN. Rust also reads `inf` and `nan`, which `Number`
-/// does not.
-fn patch_part(text: Option<&str>) -> f64 {
-    let Some(text) = text else { return f64::NAN };
-    let t = text.trim();
-    let word = t.trim_start_matches(['+', '-']);
+/// `Number(text)`: whitespace trims, blank is 0, `Infinity` and the `0x`,
+/// `0o` and `0b` forms read as JavaScript reads them, and anything else that
+/// is not a plain decimal is NaN. Rust's own parse also takes `inf`, `nan`,
+/// and a sign inside a radix literal, which `Number` does not.
+fn js_number(text: &str) -> f64 {
+    let t = text.trim_matches(|c: char| (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}');
     if t.is_empty() {
-        0.0
-    } else if word.starts_with(|c: char| c.is_ascii_alphabetic()) && word != "Infinity" {
-        f64::NAN
-    } else {
+        return 0.0;
+    }
+    for (prefixes, radix) in [(["0x", "0X"], 16), (["0o", "0O"], 8), (["0b", "0B"], 2)] {
+        if let Some(digits) = prefixes.iter().find_map(|p| t.strip_prefix(p)) {
+            if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
+                return f64::NAN;
+            }
+            return digits.chars().fold(0.0, |n, c| {
+                n * f64::from(radix) + f64::from(c.to_digit(radix).unwrap_or(0))
+            });
+        }
+    }
+    let unsigned = t.strip_prefix(['+', '-']).unwrap_or(t);
+    if unsigned == "Infinity" {
+        return if t.starts_with('-') {
+            f64::NEG_INFINITY
+        } else {
+            f64::INFINITY
+        };
+    }
+    let (mantissa, exponent) = match unsigned.split_once(['e', 'E']) {
+        Some((m, e)) => (m, Some(e)),
+        None => (unsigned, None),
+    };
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+    let mantissa_ok = (digits(whole) || whole.is_empty())
+        && (digits(fraction) || fraction.is_empty())
+        && !(whole.is_empty() && fraction.is_empty());
+    let exponent_ok = exponent.is_none_or(|e| digits(e.strip_prefix(['+', '-']).unwrap_or(e)));
+    if mantissa_ok && exponent_ok {
         t.parse().unwrap_or(f64::NAN)
+    } else {
+        f64::NAN
     }
 }
 
-/// The patch dropdown's order, newest first: `bMajor - aMajor || bMinor -
-/// aMinor`, where a NaN difference falls through to the minor and a NaN
-/// result reads as equal, as `Array.prototype.sort` treats it.
-fn sort_patches(patches: &mut [String]) {
+/// `Number` of a patch component, where a missing one is `undefined`: NaN.
+fn patch_part(text: Option<&str>) -> f64 {
+    text.map_or(f64::NAN, js_number)
+}
+
+/// The patch dropdown's comparator, `bMajor - aMajor || bMinor - aMinor`.
+/// A NaN difference falls through to the minor, and a NaN result reads as 0,
+/// as `Array.prototype.sort` treats it.
+fn compare_patches(a: &str, b: &str) -> f64 {
     let key = |p: &str| {
         let mut parts = p.split('.');
         (patch_part(parts.next()), patch_part(parts.next()))
     };
-    patches.sort_by(|a, b| {
-        let ((a_major, a_minor), (b_major, b_minor)) = (key(a), key(b));
-        let major = b_major - a_major;
-        let diff = if major != 0.0 && !major.is_nan() {
-            major
+    let ((a_major, a_minor), (b_major, b_minor)) = (key(a), key(b));
+    let major = b_major - a_major;
+    let diff = if major != 0.0 && !major.is_nan() {
+        major
+    } else {
+        b_minor - a_minor
+    };
+    if diff.is_nan() { 0.0 } else { diff }
+}
+
+/// V8's `Array.prototype.sort` on an array shorter than 64: one run found
+/// from the front, then a binary insertion for the rest. A comparator that
+/// is not a total order, as this one is over an unparseable patch, orders
+/// differently under any other stable sort, so the steps are V8's own.
+fn sort_patches(patches: &mut [String]) {
+    let compare = |a: &String, b: &String| compare_patches(a, b);
+    let n = patches.len();
+    if n < 2 {
+        return;
+    }
+    let mut run = 2;
+    let descending = compare(&patches[1], &patches[0]) < 0.0;
+    while run < n {
+        let order = compare(&patches[run], &patches[run - 1]);
+        if if descending {
+            order >= 0.0
         } else {
-            b_minor - a_minor
-        };
-        diff.partial_cmp(&0.0).unwrap_or(std::cmp::Ordering::Equal)
-    });
+            order < 0.0
+        } {
+            break;
+        }
+        run += 1;
+    }
+    if descending {
+        patches[..run].reverse();
+    }
+    for start in run..n {
+        let (mut left, mut right) = (0, start);
+        while left < right {
+            let mid = left + ((right - left) >> 1);
+            if compare(&patches[start], &patches[mid]) < 0.0 {
+                right = mid;
+            } else {
+                left = mid + 1;
+            }
+        }
+        patches[left..=start].rotate_right(1);
+    }
 }
 
 fn strings(conn: &Connection, sql: &str, w: &Where) -> rusqlite::Result<Vec<String>> {
@@ -937,7 +1017,7 @@ mod tests {
         std::env::var_os(key).map(PathBuf::from)
     }
 
-    /// Every case `docs/tauri-port/units/T13/record-matrix.ts` recorded from
+    /// Every case `parity/t13/record-matrix.ts` recorded from
     /// trunk Electron, replayed against the same fixture. Needs
     /// `BMT_T13_MATRIX` and `BMT_GOLDEN_DATA`, and `TZ` as the recording ran.
     #[test]
@@ -1014,6 +1094,45 @@ mod tests {
             println!("{what}: {matched}/{cases} match");
         }
         assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    /// The patch dropdown over the odd `game_version` text that
+    /// `parity/t13/patch-probe.ts` gave trunk Electron's fixture copy. Needs
+    /// `BMT_T13_PATCH_PROBE` and `BMT_GOLDEN_DATA`.
+    #[test]
+    fn patch_probe() {
+        let (Some(probe), Some(fixture)) =
+            (env_path("BMT_T13_PATCH_PROBE"), env_path("BMT_GOLDEN_DATA"))
+        else {
+            eprintln!("patch_probe: set BMT_T13_PATCH_PROBE and BMT_GOLDEN_DATA to run it");
+            return;
+        };
+        let probe: Value = serde_json::from_str(&std::fs::read_to_string(probe).unwrap()).unwrap();
+        let texts = |key: &str| -> Vec<String> {
+            probe[key]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_owned())
+                .collect()
+        };
+        let sql: String = texts("versions")
+            .iter()
+            .enumerate()
+            .map(|(i, version)| {
+                format!(
+                    "UPDATE games SET game_version = '{}' WHERE game_id = (SELECT game_id FROM games ORDER BY game_creation DESC LIMIT 1 OFFSET {i});",
+                    version.replace('\'', "''")
+                )
+            })
+            .collect();
+        let (dir, db) = fixture_copy(&fixture, "patch-probe", &sql);
+        let options = db
+            .with(|conn| get_match_filter_options(conn, &MatchScope::default()))
+            .unwrap();
+        db.close();
+        std::fs::remove_dir_all(dir).ok();
+        assert_eq!(options.patches, texts("patches"));
     }
 
     /// The T05 goldens for these channels' read cases, run straight against
@@ -1187,6 +1306,167 @@ mod tests {
         assert!(options.has_favorites);
         let names: Vec<_> = options.accounts.iter().map(|a| a.puuid.as_str()).collect();
         assert_eq!(names, ["p2", "p1"]);
+    }
+
+    #[test]
+    fn number_reads_text_as_javascript_does() {
+        let cases: [(&str, f64); 31] = [
+            ("", 0.0),
+            ("  ", 0.0),
+            ("16", 16.0),
+            ("0x10", 16.0),
+            ("0X1f", 31.0),
+            ("0o17", 15.0),
+            ("0b101", 5.0),
+            ("Infinity", f64::INFINITY),
+            ("-Infinity", f64::NEG_INFINITY),
+            ("+Infinity", f64::INFINITY),
+            ("1e3", 1000.0),
+            ("1E3", 1000.0),
+            (".5", 0.5),
+            ("5.", 5.0),
+            ("+.5e-3", 0.0005),
+            ("\u{a0}16", 16.0),
+            ("\u{feff}7", 7.0),
+            (" 7\n", 7.0),
+            ("0x1fffffffffffff", 9_007_199_254_740_991.0),
+            ("0x", f64::NAN),
+            ("0xg", f64::NAN),
+            ("-0x1", f64::NAN),
+            ("+0x1", f64::NAN),
+            ("0x+1", f64::NAN),
+            ("infinity", f64::NAN),
+            ("inf", f64::NAN),
+            ("nan", f64::NAN),
+            ("1e", f64::NAN),
+            ("1_6", f64::NAN),
+            ("\u{85}6", f64::NAN),
+            ("1e1e1", f64::NAN),
+        ];
+        for (text, want) in cases {
+            let got = js_number(text);
+            assert!(
+                got == want || (got.is_nan() && want.is_nan()),
+                "Number({text:?}) is {want}, read as {got}"
+            );
+        }
+    }
+
+    fn sorted_patches(input: &[&str]) -> Vec<String> {
+        let mut patches: Vec<String> = input.iter().map(|p| p.to_string()).collect();
+        sort_patches(&mut patches);
+        patches
+    }
+
+    /// Expected orders are what `Array.prototype.sort` returns for the same
+    /// input in Node, with the dropdown's comparator.
+    #[test]
+    fn patches_with_numeric_text_sort_as_javascript_sorts_them() {
+        assert_eq!(sorted_patches(&["15.9", "0x10.1"]), ["0x10.1", "15.9"]);
+        assert_eq!(
+            sorted_patches(&["16.1", "16.2", "0x10.1", "16.10"]),
+            ["16.10", "16.2", "16.1", "0x10.1"]
+        );
+        assert_eq!(
+            sorted_patches(&["16.3", "16.10", "0b11.5", "0o20.1", "1e1.2", "16.2"]),
+            ["16.10", "16.3", "16.2", "0o20.1", "1e1.2", "0b11.5"]
+        );
+        assert_eq!(
+            sorted_patches(&[
+                "16.1",
+                "16.23",
+                "Infinity.1",
+                "16.10",
+                "\u{a0}16.3",
+                "16.0x2",
+                "16.1e1"
+            ]),
+            [
+                "Infinity.1",
+                "16.23",
+                "16.10",
+                "16.1e1",
+                "\u{a0}16.3",
+                "16.0x2",
+                "16.1"
+            ]
+        );
+    }
+
+    #[test]
+    fn patches_that_are_not_numbers_keep_the_order_javascript_gives_them() {
+        let input = [
+            "abc",
+            "0x10.1",
+            "16.10",
+            " 16.3",
+            "16.1e1",
+            "Infinity.1",
+            "16.2",
+            "x.y",
+            "15.9",
+            "16",
+            "16.0x2",
+            ".5",
+            "1_6.1",
+            " 16.4",
+            "-0x1.2",
+            "16.-1",
+        ];
+        assert_eq!(
+            sorted_patches(&input),
+            [
+                "abc",
+                "Infinity.1",
+                "16.10",
+                "16.1e1",
+                " 16.4",
+                " 16.3",
+                "16.2",
+                "-0x1.2",
+                "0x10.1",
+                "x.y",
+                "16",
+                "16.0x2",
+                "16.-1",
+                "15.9",
+                ".5",
+                "1_6.1",
+            ]
+        );
+    }
+
+    #[test]
+    fn session_dates_cut_the_day_at_the_day_start_hour() {
+        assert_eq!(
+            local_session_date(),
+            "g.game_creation / 1000, 'unixepoch', 'localtime', '-5 hours'"
+        );
+        assert_eq!(DAY_START_HOUR, 5);
+    }
+
+    #[test]
+    fn a_score_badge_other_than_mvp_or_ace_reads_as_none() {
+        let conn = small_db();
+        conn.execute(
+            "UPDATE player_stats SET score_badge = 'GOLD' WHERE game_id = 1",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE player_stats SET score_badge = 7 WHERE game_id = 3",
+            [],
+        )
+        .unwrap();
+        let page = get_match_history(&conn, 10, 0, &MatchFilters::default()).unwrap();
+        let badges: Vec<_> = page
+            .matches
+            .iter()
+            .map(|m| (m.game_id, m.score_badge))
+            .collect();
+        assert_eq!(badges, [(3, None), (2, None), (1, None)]);
+        let detail = get_match_detail(&conn, 1).unwrap().unwrap();
+        assert_eq!(detail.stats.score_badge, None);
     }
 
     #[test]

@@ -7,8 +7,21 @@ function collectWeekData() {
   const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   const lower = "abcdefghijklmnopqrstuvwxyz";
   const scripts = [
-    "Adlm", "Arab", "Beng", "Cyrl", "Deva", "Guru", "Hans", "Hant", "Hebr",
-    "Latn", "Mtei", "Olck", "Shaw", "Tfng", "Vaii",
+    "Adlm",
+    "Arab",
+    "Beng",
+    "Cyrl",
+    "Deva",
+    "Guru",
+    "Hans",
+    "Hant",
+    "Hebr",
+    "Latn",
+    "Mtei",
+    "Olck",
+    "Shaw",
+    "Tfng",
+    "Vaii",
   ];
   const resolve = (tag) => {
     try {
@@ -29,10 +42,11 @@ function collectWeekData() {
   for (const a of upper) for (const b of upper) regions.push(a + b);
   regions.push("001", "150", "419");
   const candidates = [];
-  for (const a of lower) for (const b of lower) {
-    candidates.push(a + b);
-    for (const c of lower) candidates.push(a + b + c);
-  }
+  for (const a of lower)
+    for (const b of lower) {
+      candidates.push(a + b);
+      for (const c of lower) candidates.push(a + b + c);
+    }
   const languages = candidates.filter((tag) => resolve(tag) === tag);
   const bases = [...languages];
   for (const lang of languages) {
@@ -78,19 +92,57 @@ function collectWeekData() {
   // Every base with every region, and every alias with a few: what the
   // matrix test compares the Rust resolution against
   const cross = {};
-  for (const base of bases) for (const region of regions) cross[`${base}-${region}`] = firstDay(`${base}-${region}`);
+  for (const base of bases)
+    for (const region of regions) cross[`${base}-${region}`] = firstDay(`${base}-${region}`);
   for (const alias of Object.keys(languageAliases)) {
-    for (const tag of [alias, `${alias}-US`, `${alias}-DE`, `${alias}-EG`, `${alias}-Latn-RS`]) cross[tag] = firstDay(tag);
+    for (const tag of [alias, `${alias}-US`, `${alias}-DE`, `${alias}-EG`, `${alias}-Latn-RS`])
+      cross[tag] = firstDay(tag);
   }
   const defaultLocale = new Intl.DateTimeFormat().resolvedOptions().locale;
   // Spot checks the Rust port is compared against, tags an OS reports
   const probes = {};
   for (const tag of [
-    "en-US", "en-GB", "en-DE", "en-SE", "de-DE", "fr-FR", "fr-FI", "fr-US", "fr-CA", "pt-BR",
-    "pt-PT", "es-US", "es-MX", "fa-IR", "ar-EG", "ar-SA", "he-IL", "ja-JP", "ko-KR", "zh-CN",
-    "zh-TW", "zh-Hans-CN", "zh-Hant-TW", "zh-Hant-HK", "sr-Latn-RS", "en", "zh", "dv-MV",
-    "en-MV", "xx-US", "en-UK", "en-150", "en-001", "es-419", "en-US-u-fw-mon",
-    "de-DE-u-ca-gregory", "nb-NO", "no-NO", "fil-PH", "yue-HK", "uz-Arab-AF",
+    "en-US",
+    "en-GB",
+    "en-DE",
+    "en-SE",
+    "de-DE",
+    "fr-FR",
+    "fr-FI",
+    "fr-US",
+    "fr-CA",
+    "pt-BR",
+    "pt-PT",
+    "es-US",
+    "es-MX",
+    "fa-IR",
+    "ar-EG",
+    "ar-SA",
+    "he-IL",
+    "ja-JP",
+    "ko-KR",
+    "zh-CN",
+    "zh-TW",
+    "zh-Hans-CN",
+    "zh-Hant-TW",
+    "zh-Hant-HK",
+    "sr-Latn-RS",
+    "en",
+    "zh",
+    "dv-MV",
+    "en-MV",
+    "xx-US",
+    "en-UK",
+    "en-150",
+    "en-001",
+    "es-419",
+    "en-US-u-fw-mon",
+    "de-DE-u-ca-gregory",
+    "nb-NO",
+    "no-NO",
+    "fil-PH",
+    "yue-HK",
+    "uz-Arab-AF",
   ]) {
     probes[tag] = firstDay(tag);
   }

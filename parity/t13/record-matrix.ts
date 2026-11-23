@@ -4,14 +4,14 @@
 // of the data, after the variant's SQL; the cases call `window.api` in the
 // renderer, so they take the real IPC path.
 //
-//   bun docs/tauri-port/units/T13/record-matrix.ts --data <fixture folder> --out <matrix.json>
+//   bun parity/t13/record-matrix.ts --data <fixture folder> --out <matrix.json>
 //
 // Also records Electron's week data (week-data.js) and its system locale.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Database } from "bun:sqlite";
-import { startElectron, type RunningElectron } from "../../../../parity/run-electron.ts";
+import { startElectron, type RunningElectron } from "../run-electron.ts";
 
 const { collectWeekData } = require("./week-data.js") as { collectWeekData: () => unknown };
 
@@ -104,7 +104,7 @@ async function readWeek(run: RunningElectron): Promise<Week> {
     } catch {
       tag = undefined;
     }
-    let day = 1;
+    let day: number;
     try {
       const resolved = new Intl.DateTimeFormat(tag).resolvedOptions().locale;
       day = (new Intl.Locale(resolved) as any).getWeekInfo().firstDay % 7;
@@ -133,7 +133,13 @@ async function recordVariant(
   let week: Week | undefined;
   let settings: Record<string, string> = {};
   const record = async (method: string, args: Json[]) => {
-    cases.push({ variant, settings: { ...settings }, method, args, result: await call(run, method, args) });
+    cases.push({
+      variant,
+      settings: { ...settings },
+      method,
+      args,
+      result: await call(run, method, args),
+    });
   };
   const set = async (key: string, value: string) => {
     await call(run, "setSetting", [key, value]);
@@ -237,7 +243,12 @@ async function recordVariant(
 
     for (const m of all.matches) await record("getMatchDetail", [m.game_id]);
     await record("getMatchDetail", [-1]);
-    for (const id of [all.matches[0]!.game_id, all.matches[3]!.game_id, -1, all.matches[0]!.game_id]) {
+    for (const id of [
+      all.matches[0]!.game_id,
+      all.matches[3]!.game_id,
+      -1,
+      all.matches[0]!.game_id,
+    ]) {
       await record("toggleFavorite", [id]);
       await record("getMatchHistory", [50, 0, { favorites: true }]);
       await record("getMatchFilterOptions", [{}]);
@@ -254,7 +265,8 @@ async function main() {
   const value = (flag: string) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
   const data = value("--data");
   const out = value("--out");
-  if (!data || !out) throw new Error("usage: record-matrix.ts --data <fixture folder> --out <file>");
+  if (!data || !out)
+    throw new Error("usage: record-matrix.ts --data <fixture folder> --out <file>");
 
   const cases: Case[] = [];
   const weeks: Week[] = [];

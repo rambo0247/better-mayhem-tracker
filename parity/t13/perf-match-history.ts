@@ -3,18 +3,19 @@
 // real Rust commands. Both apps stay open on their own fixture copies, and
 // the calls alternate between them every 10, 50 per app per size.
 //
-//   bun docs/tauri-port/units/T13/perf-match-history.ts --data <fixture folder> --out <perf.json>
+//   bun parity/t13/perf-match-history.ts --data <fixture folder> --out <perf.json>
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { startElectron } from "../../../../parity/run-electron.ts";
-import { startTauri } from "../../../../parity/run-tauri.ts";
+import { startElectron } from "../run-electron.ts";
+import { startTauri } from "../run-tauri.ts";
 
 const args = process.argv.slice(2);
 const value = (flag: string) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
 const data = value("--data");
 const out = value("--out");
-if (!data || !out) throw new Error("usage: perf-match-history.ts --data <fixture folder> --out <file>");
+if (!data || !out)
+  throw new Error("usage: perf-match-history.ts --data <fixture folder> --out <file>");
 
 const copy = (name: string) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `bmt-t13-perf-${name}-`));
