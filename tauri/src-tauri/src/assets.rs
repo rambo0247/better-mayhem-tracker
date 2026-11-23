@@ -1986,7 +1986,15 @@ pub(crate) mod tests {
                 .serve(&game_url("16.23", &format!("v1/s{i}.png")), 502, b"");
             slow.push(ask(format!("asset://game-data/16.23/v1/s{i}.png")));
         }
-        tokio::task::yield_now().await;
+        // Each first looks for a copy on disk, on a blocking thread
+        for _ in 0..500 {
+            if rig.web.in_flight.load(Ordering::SeqCst) == 8 {
+                break;
+            }
+            tokio::task::yield_now().await;
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert_eq!(rig.web.in_flight.load(Ordering::SeqCst), 8);
         rig.web
             .serve(&game_url("16.23", "v1/queued.png"), 200, &png(3));
         let queued = ask("asset://game-data/16.23/v1/queued.png".into());

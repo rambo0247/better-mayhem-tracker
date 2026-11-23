@@ -5,15 +5,15 @@
 //! outage backoff with the art.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fmt::Write as _;
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, Mutex};
 
 use futures_util::FutureExt;
 use futures_util::future::{BoxFuture, Shared};
 use regex::Regex;
-use serde::de::{MapAccess, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::de::{DeserializeOwned, MapAccess, Visitor};
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use tokio::sync::Semaphore;
 
@@ -48,8 +48,19 @@ const AUGMENT_ICON_CACHE_FILE: &str = "augment-icon-cache.json";
 pub struct ChampionInfo {
     pub name: String,
     pub key: String,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub class: Option<String>,
+    /// `champ.tags?.[0]`: whatever the first tag is, a string from Data Dragon.
+    /// Absent when there is none, as `undefined` is left out of JSON.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "present"
+    )]
+    pub class: Option<Value>,
+}
+
+/// A field that is there, `null` included, as JavaScript reads one back.
+fn present<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -79,9 +90,10 @@ pub struct SummonerSpellInfo {
     pub icon_path: String,
 }
 
+/// Keyed by `String(parseInt(champ.key))`, in JavaScript's key order.
+pub type ChampionData = JsObject<ChampionInfo>;
 /// Keyed by id. JSON writes the keys as strings in ascending order, as
 /// JavaScript writes an object's integer keys.
-pub type ChampionData = BTreeMap<i64, ChampionInfo>;
 pub type AugmentData = BTreeMap<i64, AugmentInfo>;
 pub type ItemData = BTreeMap<i64, ItemInfo>;
 pub type SummonerSpellData = BTreeMap<i64, SummonerSpellInfo>;
@@ -114,68 +126,84 @@ struct Champions {
     version: String,
 }
 
-/// An augment icon resolution kept on disk: an asset URL, or `None` for "no
-/// branch the walk reached has it". In file order, which `JSON.stringify`
-/// keeps for keys that are not integers.
-#[derive(Debug, Clone, Default, PartialEq)]
-struct IconCacheFile(Vec<(String, Option<String>)>);
+/// A JavaScript object as `JSON.parse` builds it and `JSON.stringify` writes
+/// it: a key set twice keeps its first place and its last value, and keys come
+/// out array indices first, ascending, then the rest in the order first set.
+#[derive(Debug, Clone, PartialEq)]
+pub struct JsObject<V>(Vec<(String, V)>);
 
-impl<'de> Deserialize<'de> for IconCacheFile {
+impl<V> Default for JsObject<V> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl<V> JsObject<V> {
+    pub fn get(&self, key: &str) -> Option<&V> {
+        self.0
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, value)| value)
+    }
+
+    pub fn set(&mut self, key: String, value: V) {
+        match self.0.iter_mut().find(|(k, _)| *k == key) {
+            Some(entry) => entry.1 = value,
+            None => self.0.push((key, value)),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// `Object.entries`: the own keys in property order.
+    pub fn entries(&self) -> impl Iterator<Item = (&str, &V)> {
+        let mut entries: Vec<&(String, V)> = self.0.iter().collect();
+        entries.sort_by_key(|(key, _)| array_index(key).map_or((1, 0), |i| (0, i)));
+        entries
+            .into_iter()
+            .map(|(key, value)| (key.as_str(), value))
+    }
+}
+
+impl<V: Serialize> Serialize for JsObject<V> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(self.len()))?;
+        for (key, value) in self.entries() {
+            map.serialize_entry(key, value)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de, V: Deserialize<'de>> Deserialize<'de> for JsObject<V> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct Entries;
-        impl<'de> Visitor<'de> for Entries {
-            type Value = IconCacheFile;
+        struct Entries<V>(std::marker::PhantomData<V>);
+        impl<'de, V: Deserialize<'de>> Visitor<'de> for Entries<V> {
+            type Value = JsObject<V>;
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                f.write_str("an object of URLs and nulls")
+                f.write_str("an object")
             }
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                let mut entries: Vec<(String, Option<String>)> = Vec::new();
-                while let Some((key, url)) = map.next_entry::<String, Option<String>>()? {
-                    match entries.iter_mut().find(|(k, _)| *k == key) {
-                        Some(entry) => entry.1 = url,
-                        None => entries.push((key, url)),
-                    }
+                let mut object = JsObject::default();
+                while let Some((key, value)) = map.next_entry::<String, V>()? {
+                    object.set(key, value);
                 }
-                Ok(IconCacheFile(entries))
+                Ok(object)
             }
         }
-        deserializer.deserialize_map(Entries)
+        deserializer.deserialize_map(Entries(std::marker::PhantomData))
     }
 }
 
-impl IconCacheFile {
-    fn get(&self, key: &str) -> Option<&Option<String>> {
-        self.0.iter().find(|(k, _)| k == key).map(|(_, url)| url)
-    }
-
-    fn set(&mut self, key: String, url: Option<String>) {
-        match self.0.iter_mut().find(|(k, _)| *k == key) {
-            Some(entry) => entry.1 = url,
-            None => self.0.push((key, url)),
-        }
-    }
-
-    /// `JSON.stringify` of the object: integer keys first, ascending, then
-    /// the rest in the order they were added.
-    fn to_json(&self) -> String {
-        let mut entries: Vec<&(String, Option<String>)> = self.0.iter().collect();
-        entries.sort_by_key(|(key, _)| array_index(key).map_or((1, 0), |i| (0, i)));
-        let mut out = String::from("{");
-        for (i, (key, url)) in entries.into_iter().enumerate() {
-            if i > 0 {
-                out.push(',');
-            }
-            let _ = write!(
-                out,
-                "{}:{}",
-                serde_json::to_string(key).expect("a string serializes"),
-                serde_json::to_string(url).expect("a URL serializes")
-            );
-        }
-        out.push('}');
-        out
-    }
-}
+/// An augment icon resolution kept on disk: an asset URL, or `None` for "no
+/// branch the walk reached has it".
+type IconCacheFile = JsObject<Option<String>>;
 
 /// The keys JavaScript orders first: canonical integers below 2^32 - 1.
 fn array_index(key: &str) -> Option<u64> {
@@ -186,8 +214,9 @@ fn array_index(key: &str) -> Option<u64> {
 /// Hits from before art was served under the asset: scheme name the same file
 /// by its CommunityDragon URL.
 fn as_asset_url(url: Option<String>) -> Option<String> {
+    // JavaScript's `.` stops at every line terminator, not only `\n`
     static CDRAGON_HIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^https://raw\.communitydragon\.org/([^/]+)/game/(.+)$")
+        Regex::new(r"^https://raw\.communitydragon\.org/([^/]+)/game/([^\n\r\x{2028}\x{2029}]+)$")
             .expect("a valid pattern")
     });
     let url = url?;
@@ -247,17 +276,64 @@ fn id_key(id: f64) -> Option<i64> {
     (id.is_finite() && id.fract() == 0.0 && id.abs() < 9_007_199_254_740_992.0).then_some(id as i64)
 }
 
-/// `parseInt(text)`: leading whitespace, a sign, then digits up to the first
-/// that isn't.
-fn js_parse_int(text: &str) -> Option<i64> {
+/// `parseInt(text)`: leading whitespace, a sign, a `0x` for hex, then digits
+/// up to the first that isn't. NaN when there are none.
+fn js_parse_int(text: &str) -> f64 {
     let text = text.trim_start();
     let (sign, rest) = match text.as_bytes().first() {
-        Some(b'-') => (-1, &text[1..]),
-        Some(b'+') => (1, &text[1..]),
-        _ => (1, text),
+        Some(b'-') => (-1.0, &text[1..]),
+        Some(b'+') => (1.0, &text[1..]),
+        _ => (1.0, text),
     };
-    let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
-    digits.parse::<i64>().ok().map(|n| sign * n)
+    let (radix, rest) = match rest.get(..2) {
+        Some("0x" | "0X") => (16, &rest[2..]),
+        _ => (10, rest),
+    };
+    let digits: Vec<f64> = rest
+        .chars()
+        .map_while(|c| c.to_digit(radix))
+        .map(f64::from)
+        .collect();
+    if digits.is_empty() {
+        return f64::NAN;
+    }
+    let value = if radix == 10 {
+        rest[..digits.len()].parse().unwrap_or(f64::NAN)
+    } else {
+        digits.iter().fold(0.0, |n, d| n * 16.0 + d)
+    };
+    sign * value
+}
+
+/// `String(n)` for the numbers `parseInt` returns, as an object key.
+fn js_number_key(n: f64) -> String {
+    if n.is_nan() {
+        "NaN".into()
+    } else if n.is_infinite() {
+        if n > 0.0 { "Infinity" } else { "-Infinity" }.into()
+    } else if n == 0.0 {
+        "0".into()
+    } else if n.abs() >= 1e21 {
+        format!("{n:e}").replace('e', "e+").replace("e+-", "e-")
+    } else {
+        n.to_string()
+    }
+}
+
+/// `champ.tags?.[0]`.
+fn first_tag(tags: Option<&Value>) -> Option<Value> {
+    match tags? {
+        Value::Array(tags) => tags.first().cloned(),
+        Value::Object(tags) => tags.get("0").cloned(),
+        // A string indexes to its first UTF-16 unit; a lone surrogate has no
+        // Rust string, so astral text is left out where JavaScript keeps half
+        Value::String(text) => text
+            .encode_utf16()
+            .next()
+            .and_then(|unit| char::from_u32(u32::from(unit)))
+            .map(|c| Value::String(c.into())),
+        _ => None,
+    }
 }
 
 /// `a || b || ...` over JSON values, for the fields Riot names more than one
@@ -393,7 +469,7 @@ impl Dragon {
             assets,
             data_dir,
             champions: Mutex::new(Champions {
-                data: ChampionData::new(),
+                data: ChampionData::default(),
                 version: "none".into(),
             }),
             champion_ready: Mutex::new(None),
@@ -416,7 +492,20 @@ impl Dragon {
     /// already started them.
     pub fn start(&self) {
         let ready = self.0.champion_ready.lock().expect("ready lock").clone();
-        tokio::spawn(ready.unwrap_or_else(|| self.load_champion_data()));
+        let dragon = self.clone();
+        tokio::spawn(async move {
+            let ready = match ready {
+                Some(ready) => ready,
+                // Reads the disk copy, so not on an async worker
+                None => {
+                    match tokio::task::spawn_blocking(move || dragon.load_champion_data()).await {
+                        Ok(ready) => ready,
+                        Err(_) => return,
+                    }
+                }
+            };
+            ready.await;
+        });
         let dragon = self.clone();
         tokio::spawn(async move {
             if let Err(err) = dragon.augments(None).await {
@@ -425,7 +514,7 @@ impl Dragon {
         });
     }
 
-    async fn fetch_json(&self, url: &str) -> Result<Value, String> {
+    async fn fetch_json<T: DeserializeOwned>(&self, url: &str) -> Result<T, String> {
         match self.0.web.get(url).await {
             WebAnswer::Status(status, body) if (200..300).contains(&status) => {
                 serde_json::from_slice(&body).map_err(|err| err.to_string())
@@ -444,61 +533,59 @@ impl Dragon {
 
     /// Last successfully fetched champion data, so offline startups still have
     /// names and classes, and scoring stays consistent with the previous run.
+    /// An entry that isn't a champion's shape is dropped.
     fn hydrate_champions_from_disk(&self) {
+        #[derive(Deserialize)]
+        struct Cached {
+            champions: Option<JsObject<Value>>,
+            version: Option<Value>,
+        }
         let Ok(text) = std::fs::read_to_string(self.champion_cache_file()) else {
             return;
         };
-        let Ok(cached) = serde_json::from_str::<Value>(&text) else {
+        let Ok(Cached {
+            champions: Some(listed),
+            version,
+        }) = serde_json::from_str::<Cached>(&text)
+        else {
             return;
         };
-        if !(js_truthy(cached.get("champions")) && js_truthy(cached.get("version"))) {
+        let Some(version) = version.filter(|v| js_truthy(Some(v))) else {
             return;
-        }
-        let mut data = ChampionData::new();
-        if let Some(champions) = cached["champions"].as_object() {
-            for (id, champion) in champions {
-                if let (Ok(id), Ok(info)) = (
-                    id.parse::<i64>(),
-                    serde_json::from_value::<ChampionInfo>(champion.clone()),
-                ) {
-                    data.insert(id, info);
-                }
+        };
+        let mut data = ChampionData::default();
+        for (id, champion) in listed.0 {
+            if let Ok(info) = serde_json::from_value::<ChampionInfo>(champion) {
+                data.set(id, info);
             }
         }
         let mut champions = self.0.champions.lock().expect("champions lock");
         champions.data = data;
-        champions.version = js_string(&cached["version"]);
+        champions.version = js_string(&version);
     }
 
     async fn fetch_champions(&self) -> Result<(), String> {
-        let versions = self.fetch_json(VERSIONS).await?;
+        #[derive(Deserialize)]
+        struct Listed {
+            data: Option<JsObject<Value>>,
+        }
+        let versions: Value = self.fetch_json(VERSIONS).await?;
         let version = versions.get(0).map_or("undefined".into(), js_string);
-        let data = self
+        let listed: Listed = self
             .fetch_json(&format!("{DDRAGON_CDN}/{version}/data/en_US/champion.json"))
             .await?;
-        let Some(listed) = data.get("data").and_then(Value::as_object) else {
+        let Some(listed) = listed.data else {
             return Err("TypeError: Cannot convert undefined or null to object".into());
         };
-        let mut champions = ChampionData::new();
-        for (key, champion) in listed {
-            let Some(id) = champion
-                .get("key")
-                .map(js_string)
-                .as_deref()
-                .and_then(js_parse_int)
-            else {
-                continue;
-            };
-            champions.insert(
-                id,
+        let mut champions = ChampionData::default();
+        for (key, champion) in listed.entries() {
+            let id = js_parse_int(&champion.get("key").map_or("undefined".into(), js_string));
+            champions.set(
+                js_number_key(id),
                 ChampionInfo {
                     name: champion.get("name").map(js_string).unwrap_or_default(),
-                    key: key.clone(),
-                    class: champion
-                        .get("tags")
-                        .and_then(|tags| tags.get(0))
-                        .and_then(Value::as_str)
-                        .map(str::to_string),
+                    key: key.to_string(),
+                    class: first_tag(champion.get("tags")),
                 },
             );
         }
@@ -508,17 +595,20 @@ impl Dragon {
             version: &'a str,
             champions: &'a ChampionData,
         }
-        let written = serde_json::to_string(&CacheFile {
+        let json = serde_json::to_string(&CacheFile {
             version: &version,
             champions: &champions,
         })
-        .map_err(std::io::Error::other)
-        .and_then(|json| std::fs::write(self.champion_cache_file(), json));
+        .expect("strings and JSON values serialize");
         {
             let mut current = self.0.champions.lock().expect("champions lock");
             current.data = champions;
             current.version = version.clone();
         }
+        let file = self.champion_cache_file();
+        let written = tokio::task::spawn_blocking(move || std::fs::write(file, json))
+            .await
+            .unwrap_or_else(|err| Err(std::io::Error::other(err)));
         if let Err(err) = written {
             log_error(format!("Failed to persist champion cache: {err}"));
         }
@@ -528,15 +618,19 @@ impl Dragon {
         Ok(())
     }
 
-    /// `loadChampionData`: the disk copy, then Data Dragon. Needs no runtime:
-    /// the load is registered at once, so a [`Dragon::wait_for_champion_data`]
-    /// from then on waits for it, as `waitForChampionData` does after
-    /// `loadChampionData()` in Electron's startup. It runs when
-    /// [`Dragon::start`] spawns it or a waiter polls it, whichever is first.
+    /// `loadChampionData`: the disk copy, then Data Dragon. The disk copy is
+    /// read here, on the caller's thread, before anything awaits, as
+    /// dragon.ts reads it synchronously, so [`Dragon::champion_classes`] has it
+    /// as soon as this returns. The app calls this from setup on the main
+    /// thread, not on an async worker. Needs no runtime: the load is
+    /// registered at once, so a [`Dragon::wait_for_champion_data`] from then on
+    /// waits for it, as `waitForChampionData` does after `loadChampionData()`
+    /// in Electron's startup. The Data Dragon half runs when [`Dragon::start`]
+    /// spawns it or a waiter polls it, whichever is first.
     pub fn load_champion_data(&self) -> Shared<BoxFuture<'static, ()>> {
+        self.hydrate_champions_from_disk();
         let dragon = self.clone();
         let ready = async move {
-            dragon.hydrate_champions_from_disk();
             if let Err(err) = dragon.fetch_champions().await {
                 log_error(format!("Failed to load champion data: {err}"));
             }
@@ -565,14 +659,23 @@ impl Dragon {
             .clone()
     }
 
+    /// `getChampionClasses()`: truthy classes by numeric id. A class that
+    /// isn't a string reads as `String()` of it; an id that isn't an integer
+    /// names no champion and is left out.
     pub fn champion_classes(&self) -> ChampionClasses {
         let champions = self.0.champions.lock().expect("champions lock");
         ChampionClasses {
             version: champions.version.clone(),
             classes: champions
                 .data
-                .iter()
-                .filter_map(|(id, c)| Some((*id, c.class.clone()?)))
+                .entries()
+                .filter(|(_, champion)| js_truthy(champion.class.as_ref()))
+                .filter_map(|(id, champion)| {
+                    Some((
+                        id_key(js_number_str(id))?,
+                        js_string(champion.class.as_ref()?),
+                    ))
+                })
                 .collect(),
         }
     }
@@ -590,10 +693,11 @@ impl Dragon {
         let known = self.0.latest_live_patch.lock().expect("live lock").clone();
         let live = match known {
             Some(live) => Some(live),
-            None => match self.fetch_json(VERSIONS).await {
+            None => match self.fetch_json::<Value>(VERSIONS).await {
                 Ok(versions) => {
-                    static LIVE: LazyLock<Regex> =
-                        LazyLock::new(|| Regex::new(r"^(\d+)\.(\d+)").expect("a valid pattern"));
+                    static LIVE: LazyLock<Regex> = LazyLock::new(|| {
+                        Regex::new(r"^([0-9]+)\.([0-9]+)").expect("a valid pattern")
+                    });
                     let first = versions.get(0).map_or("undefined".into(), js_string);
                     let live = LIVE
                         .captures(&first)
@@ -756,9 +860,9 @@ impl Dragon {
             .spell_keys
             .loads
             .join("", move || async move {
-                let versions = dragon.fetch_json(VERSIONS).await?;
+                let versions: Value = dragon.fetch_json(VERSIONS).await?;
                 let version = versions.get(0).map_or("undefined".into(), js_string);
-                let data = dragon
+                let data: Value = dragon
                     .fetch_json(&format!("{DDRAGON_CDN}/{version}/data/en_US/summoner.json"))
                     .await?;
                 let mut keys = HashMap::new();
@@ -793,7 +897,19 @@ impl Dragon {
         self.0.data_dir.join(AUGMENT_ICON_CACHE_FILE)
     }
 
-    fn with_icon_cache<T>(&self, f: impl FnOnce(&mut IconCacheFile) -> T) -> T {
+    /// Runs `f` on the cache, read from its file on first use. On a blocking
+    /// thread, since both the read and the writes that follow are file work.
+    async fn with_icon_cache<T: Send + 'static>(
+        &self,
+        f: impl FnOnce(&Dragon, &mut IconCacheFile) -> T + Send + 'static,
+    ) -> T {
+        let dragon = self.clone();
+        tokio::task::spawn_blocking(move || dragon.with_icon_cache_now(f))
+            .await
+            .expect("the icon cache task ran")
+    }
+
+    fn with_icon_cache_now<T>(&self, f: impl FnOnce(&Dragon, &mut IconCacheFile) -> T) -> T {
         let mut cache = self.0.icon_cache.lock().expect("icon cache lock");
         let cache = cache.get_or_insert_with(|| {
             let parsed = std::fs::read_to_string(self.icon_cache_file())
@@ -802,7 +918,7 @@ impl Dragon {
                 .unwrap_or_default();
             // Misses written before they carried a patch claimed to be the
             // last word on an augment for every patch
-            IconCacheFile(
+            JsObject(
                 parsed
                     .0
                     .into_iter()
@@ -811,17 +927,20 @@ impl Dragon {
                     .collect(),
             )
         });
-        f(cache)
+        f(self, cache)
     }
 
-    fn write_icon_cache(&self, key: String, url: Option<String>) {
-        let json = self.with_icon_cache(|cache| {
+    /// Written while the cache is held, so the file always ends as the last
+    /// change left it, as Electron's synchronous writes do.
+    async fn write_icon_cache(&self, key: String, url: Option<String>) {
+        self.with_icon_cache(move |dragon, cache| {
             cache.set(key, url);
-            cache.to_json()
-        });
-        if let Err(err) = std::fs::write(self.icon_cache_file(), json) {
-            log_error(format!("Failed to persist augment icon cache: {err}"));
-        }
+            let json = serde_json::to_string(cache).expect("URLs serialize");
+            if let Err(err) = std::fs::write(dragon.icon_cache_file(), json) {
+                log_error(format!("Failed to persist augment icon cache: {err}"));
+            }
+        })
+        .await;
     }
 
     /// Patch branches newest first. Only numeric ones: "latest" and "pbe" are
@@ -837,7 +956,7 @@ impl Dragon {
             return Ok(known);
         }
         static PATCH: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(r"^\d+\.\d+$").expect("a valid pattern"));
+            LazyLock::new(|| Regex::new(r"^[0-9]+\.[0-9]+$").expect("a valid pattern"));
         let listing = self.0.assets.fetch_cdragon_json(ARCHIVED_BRANCHES).await?;
         let mut branches: Vec<String> = listing
             .as_array()
@@ -940,12 +1059,16 @@ impl Dragon {
     ) -> Result<Option<String>, String> {
         let hit_key = id.to_string();
         let miss_key = format!("{id}|{}", patch.unwrap_or("latest"));
-        let cached = self.with_icon_cache(|cache| {
-            cache
-                .get(&hit_key)
-                .or_else(|| cache.get(&miss_key))
-                .cloned()
-        });
+        let cached = {
+            let (hit_key, miss_key) = (hit_key.clone(), miss_key.clone());
+            self.with_icon_cache(move |_, cache| {
+                cache
+                    .get(&hit_key)
+                    .or_else(|| cache.get(&miss_key))
+                    .cloned()
+            })
+            .await
+        };
         if let Some(url) = cached {
             return Ok(url);
         }
@@ -1022,7 +1145,7 @@ impl Dragon {
             if let Some(url) = found.url {
                 log(format!("Resolved augment {id} icon from branch {branch}"));
                 if live_is_gone {
-                    self.write_icon_cache(hit_key, Some(url.clone()));
+                    self.write_icon_cache(hit_key, Some(url.clone())).await;
                 }
                 return Ok(Some(url));
             }
@@ -1034,7 +1157,7 @@ impl Dragon {
         // The walk stops at the lookback cap, so it speaks for the patch it
         // started from and no other.
         if live_is_gone && walk_complete {
-            self.write_icon_cache(miss_key, None);
+            self.write_icon_cache(miss_key, None).await;
         }
         Ok(None)
     }
@@ -1083,9 +1206,9 @@ mod tests {
         dragon.load_champion_data().await;
         let data = dragon.champion_data().await;
         assert_eq!(data.len(), 4);
-        assert_eq!(data[&62].name, "Wukong");
-        assert_eq!(data[&62].key, "MonkeyKing");
-        assert_eq!(data[&238].class, None);
+        assert_eq!(data.get("62").unwrap().name, "Wukong");
+        assert_eq!(data.get("62").unwrap().key, "MonkeyKing");
+        assert_eq!(data.get("238").unwrap().class, None);
         let file = std::fs::read_to_string(rig.root.join("data/champion-cache.json")).unwrap();
         assert_eq!(
             file,
@@ -1130,7 +1253,7 @@ mod tests {
         )
         .unwrap();
         dragon.load_champion_data().await;
-        assert_eq!(dragon.champion_data().await[&1].name, "Annie");
+        assert_eq!(dragon.champion_data().await.get("1").unwrap().name, "Annie");
         assert_eq!(dragon.champion_classes().version, "16.20.1");
         assert_eq!(rig.web.asked(VERSIONS), 1);
         // Without a disk copy the data is empty and the version "none"
@@ -1390,17 +1513,19 @@ mod tests {
         assert!(!rig.root.join("data/augment-icon-cache.json").exists());
     }
 
-    #[test]
-    fn the_icon_cache_reads_and_writes_as_electron_does() {
+    #[tokio::test]
+    async fn the_icon_cache_reads_and_writes_as_electron_does() {
         let text = r#"{"1341":"https://raw.communitydragon.org/16.1/game/assets/ux/a_large.png","9":null,"2002|latest":null,"1391|16.2":null,"77":"asset://game-data/16.3/x.png"}"#;
         let parsed: IconCacheFile = serde_json::from_str(text).unwrap();
-        assert_eq!(parsed.0.len(), 5);
+        assert_eq!(parsed.len(), 5);
         let dir = crate::asset_cache::tests::temp_dir("icon-cache");
         std::fs::write(dir.join(AUGMENT_ICON_CACHE_FILE), text).unwrap();
         let rig = Rig::new("icon-cache-rig");
         let dragon = Dragon::new(rig.web.clone(), rig.assets.clone(), dir.clone());
-        dragon.write_icon_cache("5|latest".into(), None);
-        dragon.write_icon_cache("3".into(), Some("asset://game-data/16.4/y.png".into()));
+        dragon.write_icon_cache("5|latest".into(), None).await;
+        dragon
+            .write_icon_cache("3".into(), Some("asset://game-data/16.4/y.png".into()))
+            .await;
         let written = std::fs::read_to_string(dir.join(AUGMENT_ICON_CACHE_FILE)).unwrap();
         // The old CommunityDragon hit reads as an asset URL, the patchless miss
         // is dropped, integer keys go first ascending, the rest keep order
@@ -1525,9 +1650,22 @@ mod tests {
 
     #[test]
     fn javascript_number_rules() {
-        assert_eq!(js_parse_int("266"), Some(266));
-        assert_eq!(js_parse_int(" 12abc"), Some(12));
-        assert_eq!(js_parse_int("abc"), None);
+        assert_eq!(js_parse_int("266"), 266.0);
+        assert_eq!(js_parse_int(" 12abc"), 12.0);
+        assert_eq!(js_parse_int("0x1A"), 26.0);
+        assert!(js_parse_int("abc").is_nan());
+        assert_eq!(js_number_key(js_parse_int("-0")), "0");
+        assert_eq!(
+            js_number_key(js_parse_int("1000000000000000000000")),
+            "1e+21"
+        );
+        assert_eq!(
+            js_number_key(js_parse_int("123456789012345678901")),
+            "123456789012345680000"
+        );
+        // `.` in JavaScript stops at U+2028, so this old hit is left as it is
+        let odd = "https://raw.communitydragon.org/16.1/game/a\u{2028}.png".to_string();
+        assert_eq!(as_asset_url(Some(odd.clone())), Some(odd));
         assert_eq!(js_number_str(""), 0.0);
         assert_eq!(js_number_str(" 16 "), 16.0);
         assert!(js_number_str("16a").is_nan());
