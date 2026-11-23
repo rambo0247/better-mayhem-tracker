@@ -182,7 +182,7 @@ fn card_bitmap(image: &NSImage) -> CardResult {
     match copy_srgb(&cg) {
         Some(bitmap) => Ok(bitmap),
         None => {
-            crate::assets::log_error(format!(
+            crate::log::error(format!(
                 "card export: drawing a snapshot of bitmap info {:#x}, {} bits a pixel, in {:?}",
                 CGImage::bitmap_info(Some(&cg)).0,
                 CGImage::bits_per_pixel(Some(&cg)),
