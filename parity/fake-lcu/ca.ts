@@ -24,8 +24,20 @@ const set = (...parts: Buffer[]) => tlv(0x31, ...parts);
 const octets = (value: Buffer) => tlv(0x04, value);
 const bitString = (value: Buffer, unusedBits = 0) => tlv(0x03, Buffer.from([unusedBits]), value);
 const boolTrue = tlv(0x01, Buffer.from([0xff]));
-const integer = (value: Buffer) =>
-  tlv(0x02, value[0]! & 0x80 ? Buffer.concat([Buffer.from([0]), value]) : value);
+/** A positive DER INTEGER in its minimal form: no leading zero byte, one only to keep the sign bit clear. */
+export function integer(value: Buffer) {
+  let start = 0;
+  while (start < value.length - 1 && value[start] === 0) start++;
+  const bytes = value.subarray(start);
+  return tlv(0x02, bytes[0]! & 0x80 ? Buffer.concat([Buffer.from([0]), bytes]) : bytes);
+}
+
+/** 16 random bytes, never zero, so the serial is a positive integer. */
+export function serialNumber() {
+  const bytes = crypto.randomBytes(16);
+  if (bytes.every((b) => b === 0)) bytes[15] = 1;
+  return integer(bytes);
+}
 
 function oid(dotted: string) {
   const parts = dotted.split(".").map(Number);
@@ -108,7 +120,7 @@ function certificate(input: CertificateInput): string {
 
   const toBeSigned = sequence(
     tlv(0xa0, integer(Buffer.from([2]))),
-    integer(crypto.randomBytes(16)),
+    serialNumber(),
     signatureAlgorithm(),
     name(issuer),
     sequence(

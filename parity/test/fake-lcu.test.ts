@@ -4,7 +4,7 @@ import fs from "node:fs";
 import https from "node:https";
 import os from "node:os";
 import path from "node:path";
-import { generatePki } from "../fake-lcu/ca.ts";
+import { generatePki, integer } from "../fake-lcu/ca.ts";
 import { syntheticContext } from "../fake-lcu/context.ts";
 import { buildScenario, SCENARIOS } from "../fake-lcu/scenarios/index.ts";
 import { startFakeLcu, type FakeLcu } from "../fake-lcu.ts";
@@ -95,6 +95,34 @@ describe("the fake CA", () => {
     expect(leaf.checkIP("127.0.0.1")).toBe("127.0.0.1");
     expect(leaf.subjectAltName).toContain("DNS:localhost");
     expect(ca.subject).not.toContain("Riot Games");
+  });
+
+  test("serials encode as minimal positive DER integers", () => {
+    const bytes = (...values: number[]) => Buffer.from(values);
+    expect(integer(bytes(0, 0, 0x7f)).toString("hex")).toBe("02017f");
+    expect(integer(bytes(0, 0x80)).toString("hex")).toBe("02020080");
+    expect(integer(bytes(0x80)).toString("hex")).toBe("02020080");
+    expect(integer(bytes(0, 0, 0)).toString("hex")).toBe("020100");
+
+    for (let i = 0; i < 4000; i++) {
+      const raw = crypto.randomBytes(16);
+      raw.fill(0, 0, i % 4);
+      const der = integer(raw);
+      const body = der.subarray(2);
+      expect(der[0]).toBe(0x02);
+      expect(der[1]).toBe(body.length);
+      expect(body[0]! & 0x80).toBe(0);
+      if (body.length > 1 && body[0] === 0) expect(body[1]! & 0x80).toBe(0x80);
+    }
+  });
+
+  test("every certificate made parses with a positive serial", () => {
+    for (let i = 0; i < 12; i++) {
+      const pki = generatePki();
+      for (const pem of [pki.caPem, pki.leafPem]) {
+        expect(BigInt("0x" + new crypto.X509Certificate(pem).serialNumber) > 0n).toBe(true);
+      }
+    }
   });
 
   test("two runs make different keys", () => {
