@@ -6,3 +6,5 @@ app:open-url
 app:version
 window:close
 window:minimize
+window:is-maximized
+window:toggle-maximize

@@ -86,7 +86,6 @@ struct Hooks {
 pub struct Shell {
     phase: Mutex<Phase>,
     launched_hidden: bool,
-    maximized: AtomicBool,
     minimized: AtomicBool,
     /// A close with the setting off put the window away for this quit, where
     /// Electron's window is gone.
@@ -103,7 +102,6 @@ impl Shell {
         Self {
             phase: Mutex::new(Phase::Running),
             launched_hidden,
-            maximized: AtomicBool::new(false),
             minimized: AtomicBool::new(false),
             closed_to_quit: AtomicBool::new(false),
             #[cfg(target_os = "macos")]
@@ -356,10 +354,7 @@ pub fn on_window_event<R: Runtime>(window: &Window<R>, event: &WindowEvent) {
         }
         // Tauri has no maximize or minimize event, so both are read off a resize
         WindowEvent::Resized(_) => {
-            let maximized = window.is_maximized().unwrap_or(false);
-            if shell.maximized.swap(maximized, Ordering::SeqCst) != maximized {
-                crate::events::maximized_changed(app, &maximized);
-            }
+            crate::commands::window::resized(window);
             let minimized = window.is_minimized().unwrap_or(false);
             if shell.minimized.swap(minimized, Ordering::SeqCst) != minimized && minimized {
                 shell.put_away();
