@@ -9,6 +9,8 @@ compile_error!(
 );
 
 pub mod app_menu;
+mod asset_cache;
+mod assets;
 pub mod backup;
 #[deny(clippy::disallowed_methods)]
 pub mod commands;
@@ -16,6 +18,9 @@ pub mod commands;
 pub mod data_guard;
 pub mod db;
 pub mod dialogs;
+// The commands that read it land with the dragon bodies, still stubs
+#[allow(dead_code)]
+mod dragon;
 pub mod events;
 pub mod import;
 pub mod install_location;
@@ -44,6 +49,8 @@ pub mod text;
 pub mod transfer;
 pub mod tray;
 
+use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
 
 use tauri::{Builder, Manager, RunEvent, Runtime, WebviewUrl, WebviewWindowBuilder};
@@ -179,6 +186,31 @@ fn first_instance_started(hidden: bool) {
     ));
 }
 
+/// The game asset source and the game data built on it, over the data root's
+/// `asset-cache/` and `data/`, as Electron lays them out.
+fn game_data(paths: &Paths) -> Option<(assets::GameAssets, dragon::Dragon)> {
+    let dirs = paths
+        .asset_cache_dir()
+        .and_then(|cache| Ok((cache, paths.data_dir()?)));
+    let (cache, data) = match dirs {
+        Ok(dirs) => dirs,
+        Err(err) => {
+            assets::log_error(format!("Cannot create the asset folders: {err}"));
+            return None;
+        }
+    };
+    let web = match assets::app_web() {
+        Ok(web) => web,
+        Err(err) => {
+            assets::log_error(format!("Cannot build the web client: {err}"));
+            return None;
+        }
+    };
+    let game_assets = assets::GameAssets::new(cache, web.clone(), Arc::new(assets::NoClient));
+    let dragon = dragon::Dragon::new(web, game_assets.clone(), data);
+    Some((game_assets, dragon))
+}
+
 pub fn run() {
     let started = Instant::now();
     let mut context = tauri::generate_context!();
@@ -223,10 +255,30 @@ pub fn run() {
         clock: Clock::from_env().expect("a valid BMT_FIXED_TIME"),
         effects: Effects::System,
     };
+    let game_data = game_data(&Paths::resolve());
+    let scheme_assets = game_data.as_ref().map(|(assets, _)| assets.clone());
     let builder = app_builder(builder, host)
         .manage(shell::Shell::new(hidden, |line| log(line)))
         .plugin(tauri_plugin_dialog::init())
-        .on_window_event(shell::on_window_event);
+        .on_window_event(shell::on_window_event)
+        // Owns the `asset` name: Tauri's own asset protocol is off
+        .register_asynchronous_uri_scheme_protocol(
+            assets::ASSET_SCHEME,
+            move |_ctx, request, responder| {
+                let Some(assets) = scheme_assets.clone() else {
+                    responder.respond(
+                        tauri::http::Response::builder()
+                            .status(503)
+                            .body(Vec::new())
+                            .expect("a valid response"),
+                    );
+                    return;
+                };
+                tauri::async_runtime::spawn(async move {
+                    responder.respond(assets.serve(request.method(), request.uri()).await);
+                });
+            },
+        );
     // Electron's window with `show: false` never takes focus, so a login
     // launch leaves the app the user is in active
     #[cfg(target_os = "macos")]
@@ -256,6 +308,16 @@ pub fn run() {
             parity_driver::prepare(app);
             #[cfg(feature = "parity-driver")]
             parity_shell::install_stand_ins(app.handle());
+            if let Some((game_assets, dragon)) = game_data {
+                app.manage(game_assets.clone());
+                app.manage(dragon.clone());
+                // Registered before any command can wait on it
+                drop(dragon.load_champion_data());
+                tauri::async_runtime::spawn(async move {
+                    game_assets.start();
+                    dragon.start();
+                });
+            }
             let (width, height) = WINDOW_SIZE;
             let (min_width, min_height) = WINDOW_MIN_SIZE;
             let (r, g, b) = WINDOW_BACKGROUND;

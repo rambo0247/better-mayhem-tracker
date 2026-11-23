@@ -36,7 +36,6 @@ pub const SENTINEL: &str = "bmt-parity-driver-v1";
 
 const TOKEN_ENV: &str = "BMT_PARITY_TOKEN";
 const RENDERER_DIR_ENV: &str = "BMT_PARITY_RENDERER_DIR";
-const ASSET_DIR_ENV: &str = "BMT_PARITY_ASSETS";
 const INIT_SCRIPT_ENV: &str = "BMT_PARITY_INIT";
 const BROWSER_ARGS_ENV: &str = "BMT_PARITY_BROWSER_ARGS";
 const WEBVIEW_DATA_ENV: &str = "BMT_PARITY_WEBVIEW_DATA";
@@ -57,8 +56,6 @@ struct Config {
     /// A built renderer to load in place of the app's own pages, such as
     /// Electron's `out/renderer`.
     renderer_dir: Option<PathBuf>,
-    /// An asset cache in Electron's layout, served under `asset:`.
-    asset_dir: Option<PathBuf>,
     /// Runs before any page script on every load: the clock, the data, the API.
     init_script: Option<String>,
     browser_args: Option<String>,
@@ -80,7 +77,6 @@ impl Config {
         Ok(Self {
             token: token_from(std::env::var(TOKEN_ENV).ok())?,
             renderer_dir: path(RENDERER_DIR_ENV),
-            asset_dir: path(ASSET_DIR_ENV),
             init_script,
             browser_args: std::env::var(BROWSER_ARGS_ENV).ok(),
             webview_data: path(WEBVIEW_DATA_ENV),
@@ -143,7 +139,7 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
-/// Reads the environment, registers the renderer and asset schemes, and keeps
+/// Reads the environment, registers the renderer scheme, and keeps
 /// the app from activating itself on launch. Exits when the token is missing.
 pub fn install(builder: Builder<DynRuntime>) -> Builder<DynRuntime> {
     let config = Config::from_env().unwrap_or_else(|error| {
@@ -152,8 +148,7 @@ pub fn install(builder: Builder<DynRuntime>) -> Builder<DynRuntime> {
     });
     let _ = CONFIG.set(config);
     let builder = builder
-        .register_uri_scheme_protocol("parity", |_ctx, request| serve_renderer(request.uri()))
-        .register_uri_scheme_protocol("asset", |_ctx, request| serve_asset(request.uri()));
+        .register_uri_scheme_protocol("parity", |_ctx, request| serve_renderer(request.uri()));
     #[cfg(target_os = "macos")]
     let builder = builder.activate_ignoring_other_apps(false);
     builder
@@ -876,87 +871,6 @@ fn rewrite_for_engine(file: &Path, bytes: Vec<u8>) -> Vec<u8> {
     }
 }
 
-fn is_patch(name: &str) -> bool {
-    let mut parts = name.split('.');
-    matches!(
-        (parts.next(), parts.next(), parts.next()),
-        (Some(a), Some(b), None) if !a.is_empty() && !b.is_empty()
-            && a.bytes().all(|c| c.is_ascii_digit()) && b.bytes().all(|c| c.is_ascii_digit())
-    )
-}
-
-fn patch_order(name: &str) -> (u32, u32) {
-    let mut parts = name.split('.').map(|p| p.parse().unwrap_or(0));
-    (parts.next().unwrap_or(0), parts.next().unwrap_or(0))
-}
-
-/// Where Electron's asset cache files a game path: the patch, then the sha1
-/// of the path. With the network blocked, Electron reads the asked patch
-/// first, then every cached patch newest first (`src/main/game-assets.ts`).
-fn asset_candidates(root: &Path, branch: &str, game_path: &str) -> Vec<PathBuf> {
-    let extension = Path::new(game_path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| format!(".{e}"))
-        .unwrap_or_default();
-    let name = format!("{}{extension}", sha1_smol::Sha1::from(game_path).digest());
-    let mut patches: Vec<String> = std::fs::read_dir(root)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|entry| entry.file_name().into_string().ok())
-        .filter(|name| is_patch(name))
-        .collect();
-    patches.sort_by_key(|name| std::cmp::Reverse(patch_order(name)));
-    if is_patch(branch) {
-        patches.retain(|p| p != branch);
-        patches.insert(0, branch.to_string());
-    }
-    patches
-        .iter()
-        .map(|patch| root.join(patch).join(&name))
-        .collect()
-}
-
-fn image_type(bytes: &[u8]) -> &'static str {
-    if bytes.starts_with(b"\x89PNG") {
-        "image/png"
-    } else if bytes.starts_with(&[0xff, 0xd8, 0xff]) {
-        "image/jpeg"
-    } else if bytes.len() > 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
-        "image/webp"
-    } else {
-        "application/octet-stream"
-    }
-}
-
-fn serve_asset(uri: &tauri::http::Uri) -> tauri::http::Response<Cow<'static, [u8]>> {
-    let Some(root) = &config().asset_dir else {
-        return not_found();
-    };
-    let segments: Vec<String> = scheme_path(uri)
-        .split('/')
-        .filter(|s| !s.is_empty())
-        .map(percent_decode)
-        .collect();
-    let (branch, game_path) = match segments.as_slice() {
-        [host, branch, rest @ ..] if host == "game-data" && !rest.is_empty() => {
-            (branch.clone(), rest.join("/").to_lowercase())
-        }
-        [host, id] if host == "splash" && id.bytes().all(|c| c.is_ascii_digit()) => {
-            ("latest".to_string(), format!("splash/{id}.jpg"))
-        }
-        _ => return http_response(400, "text/plain", Vec::new()),
-    };
-    for candidate in asset_candidates(root, &branch, &game_path) {
-        if let Ok(bytes) = std::fs::read(&candidate) {
-            let kind = image_type(&bytes);
-            return http_response(200, kind, bytes);
-        }
-    }
-    not_found()
-}
-
 #[cfg(target_os = "macos")]
 mod mac {
     use std::sync::{Mutex, mpsc};
@@ -1630,35 +1544,6 @@ mod tests {
         assert_eq!(find_key("7").unwrap().code, "Digit7");
         assert_eq!(find_key("7").unwrap().mac_key_code, 26);
         assert!(find_key("Hyper").is_err());
-    }
-
-    #[test]
-    fn driver_files_assets_where_electron_caches_them() {
-        let root = std::env::temp_dir().join(format!("bmt-asset-{}", std::process::id()));
-        for patch in ["16.9", "16.22", "16.3", "latest-pointer"] {
-            std::fs::create_dir_all(root.join(patch)).unwrap();
-        }
-        let path = "v1/champion-icons/1.png";
-        let name = format!("{}.png", sha1_smol::Sha1::from(path).digest());
-        let order = |branch: &str| -> Vec<String> {
-            asset_candidates(&root, branch, path)
-                .iter()
-                .map(|p| {
-                    assert_eq!(p.file_name().unwrap().to_str().unwrap(), name);
-                    p.parent()
-                        .unwrap()
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string()
-                })
-                .collect()
-        };
-        assert_eq!(order("latest"), ["16.22", "16.9", "16.3"]);
-        assert_eq!(order("16.9"), ["16.9", "16.22", "16.3"]);
-        assert_eq!(order("16.4"), ["16.4", "16.22", "16.9", "16.3"]);
-        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

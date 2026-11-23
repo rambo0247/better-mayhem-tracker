@@ -536,7 +536,7 @@ export class TauriEngine implements Engine {
 }
 
 export interface StartTauriOptions {
-  /** The data whose asset cache is served. Only the Electron renderer needs it. */
+  /** The data root the app reads its asset cache and data folder from, as a copy. */
   data?: string;
   renderer?: Renderer;
   /**
