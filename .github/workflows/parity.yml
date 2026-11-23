@@ -18,6 +18,10 @@ on:
         description: "Runs per app for the perf lane"
         required: false
         default: "10"
+      golden_run:
+        description: "Run id holding a parity-goldens artifact (T05's parity/out/golden), for the Tauri cross-engine lane"
+        required: false
+        default: ""
   push:
     branches: ["port/**"]
     paths:
@@ -177,3 +181,102 @@ jobs:
           path: |
             parity/out/perf/*.json
             parity/out/perf-*.log
+
+  # T07 lane 2 and decision E1: trunk Electron against Electron's own renderer in
+  # WebView2, through the Tauri parity driver. It needs the committed fixture, as the
+  # baseline job does, and goldens recorded from it, so it skips with a notice until
+  # both exist (decision E2).
+  cross-engine-windows:
+    needs: unit
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the fixture and goldens
+        id: inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GOLDEN_RUN: ${{ inputs.golden_run }}
+        run: |
+          if [ ! -f parity/snapshots/fixture/data/matches.db ] || [ -z "$GOLDEN_RUN" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::The anonymized fixture is not committed, or no golden_run (a parity-goldens artifact) was named (decision E2). Skipping WebView2 against Electron."
+            exit 0
+          fi
+          gh run download "$GOLDEN_RUN" --name parity-goldens --dir parity/out/golden
+          echo "found=true" >> "$GITHUB_OUTPUT"
+
+      - if: steps.inputs.outputs.found == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - if: steps.inputs.outputs.found == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: canary
+
+      - if: steps.inputs.outputs.found == 'true'
+        name: Install the pinned Rust toolchain
+        working-directory: tauri
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - if: steps.inputs.outputs.found == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri/src-tauri
+
+      - if: steps.inputs.outputs.found == 'true'
+        name: Build trunk Electron
+        run: |
+          npm ci
+          npm run rebuild
+          node node_modules/electron/install.js
+          npm run build
+
+      - if: steps.inputs.outputs.found == 'true'
+        name: Build the Tauri driver build
+        working-directory: tauri
+        run: |
+          bun install --frozen-lockfile
+          bun run tauri build --debug --no-bundle --features parity-driver
+
+      - if: steps.inputs.outputs.found == 'true'
+        name: Install parity
+        working-directory: parity
+        run: bun install --frozen-lockfile
+
+      - if: steps.inputs.outputs.found == 'true'
+        name: Capture Electron, then Tauri twice
+        working-directory: parity
+        env:
+          LANES: ${{ inputs.lanes }}
+        run: |
+          states="${LANES:-default}"
+          bun capture.ts --app electron --data fixture --states "$states" --out out/baseline/electron-win
+          bun capture.ts --app tauri --data fixture --states "$states" --out out/baseline/tauri-win --compare out/baseline/electron-win
+          bun capture.ts --app tauri --data fixture --states "$states" --out out/baseline/tauri-win-2
+
+      - if: steps.inputs.outputs.found == 'true'
+        name: Same-engine numbers, WebView2 against itself and against Electron
+        working-directory: parity
+        # Both are measurements for decision E1, so a FAIL is recorded, not raised
+        run: |
+          set +e
+          bun determinism.ts out/baseline/tauri-win out/baseline/tauri-win-2 > out/baseline/tauri-repeat.log
+          echo "exit $?" >> out/baseline/tauri-repeat.log
+          bun determinism.ts out/baseline/electron-win out/baseline/tauri-win > out/baseline/electron-vs-webview2-same-engine.log
+          echo "exit $?" >> out/baseline/electron-vs-webview2-same-engine.log
+          cat out/baseline/tauri-repeat.log out/baseline/electron-vs-webview2-same-engine.log
+
+      - if: always() && steps.inputs.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-cross-engine-windows
+          path: parity/out/baseline

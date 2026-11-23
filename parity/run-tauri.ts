@@ -384,6 +384,11 @@ export interface StartTauriOptions {
   scenario?: string;
   locale?: string;
   viewport?: { width: number; height: number };
+  /**
+   * Fail unless the page runs in TIME_ZONE. WebKit's WebContent process does not inherit
+   * TZ, so on macOS the host's own zone shows through. Only the smoke check turns it off.
+   */
+  requireTimeZone?: boolean;
 }
 
 export interface RunningTauri {
@@ -536,7 +541,7 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
       userAgent: navigator.userAgent,
       api: typeof (window as any).api,
     }));
-    if (page.timeZone !== TIME_ZONE) {
+    if (page.timeZone !== TIME_ZONE && options.requireTimeZone !== false) {
       throw new Error(`the webview runs in ${page.timeZone}, not ${TIME_ZONE}`);
     }
     if (page.now !== FIXED_TIME.getTime()) throw new Error(`the page clock reads ${page.now}`);
@@ -563,6 +568,7 @@ export async function smoke(options: { binary?: string; out?: string }) {
     binary: options.binary,
     runDir: options.out,
     viewport,
+    requireTimeZone: false,
   });
   const { engine, driver } = running;
   const checks: { name: string; pass: boolean; detail: unknown }[] = [];

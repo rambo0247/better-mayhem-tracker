@@ -9,6 +9,8 @@ pub mod win;
 
 use tauri::WebviewWindow;
 
+// WebView2 takes its device scale from the browser arguments and captures the viewport
+#[cfg_attr(windows, allow(dead_code))]
 #[derive(Debug, Clone, Copy)]
 pub struct SnapshotOptions {
     /// Device pixels per CSS pixel in the PNG, whatever the display's own scale.

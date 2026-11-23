@@ -39,6 +39,7 @@ const INIT_SCRIPT_ENV: &str = "BMT_PARITY_INIT";
 const BROWSER_ARGS_ENV: &str = "BMT_PARITY_BROWSER_ARGS";
 const WEBVIEW_DATA_ENV: &str = "BMT_PARITY_WEBVIEW_DATA";
 /// Set to `regular` to keep the Dock icon, only to show captures match with and without it.
+#[cfg(target_os = "macos")]
 const ACTIVATION_ENV: &str = "BMT_PARITY_ACTIVATION";
 const MIN_TOKEN_LEN: usize = 16;
 const MAX_HEAD_BYTES: usize = 64 * 1024;
@@ -56,6 +57,7 @@ struct Config {
     init_script: Option<String>,
     browser_args: Option<String>,
     webview_data: Option<PathBuf>,
+    #[cfg(target_os = "macos")]
     keep_dock_icon: bool,
 }
 
@@ -76,6 +78,7 @@ impl Config {
             init_script,
             browser_args: std::env::var(BROWSER_ARGS_ENV).ok(),
             webview_data: path(WEBVIEW_DATA_ENV),
+            #[cfg(target_os = "macos")]
             keep_dock_icon: std::env::var(ACTIVATION_ENV).is_ok_and(|v| v == "regular"),
         })
     }
@@ -1172,14 +1175,16 @@ mod win {
             "code": key.code,
             "windowsVirtualKeyCode": key.windows_key_code,
         });
-        params["type"] = match kind {
-            KeyKind::Down if key.text.is_empty() => "rawKeyDown".into(),
+        // As Playwright sends them: a key that types text is keyDown with that text
+        let event = match kind {
+            KeyKind::Down if key.text.is_empty() => "rawKeyDown",
             KeyKind::Down => {
                 params["text"] = key.text.into();
-                "keyDown".into()
+                "keyDown"
             }
-            KeyKind::Up => "keyUp".into(),
+            KeyKind::Up => "keyUp",
         };
+        params["type"] = event.into();
         call(
             window,
             "Input.dispatchKeyEvent",
