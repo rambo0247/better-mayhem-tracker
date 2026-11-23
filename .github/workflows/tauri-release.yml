@@ -30,9 +30,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: mac-arm64, os: macos-latest, platform: mac, arch: arm64, target: aarch64-apple-darwin }
-          - { name: mac-x64, os: macos-latest, platform: mac, arch: x64, target: x86_64-apple-darwin }
-          - { name: win-x64, os: windows-latest, platform: win, arch: x64, target: x86_64-pc-windows-msvc }
+          - {
+              name: mac-arm64,
+              os: macos-latest,
+              platform: mac,
+              arch: arm64,
+              target: aarch64-apple-darwin,
+            }
+          - {
+              name: mac-x64,
+              os: macos-latest,
+              platform: mac,
+              arch: x64,
+              target: x86_64-apple-darwin,
+            }
+          - {
+              name: win-x64,
+              os: windows-latest,
+              platform: win,
+              arch: x64,
+              target: x86_64-pc-windows-msvc,
+            }
     runs-on: ${{ matrix.os }}
     defaults:
       run:
