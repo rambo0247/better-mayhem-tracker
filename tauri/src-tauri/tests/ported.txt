@@ -9,9 +9,11 @@ app:open-url
 app:update-notes
 app:version
 autostart:supported
+backup:create
 backup:list
 backup:open-folder
 backup:recovery-report
+backup:restore
 challenges:get
 data:export
 data:import
