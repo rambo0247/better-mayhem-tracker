@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { isUnderRealFolder, realDataRoots } from "../lib/real-folder.ts";
-import { takeSnapshot } from "../snapshot.ts";
+import { diffHashes, hashAppFiles, takeSnapshot } from "../snapshot.ts";
 
 const seam = path.resolve(import.meta.dir, "../seam.cjs");
 
@@ -84,6 +84,18 @@ describe("snapshot", () => {
     expect(fs.existsSync(path.join(out, "asset-cache", "16.1", "a.png"))).toBe(true);
     expect(fs.readFileSync(path.join(source, "data", "matches.db")).equals(before)).toBe(true);
   });
+});
+
+test("hashing a source before and after a snapshot shows it unchanged", () => {
+  const dir = scratch();
+  const source = path.join(dir, "source");
+  fs.mkdirSync(path.join(source, "data"), { recursive: true });
+  spawnSync("sqlite3", [path.join(source, "data", "matches.db"), "create table t(a);"]);
+  const before = hashAppFiles(source);
+  takeSnapshot({ source, out: path.join(dir, "out"), realRoots: [path.join(dir, "elsewhere")] });
+  expect(diffHashes(before, hashAppFiles(source))).toEqual({ changed: [], removed: [], added: [] });
+  fs.appendFileSync(path.join(source, "data", "matches.db"), "x");
+  expect(diffHashes(before, hashAppFiles(source)).changed).toEqual(["data/matches.db"]);
 });
 
 describe("seam", () => {
