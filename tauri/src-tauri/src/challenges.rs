@@ -208,10 +208,9 @@ fn shape(raw: &Value, baseline: Option<&HashMap<String, f64>>) -> ChallengeProgr
         retired: finite(field("retireTimestamp"), 0.0) > 0.0,
         completed_champion_ids: (field("idListType") == Some(&Value::String("CHAMPION".into())))
             .then(|| match field("completedIds") {
-                Some(Value::Array(ids)) => ids
-                    .iter()
-                    .map(|id| Some(JsNumber(js_number(Some(id)))))
-                    .collect(),
+                Some(Value::Array(ids)) => {
+                    ids.iter().map(|id| JsNumber(js_number(Some(id)))).collect()
+                }
                 _ => Vec::new(),
             }),
         delta: previous.map(|previous| value - previous),
@@ -790,7 +789,7 @@ mod tests {
         let retired = &data.seasonal[0];
         assert_eq!(
             (retired.retired, retired.completed_champion_ids.clone()),
-            (true, Some(vec![Some(JsNumber(1.0)), Some(JsNumber(2.0))]))
+            (true, Some(vec![JsNumber(1.0), JsNumber(2.0)]))
         );
 
         // Everything but the retired one and the equipped-only one gets a row
@@ -957,8 +956,9 @@ mod tests {
     }
 
     /// T21's hostile scenario: `completedIds.map(Number)` sends the page NaN
-    /// and a fraction as they are, JSON.stringify stores the NaN as `null`, and
-    /// `readStored` hands the stored ids back as JSON.parse read them.
+    /// and a fraction as they are, and JSON.stringify stores the NaN as `null`.
+    /// `readStored` keeps an Electron-written row Electron's own JSON.parse
+    /// reads, the stored `null` coming back as the NaN it was written from.
     #[tokio::test]
     async fn champion_ids_are_javascript_numbers_fresh_and_stored() {
         let rig = rig("hostile-ids");
@@ -988,7 +988,10 @@ mod tests {
         rig.client.connected.store(false, Ordering::SeqCst);
         let read =
             seasonal(serde_json::to_value(rig.challenges.get_challenges().unwrap()).unwrap());
-        assert_eq!(read["completedChampionIds"], json!([null, 1.5, 22]));
+        assert_eq!(
+            read["completedChampionIds"],
+            json!([{"$bmtNum": "NaN"}, 1.5, 22])
+        );
         assert_eq!(read["id"], json!(202005.5));
     }
 

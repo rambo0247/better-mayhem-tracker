@@ -148,10 +148,7 @@ pub struct ChallengeProgress {
     pub points_awarded: f64,
     pub icon_path: String,
     pub retired: bool,
-    // `completedIds.map(Number)`, read back from the stored payload with
-    // JSON.stringify's `null` where it was NaN
-    #[ts(as = "Option<Vec<JsNumber>>")]
-    pub completed_champion_ids: Option<Vec<Option<JsNumber>>>,
+    pub completed_champion_ids: Option<Vec<JsNumber>>,
     pub delta: Option<f64>,
 }
 
