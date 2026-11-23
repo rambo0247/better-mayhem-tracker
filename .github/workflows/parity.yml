@@ -353,4 +353,6 @@ jobs:
             parity/out/report/*.log
             parity/out/report/tauri-win/cross-engine
             parity/out/report/tauri-win/*.json
-            parity/out/report/electron-win/timing.json
+            parity/out/report/tauri-win/*.log
+            parity/out/report/electron-win/*.json
+            parity/out/report/electron-win/*.log
