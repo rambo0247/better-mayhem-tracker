@@ -10,9 +10,8 @@ import {
   type Target,
 } from "./drive.ts";
 import { PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
-import { waitForNoGame } from "./lib/no-game.ts";
-import { refuseRealFolder } from "./lib/real-folder.ts";
-import { DEFAULT_VIEWPORT, FIXED_TIME, TIME_ZONE } from "./run-electron.ts";
+import { gameRunning, waitForNoGame } from "./lib/no-game.ts";
+import { claimRunFolder, DEFAULT_VIEWPORT, FIXED_TIME, TIME_ZONE } from "./run-electron.ts";
 import { settle } from "./settle.ts";
 
 export const SENTINEL = "bmt-parity-driver-v1";
@@ -26,9 +25,6 @@ export function tauriBinary(repo: string = REPO_DIR): string {
   const target = process.env.CARGO_TARGET_DIR ?? path.join(repo, "tauri", "src-tauri", "target");
   return path.join(target, "debug", `better-mayhem-tracker-tauri${exe}`);
 }
-
-// ---------------------------------------------------------------------------
-// Replay bundle
 
 export interface ReplayCase {
   case: string;
@@ -134,9 +130,6 @@ export function initScript(bundle: ReplayBundle | undefined): string {
   return parts.join("\n");
 }
 
-// ---------------------------------------------------------------------------
-// Driver client and engine
-
 export class TauriDriver {
   constructor(
     readonly port: number,
@@ -180,7 +173,14 @@ interface Resolved {
  * `text=` (case-insensitive substring, innermost element), `filter({ hasText })`, first or nth.
  * Scrolls it into view and returns its center.
  */
-function resolveInPage(target: { selector: string; nth?: number; text?: string; scroll: boolean }) {
+function resolveInPage(target: {
+  selector: string;
+  nth?: number;
+  text?: string;
+  scroll: boolean;
+  fill?: string;
+  scrollBy?: number;
+}) {
   const normalize = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
   const all = (selector: string): Element[] => {
     if (!selector.startsWith("text=")) return [...document.querySelectorAll(selector)];
@@ -197,6 +197,15 @@ function resolveInPage(target: { selector: string; nth?: number; text?: string; 
   }
   const el = list[target.nth ?? 0];
   if (!el) return { found: list.length, visible: false, x: 0, y: 0 };
+  if (target.fill !== undefined) {
+    const input = el as HTMLInputElement;
+    input.focus();
+    const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement;
+    Object.getOwnPropertyDescriptor(proto.prototype, "value")!.set!.call(input, target.fill);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  if (target.scrollBy !== undefined) el.scrollBy(0, target.scrollBy);
   if (target.scroll) {
     const box = el.getBoundingClientRect();
     if (box.bottom > innerHeight || box.top < 0 || box.right > innerWidth || box.left < 0) {
@@ -257,17 +266,7 @@ export class TauriEngine implements Engine {
 
   async fill(target: Target, text: string) {
     await this.resolve(target);
-    await this.evaluate(
-      ({ target: t, text: value }) => {
-        const el = document.querySelectorAll(t.selector)[t.nth ?? 0] as HTMLInputElement;
-        el.focus();
-        const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement;
-        Object.getOwnPropertyDescriptor(proto.prototype, "value")!.set!.call(el, value);
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      },
-      { target, text },
-    );
+    await this.evaluate(resolveInPage, { ...target, scroll: false, fill: text });
   }
 
   async press(key: string) {
@@ -281,10 +280,7 @@ export class TauriEngine implements Engine {
 
   async scrollBy(target: Target, dy: number) {
     await this.resolve(target, 10_000, false);
-    await this.evaluate(
-      ({ target: t, dy: by }) => document.querySelectorAll(t.selector)[t.nth ?? 0]!.scrollBy(0, by),
-      { target, dy },
-    );
+    await this.evaluate(resolveInPage, { ...target, scroll: false, scrollBy: dy });
   }
 
   async waitFor(target: Target, timeout: number) {
@@ -457,9 +453,6 @@ export class TauriEngine implements Engine {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Launch
-
 export interface StartTauriOptions {
   /** The data whose asset cache is served. Only the Electron renderer needs it. */
   data?: string;
@@ -476,6 +469,7 @@ export interface StartTauriOptions {
    * TZ, so on macOS the host's own zone shows through. Only the smoke check turns it off.
    */
   requireTimeZone?: boolean;
+  readyTimeoutMs?: number;
 }
 
 export interface RunningTauri {
@@ -502,6 +496,79 @@ const WEBVIEW2_ARGS = [
   "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion",
 ];
 
+/**
+ * The host variables a webview needs to start, by name in any case. Nothing else is
+ * inherited, so a BMT_PARITY_* or WEBVIEW2_* left in the shell never reaches a run.
+ */
+const HOST_ENV = new Set(
+  [
+    "PATH",
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "TMPDIR",
+    "RUST_BACKTRACE",
+    "SystemRoot",
+    "SystemDrive",
+    "windir",
+    "ComSpec",
+    "PATHEXT",
+    "USERPROFILE",
+    "USERNAME",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "ProgramData",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "TEMP",
+    "TMP",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
+    "OS",
+  ].map((name) => name.toLowerCase()),
+);
+
+export function childEnv(
+  host: NodeJS.ProcessEnv,
+  own: Record<string, string>,
+): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [name, value] of Object.entries(host)) {
+    if (value !== undefined && HOST_ENV.has(name.toLowerCase())) env[name] = value;
+  }
+  return { ...env, ...own };
+}
+
+const within = (work: Promise<unknown>, ms: number) =>
+  Promise.race([work.then(() => true), Bun.sleep(ms).then(() => false)]);
+
+/**
+ * Stops the app: `quit` through the driver when given, then SIGTERM and SIGKILL until it
+ * is gone, so it never outlives the run or keeps holding off display sleep. A quit that
+ * fails still ends the app, then fails the run.
+ */
+export async function stopApp(child: ChildProcess, quit?: () => Promise<unknown>) {
+  const exited =
+    child.exitCode !== null || child.signalCode !== null
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => child.once("exit", () => resolve()));
+  const quitError = quit
+    ? await quit().then(
+        () => undefined,
+        (error: unknown) => (error instanceof Error ? error.message : JSON.stringify(error)),
+      )
+    : undefined;
+  if (!(await within(exited, quit && quitError === undefined ? 5000 : 0))) {
+    child.kill();
+    if (!(await within(exited, 5000))) child.kill("SIGKILL");
+    await exited;
+  }
+  if (quitError !== undefined) {
+    console.error(`run-tauri: quit failed: ${quitError}`);
+    throw new Error(`quit failed, so the app was stopped by signal: ${quitError}`);
+  }
+}
+
 function waitForReadyLine(child: ChildProcess, log: fs.WriteStream, timeoutMs: number) {
   return new Promise<number>((resolve, reject) => {
     let buffer = "";
@@ -525,6 +592,10 @@ function waitForReadyLine(child: ChildProcess, log: fs.WriteStream, timeoutMs: n
     };
     child.stdout!.on("data", onData);
     child.stderr!.on("data", (chunk: Buffer) => log.write(chunk));
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
     child.once("exit", (code) => {
       clearTimeout(timer);
       reject(
@@ -550,9 +621,8 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
         `${Date.now()}-tauri-${crypto.randomBytes(3).toString("hex")}`,
       ),
   );
-  refuseRealFolder(runDir, "run folder");
-  fs.rmSync(runDir, { recursive: true, force: true });
-  fs.mkdirSync(runDir, { recursive: true });
+  const dataRoot = options.data === undefined ? undefined : resolveDataRoot(options.data);
+  claimRunFolder(runDir, dataRoot);
 
   const binary = options.binary ?? tauriBinary(repo);
   if (!fs.existsSync(binary)) {
@@ -561,14 +631,12 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     );
   }
   const assets = path.join(runDir, "asset-cache");
-  const dataRoot = options.data === undefined ? undefined : resolveDataRoot(options.data);
   if (dataRoot && fs.existsSync(path.join(dataRoot, "asset-cache"))) {
     fs.cpSync(path.join(dataRoot, "asset-cache"), assets, { recursive: true });
   }
 
   let bundle: ReplayBundle | undefined;
   const env: Record<string, string> = {
-    ...(process.env as Record<string, string>),
     TZ: TIME_ZONE,
     LANG: "en_US.UTF-8",
     BMT_PARITY_ASSETS: assets,
@@ -601,21 +669,23 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
   const args =
     process.platform === "darwin" ? ["-AppleLanguages", "(en-US)", "-AppleLocale", "en_US"] : [];
   const started = Date.now();
-  const child = spawn(binary, args, { cwd: runDir, env, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(binary, args, {
+    cwd: runDir,
+    env: childEnv(process.env, env),
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   const log = fs.createWriteStream(path.join(runDir, "tauri.log"));
-  const port = await waitForReadyLine(child, log, 60_000);
-  const driver = new TauriDriver(port, token);
-  const engine = new TauriEngine(driver);
-
-  const close = async () => {
-    await driver.call("quit").catch(() => {});
-    const exited = new Promise((resolve) => child.once("exit", resolve));
-    const timeout = Bun.sleep(5000).then(() => "timeout");
-    if ((await Promise.race([exited, timeout])) === "timeout") child.kill();
-    log.end();
-  };
-
   try {
+    const port = await waitForReadyLine(child, log, options.readyTimeoutMs ?? 60_000);
+    const driver = new TauriDriver(port, token);
+    const engine = new TauriEngine(driver);
+    const close = async () => {
+      try {
+        await stopApp(child, () => driver.call("quit"));
+      } finally {
+        log.end();
+      }
+    };
     await engine.waitForFunction(
       () => document.readyState === "complete" && document.body !== null,
       30_000,
@@ -640,7 +710,8 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     const ctx: DriveContext = { engine, viewport, touchedSettings: new Map() };
     return { child, driver, engine, runDir, token, ctx, facts, close };
   } catch (error) {
-    await close();
+    await stopApp(child);
+    log.end();
     throw error;
   }
 }
@@ -684,7 +755,22 @@ export async function smoke(options: { binary?: string; out?: string }) {
       const input = document.createElement("input");
       input.id = "i";
       place(input, 100, 300, 200, 30);
-      document.body.replaceChildren(button, input);
+      const twins = ["first", "second"].flatMap((name, i) => {
+        const area = document.createElement("textarea");
+        area.className = "twin";
+        area.textContent = name;
+        place(area, 400, 100 + i * 60, 200, 40);
+        const pane = document.createElement("div");
+        pane.className = "pane";
+        pane.textContent = `${name} pane`;
+        place(pane, 650, 100 + i * 120, 200, 100);
+        pane.style.overflow = "auto";
+        const tall = document.createElement("div");
+        tall.style.height = "1000px";
+        pane.append(tall);
+        return [area, pane];
+      });
+      document.body.replaceChildren(button, input, ...twins);
       const seen: string[] = ((window as any).__seen = []);
       for (const type of ["mousemove", "mousedown", "mouseup", "click", "keydown", "keyup"]) {
         document.addEventListener(type, (e: any) =>
@@ -717,6 +803,21 @@ export async function smoke(options: { binary?: string; out?: string }) {
     );
     const typed = await engine.evaluate<string>("document.getElementById('i').value");
     check("a key types into the focused input", typed === "a", typed);
+
+    await engine.fill({ selector: "textarea.twin", text: "second" }, "typed");
+    const areas = await engine.evaluate(() =>
+      [...document.querySelectorAll("textarea")].map((a) => a.value),
+    );
+    check(
+      "fill takes the element its text filter picks",
+      areas[0] === "first" && areas[1] === "typed",
+      areas,
+    );
+    await engine.scrollBy({ selector: "text=second pane" }, 50);
+    const scrolled = await engine.evaluate(() =>
+      [...document.querySelectorAll(".pane")].map((p) => p.scrollTop),
+    );
+    check("scrollBy takes a text= target", scrolled[0] === 0 && scrolled[1] === 50, scrolled);
 
     await engine.resizeWindow(1000, 640);
     const size = await engine.evaluate<number[]>("[innerWidth, innerHeight]");
@@ -778,18 +879,22 @@ if (import.meta.main) {
     binary: value("--binary"),
     viewport: state?.viewport,
   });
-  if (state) {
-    const vars = await resolveVars(running.engine);
-    await applyState(running.ctx, state, vars);
-    const png = path.join(running.runDir, `${state.id}.png`);
-    fs.writeFileSync(
-      path.join(running.runDir, `${state.id}.geometry.json`),
-      await dumpGeometry(running.engine),
-    );
-    await running.engine.screenshot(png);
-    console.log(`wrote ${png} and ${state.id}.geometry.json`);
-  } else {
-    await settle(running.engine, running.ctx.viewport);
+  try {
+    if (state) {
+      await applyState(running.ctx, state, await resolveVars(running.engine));
+      const png = path.join(running.runDir, `${state.id}.png`);
+      fs.writeFileSync(
+        path.join(running.runDir, `${state.id}.geometry.json`),
+        await dumpGeometry(running.engine),
+      );
+      await running.engine.screenshot(png);
+      console.log(`wrote ${png} and ${state.id}.geometry.json`);
+    } else {
+      await settle(running.engine, running.ctx.viewport);
+    }
+  } catch (error) {
+    await running.close();
+    throw error;
   }
   const control = serveControl({
     ctx: running.ctx,
@@ -799,4 +904,12 @@ if (import.meta.main) {
     close: () => running.close(),
   });
   console.log(`ready run=${running.runDir} control=127.0.0.1:${control.port}`);
+  // The window floats above others, so it must not stay up over a League game
+  const watch = setInterval(async () => {
+    if (!gameRunning()) return;
+    clearInterval(watch);
+    console.log("a League game started, closing the Tauri window");
+    await running.close();
+    process.exit(3);
+  }, 5000);
 }
