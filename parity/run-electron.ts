@@ -11,7 +11,7 @@ import { realDataRoots, refuseRealFolder } from "./lib/real-folder.ts";
 import { settle } from "./settle.ts";
 
 export const FIXED_TIME = new Date("2026-11-22T21:00:00-05:00");
-export const DEFAULT_VIEWPORT = { width: 1280, height: 800 };
+export const DEFAULT_VIEWPORT = { width: 1280, height: 820 };
 export const TIME_ZONE = "America/New_York";
 
 const require = createRequire(import.meta.url);

@@ -24,8 +24,9 @@ export interface StateRow {
   card?: boolean;
 }
 
-const FULL: Viewport = { width: 1280, height: 800 };
-const CARD: Viewport = { width: 1200, height: 800 };
+// The size the app opens at (src/main/index.ts), as content size
+const FULL: Viewport = { width: 1280, height: 820 };
+const CARD: Viewport = { width: 1200, height: 820 };
 const row = (
   id: string,
   group: StateRow["group"],
@@ -70,10 +71,10 @@ export const STATES: StateRow[] = [
   }),
 
   row("match-history-rail-1179", "rail", "/", FIRST_MATCH_ROW, {
-    viewport: { width: 1179, height: 800 },
+    viewport: { width: 1179, height: 820 },
   }),
   row("match-history-narrow-900", "rail", "/", FIRST_MATCH_ROW, {
-    viewport: { width: 900, height: 800 },
+    viewport: { width: 900, height: 820 },
   }),
 
   row("match-history-expanded", "match-history", "/", FIRST_MATCH_ROW, {
