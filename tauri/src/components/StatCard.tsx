@@ -1,4 +1,4 @@
-import { children, Show } from "solid-js";
+import { createMemo, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 
 export type StatAccent = "gold" | "win" | "sky" | "purple";
@@ -26,11 +26,11 @@ interface StatCardProps {
 
 export default function StatCard(props: StatCardProps) {
   const a = () => (props.accent ? ACCENTS[props.accent] : null);
-  // Resolved once: each read of a JSX prop would build its nodes again
-  const value = children(() => props.value);
-  const icon = children(() => props.icon);
-  const subtext = children(() => props.subtext);
-  const footer = children(() => props.children);
+  // Read once and not resolved, as in PageHeader
+  const value = createMemo(() => props.value);
+  const icon = createMemo(() => props.icon);
+  const subtext = createMemo(() => props.subtext);
+  const footer = createMemo(() => props.children);
 
   return (
     <div class={["panel flex flex-col overflow-hidden p-4", props.class ?? ""]}>

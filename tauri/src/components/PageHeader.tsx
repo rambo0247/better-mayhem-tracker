@@ -1,4 +1,4 @@
-import { children, Show } from "solid-js";
+import { createMemo, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 
 // The head of every page: a small gold kicker naming what the page is part of,
@@ -11,10 +11,12 @@ export default function PageHeader(props: {
   actions?: JSX.Element;
   class?: string;
 }) {
-  // Resolved once: each read of a JSX prop would build its nodes again
-  const kicker = children(() => props.kicker);
-  const subtitle = children(() => props.subtitle);
-  const actions = children(() => props.actions);
+  // Read once, since each read of a JSX prop builds its nodes again. Not
+  // resolved: React keeps a slot's wrapper whenever the prop is set, even when
+  // what it holds draws nothing (a QueueSelect with one queue)
+  const kicker = createMemo(() => props.kicker);
+  const subtitle = createMemo(() => props.subtitle);
+  const actions = createMemo(() => props.actions);
   return (
     <div
       class={["flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pb-5", props.class ?? ""]}

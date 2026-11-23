@@ -33,6 +33,16 @@ for (const key of [
   });
 }
 
+// happy-dom drops a falsy textContent, so the 0 Solid writes that way would
+// show as nothing; a browser writes "0"
+const textContent = Object.getOwnPropertyDescriptor(win.Element.prototype, "textContent")!;
+Object.defineProperty(win.Element.prototype, "textContent", {
+  ...textContent,
+  set(value: unknown) {
+    textContent.set!.call(this, value == null ? "" : String(value));
+  },
+});
+
 // Solid's compiler turns the JSX into DOM calls and leaves the types, which
 // Bun then strips as plain TypeScript.
 // Solid's DOM build, which `bun test` alone would pass over for the server
