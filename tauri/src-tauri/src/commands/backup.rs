@@ -74,7 +74,7 @@ pub async fn list_backups<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Vec<BackupIn
 }
 
 pub async fn create_backup<R: Runtime>(ctx: Ctx<R>) -> CommandResult<CreateBackupResult> {
-    let outcome = backups(&ctx)?.create(&*db::of(&ctx)?, Reason::Manual, ctx.now_ms());
+    let outcome = backups(&ctx)?.create(&*db::of(&ctx)?, Reason::Manual, ctx.now_ms()?);
     Ok(match outcome {
         Ok(backup) => CreateBackupResult {
             success: true,
@@ -93,8 +93,10 @@ pub async fn restore_backup<R: Runtime>(
     ctx: Ctx<R>,
     file: Js<String>,
 ) -> CommandResult<RestoreBackupResult> {
-    let file = whole(&file)?;
-    let outcome = backups(&ctx)?.restore(&*db::of(&ctx)?, &file, ctx.now_ms());
+    // FILE_RE.test(file) reads String(file), which no other value makes a
+    // backup's name, so it answers "Not a backup file name" as an empty one does
+    let file = file.typed().unwrap_or_default();
+    let outcome = backups(&ctx)?.restore(&*db::of(&ctx)?, &file, ctx.now_ms()?);
     Ok(match outcome {
         Ok(games) => {
             // Everything on screen was read from the database just replaced
