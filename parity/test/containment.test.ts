@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import { takeCaptureLock } from "../capture.ts";
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -20,6 +21,15 @@ import {
 
 const seam = path.resolve(import.meta.dir, "../seam.cjs");
 const scratch = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "bmt-contain-")));
+
+test("a second capture is refused while the first runs, and a stale lock is taken over", () => {
+  const lock = path.join(scratch(), "capture.lock");
+  fs.writeFileSync(lock, String(process.ppid));
+  expect(() => takeCaptureLock(lock)).toThrow(/one capture at a time/);
+  fs.writeFileSync(lock, "999999");
+  takeCaptureLock(lock);
+  expect(fs.readFileSync(lock, "utf8")).toBe(String(process.pid));
+});
 
 test("PARITY_GPU is off by default, on when asked, and an error otherwise", () => {
   expect(gpuSwitch(undefined)).toBe("off");

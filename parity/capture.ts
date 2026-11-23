@@ -41,6 +41,38 @@ function parse(argv: string[]) {
   return out;
 }
 
+/**
+ * One capture at a time. Two overlapping runs left ng2.log's Electron closed after 4 states, in
+ * the same minute the other run's teardown ran.
+ */
+export function takeCaptureLock(lock = path.join(PARITY_DIR, "out", ".capture.lock")) {
+  fs.mkdirSync(path.dirname(lock), { recursive: true });
+  for (;;) {
+    try {
+      fs.writeFileSync(lock, String(process.pid), { flag: "wx" });
+      process.on("exit", () => fs.rmSync(lock, { force: true }));
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+    const holder = Number(fs.readFileSync(lock, "utf8"));
+    if (holder !== process.pid && isAlive(holder)) {
+      throw new Error(`capture ${holder} is running; one capture at a time`);
+    }
+    fs.rmSync(lock, { force: true });
+  }
+}
+
+function isAlive(pid: number) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
 async function main() {
   const args = parse(process.argv.slice(2));
   if (args.app !== "electron") {
@@ -55,6 +87,7 @@ async function main() {
   const states = selectStates(args.all ? "all" : args.states);
   const dir = path.resolve(args.dir ?? baselineDir(args.app));
   refuseRealFolder(dir, "capture folder");
+  takeCaptureLock();
   fs.mkdirSync(dir, { recursive: true });
   const dataLabel = isDataSource(args.data) ? args.data : "folder";
   const startedAt = Date.now();
