@@ -12,6 +12,7 @@ beforeEach(() => {
   fake.returns.set("getSeasons", []);
   fake.returns.set("getLcuStatus", "disconnected");
   fake.returns.set("getProfile", null);
+  window.history.replaceState(null, "", "#/");
 });
 afterEach(() => {
   view?.dispose();

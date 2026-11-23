@@ -39,7 +39,7 @@ for (const key of [
 const textContent = Object.getOwnPropertyDescriptor(win.Element.prototype, "textContent")!;
 Object.defineProperty(win.Element.prototype, "textContent", {
   ...textContent,
-  set(value: unknown) {
+  set(value: string | number | null | undefined) {
     textContent.set!.call(this, value == null ? "" : String(value));
   },
 });
