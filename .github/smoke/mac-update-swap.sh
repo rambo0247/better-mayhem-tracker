@@ -1,13 +1,16 @@
 #!/bin/sh
-# Runs the script the macOS updater leaves behind (src/main/mac-update-script.ts)
+# Runs the script the macOS updater leaves behind (tauri/src-tauri/src/mac_update_script.rs)
 # against throwaway folders: an "installed" bundle, and the packaged app staged
 # beside it the way the updater stages a download. Checks it waits for the old
 # process, swaps the bundles, cleans up, and relaunches with the right args.
+#
+# The script comes from the updater's own source file, built by swap-script.rs.
 #
 # Usage: mac-update-swap.sh <path to the packaged .app>
 set -eu
 
 app="$1"
+here="$(cd "$(dirname "$0")" && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -23,26 +26,16 @@ echo old > "$bundle/Contents/MARKER"
 printf '#!/bin/sh\necho "$*" > "%s/open.log"\n' "$work" > "$work/bin/open"
 chmod +x "$work/bin/open"
 
-npx esbuild src/main/mac-update-script.ts --format=esm --log-level=error \
-  --outfile="$work/script.mjs"
+# From tauri/, where the pinned toolchain is
+(cd "$here/../../tauri" && rustc --edition 2024 --crate-name swap_script \
+  -o "$work/swap-script" "$here/swap-script.rs")
 
 # The "running app" the script has to wait out
 sleep 3 &
 pid=$!
 
-node --input-type=module -e '
-const { macSwapScript } = await import(process.argv[1]);
-const [bundle, staging, tmp, pid] = process.argv.slice(2);
-process.stdout.write(macSwapScript({
-  pid: Number(pid),
-  bundle,
-  stagedBundle: staging + "/Better Mayhem Tracker.app",
-  stagingDir: staging,
-  backup: staging + ".old",
-  tmpDir: tmp,
-  relaunchArgs: ["--hidden"],
-}));
-' "$work/script.mjs" "$bundle" "$staging" "$work/tmp" "$pid" > "$work/update.sh"
+"$work/swap-script" "$pid" "$bundle" "$staging/Better Mayhem Tracker.app" "$staging" \
+  "$staging.old" "$work/tmp" --hidden > "$work/update.sh"
 
 start=$(date +%s)
 PATH="$work/bin:$PATH" /bin/sh "$work/update.sh"

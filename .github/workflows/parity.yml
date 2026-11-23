@@ -45,7 +45,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: canary
+      # Sources only: the tray template test reads 1.2.1's src/main/index.ts
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.2.1
+          path: baseline-1.2.1
       - run: bun install --frozen-lockfile
+        working-directory: .
       - run: bun run lint
       - run: bun run fmt:check
       - run: bun run test
@@ -87,7 +93,15 @@ jobs:
           bun-version: canary
 
       - if: steps.fixture.outputs.found == 'true'
-        name: Build trunk Electron
+        name: Check out Electron 1.2.1
+        uses: actions/checkout@v4
+        with:
+          ref: v1.2.1
+          path: baseline-1.2.1
+
+      - if: steps.fixture.outputs.found == 'true'
+        name: Build Electron 1.2.1
+        working-directory: baseline-1.2.1
         run: |
           npm ci
           npm run rebuild
@@ -95,8 +109,7 @@ jobs:
           npm run build
 
       - if: steps.fixture.outputs.found == 'true'
-        name: Install parity
-        working-directory: parity
+        name: Install
         run: bun install --frozen-lockfile
 
       - if: steps.fixture.outputs.found == 'true'
@@ -232,7 +245,15 @@ jobs:
           workspaces: tauri/src-tauri
 
       - if: steps.inputs.outputs.found == 'true'
-        name: Build trunk Electron
+        name: Check out Electron 1.2.1
+        uses: actions/checkout@v4
+        with:
+          ref: v1.2.1
+          path: baseline-1.2.1
+
+      - if: steps.inputs.outputs.found == 'true'
+        name: Build Electron 1.2.1
+        working-directory: baseline-1.2.1
         run: |
           npm ci
           npm run rebuild
@@ -247,8 +268,7 @@ jobs:
           bun run tauri build --debug --no-bundle --features parity-driver
 
       - if: steps.inputs.outputs.found == 'true'
-        name: Install parity
-        working-directory: parity
+        name: Install
         run: bun install --frozen-lockfile
 
       - if: steps.inputs.outputs.found == 'true'
@@ -316,9 +336,15 @@ jobs:
         with:
           workspaces: tauri/src-tauri
 
-      - name: Build trunk Electron
+      - name: Check out Electron 1.2.1
+        uses: actions/checkout@v4
+        with:
+          ref: v1.2.1
+          path: baseline-1.2.1
+
+      - name: Build Electron 1.2.1
+        working-directory: baseline-1.2.1
         run: |
-          git fetch --depth 1 origin main
           npm ci
           npm run rebuild
           node node_modules/electron/install.js
@@ -331,12 +357,11 @@ jobs:
           bun run build
           bun run tauri build --debug --no-bundle --features parity-driver
 
-      - name: Install parity
-        working-directory: parity
+      - name: Install
         run: bun install --frozen-lockfile
 
       - name: Run the report
-        run: bun parity/report.ts run --data fixture --out parity/out/report --trunk origin/main --golden-dir parity/goldens/data
+        run: bun parity/report.ts run --data fixture --out parity/out/report --golden-dir parity/goldens/data
 
       # `run` records a failed verdict and exits 0; `check` exits 1 on it, so the job shows it
       - name: Fail the job when the report fails

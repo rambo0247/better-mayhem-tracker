@@ -35,40 +35,47 @@ Match data lives in `%APPDATA%\better-mayhem-tracker\data` on Windows and `~/Lib
 
 ## Tech Stack
 
-Electron + React + TypeScript, built with electron-vite. Uses Tailwind CSS for styling, better-sqlite3 for local storage, and league-connect for LCU integration.
+Tauri 3 with a Rust backend and a Solid 2 UI in TypeScript, bundled by Vite. It uses Tailwind CSS for styling, SQLite for local storage, and the League client's local API for match detection.
 
 ## Development
 
-```bash
-npm install
-npm run dev       # start in dev mode
-```
-
-If `npm run dev` fails with "Electron uninstall" (newer npm versions skip
-install scripts), fetch the Electron binary once with
-`node node_modules/electron/install.js`.
-
-better-sqlite3 ships prebuilt Node-API binaries, so there is no native module to rebuild for Electron. The Electron binary itself downloads the first time `npm run dev` needs it.
-
-These run on pull requests, again before a tagged release, and locally via
-`preversion`, so `npm version` will not tag a tree that fails them:
+You need [bun](https://bun.sh) and the Rust toolchain `tauri/rust-toolchain.toml` pins (rustup installs it on the first build). `tauri/` and `parity/` are workspaces of one `bun.lock`.
 
 ```bash
-npm run typecheck
-npm run lint
-npm run format    # rewrites in place; format:check only reports
+bun install
+cd tauri
+bun run tauri dev           # start in dev mode
 ```
+
+A debug build refuses to start on the real data folder. Point `BMT_DATA_ROOT` at a copy, such as the ones `parity/snapshot.ts` and `parity/fixture.ts` make.
+
+These run on every push and pull request, and again before a tagged release:
+
+```bash
+bun run typecheck
+bun run lint
+bun run fmt          # rewrites in place; fmt:check only reports
+bun run test
+cd tauri/src-tauri
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test
+```
+
+`parity/` holds the tools that compared this app with Electron 1.2.1 before the cutover, and the recorded baseline they used. See its README.
 
 ## Build
 
 ```bash
-npm run dist      # build Windows portable executable
-npm run dist:mac  # build macOS .dmg and .zip (Apple silicon and Intel)
+cd tauri
+CI=true bun run tauri build --bundles app   # the macOS app bundle
+CI=true bun run tauri build --no-bundle     # the Windows exe, in src-tauri/target/release
+bun scripts/package.ts --platform mac --arch arm64 --out ../release-assets
 ```
 
-Mac builds are ad-hoc signed and not notarized, since that needs a paid Apple
-Developer ID. To sign and notarize, set `build.mac.identity` to your Developer ID
-and see electron-builder's code-signing docs.
+`package.ts` writes the release assets under the names the updater looks for. Pushing a tag `v<version>` runs `.github/workflows/release.yml`, which builds Windows and macOS (Apple silicon and Intel), uploads them to a draft release, and publishes it once every file is there. The tag must equal the version in `package.json`.
+
+Mac builds are ad-hoc signed and not notarized, since that needs a paid Apple Developer ID. To sign and notarize, replace `signingIdentity` in `tauri/src-tauri/tauri.conf.json` and the ad hoc step in `tauri/scripts/package.ts`.
 
 ## Disclaimer
 

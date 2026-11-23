@@ -1,127 +1,213 @@
 name: Release
 
+# Builds the Tauri app under the v* tags and the asset names the 1.2.1 updater looks
+# for. A tag opens the release as a draft, which the updater never sees; every build
+# uploads into it, and the last job publishes it once every file is there, so nobody
+# is ever offered a release that is missing their build. A dispatch run only leaves
+# the assets as workflow artifacts and creates no release.
 on:
   push:
     tags: ["v*"]
+    # TEMPORARY: a workflow can only be dispatched from the default branch
+    branches: ["port/T41-cutover"]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
-# The Windows and mac builds run side by side rather than one after the other.
-# The Windows job opens the release as a draft, which the in-app updater never
-# sees; both jobs upload into it, and the last job publishes it once every file
-# is there, so nobody is ever offered a release that is missing their build.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CI: "true"
+
 jobs:
-  release:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: canary
+
+      # package.json's version is the one tauri.conf.json and the app read
       - name: Verify tag matches package.json version
+        id: version
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          PKG=$(node -p "require('./package.json').version")
-          if [ "$TAG" != "$PKG" ]; then
+          PKG=$(bun -e 'console.log(require("./package.json").version)')
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "${GITHUB_REF_NAME#v}" != "$PKG" ]; then
             echo "::error::tag $GITHUB_REF_NAME does not match package.json version $PKG"
             exit 1
           fi
+          echo "version=$PKG" >> "$GITHUB_OUTPUT"
+          echo "Building $PKG"
 
-      # Up front, so the mac job finds the draft waiting by the time it uploads
       - name: Open the release as a draft
+        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 ||
             gh release create "$GITHUB_REF_NAME" --draft --title "$GITHUB_REF_NAME" --generate-notes
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      # Electron's own binary and electron-builder's packaging tools are
-      # downloaded outside npm's cache, on every run unless kept here
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/AppData/Local/electron/Cache
-            ~/AppData/Local/electron-builder/Cache
-          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: electron-${{ runner.os }}-
-
-      - run: npm ci --no-audit --no-fund
-
-      # Before the slow steps, so a release that would not compile fails in
-      # under a minute rather than after packaging
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Format
-        run: npm run format:check
-
-      - name: Rebuild native modules for Electron
-        run: npm run rebuild
-
-      - run: npm run dist
-
-      - name: Upload the Windows build to the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" dist/BetterMayhemTracker.exe --clobber
-
-  # In parallel with the Windows job. better-sqlite3 ships prebuilt darwin
-  # binaries for both architectures, so one Apple silicon runner builds arm64
-  # and x64 alike.
-  release-mac:
-    runs-on: macos-latest
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: mac-arm64, os: macos-latest, platform: mac, arch: arm64, target: aarch64-apple-darwin }
+          - { name: mac-x64, os: macos-latest, platform: mac, arch: x64, target: x86_64-apple-darwin }
+          - { name: win-x64, os: windows-latest, platform: win, arch: x64, target: x86_64-pc-windows-msvc }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: tauri
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: npm
+          bun-version: canary
 
-      - uses: actions/cache@v4
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Add the Intel target
+        if: matrix.target == 'x86_64-apple-darwin'
+        working-directory: tauri/src-tauri
+        run: rustup target add x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/Library/Caches/electron
-            ~/Library/Caches/electron-builder
-          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: electron-${{ runner.os }}-
+          workspaces: tauri/src-tauri
+          key: release-${{ matrix.target }}
 
-      - run: npm ci --no-audit --no-fund
+      - name: Install
+        working-directory: .
+        run: bun install --frozen-lockfile
 
-      - run: npm run dist:mac
+      # Before the slow steps, so a release that would not compile fails early. Both
+      # mac builds share the source, so one of them checks it.
+      - name: Lint
+        if: matrix.target != 'x86_64-apple-darwin'
+        run: bun run lint
 
-      # The Windows job opens the draft within its first minute; this build
-      # takes longer than that, but waits out a slow Windows runner rather than
-      # opening a second draft of its own
-      - name: Upload mac builds to the release
+      - name: Format
+        if: matrix.target != 'x86_64-apple-darwin'
+        run: bun run fmt:check
+
+      - name: Typecheck
+        if: matrix.target != 'x86_64-apple-darwin'
+        run: bun run typecheck
+
+      - name: Test
+        if: matrix.target != 'x86_64-apple-darwin'
+        run: bun run test
+
+      - name: Build the mac app
+        if: matrix.platform == 'mac'
+        run: bun run tauri build --bundles app --target ${{ matrix.target }}
+
+      - name: Build the Windows exe
+        if: matrix.platform == 'win'
+        run: bun run tauri build --no-bundle
+
+      # The version in Cargo.toml and the lockfiles must not move under a build
+      - name: Check the lockfiles are unchanged
+        working-directory: .
+        run: git diff --exit-code -- bun.lock tauri/src-tauri/Cargo.lock
+
+      - name: Package
+        run: bun scripts/package.ts --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --out ../release-assets
+
+      - name: Check the bundle's identity
+        if: matrix.platform == 'mac'
+        working-directory: .
+        run: >
+          sh .github/smoke/check-mac-bundle.sh
+          "tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/Better Mayhem Tracker.app"
+          "${{ needs.prepare.outputs.version }}"
+
+      - name: Check the release binary holds no parity driver
+        working-directory: .
+        run: |
+          if [ "${{ matrix.platform }}" = mac ]; then
+            exe="tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker"
+          else
+            exe=$(ls release-assets/*.exe)
+          fi
+          sh .github/smoke/no-driver.sh "$exe"
+
+      - name: Launch the unzipped mac app
+        if: matrix.target == 'aarch64-apple-darwin'
+        working-directory: .
+        run: sh .github/smoke/launch-mac.sh release-assets/BetterMayhemTracker-mac-arm64.zip
+
+      # The script the 1.2.1 updater leaves behind comes from the updater's own source,
+      # so this checks the Tauri bundle survives that swap
+      - name: Check the updater's bundle swap
+        if: matrix.target == 'aarch64-apple-darwin'
+        working-directory: .
+        run: |
+          dir="$(mktemp -d)"
+          ditto -x -k release-assets/BetterMayhemTracker-mac-arm64.zip "$dir"
+          sh .github/smoke/mac-update-swap.sh "$dir/Better Mayhem Tracker.app"
+
+      - name: Launch the Windows exe from a temp folder
+        if: matrix.platform == 'win'
+        shell: pwsh
+        working-directory: .
+        run: .github/smoke/launch-win.ps1 release-assets/BetterMayhemTracker.exe
+
+      - name: List the assets and their sizes
+        working-directory: .
+        run: |
+          ls -l release-assets
+          {
+            echo "### ${{ matrix.name }}"
+            echo '```'
+            ls -l release-assets
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.name }}
+          path: release-assets/*
+          if-no-files-found: error
+
+      - name: Upload the build to the release
+        if: github.ref_type == 'tag'
+        working-directory: .
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          for i in $(seq 1 60); do
-            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && break
-            sleep 5
-          done
-          gh release upload "$GITHUB_REF_NAME" --clobber \
-            dist/BetterMayhemTracker-mac-arm64.dmg \
-            dist/BetterMayhemTracker-mac-x64.dmg \
-            dist/BetterMayhemTracker-mac-arm64.zip \
-            dist/BetterMayhemTracker-mac-x64.zip
+        run: gh release upload "$GITHUB_REF_NAME" --clobber release-assets/*
 
-  # Only once both platforms have uploaded: from here the updater can see it
+  # Only once every platform has uploaded: from here the updater can see it
   publish:
-    needs: [release, release-mac]
+    if: github.ref_type == 'tag'
+    needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Check the five assets are all there
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name' | sort > assets.txt
+          cat assets.txt
+          for name in BetterMayhemTracker.exe \
+            BetterMayhemTracker-mac-arm64.dmg BetterMayhemTracker-mac-x64.dmg \
+            BetterMayhemTracker-mac-arm64.zip BetterMayhemTracker-mac-x64.zip; do
+            grep -qx "$name" assets.txt
+          done
+
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}

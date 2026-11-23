@@ -1,7 +1,8 @@
 name: CI
 
-# Every push and every pull request: the code checks on both platforms the app
-# ships for, then a real build of each, launched and looked at.
+# Every push and every pull request: the code checks on both platforms the app ships
+# for, a real build of each launched and looked at, then the packaged app the release
+# ships, started and swapped the way the updater does.
 on:
   # Branches only: a release tag already runs these checks in release.yml
   push:
@@ -22,154 +23,350 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: bash
+        working-directory: tauri
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: npm
+          bun-version: canary
 
-      - run: npm ci
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
 
-      - name: Typecheck
-        run: npm run typecheck
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri/src-tauri
+
+      - name: Install
+        working-directory: .
+        run: bun install --frozen-lockfile
 
       - name: Lint
-        run: npm run lint
+        run: bun run lint
 
       - name: Format
-        run: npm run format:check
+        run: bun run fmt:check
 
-      # electron-vite does not typecheck, so this catches what tsc cannot:
-      # anything that only fails once the bundler resolves it.
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test
+        run: bun run test
+
+      - name: Rust format
+        working-directory: tauri/src-tauri
+        run: cargo fmt --check
+
+      - name: Rust lint
+        working-directory: tauri/src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Some code and tests exist only under debug_assertions, so a release
+      # lint sees what a debug one does not
+      - name: Rust lint, release
+        working-directory: tauri/src-tauri
+        run: cargo clippy --release --all-targets -- -D warnings
+
+      - name: Rust test
+        working-directory: tauri/src-tauri
+        run: cargo test
+
+      - name: Rust lint of the bindings generator
+        working-directory: tauri/src-tauri
+        run: cargo clippy --bin export_bindings --features export-bindings -- -D warnings
+
+      # The generated file is committed; a contract change must regenerate it
+      - name: Bindings are fresh
+        working-directory: tauri/src-tauri
+        run: cargo run --bin export_bindings --features export-bindings -- --check
+
+      # Plain clippy and tests never compile the debug-only driver
+      - name: Rust lint with the parity driver
+        working-directory: tauri/src-tauri
+        run: cargo clippy --all-targets --features parity-driver -- -D warnings
+
+      # Golden replay needs the recording's zone in the process, since SQLite
+      # reads libc's. Windows' C runtime reads only a POSIX zone (replay.rs).
+      # It replays the committed goldens over the committed fixture (decision E2).
+      - name: Rust test with the parity driver, golden replay included
+        working-directory: tauri/src-tauri
+        env:
+          LANG: en_US.UTF-8
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then export TZ=EST5EDT; else export TZ=America/New_York; fi
+          export BMT_GOLDEN_DIR="$GITHUB_WORKSPACE/parity/goldens/data"
+          export BMT_GOLDEN_DATA="$GITHUB_WORKSPACE/parity/snapshots/fixture/data"
+          cargo test --features parity-driver
+
+      # The message is matched so a failure for any other reason does not pass
+      - name: A release build with the parity driver does not compile
+        working-directory: tauri/src-tauri
+        run: |
+          for assertions in false true; do
+            if CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=$assertions cargo check --release --features parity-driver > refused.log 2>&1; then
+              cat refused.log
+              echo "release with debug_assertions=$assertions compiled the parity driver"
+              exit 1
+            fi
+            grep -F "the parity-driver feature is for debug builds only" refused.log
+            echo "release with debug_assertions=$assertions: refused"
+          done
+
       - name: Build
-        run: npm run build
+        run: bun run tauri build --debug
 
-  # Builds the Windows release exactly as release.yml does, then launches both
-  # the unpacked app and the portable exe the release ships.
+      # The runner's own folder, never the operator's: a debug build with no
+      # BMT_DATA_ROOT resolves to it and must exit before touching it. The
+      # guard's message is the only text with "Debug and parity builds never";
+      # the parity driver prints "refused to start" too
+      - name: Check the debug build refuses the real data folder
+        run: |
+          exe="src-tauri/target/debug/Better Mayhem Tracker"
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          code=0
+          env -u BMT_DATA_ROOT "$exe" > guard.log 2>&1 || code=$?
+          cat guard.log
+          test "$code" -eq 78
+          grep -F 'Debug and parity builds never' guard.log
+
+      # A runner's display is smaller than 1280 by 820 and the OS shrinks the
+      # window to fit, so the check reads the requested size, not the final one
+
+      - name: Launch the debug build and read its window
+        run: |
+          exe="src-tauri/target/debug/Better Mayhem Tracker"
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          BMT_DATA_ROOT="$RUNNER_TEMP/bmt-data" "$exe" > window.log 2>&1 &
+          pid=$!
+          sleep 10
+          alive=0
+          if kill -0 "$pid"; then alive=1; fi
+          if [ "$alive" -eq 1 ]; then kill "$pid"; fi
+          cat window.log
+          test "$alive" -eq 1
+          grep -F ' title="Better Mayhem Tracker" ' window.log
+
+      # The driver logs this sentinel and nothing else compiles it in. Command
+      # names would prove nothing: they are common words, and strip removes symbols.
+      - name: Build release and check it holds no parity driver
+        run: |
+          bun run tauri build --no-bundle
+          exe="src-tauri/target/release/Better Mayhem Tracker"
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          ls -l "$exe"
+          # BMT_DATA_ROOT too: a release build must not be redirectable away
+          # from the player's real data folder (paths.rs), and it has no guard.
+          # devDependencies: only package.json's version is embedded, not the
+          # file (build.rs)
+          for marker in bmt-parity-driver BMT_PARITY_TOKEN BMT_DATA_ROOT \
+            'Debug and parity builds never' devDependencies BMT_PARITY_CA BMT_PARITY_LEAGUE_DIR \
+            BMT_PARITY_GITHUB BMT_PARITY_PACKAGED BMT_PARITY_VERSION; do
+            if grep -a -q -F "$marker" "$exe"; then
+              echo "release binary contains $marker"
+              exit 1
+            fi
+            echo "release binary: no $marker"
+          done
+
+      # build.rs keys the data root override on the profile Cargo builds
+      # with, never on debug_assertions, which a profile setting flips. The
+      # guard is in every build that is not a release profile and every build
+      # with debug assertions, so a hostile build can lose the override but
+      # never the guard. Each hostile build gets its own target folder so the
+      # cached ones stay as they are. The release one skips LTO for speed,
+      # which can only leave more strings in, so its scan is the stricter one.
+      # Each runs on the runner's own folder, as the debug build's check above.
+      - name: A release profile with debug assertions keeps the guard without the override
+        working-directory: tauri/src-tauri
+        run: |
+          count() { { grep -a -o -F "$1" "$2" || test $? -eq 1; } | wc -l | tr -d ' '; }
+          CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true CARGO_PROFILE_RELEASE_LTO=false \
+            cargo build --release --features custom-protocol --target-dir target/hostile-release
+          exe=target/hostile-release/release/better-mayhem-tracker-tauri
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          for marker in BMT_DATA_ROOT devDependencies; do
+            n=$(count "$marker" "$exe")
+            echo "release, debug_assertions=true: $marker x$n"
+            test "$n" -eq 0
+          done
+          n=$(count 'Debug and parity builds never' "$exe")
+          echo "release, debug_assertions=true: guard message x$n"
+          test "$n" -ge 1
+          code=0
+          env -u BMT_DATA_ROOT "$exe" > hostile-release-guard.log 2>&1 || code=$?
+          cat hostile-release-guard.log
+          test "$code" -eq 78
+          grep -F 'Debug and parity builds never' hostile-release-guard.log
+
+      - name: A dev profile without debug assertions keeps the guard
+        working-directory: tauri/src-tauri
+        run: |
+          count() { { grep -a -o -F "$1" "$2" || test $? -eq 1; } | wc -l | tr -d ' '; }
+          export CARGO_PROFILE_DEV_DEBUG_ASSERTIONS=false
+          cargo test --lib --target-dir target/hostile-dev -- paths:: data_guard::
+          cargo build --target-dir target/hostile-dev
+          exe=target/hostile-dev/debug/better-mayhem-tracker-tauri
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          for marker in BMT_DATA_ROOT 'Debug and parity builds never'; do
+            n=$(count "$marker" "$exe")
+            echo "dev, debug_assertions=false: $marker x$n"
+            test "$n" -ge 1
+          done
+          code=0
+          env -u BMT_DATA_ROOT "$exe" > hostile-guard.log 2>&1 || code=$?
+          cat hostile-guard.log
+          test "$code" -eq 78
+          grep -F 'Debug and parity builds never' hostile-guard.log
+
+      # --cfg bmt_release_profile by hand removes the override from a debug
+      # build, and debug_assertions keeps the guard in it
+      - name: A debug build given the release cfg keeps the guard without the override
+        working-directory: tauri/src-tauri
+        run: |
+          count() { { grep -a -o -F "$1" "$2" || test $? -eq 1; } | wc -l | tr -d ' '; }
+          RUSTFLAGS="--cfg bmt_release_profile" cargo build --target-dir target/hostile-cfg
+          exe=target/hostile-cfg/debug/better-mayhem-tracker-tauri
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          n=$(count BMT_DATA_ROOT "$exe")
+          echo "dev, --cfg bmt_release_profile: BMT_DATA_ROOT x$n"
+          test "$n" -eq 0
+          n=$(count 'Debug and parity builds never' "$exe")
+          echo "dev, --cfg bmt_release_profile: guard message x$n"
+          test "$n" -ge 1
+          code=0
+          env -u BMT_DATA_ROOT "$exe" > hostile-cfg-guard.log 2>&1 || code=$?
+          cat hostile-cfg-guard.log
+          test "$code" -eq 78
+          grep -F 'Debug and parity builds never' hostile-cfg-guard.log
+
+      # lcu/tls.rs stops a release build that would trust the fake League CA
+      - name: Refuse a release build with the parity CA
+        working-directory: tauri/src-tauri
+        run: |
+          if cargo check --release --features parity-ca 2> parity-ca.log; then
+            echo "a release build compiled with parity-ca"
+            exit 1
+          fi
+          grep -F 'the parity-ca feature is for debug builds only' parity-ca.log
+
+      # The positive control: the same search finds the sentinel in a driver build
+      - name: Build with the parity driver and find its sentinel
+        run: |
+          bun run tauri build --debug --no-bundle --features parity-driver
+          exe="src-tauri/target/debug/Better Mayhem Tracker"
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          grep -a -q bmt-parity-driver-v1 "$exe"
+          echo "driver build: bmt-parity-driver-v1 found"
+          grep -a -q BMT_DATA_ROOT "$exe"
+          echo "driver build: BMT_DATA_ROOT found"
+
+      # Eval, native input, resize, snapshot and refusals on this runner's webview
+      - name: Smoke the parity driver
+        working-directory: parity
+        run: bun run-tauri.ts --smoke --out out/smoke
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-${{ matrix.os }}
+          path: |
+            tauri/window.log
+            parity/out/smoke
+          if-no-files-found: ignore
+
+  # The release's own packaging, as release.yml does it, for the Apple silicon and
+  # Windows builds: the package is made, carries the identity the updater and the data
+  # folder depend on, starts from a temp folder, and on macOS survives the updater's
+  # bundle swap.
+  smoke-mac:
+    needs: check
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: tauri
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: canary
+
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri/src-tauri
+          key: smoke-aarch64-apple-darwin
+
+      - name: Install
+        working-directory: .
+        run: bun install --frozen-lockfile
+
+      - name: Build the mac app
+        run: bun run tauri build --bundles app --target aarch64-apple-darwin
+
+      - name: Package
+        run: bun scripts/package.ts --platform mac --arch arm64 --out ../release-assets
+
+      - name: Check the bundle's identity
+        working-directory: .
+        run: >
+          sh .github/smoke/check-mac-bundle.sh
+          "tauri/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Better Mayhem Tracker.app"
+          "$(bun -e 'console.log(require("./package.json").version)')"
+
+      - name: Launch the unzipped app
+        working-directory: .
+        run: sh .github/smoke/launch-mac.sh release-assets/BetterMayhemTracker-mac-arm64.zip
+
+      - name: Check the updater's bundle swap
+        working-directory: .
+        run: |
+          dir="$(mktemp -d)"
+          ditto -x -k release-assets/BetterMayhemTracker-mac-arm64.zip "$dir"
+          sh .github/smoke/mac-update-swap.sh "$dir/Better Mayhem Tracker.app"
+
   smoke-windows:
     needs: check
     runs-on: windows-latest
     defaults:
       run:
         shell: bash
+        working-directory: tauri
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: npm
+          bun-version: canary
 
-      - run: npm ci
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
 
-      - name: Rebuild native modules for Electron
-        run: npm run rebuild
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri/src-tauri
+          key: smoke-x86_64-pc-windows-msvc
+
+      - name: Install
+        working-directory: .
+        run: bun install --frozen-lockfile
+
+      - name: Build the Windows exe
+        run: bun run tauri build --no-bundle
 
       - name: Package
-        run: npm run dist
+        run: bun scripts/package.ts --platform win --arch x64 --out ../release-assets
 
-      - name: Check the package
-        run: |
-          test -f dist/BetterMayhemTracker.exe
-          test -f "dist/win-unpacked/resources/app.asar.unpacked/node_modules/better-sqlite3/prebuilds/win32-x64.node"
-
-      - name: Launch the app and check its window
+      - name: Launch the exe from a temp folder
         shell: pwsh
-        run: |
-          $p = Start-Process -FilePath "dist/win-unpacked/Better Mayhem Tracker.exe" -ArgumentList "--remote-debugging-port=9333" -PassThru
-          node .github/smoke/check-window.mjs window-windows.png
-          $code = $LASTEXITCODE
-          Start-Sleep -Seconds 3
-          Get-Content "$env:APPDATA/better-mayhem-tracker/logs/main.log"
-          $exited = $p.HasExited
-          Get-Process "Better Mayhem Tracker" -ErrorAction SilentlyContinue | Stop-Process -Force
-          if ($exited) { throw "The app exited on its own with code $($p.ExitCode)" }
-          if ($code -ne 0) { throw "Window check failed" }
-          if (-not (Test-Path "$env:APPDATA/better-mayhem-tracker/data/matches.db")) { throw "No database was created" }
-
-      - name: Launch the portable exe
-        shell: pwsh
-        run: |
-          Start-Sleep -Seconds 3
-          $log = "$env:APPDATA/better-mayhem-tracker/logs/main.log"
-          $before = (Get-Content $log).Count
-          Start-Process -FilePath "dist/BetterMayhemTracker.exe"
-          # The portable launcher unpacks the app before starting it
-          Start-Sleep -Seconds 40
-          $lines = Get-Content $log | Select-Object -Skip $before
-          $lines
-          Get-Process "Better Mayhem Tracker", "BetterMayhemTracker" -ErrorAction SilentlyContinue | Stop-Process -Force
-          if (-not ($lines -match "INFO Better Mayhem Tracker \d")) { throw "The portable exe did not start" }
-          if ($lines -match "Failed to write Start Menu shortcut") { throw "The Start Menu shortcut was not written" }
-          $lnk = "$env:APPDATA/Microsoft/Windows/Start Menu/Programs/Better Mayhem Tracker.lnk"
-          if (-not (Test-Path $lnk)) {
-            Get-ChildItem "$env:APPDATA/Microsoft/Windows/Start Menu/Programs" -ErrorAction SilentlyContinue | Format-Table Name
-            throw "No Start Menu shortcut at $lnk"
-          }
-          "Start Menu shortcut written"
-
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-windows
-          path: |
-            window-windows.png
-            ${{ env.APPDATA }}/better-mayhem-tracker/logs/main.log
-          if-no-files-found: ignore
-
-  # Packages the Apple silicon app (the release also builds Intel the same
-  # way), launches it, and runs the updater's bundle swap against it.
-  smoke-mac:
-    needs: check
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - run: npm ci
-
-      - name: Package
-        run: npm run build && npx electron-builder --mac dir --arm64
-
-      - name: Check the package
-        run: |
-          app="dist/mac-arm64/Better Mayhem Tracker.app"
-          test -f "$app/Contents/Resources/app.asar.unpacked/node_modules/better-sqlite3/prebuilds/darwin-arm64.node"
-          codesign --verify --deep --strict "$app"
-          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Contents/Info.plist")" = com.better-mayhem-tracker.app
-
-      - name: Launch the app and check its window
-        run: |
-          "dist/mac-arm64/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker" --remote-debugging-port=9333 &
-          pid=$!
-          code=0
-          node .github/smoke/check-window.mjs window-mac.png || code=$?
-          sleep 3
-          cat "$HOME/Library/Application Support/better-mayhem-tracker/logs/main.log"
-          if ! kill -0 "$pid" 2>/dev/null; then echo "The app exited on its own"; exit 1; fi
-          kill "$pid"
-          test "$code" -eq 0
-          test -f "$HOME/Library/Application Support/better-mayhem-tracker/data/matches.db"
-
-      - name: Check the updater's bundle swap
-        run: sh .github/smoke/mac-update-swap.sh "dist/mac-arm64/Better Mayhem Tracker.app"
-
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-mac
-          path: |
-            window-mac.png
-            ~/Library/Application Support/better-mayhem-tracker/logs/main.log
-          if-no-files-found: ignore
+        working-directory: .
+        run: .github/smoke/launch-win.ps1 release-assets/BetterMayhemTracker.exe
