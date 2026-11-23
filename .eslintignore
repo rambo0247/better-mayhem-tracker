@@ -1,0 +1,4 @@
+# oxlint 1.85 lets the nested config in tauri/ override the root ignorePatterns,
+# so the root lint would still read the Solid workspace with its own rules
+tauri
+parity
