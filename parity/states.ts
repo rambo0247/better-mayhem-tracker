@@ -93,7 +93,12 @@ export const STATES: StateRow[] = [
     pre: [{ op: "local", key: "view:matches.favorites", value: "true" }],
   }),
   row("match-history-no-matches", "match-history", "/", "text=No games match the current filters", {
-    pre: [{ op: "local", key: "view:matches.queue", value: "999" }],
+    // The app drops a filter value it does not offer, so this pairs two it does: neither
+    // favorite in the fixture has a penta.
+    pre: [
+      { op: "local", key: "view:matches.favorites", value: "true" },
+      { op: "local", key: "view:matches.multikills", value: '["pentas"]' },
+    ],
   }),
   row("match-history-grouped-week", "match-history", "/", FIRST_MATCH_ROW, {
     pre: [{ op: "setting", key: "session_grouping", value: "week" }],

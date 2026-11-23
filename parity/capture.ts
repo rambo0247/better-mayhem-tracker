@@ -186,11 +186,11 @@ async function main() {
           fullPage: state.card === true,
         });
         if (state.card) {
-          const png = fs.readFileSync(path.join(dir, `${state.id}.png`));
-          const expected = outcome.card!.height * 2;
-          if (png.readUInt32BE(20) !== expected) {
+          const tall = fs.readFileSync(path.join(dir, `${state.id}.png`)).readUInt32BE(20) / 2;
+          // The card publishes Math.ceil of a fractional height, the page a rounded one.
+          if (Math.abs(tall - outcome.card!.height) > 1) {
             throw new Error(
-              `card image is ${png.readUInt32BE(20)} px tall, the card is ${expected}`,
+              `card image is ${tall} CSS px tall, the card is ${outcome.card!.height}`,
             );
           }
         }
