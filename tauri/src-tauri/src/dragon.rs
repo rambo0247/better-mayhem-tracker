@@ -227,7 +227,7 @@ fn as_asset_url(url: Option<String>) -> Option<String> {
 }
 
 /// `Number(text)` for the strings a patch or an id arrives as.
-fn js_number_str(text: &str) -> f64 {
+fn string_to_number(text: &str) -> f64 {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return 0.0;
@@ -260,7 +260,7 @@ fn js_number(value: Option<&Value>) -> f64 {
         Some(Value::Null) => 0.0,
         Some(Value::Bool(b)) => f64::from(u8::from(*b)),
         Some(Value::Number(n)) => n.as_f64().unwrap_or(f64::NAN),
-        Some(Value::String(s)) => js_number_str(s),
+        Some(Value::String(s)) => string_to_number(s),
         Some(Value::Array(items)) => match items.as_slice() {
             [] => 0.0,
             [one] => js_number(Some(one)),
@@ -672,7 +672,7 @@ impl Dragon {
                 .filter(|(_, champion)| js_truthy(champion.class.as_ref()))
                 .filter_map(|(id, champion)| {
                     Some((
-                        id_key(js_number_str(id))?,
+                        id_key(string_to_number(id))?,
                         js_string(champion.class.as_ref()?),
                     ))
                 })
@@ -1165,7 +1165,7 @@ impl Dragon {
 
 /// `patch.split(".").map(Number)`, where a missing minor compares as nothing.
 fn split_patch(patch: &str) -> (f64, f64) {
-    let mut parts = patch.split('.').map(js_number_str);
+    let mut parts = patch.split('.').map(string_to_number);
     (
         parts.next().unwrap_or(f64::NAN),
         parts.next().unwrap_or(f64::NAN),
@@ -1178,6 +1178,7 @@ mod tests {
     use crate::assets::tests::{FakeWeb, METADATA, Rig, game_url, png};
     use serde_json::json;
     use std::sync::atomic::Ordering;
+    use std::time::Duration;
 
     fn dragon(rig: &Rig) -> Dragon {
         let data = rig.root.join("data");
@@ -1648,6 +1649,165 @@ mod tests {
         );
     }
 
+    /// The input and both outputs come from Node 26.8 running Electron's code
+    /// on it (`if (champ.class) map[Number(id)] = champ.class`, then
+    /// `JSON.stringify` of the cache).
+    #[tokio::test]
+    async fn classes_and_the_cache_file_read_as_javascript_writes_them() {
+        const CHAMPION_JSON: &str = r#"{"data":{"Zero":{"key":"1","name":"a","tags":[0]},"NegZero":{"key":"2","name":"a","tags":[-0]},"False":{"key":"3","name":"a","tags":[false]},"Empty":{"key":"4","name":"a","tags":[""]},"Null":{"key":"5","name":"a","tags":[null]},"True":{"key":"6","name":"a","tags":[true]},"Arr":{"key":"7","name":"a","tags":[[]]},"Obj":{"key":"8","name":"a","tags":[{}]},"Space":{"key":"9","name":"a","tags":[" "]},"Zero0":{"key":"10","name":"a","tags":["0"]},"Float":{"key":"11","name":"a","tags":[0.0]},"NoTags":{"key":"12","name":"a"},"ObjTags":{"key":"13","name":"a","tags":{"0":"Mage"}},"ArrPair":{"key":"14","name":"a","tags":[["Mage","Tank"]]},"Nested":{"key":"15","name":"a","tags":[[null,[1,2.5],"x",true,{}]]},"Whole":{"key":"16","name":"a","tags":[100.0]},"Big":{"key":"17","name":"a","tags":[1e21]},"Small":{"key":"18","name":"a","tags":[1e-7]},"Unsafe":{"key":"19","name":"a","tags":[9007199254740993]},"NegZeroF":{"key":"20","name":"a","tags":[[-0.0]]}}}"#;
+        const NODE_CLASSES: &str = r#"[[6,"true"],[7,""],[8,"[object Object]"],[9," "],[10,"0"],[13,"Mage"],[14,"Mage,Tank"],[15,",1,2.5,x,true,[object Object]"],[16,"100"],[17,"1e+21"],[18,"1e-7"],[19,"9007199254740992"],[20,"0"]]"#;
+        const NODE_FILE: &str = r#"{"version":"16.23.1","champions":{"1":{"name":"a","key":"Zero","class":0},"2":{"name":"a","key":"NegZero","class":0},"3":{"name":"a","key":"False","class":false},"4":{"name":"a","key":"Empty","class":""},"5":{"name":"a","key":"Null","class":null},"6":{"name":"a","key":"True","class":true},"7":{"name":"a","key":"Arr","class":[]},"8":{"name":"a","key":"Obj","class":{}},"9":{"name":"a","key":"Space","class":" "},"10":{"name":"a","key":"Zero0","class":"0"},"11":{"name":"a","key":"Float","class":0},"12":{"name":"a","key":"NoTags"},"13":{"name":"a","key":"ObjTags","class":"Mage"},"14":{"name":"a","key":"ArrPair","class":["Mage","Tank"]},"15":{"name":"a","key":"Nested","class":[null,[1,2.5],"x",true,{}]},"16":{"name":"a","key":"Whole","class":100},"17":{"name":"a","key":"Big","class":1e+21},"18":{"name":"a","key":"Small","class":1e-7},"19":{"name":"a","key":"Unsafe","class":9007199254740992},"20":{"name":"a","key":"NegZeroF","class":[0]}}}"#;
+        let rig = Rig::new("champions-string");
+        rig.web.serve_json(VERSIONS, &json!(["16.23.1"]));
+        rig.web.serve(
+            &format!("{DDRAGON_CDN}/16.23.1/data/en_US/champion.json"),
+            200,
+            CHAMPION_JSON.as_bytes(),
+        );
+        let dragon = dragon(&rig);
+        dragon.load_champion_data().await;
+        let mut classes: Vec<(i64, String)> =
+            dragon.champion_classes().classes.into_iter().collect();
+        classes.sort();
+        let want: Vec<(i64, String)> = serde_json::from_str(NODE_CLASSES).unwrap();
+        assert_eq!(classes, want);
+        let file = std::fs::read_to_string(rig.root.join("data/champion-cache.json")).unwrap();
+        assert_eq!(file, NODE_FILE);
+    }
+
+    /// `JSON.parse` keeps the last value of a key set twice, at any depth.
+    #[tokio::test]
+    async fn a_key_set_twice_keeps_its_last_value() {
+        let rig = Rig::new("duplicate-keys");
+        rig.web.serve_json(VERSIONS, &json!(["16.23.1"]));
+        rig.web.serve(
+            &format!("{DDRAGON_CDN}/16.23.1/data/en_US/champion.json"),
+            200,
+            br#"{"data":{"Annie":{"key":"1","name":"Annie","tags":["Mage"]}},"data":{"MonkeyKing":{"key":"62","name":"Wukong","tags":["Fighter"],"tags":["Tank"]}}}"#,
+        );
+        let fetched = dragon(&rig);
+        fetched.load_champion_data().await;
+        assert_eq!(
+            fetched.champion_classes().classes,
+            HashMap::from([(62, "Tank".to_string())])
+        );
+
+        let offline = Rig::new("duplicate-keys-disk");
+        offline.web.down.store(true, Ordering::SeqCst);
+        let data = offline.root.join("data");
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::write(
+            data.join("champion-cache.json"),
+            r#"{"version":"16.1.1","champions":{"1":{"name":"Annie","key":"Annie","class":"Mage"}},"version":"16.20.1","champions":{"62":{"name":"Wukong","key":"MonkeyKing","class":"Fighter"}}}"#,
+        )
+        .unwrap();
+        let hydrated = dragon(&offline);
+        drop(hydrated.load_champion_data());
+        let classes = hydrated.champion_classes();
+        assert_eq!(classes.version, "16.20.1");
+        assert_eq!(
+            classes.classes,
+            HashMap::from([(62, "Fighter".to_string())])
+        );
+    }
+
+    /// Callers waiting on a champion load whose task panics all get an answer,
+    /// the disk copy, as a load that throws does in Electron. Several workers,
+    /// so some callers are parked on the load while another polls it.
+    #[test]
+    fn a_panicking_champion_load_answers_every_waiter() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap();
+        for round in 0..20 {
+            let rig = Rig::new(&format!("champions-panic-{round}"));
+            *rig.web.delay.lock().unwrap() = Some(Duration::from_millis(30));
+            *rig.web.panic_on.lock().unwrap() = Some(VERSIONS.into());
+            let dragon = dragon(&rig);
+            drop(dragon.load_champion_data());
+            runtime.block_on(async {
+                let waiters: Vec<_> = (0..8)
+                    .map(|_| {
+                        let dragon = dragon.clone();
+                        tokio::spawn(async move { dragon.champion_data().await.len() })
+                    })
+                    .collect();
+                dragon.start();
+                let answers = tokio::time::timeout(
+                    Duration::from_secs(2),
+                    futures_util::future::join_all(waiters),
+                )
+                .await
+                .unwrap_or_else(|_| panic!("round {round}: a waiter never answered"));
+                for answer in answers {
+                    assert!(matches!(answer, Ok(0)), "round {round}: {answer:?}");
+                }
+            });
+        }
+    }
+
+    /// `Number(text)` and `parseInt(text)`, against what Node 26.8 prints for
+    /// each. U+0085 is not JavaScript whitespace and U+FEFF is.
+    #[test]
+    fn strings_read_as_numbers_as_javascript_does() {
+        let number = [
+            ("\u{85}5", f64::NAN),
+            ("\u{feff}5", 5.0),
+            ("\u{a0}5\u{3000}", 5.0),
+            ("0b11", 3.0),
+            ("0o17", 15.0),
+            ("0B2", f64::NAN),
+            ("0O8", f64::NAN),
+            ("+0x1", f64::NAN),
+            ("-0b1", f64::NAN),
+            ("0x", f64::NAN),
+            ("0b", f64::NAN),
+            (" 0x1A ", 26.0),
+            ("1e3", 1000.0),
+            (".5", 0.5),
+            ("5.", 5.0),
+            (".", f64::NAN),
+            ("Infinity", f64::INFINITY),
+            ("-Infinity", f64::NEG_INFINITY),
+            ("+Infinity", f64::INFINITY),
+            ("inf", f64::NAN),
+            ("nan", f64::NAN),
+            ("1_0", f64::NAN),
+            ("0x1g", f64::NAN),
+            ("1e", f64::NAN),
+            ("-", f64::NAN),
+            ("", 0.0),
+            (" ", 0.0),
+        ];
+        for (text, want) in number {
+            let got = string_to_number(text);
+            assert!(
+                got == want || (got.is_nan() && want.is_nan()),
+                "Number({text:?}) = {got}"
+            );
+        }
+        let wide = format!("0b{}", "1".repeat(70));
+        assert_eq!(
+            js_number_key(string_to_number(&wide)),
+            "1.1805916207174113e+21"
+        );
+        for (text, want) in [
+            ("\u{85}66", f64::NAN),
+            ("\u{feff}66", 66.0),
+            ("\u{a0}66", 66.0),
+            ("\u{3000}-7", -7.0),
+            ("\u{200b}5", f64::NAN),
+        ] {
+            let got = js_parse_int(text);
+            assert!(
+                got == want || (got.is_nan() && want.is_nan()),
+                "parseInt({text:?}) = {got}"
+            );
+        }
+    }
+
     #[test]
     fn javascript_number_rules() {
         assert_eq!(js_parse_int("266"), 266.0);
@@ -1666,9 +1826,9 @@ mod tests {
         // `.` in JavaScript stops at U+2028, so this old hit is left as it is
         let odd = "https://raw.communitydragon.org/16.1/game/a\u{2028}.png".to_string();
         assert_eq!(as_asset_url(Some(odd.clone())), Some(odd));
-        assert_eq!(js_number_str(""), 0.0);
-        assert_eq!(js_number_str(" 16 "), 16.0);
-        assert!(js_number_str("16a").is_nan());
+        assert_eq!(string_to_number(""), 0.0);
+        assert_eq!(string_to_number(" 16 "), 16.0);
+        assert!(string_to_number("16a").is_nan());
         assert_eq!(js_number(Some(&Value::Null)), 0.0);
         assert!(js_number(None).is_nan());
         assert_eq!(id_key(js_number(Some(&json!("1002")))), Some(1002));

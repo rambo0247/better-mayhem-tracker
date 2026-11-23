@@ -41,6 +41,21 @@ pub const ASSET_SCHEME: &str = "asset";
 pub const WEBVIEW2_HOST: &str = "asset.localhost";
 const WRY_HOST: &str = "localhost";
 
+/// The form the engine hands the handler a URL in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Delivered {
+    /// `asset://game-data/...`, as the renderer built it
+    WebKit,
+    /// `asset://localhost/game-data/...`, wry's revert of WebView2's form
+    WebView2,
+}
+
+const DELIVERED: Delivered = if cfg!(windows) {
+    Delivered::WebView2
+} else {
+    Delivered::WebKit
+};
+
 const CDRAGON: &str = "https://raw.communitydragon.org";
 pub const USER_AGENT: &str = "BetterMayhemTracker/1.0";
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
@@ -154,23 +169,29 @@ pub mod parity_web {
     }
 
     pub fn from_env() -> ParityWeb {
-        let base = std::env::var(BASE_ENV)
-            .ok()
-            .filter(|base| is_loopback(base))
-            .map(|base| base.trim_end_matches('/').to_string());
+        let client = client_builder().build().expect("a plain HTTP client");
+        ParityWeb::new(std::env::var(BASE_ENV).ok(), client)
+    }
+
+    impl ParityWeb {
+        /// Blocks every request unless `base` passes the loopback guard.
+        pub fn new(base: Option<String>, client: reqwest::Client) -> ParityWeb {
+            let base = base
+                .filter(|base| is_loopback(base))
+                .map(|base| base.trim_end_matches('/').to_string());
+            ParityWeb { base, client }
+        }
+    }
+
+    fn client_builder() -> reqwest::ClientBuilder {
         // reqwest needs a TLS backend even for plain HTTP; this one only ever
         // asks a loopback fake over http://
         let tls = public_tls_config().expect("the public TLS config builds");
-        ParityWeb {
-            base,
-            client: reqwest::Client::builder()
-                .tls_backend_preconfigured(tls)
-                .no_proxy()
-                .user_agent(USER_AGENT)
-                .timeout(REQUEST_TIMEOUT)
-                .build()
-                .expect("a plain HTTP client"),
-        }
+        reqwest::Client::builder()
+            .tls_backend_preconfigured(tls)
+            .no_proxy()
+            .user_agent(USER_AGENT)
+            .timeout(REQUEST_TIMEOUT)
     }
 
     fn is_loopback(base: &str) -> bool {
@@ -220,8 +241,107 @@ pub mod parity_web {
                     "{url}"
                 );
             }
-            assert!(!is_loopback("https://example.com"));
-            assert!(is_loopback("http://127.0.0.1:4100"));
+        }
+
+        #[test]
+        fn the_loopback_guard_reads_the_host_as_a_url_does() {
+            for base in [
+                "http://127.0.0.1:9@[::1]:4100",
+                "http://127.0.0.1:1@example.com",
+                "http://localhost:1@example.com:4100",
+                "http://user@127.0.0.1:4100",
+                "http://127.0.0.1:4100?x",
+                "http://127.0.0.1:4100#x",
+                "https://127.0.0.1:4100",
+                "https://example.com",
+                "http://localhost.example.com:4100",
+                "http://10.0.0.1:4100",
+                "127.0.0.1:4100",
+            ] {
+                assert!(!is_loopback(base), "{base}");
+            }
+            for base in [
+                "http://127.0.0.1:4100",
+                "http://127.0.0.1:4100/",
+                "http://[::1]:4100",
+                "http://localhost:4100",
+                "http://LOCALHOST:4100",
+            ] {
+                assert!(is_loopback(base), "{base}");
+            }
+        }
+
+        const OK: &str = "HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\nok";
+
+        /// A loopback listener that answers every connection with `reply` and
+        /// counts them.
+        async fn listener(
+            addr: &str,
+            reply: String,
+        ) -> (std::net::SocketAddr, Arc<std::sync::atomic::AtomicUsize>) {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+            let local = listener.local_addr().unwrap();
+            assert!(local.ip().is_loopback());
+            let hits = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let counted = hits.clone();
+            tokio::spawn(async move {
+                loop {
+                    let (mut socket, _) = listener.accept().await.unwrap();
+                    counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    let mut request = [0u8; 4096];
+                    socket.read(&mut request).await.unwrap();
+                    socket.write_all(reply.as_bytes()).await.unwrap();
+                }
+            });
+            (local, hits)
+        }
+
+        /// Each base names a loopback address before an `@`, and the host after
+        /// it is where a URL parser sends the request. example.com resolves to
+        /// a loopback listener for this client only, so a request the guard
+        /// let through still stays on the machine.
+        #[tokio::test]
+        async fn a_base_naming_another_host_after_userinfo_sends_nothing() {
+            let (v6, v6_hits) = listener("[::1]:0", OK.into()).await;
+            let (v4, v4_hits) = listener("127.0.0.1:0", OK.into()).await;
+            let client = client_builder().resolve("example.com", v4).build().unwrap();
+            for base in [
+                format!("http://127.0.0.1:9@[::1]:{}", v6.port()),
+                format!("http://127.0.0.1:1@example.com:{}", v4.port()),
+            ] {
+                let web = ParityWeb::new(Some(base.clone()), client.clone());
+                let answer = web.get(super::super::tests::METADATA).await;
+                assert!(
+                    matches!(&answer, WebAnswer::Failed(reason) if reason.starts_with("parity blocked network")),
+                    "{base}: {answer:?}"
+                );
+            }
+            let hits = |n: &Arc<std::sync::atomic::AtomicUsize>| {
+                n.load(std::sync::atomic::Ordering::SeqCst)
+            };
+            assert_eq!((hits(&v6_hits), hits(&v4_hits)), (0, 0));
+        }
+
+        /// The fake answers with a redirect to a host that is not loopback,
+        /// which resolves to a second loopback listener for this client only.
+        #[tokio::test]
+        async fn a_redirect_is_answered_and_not_followed() {
+            let (elsewhere, elsewhere_hits) = listener("127.0.0.1:0", OK.into()).await;
+            let redirect = format!(
+                "HTTP/1.1 302 Found\r\nlocation: http://example.invalid:{}/moved\r\ncontent-length: 0\r\nconnection: close\r\n\r\n",
+                elsewhere.port()
+            );
+            let (fake, fake_hits) = listener("127.0.0.1:0", redirect).await;
+            let client = client_builder()
+                .resolve("example.invalid", elsewhere)
+                .build()
+                .unwrap();
+            let web = ParityWeb::new(Some(format!("http://127.0.0.1:{}", fake.port())), client);
+            let answer = web.get(super::super::tests::METADATA).await;
+            assert!(matches!(answer, WebAnswer::Status(302, _)), "{answer:?}");
+            assert_eq!(fake_hits.load(std::sync::atomic::Ordering::SeqCst), 1);
+            assert_eq!(elsewhere_hits.load(std::sync::atomic::Ordering::SeqCst), 0);
         }
     }
 }
@@ -917,8 +1037,17 @@ impl GameAssets {
     /// renderer's builders don't make, 404 when a source said it has no such
     /// file, and 503 when none answered.
     pub async fn serve(&self, method: &Method, uri: &Uri) -> Response<Cow<'static, [u8]>> {
+        self.serve_delivered(method, uri, DELIVERED).await
+    }
+
+    async fn serve_delivered(
+        &self,
+        method: &Method,
+        uri: &Uri,
+        form: Delivered,
+    ) -> Response<Cow<'static, [u8]>> {
         let file = (*method == Method::GET)
-            .then(|| parse_asset_url(uri))
+            .then(|| parse_delivered(uri, form))
             .flatten();
         let Some(file) = file else {
             return empty_response(400);
@@ -1012,7 +1141,7 @@ fn is_unsafe_segment(segment: &str) -> bool {
 /// (`asset://game-data/...`), the WebView2 one
 /// (`http://asset.localhost/game-data/...`), and the WebView2 one as wry hands
 /// it over (`asset://localhost/game-data/...`).
-pub fn parse_asset_url(uri: &Uri) -> Option<GameFile> {
+fn parse_delivered(uri: &Uri, _form: Delivered) -> Option<GameFile> {
     static IMAGE_PATH: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^[a-z0-9_.-]+(/[a-z0-9_.-]+)*\.(png|jpe?g|webp)$").expect("a valid pattern")
     });
@@ -1111,6 +1240,8 @@ pub(crate) mod tests {
         pub in_flight: AtomicUsize,
         pub most_in_flight: AtomicUsize,
         pub delay: Mutex<Option<Duration>>,
+        /// A URL whose next request panics, after the delay
+        pub panic_on: Mutex<Option<String>>,
     }
 
     impl FakeWeb {
@@ -1150,6 +1281,15 @@ pub(crate) mod tests {
                     tokio::time::sleep(delay).await;
                 }
                 self.in_flight.fetch_sub(1, Ordering::SeqCst);
+                let panics = {
+                    let mut panic_on = self.panic_on.lock().unwrap();
+                    let hit = panic_on.as_deref() == Some(url);
+                    if hit {
+                        *panic_on = None;
+                    }
+                    hit
+                };
+                assert!(!panics, "the web panicked on {url}");
                 if self.down.load(Ordering::SeqCst) {
                     return WebAnswer::Failed("connect ECONNREFUSED".into());
                 }
@@ -1230,6 +1370,14 @@ pub(crate) mod tests {
             let response = self.assets.serve(&Method::GET, &url.parse().unwrap()).await;
             (response.status().as_u16(), response.body().to_vec())
         }
+
+        async fn get_on(&self, url: &str, form: Delivered) -> (u16, Vec<u8>) {
+            let response = self
+                .assets
+                .serve_delivered(&Method::GET, &url.parse().unwrap(), form)
+                .await;
+            (response.status().as_u16(), response.body().to_vec())
+        }
     }
 
     impl Drop for Rig {
@@ -1248,8 +1396,15 @@ pub(crate) mod tests {
         )
     }
 
+    const FORMS: [Delivered; 2] = [Delivered::WebKit, Delivered::WebView2];
+
+    /// As the macOS handler reads the URL.
     fn parsed(url: &str) -> Option<(String, String)> {
-        parse_asset_url(&url.parse().unwrap())
+        parsed_on(url, Delivered::WebKit)
+    }
+
+    fn parsed_on(url: &str, form: Delivered) -> Option<(String, String)> {
+        parse_delivered(&url.parse().unwrap(), form)
             .map(|file| (file.branch.name().to_string(), file.path))
     }
 
@@ -1296,21 +1451,22 @@ pub(crate) mod tests {
             (champion_splash_url(266), "latest", "splash/266.jpg"),
         ];
         for (url, branch, path) in builders {
-            assert_eq!(parsed(&url), Some((branch.into(), path.into())), "{url}");
+            for form in FORMS {
+                assert_eq!(
+                    parsed_on(&url, form),
+                    Some((branch.into(), path.into())),
+                    "{url}"
+                );
+            }
             let webview2 = to_webview2(url.clone());
             assert!(
                 webview2.starts_with("http://asset.localhost/"),
                 "{webview2}"
             );
-            assert_eq!(
-                parsed(&webview2),
-                Some((branch.into(), path.into())),
-                "{webview2}"
-            );
             let delivered = as_wry_delivers(&webview2);
             assert!(delivered.starts_with("asset://localhost/"), "{delivered}");
             assert_eq!(
-                parsed(&delivered),
+                parsed_on(&delivered, Delivered::WebView2),
                 Some((branch.into(), path.into())),
                 "{delivered}"
             );
@@ -1383,7 +1539,9 @@ pub(crate) mod tests {
             "asset://localhost/splash/1/2",
         ];
         for url in refused {
-            assert_eq!(parsed(url), None, "{url} was served");
+            for form in FORMS {
+                assert_eq!(parsed_on(url, form), None, "{url} was served on {form:?}");
+            }
         }
     }
 
@@ -1708,6 +1866,44 @@ pub(crate) mod tests {
         assert_eq!(for_webview(url.clone()) == url, !cfg!(windows));
     }
 
+    /// `asset://localhost/...` is what wry hands the handler on Windows. On
+    /// macOS it is a URL with kind "localhost", which Electron answers 400.
+    #[tokio::test]
+    async fn the_localhost_form_is_read_only_on_windows() {
+        let wry_form = "asset://localhost/game-data/latest/v1/champion-icons/1.png";
+        let want = Some(("latest".into(), "v1/champion-icons/1.png".into()));
+        assert_eq!(parsed_on(wry_form, Delivered::WebKit), None);
+        assert_eq!(parsed_on(wry_form, Delivered::WebView2), want);
+        // asset.localhost is no kind Electron serves, and wry never delivers it
+        for form in FORMS {
+            assert_eq!(
+                parsed_on("asset://game-data/latest/v1/champion-icons/1.png", form),
+                want
+            );
+            for url in [
+                "asset://asset.localhost/game-data/latest/v1/champion-icons/1.png",
+                "http://asset.localhost/game-data/latest/v1/champion-icons/1.png",
+            ] {
+                assert_eq!(parsed_on(url, form), None, "{url} on {form:?}");
+            }
+        }
+        assert_eq!(DELIVERED == Delivered::WebView2, cfg!(windows));
+
+        let rig = Rig::new("localhost-form");
+        rig.put("16.23", "v1/champion-icons/1.png", &png(1));
+        rig.web.down.store(true, Ordering::SeqCst);
+        assert_eq!(rig.get_on(wry_form, Delivered::WebKit).await, (400, vec![]));
+        assert_eq!(rig.web.total_asked(), 0);
+        assert_eq!(
+            rig.get_on(
+                "asset://localhost/game-data/16.23/v1/champion-icons/1.png",
+                Delivered::WebView2
+            )
+            .await,
+            (200, png(1))
+        );
+    }
+
     #[test]
     fn versions_read_as_major_minor() {
         assert_eq!(major_minor(&"16.23.715.1234".into()), Some("16.23".into()));
@@ -1737,7 +1933,11 @@ pub(crate) mod tests {
             ("http://asset.localhost/splash/266", jpeg(2)),
         ] {
             let delivered = as_wry_delivers(built);
-            assert_eq!(rig.get(&delivered).await, (200, body), "{delivered}");
+            assert_eq!(
+                rig.get_on(&delivered, Delivered::WebView2).await,
+                (200, body),
+                "{delivered}"
+            );
         }
     }
 
@@ -1757,19 +1957,67 @@ pub(crate) mod tests {
         assert!(!rig.root.join("asset-cache").exists());
     }
 
-    #[tokio::test]
-    async fn a_failed_flight_is_retried_on_the_next_ask() {
-        let flights = Flights::<u8>::new();
-        let failed = {
-            let flights = flights.clone();
-            tokio::spawn(async move {
-                flights
-                    .join("k", || async { panic!("the work failed") })
-                    .await
-            })
-        };
-        assert!(failed.await.is_err());
-        assert_eq!(flights.join("k", || async { 2 }).await, 2);
+    /// futures' `Shared` wakes nobody when the future it polls panics, so a
+    /// panic inside it leaves callers parked on it waiting forever. Many
+    /// rounds on several workers, as the verifier ran it: every caller answers
+    /// and the next ask starts afresh.
+    #[test]
+    fn a_panicking_flight_answers_every_caller() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap();
+        for round in 0..40 {
+            runtime.block_on(async {
+                let flights = Flights::<Result<u8, String>>::new();
+                let gate = Arc::new(tokio::sync::Semaphore::new(0));
+                let callers: Vec<_> = (0..8)
+                    .map(|_| {
+                        let (flights, gate) = (flights.clone(), gate.clone());
+                        tokio::spawn(async move {
+                            flights
+                                .join("k", || async move {
+                                    let _permit = gate.acquire().await;
+                                    panic!("the work failed")
+                                })
+                                .await
+                        })
+                    })
+                    .collect();
+                tokio::time::sleep(Duration::from_millis(20)).await;
+                gate.add_permits(1);
+                let answers = tokio::time::timeout(
+                    Duration::from_secs(2),
+                    futures_util::future::join_all(callers),
+                )
+                .await
+                .unwrap_or_else(|_| panic!("round {round}: a caller never answered"));
+                for answer in answers {
+                    assert!(matches!(answer, Ok(Err(_))), "round {round}: {answer:?}");
+                }
+                assert_eq!(flights.join("k", || async { Ok(7) }).await, Ok(7));
+            });
+        }
+    }
+
+    /// A panic while asking which patch "latest" holds still ends the ask, so
+    /// it is asked again after the pause rather than never.
+    #[tokio::test(start_paused = true)]
+    async fn a_patch_lookup_that_panics_is_asked_again_after_the_pause() {
+        let rig = Rig::new("lookup-panic");
+        *rig.web.panic_on.lock().unwrap() = Some(METADATA.into());
+        assert_eq!(rig.assets.confirm_latest_patch().await, None);
+        rig.web.serve_json(
+            METADATA,
+            &serde_json::json!({ "version": "16.23.715.1234" }),
+        );
+        tokio::time::advance(LATEST_RETRY).await;
+        assert_eq!(
+            rig.assets.confirm_latest_patch().await,
+            Some("16.23".into())
+        );
+        assert_eq!(rig.web.asked(METADATA), 2);
     }
 
     /// `setTimeout(prune, 60_000)` and `setInterval(prune, 24 h)`, both from
@@ -1804,12 +2052,14 @@ pub(crate) mod tests {
         }
         let first = stray("first");
         rig.assets.start();
-        // The timers start when their tasks first run
-        tokio::task::yield_now().await;
-        tokio::time::advance(PRUNE_DELAY - Duration::from_millis(1)).await;
+        // The clock moves before the timers' tasks first run, and they still
+        // count from start()
+        tokio::time::advance(Duration::from_secs(30)).await;
+        tokio::time::advance(PRUNE_DELAY - Duration::from_secs(30) - Duration::from_millis(1))
+            .await;
         assert!(!quiet(&first).await, "pruned before a minute");
         tokio::time::advance(Duration::from_millis(1)).await;
-        assert!(quiet(&first).await, "no prune at a minute");
+        assert!(quiet(&first).await, "no prune a minute after start()");
         let second = stray("second");
         tokio::time::advance(PRUNE_INTERVAL - PRUNE_DELAY - Duration::from_millis(1)).await;
         assert!(!quiet(&second).await, "pruned before a day");
@@ -1862,8 +2112,15 @@ pub(crate) mod tests {
             let Ok(uri) = url.parse::<Uri>() else {
                 continue;
             };
-            let status = rig.assets.serve(&Method::GET, &uri).await.status();
-            assert_eq!(status, 400, "{}", &url[..url.len().min(120)]);
+            for form in FORMS {
+                let status = rig.assets.serve_delivered(&Method::GET, &uri, form).await;
+                assert_eq!(
+                    status.status(),
+                    400,
+                    "{form:?} {}",
+                    &url[..url.len().min(120)]
+                );
+            }
         }
         assert_eq!(rig.web.total_asked(), 0, "a refused URL reached the web");
     }
@@ -1876,7 +2133,8 @@ pub(crate) mod tests {
         let many = vec!["a"; 10_000].join("/");
         for path in [format!("v1/{segment}.png"), format!("v1/{many}.png")] {
             let url = format!("asset://game-data/16.23/{path}");
-            let file = parse_asset_url(&url.parse().unwrap()).expect("a legal path parses");
+            let file = parse_delivered(&url.parse().unwrap(), Delivered::WebKit)
+                .expect("a legal path parses");
             let copy = rig.assets.cache().file("16.23", &file.path);
             assert_eq!(copy.parent().unwrap(), root.join("16.23"));
             assert_eq!(copy.file_name().unwrap().len(), 44);
@@ -1946,7 +2204,10 @@ pub(crate) mod tests {
             let Ok(uri) = format!("{prefix}{body}").parse::<Uri>() else {
                 continue;
             };
-            let Some(file) = parse_asset_url(&uri) else {
+            let Some(file) = FORMS
+                .into_iter()
+                .find_map(|form| parse_delivered(&uri, form))
+            else {
                 continue;
             };
             accepted += 1;
