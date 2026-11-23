@@ -1,3 +1,8 @@
 out/
-snapshots/
+# The anonymized fixture is committed (operator decision E2). The root ignores data/ and
+# asset-cache/, so it is re-included here; every other snapshot stays out
+!snapshots/
+snapshots/*
+!snapshots/fixture/
+!snapshots/fixture/**
 node_modules/
