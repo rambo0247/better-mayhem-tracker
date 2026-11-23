@@ -45,7 +45,7 @@ pub fn check_score_backfill(
     champions: &ChampionClasses,
 ) -> rusqlite::Result<bool> {
     let key = score_formula_key(champions);
-    if get_setting(conn, "score_formula_version")?.as_deref() == Some(key.as_str()) {
+    if get_setting(conn, "score_formula_version")?.as_str() == Some(key.as_str()) {
         return Ok(false);
     }
     backfill_scores(conn, &champions.classes)?;
