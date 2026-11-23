@@ -145,6 +145,18 @@ async function launch(data: string, repo: string, runDir?: string): Promise<Runn
 
 const FIRST_TICK_TIMEOUT_MS = 45_000;
 
+/** The result of the last invoke on `channel`. A batch can also hold the launch page's own calls. */
+function answerTo(records: SeamRecord[], channel: string): any {
+  const start = records.findLast((r) => r.k === "start" && r.channel === channel);
+  return records.find((r) => r.k === "end" && r.ok && r.id === start?.id)?.result;
+}
+
+/** Invokes `channel` and returns its result. */
+async function ask(run: RunningElectron, channel: string, ...args: unknown[]): Promise<any> {
+  await invokeRaw(run, channel, args);
+  return answerTo(await drain(run), channel);
+}
+
 /**
  * Everything main records from launch until the connect loop's first tick, about 5 s in, moves
  * the status off "connecting". That tick sends `lcu:status-changed` on a timer, so a case it
@@ -157,23 +169,18 @@ async function untilFirstTick(run: RunningElectron, statusChannel: string): Prom
     await invokeRaw(run, statusChannel, []);
     const batch = await drain(run);
     records.push(...batch);
-    if (batch.find((r) => r.k === "end" && r.ok)?.result !== "connecting") return records;
+    const answer = answerTo(batch, statusChannel);
+    if (answer !== undefined && answer !== "connecting") return records;
     if (Date.now() > deadline) throw new Error('the status stayed "connecting"');
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 }
 
 async function resolveVars(run: RunningElectron): Promise<Vars> {
-  const ask = async (channel: string, ...args: unknown[]): Promise<any> => {
-    await invokeRaw(run, channel, args);
-    const records = await drain(run);
-    const end = records.find((r) => r.k === "end" && r.ok);
-    return end?.result;
-  };
-  const history = await ask("db:match-history", 50, 0);
-  const options = await ask("db:match-filters");
-  const teammates = await ask("db:teammate-stats");
-  const groups = await ask("db:teammate-groups");
+  const history = await ask(run, "db:match-history", 50, 0);
+  const options = await ask(run, "db:match-filters");
+  const teammates = await ask(run, "db:teammate-stats");
+  const groups = await ask(run, "db:teammate-groups");
   const matches = history.matches as { game_id: number; champion_id: number }[];
   const seasons = options.seasons as string[];
   const patches = options.patches as string[];
@@ -200,15 +207,11 @@ async function resolveVars(run: RunningElectron): Promise<Vars> {
  * loaded before the first card.
  */
 async function warmCardPatches(run: RunningElectron, channels: Record<string, string>) {
-  const ask = async (channel: string, ...args: unknown[]): Promise<any> => {
-    await invokeRaw(run, channel, args);
-    return (await drain(run)).find((r) => r.k === "end" && r.ok)?.result;
-  };
-  const options = await ask(channels.getMatchFilterOptions!);
+  const options = await ask(run, channels.getMatchFilterOptions!);
   for (const patch of options.patches as string[]) {
     for (const channel of [channels.getItemData!, channels.getAugmentData!]) {
       for (let attempt = 0; attempt < 20; attempt++) {
-        const table = await ask(channel, patch);
+        const table = await ask(run, channel, patch);
         if (table && Object.keys(table).length > 0) break;
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
@@ -217,7 +220,7 @@ async function warmCardPatches(run: RunningElectron, channels: Record<string, st
   // Icon lookups walk archived patches one at a time, so a card that asks for a dozen at once
   // photographs itself while the walk is part way. Done here, the card finds every answer cached.
   for (const [method, args] of RENDERER_CALLS) {
-    if (method === "resolveAugmentIcon") await ask(channels.resolveAugmentIcon!, ...args);
+    if (method === "resolveAugmentIcon") await ask(run, channels.resolveAugmentIcon!, ...args);
   }
 }
 
