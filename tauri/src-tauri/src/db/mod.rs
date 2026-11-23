@@ -62,7 +62,12 @@ impl Database {
     }
 
     /// `closeDatabase`: checkpoints the WAL and releases the file, so a quit
-    /// leaves no `-wal` beside it.
+    /// leaves no `-wal` or `-shm` beside it. Safe from any thread and any
+    /// number of times: a call already running finishes first, and a second
+    /// close does nothing. Only a call from inside [`Database::with`] on the
+    /// same thread would wait on itself. The shell's exit paths call it, the
+    /// SIGTERM and SIGINT handler included (T10), as Electron's `will-quit`
+    /// does before it exits 0.
     pub fn close(&self) {
         if let Some(conn) = self.lock().take() {
             connection::close(conn);

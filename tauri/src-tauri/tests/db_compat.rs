@@ -207,6 +207,59 @@ fn closing_twice_and_using_a_closed_database_fail_as_electron_does() {
     );
 }
 
+/// The close a signal handler makes (T10): from another thread while a
+/// call runs, it waits for that call, checkpoints the WAL and leaves only
+/// `matches.db`, as Electron's exit 0 after SIGTERM does. A second close
+/// does nothing.
+#[test]
+fn closing_from_another_thread_waits_and_leaves_no_wal() {
+    let dir = scratch("close-signal");
+    let db = std::sync::Arc::new(fresh(&dir));
+    db.with(|conn| conn.execute_batch("INSERT INTO settings VALUES ('hide_remakes', 'true')"))
+        .unwrap();
+    assert!(dir.join("matches.db-wal").exists(), "writes sit in the WAL");
+    let (started, running) = std::sync::mpsc::channel();
+    let worker = {
+        let db = db.clone();
+        std::thread::spawn(move || {
+            db.with(|conn| {
+                started.send(()).unwrap();
+                std::thread::sleep(std::time::Duration::from_millis(300));
+                conn.execute_batch("INSERT INTO settings VALUES ('auto_backup', 'false')")
+            })
+        })
+    };
+    running.recv().unwrap();
+    let closer = {
+        let db = db.clone();
+        std::thread::spawn(move || {
+            db.close();
+            db.close();
+        })
+    };
+    worker.join().unwrap().expect("the running call finishes");
+    closer.join().unwrap();
+    let mut left: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    left.sort();
+    assert_eq!(left, ["matches.db"]);
+    let conn = Connection::open(dir.join("matches.db")).unwrap();
+    let rows: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM settings WHERE key IN ('hide_remakes', 'auto_backup')",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(rows, 2, "both writes are in the file");
+    assert_eq!(
+        db.with(|_| Ok(())).unwrap_err().message,
+        "The database connection is not open"
+    );
+}
+
 /// The tables as a database from before `user_version` existed had them:
 /// the payload still in `raw_json`, and none of the columns V1 to V4 add.
 const V0_DDL: &str = "
