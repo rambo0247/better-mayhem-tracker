@@ -1066,6 +1066,8 @@ mod tests {
             ],
             "the files Electron kept"
         );
+        // Windows can't remove a file that is still open
+        drop(db);
         std::fs::remove_dir_all(&root).expect("clean up");
     }
 
@@ -1254,7 +1256,7 @@ mod tests {
         let snap = Connection::open_with_flags(&file, OpenFlags::SQLITE_OPEN_READ_ONLY)
             .expect("opens read-only");
         assert_eq!(count_games(&snap).expect("count"), 3);
-        drop(db);
+        drop((snap, db));
         std::fs::remove_dir_all(&root).expect("clean up");
     }
     /// Electron's `restore-pruned`: with six backups, the pre-restore
