@@ -49,7 +49,6 @@ pub mod text;
 pub mod transfer;
 pub mod tray;
 
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
