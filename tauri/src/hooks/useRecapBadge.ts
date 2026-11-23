@@ -11,11 +11,13 @@ const RECENT_MS = 14 * 24 * 60 * 60 * 1000;
 const SEEN_KEY = "recap-badge-seen";
 
 function readSeen(): string | null {
+  let seen: string | null = null;
   try {
-    return localStorage.getItem(SEEN_KEY);
+    seen = localStorage.getItem(SEEN_KEY);
   } catch {
-    return null;
+    /* unreadable storage shows the badge, which is harmless */
   }
+  return seen;
 }
 
 // The newest season the player has games in that closed within RECENT_MS

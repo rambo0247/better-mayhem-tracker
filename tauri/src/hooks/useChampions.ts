@@ -109,9 +109,8 @@ export function getAugmentName(data: AugmentData, id: number): string {
 // they are ("…/Pentakill_small.png" → "Pentakill")
 export function nameFromIconPath(iconPath: string | undefined): string | null {
   const file = iconPath?.split("/").pop();
-  if (!file) return null;
   const words = file
-    .replace(/\.[^.]+$/, "")
+    ?.replace(/\.[^.]+$/, "")
     .replace(/_(small|large)$/i, "")
     .replace(/[_-]+/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
