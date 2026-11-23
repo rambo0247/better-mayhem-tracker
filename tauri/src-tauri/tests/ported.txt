@@ -7,6 +7,7 @@ app:version
 backup:list
 backup:open-folder
 backup:recovery-report
+challenges:get
 data:export
 data:import
 data:repair-puuids
@@ -40,6 +41,7 @@ lcu:backfill
 lcu:backfill-running
 lcu:cancel-backfill
 lcu:status
+live:snapshot
 settings:get
 settings:set
 window:close
