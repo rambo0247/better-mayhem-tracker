@@ -53,8 +53,8 @@ pub fn cdp(
 
 pub fn snapshot(
     window: &WebviewWindow,
-    // The device scale comes from --force-device-scale-factor in the browser
-    // arguments, the flag the Electron baseline runs with
+    // The parity driver sets the device scale with the viewport, through
+    // Emulation.setDeviceMetricsOverride, so the capture is already at that scale
     _options: SnapshotOptions,
     done: impl FnOnce(SnapshotResult) + Send + 'static,
 ) -> tauri::Result<()> {

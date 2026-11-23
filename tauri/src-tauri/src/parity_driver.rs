@@ -562,6 +562,12 @@ fn dispatch(window: &WebviewWindow, body: &Value) -> Result<Response, String> {
                 &json!({ "width": width, "height": height }),
             ))
         }
+        "viewport" => {
+            let (width, height) = (number(body, "width")?, number(body, "height")?);
+            let scale = body["scale"].as_f64().unwrap_or(2.0);
+            let emulated = platform::emulate_viewport(window, width, height, scale)?;
+            Ok(Response::json(200, &json!({ "emulated": emulated })))
+        }
         "navigate" | "reload" => {
             let before = loads_so_far();
             if op == "reload" {
@@ -1080,6 +1086,11 @@ mod mac {
         )
     }
 
+    /// WebKit has no viewport override, so the window size sets the page's.
+    pub fn emulate_viewport(_: &WebviewWindow, _: f64, _: f64, _: f64) -> Result<bool, String> {
+        Ok(false)
+    }
+
     pub fn top_inset_of(window: &WebviewWindow) -> Result<f64, String> {
         on_webview(
             window,
@@ -1228,6 +1239,30 @@ mod win {
     pub fn top_inset_of(_window: &WebviewWindow) -> Result<f64, String> {
         Ok(0.0)
     }
+
+    /// What Playwright does for a viewport and device scale: a window of that size at scale 2
+    /// is larger than a CI runner's screen, and the OS would shrink it.
+    pub fn emulate_viewport(
+        window: &WebviewWindow,
+        width: f64,
+        height: f64,
+        scale: f64,
+    ) -> Result<bool, String> {
+        call(
+            window,
+            "Emulation.setDeviceMetricsOverride",
+            json!({
+                "width": width,
+                "height": height,
+                "deviceScaleFactor": scale,
+                "mobile": false,
+                "screenWidth": width,
+                "screenHeight": height,
+            }),
+            Duration::from_secs(5),
+        )?;
+        Ok(true)
+    }
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -1263,6 +1298,9 @@ mod other {
     }
     pub fn top_inset_of(_: &WebviewWindow) -> Result<f64, String> {
         Ok(0.0)
+    }
+    pub fn emulate_viewport(_: &WebviewWindow, _: f64, _: f64, _: f64) -> Result<bool, String> {
+        Ok(false)
     }
 }
 

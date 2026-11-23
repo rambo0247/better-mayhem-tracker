@@ -412,6 +412,20 @@ export class TauriEngine implements Engine {
       }
       return last;
     };
+    const { emulated } = await this.driver.json<{ emulated: boolean }>("viewport", {
+      width,
+      height,
+      scale: 2,
+    });
+    if (emulated) {
+      await this.driver.call("resize", { width, height });
+      const seen = await settled();
+      if (seen[0] !== width || seen[1] !== height) {
+        throw new Error(`emulated ${width}x${height}, the page sees ${seen[0]}x${seen[1]}`);
+      }
+      this.viewport = { width, height };
+      return;
+    }
     let ask = target.map((value, i) => Math.round(value * this.windowPerPage[i]!));
     let seen: [number, number] = [0, 0];
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -467,9 +481,11 @@ export interface RunningTauri {
   close(): Promise<void>;
 }
 
-/** WebView2 takes Chromium's switches; these match `run-electron.ts`. */
+/**
+ * WebView2 takes Chromium's switches; these match `run-electron.ts`, except the device scale,
+ * which the driver sets with the viewport through DevTools emulation, as Playwright does.
+ */
 const WEBVIEW2_ARGS = [
-  "--force-device-scale-factor=2",
   "--force-color-profile=srgb",
   "--disable-gpu",
   "--lang=en-US",

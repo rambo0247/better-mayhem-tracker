@@ -9,7 +9,7 @@ pub mod win;
 
 use tauri::WebviewWindow;
 
-// WebView2 takes its device scale from the browser arguments and captures the viewport
+// WebView2 captures the viewport at the device scale its emulation already set
 #[cfg_attr(windows, allow(dead_code))]
 #[derive(Debug, Clone, Copy)]
 pub struct SnapshotOptions {
