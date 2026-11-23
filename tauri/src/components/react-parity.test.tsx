@@ -2,7 +2,7 @@ import { beforeAll, expect, test } from "bun:test";
 import type { Component } from "solid-js";
 import { Dynamic } from "@solidjs/web";
 import snapshots from "../../test/react-snapshots.json";
-import { CASES, FAKE_API, ICON_FILES, ICON_PROPS } from "../../test/parity-cases";
+import { caseFingerprints, CASES, FAKE_API, ICON_FILES, ICON_PROPS } from "../../test/parity-cases";
 import { normalizeDom, type DomNode } from "../../test/normalize-dom";
 import { fake } from "../../test/fakeApi";
 import { mount, settle } from "../../test/render";
@@ -76,6 +76,12 @@ async function render(
   view.dispose();
   return tree;
 }
+
+test("react-snapshots.json was made from these cases", () => {
+  const made = (snapshots as unknown as { __cases: Record<string, string> }).__cases;
+  // Regenerate with `bun run react-snapshots` when this fails
+  expect(made).toEqual(caseFingerprints());
+});
 
 for (const c of CASES) {
   test(`${c.id} renders as React does`, async () => {

@@ -91,6 +91,117 @@ const RELEASES = [
 const DAY = 86_400_000;
 const FIRST = new Date(2026, 8, 1).getTime();
 
+// A four-player match for the tier 3 scoreboards: two a side, one of them us
+function participant(participantId: number, teamId: number, extra: Record<string, unknown>) {
+  return {
+    participantId,
+    puuid: null,
+    gameName: null,
+    tagLine: null,
+    championId: 1,
+    teamId,
+    win: teamId === 100,
+    kills: 4,
+    deaths: 6,
+    assists: 9,
+    doubleKills: 0,
+    tripleKills: 0,
+    quadraKills: 0,
+    pentaKills: 0,
+    totalDamageDealtToChampions: 18_400,
+    totalDamageTaken: 22_100,
+    goldEarned: 11_200,
+    totalHeal: 2_300,
+    largestKillingSpree: 2,
+    spell1Id: 4,
+    spell2Id: null,
+    items: [1001, 0, 0, 0, 0, 0, 0],
+    augments: [201, 202],
+    ...extra,
+  };
+}
+
+const DETAIL = {
+  game: {
+    game_id: 7001,
+    queue_id: 2400,
+    game_mode: "KIWI",
+    game_creation: MATCH.game_creation,
+    game_duration: 1100,
+    game_version: "15.20.711.1234",
+  },
+  stats: MATCH,
+  augments: [],
+  participants: [
+    participant(1, 100, {
+      puuid: "puuid-a",
+      gameName: "First",
+      tagLine: "NA1",
+      kills: 21,
+      deaths: 3,
+      assists: 14,
+      doubleKills: 3,
+      tripleKills: 1,
+      pentaKills: 1,
+      totalDamageDealtToChampions: 61_000,
+    }),
+    participant(2, 100, { gameName: "Second", tagLine: "EUW", deaths: 0 }),
+    participant(3, 200, { gameName: "Third", tagLine: "KR1", kills: 0, items: [] }),
+    participant(4, 200, { totalHeal: 0, augments: [] }),
+  ],
+};
+
+function livePlayer(key: string, teamId: number, extra: Record<string, unknown>) {
+  return {
+    key,
+    name: key,
+    tagLine: null,
+    puuid: null,
+    championId: 1,
+    championName: "Annie",
+    teamId,
+    isSelf: false,
+    isBot: false,
+    level: 11,
+    kills: 3,
+    deaths: 2,
+    assists: 5,
+    creepScore: 40,
+    items: [1001, 0, 0, 0, 0, 0, 0],
+    isDead: false,
+    respawnTimer: 0,
+    spell1Id: 4,
+    spell2Id: 4,
+    championRecord: null,
+    overallRecord: null,
+    gamesWithUs: 0,
+    friendKey: null,
+    ...extra,
+  };
+}
+
+// react-router marks its Link for route discovery, which is no part of the UI
+const LINK_DISCOVERY = ["data-discover"];
+
+const RECORD = { games: 12, wins: 7, kills: 80, deaths: 40, assists: 120, lastPlayed: FIRST };
+
+const LIVE_PLAYERS = [
+  livePlayer("Me#NA1", 100, {
+    isSelf: true,
+    puuid: "puuid-a",
+    championRecord: RECORD,
+    overallRecord: { ...RECORD, games: 140, wins: 71 },
+  }),
+  livePlayer("Pal#EUW", 100, {
+    gamesWithUs: 9,
+    friendKey: "Pal#EUW",
+    isDead: true,
+    respawnTimer: 12.4,
+  }),
+  livePlayer("Bot Annie", 200, { isBot: true, championId: 0, championName: "Annie" }),
+  livePlayer("Rival#KR1", 200, { kills: 0, deaths: 0, assists: 0, overallRecord: RECORD }),
+];
+
 export const CASES: ParityCase[] = [
   { id: "BrandMark", file: "BrandMark", name: "default", props: { class: "h-9 w-9" } },
   { id: "Kda", file: "Kda", name: "default", props: { kills: 12, deaths: 0, assists: "7" } },
@@ -498,8 +609,56 @@ export const CASES: ParityCase[] = [
       champData: {},
     },
   },
+  {
+    id: "MatchScoreboard",
+    file: "MatchScoreboard",
+    name: "default",
+    props: { detail: DETAIL, champData: FAKE_API.getChampionData, puuids: ["puuid-a"] },
+  },
+  {
+    id: "MatchScoreboard multikills",
+    file: "MatchScoreboard",
+    name: "default",
+    props: { detail: DETAIL, champData: {}, puuids: null, multikills: true },
+  },
+  {
+    id: "MatchScoreboard no players",
+    file: "MatchScoreboard",
+    name: "default",
+    props: { detail: { ...DETAIL, participants: [] }, champData: {}, puuids: null },
+  },
+  {
+    id: "LiveScoreboard",
+    file: "LiveScoreboard",
+    name: "default",
+    props: { players: LIVE_PLAYERS, champData: FAKE_API.getChampionData },
+    ignore: LINK_DISCOVERY,
+  },
+  {
+    id: "LiveScoreboard one side",
+    file: "LiveScoreboard",
+    name: "default",
+    props: { players: LIVE_PLAYERS.slice(0, 2), champData: {} },
+    ignore: LINK_DISCOVERY,
+  },
 ];
 
 // Every icon each icon module exports, rendered the way callers draw them
 export const ICON_FILES = ["icons", "SettingsIcons"] as const;
 export const ICON_PROPS = { class: "h-4 w-4" };
+
+// What each case renders from, written beside the React snapshots, so a
+// snapshot file made from other cases is caught
+function fingerprint(value: unknown): string {
+  const text = JSON.stringify(value, (_key, v: unknown) =>
+    v instanceof Map ? [...v] : typeof v === "function" ? "fn" : v,
+  );
+  return Bun.hash(text).toString(36);
+}
+
+export function caseFingerprints(): Record<string, string> {
+  return {
+    ...Object.fromEntries(CASES.map((c) => [c.id, fingerprint(c)])),
+    icons: fingerprint([ICON_FILES, ICON_PROPS]),
+  };
+}

@@ -7,8 +7,8 @@ import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Window } from "happy-dom";
-import { CASES, FAKE_API, ICON_FILES, ICON_PROPS } from "../test/parity-cases";
-import { normalizeDom, type DomNode } from "../test/normalize-dom";
+import { caseFingerprints, CASES, FAKE_API, ICON_FILES, ICON_PROPS } from "../test/parity-cases";
+import { normalizeDom } from "../test/normalize-dom";
 
 const root = resolve(import.meta.dir, "..");
 const renderer = join(root, "..", "src", "renderer", "components");
@@ -52,6 +52,8 @@ for (const key of [
 
 const React = await import("react");
 const { createRoot } = await import("react-dom/client");
+// LiveScoreboard's friend link is a react-router Link, which needs a router
+const { HashRouter } = await import("react-router-dom");
 
 // The Solid names of props, as React spells them
 const REACT_PROPS: Record<string, string> = {
@@ -79,7 +81,13 @@ async function render(component: unknown, props: Record<string, unknown>, ignore
   const reactRoot = createRoot(container);
   const { children, ...rest } = props;
   await React.act(async () => {
-    reactRoot.render(React.createElement(component as never, rest, children as never));
+    reactRoot.render(
+      React.createElement(
+        HashRouter,
+        null,
+        React.createElement(component as never, rest, children as never),
+      ),
+    );
   });
   // Lets the fake window.api answer and the components draw what it said
   await React.act(async () => {
@@ -91,7 +99,7 @@ async function render(component: unknown, props: Record<string, unknown>, ignore
   return tree;
 }
 
-const snapshots: Record<string, DomNode[]> = {};
+const snapshots: Record<string, unknown> = { __cases: caseFingerprints() };
 for (const c of CASES) {
   const mod = await import(join(renderer, `${c.file}.tsx`));
   snapshots[c.id] = await render(mod[c.name], await reactProps(c.props), c.ignore);
@@ -107,5 +115,7 @@ const out = join(root, "test", "react-snapshots.json");
 writeFileSync(out, `${JSON.stringify(snapshots, null, 2)}\n`);
 // In the formatter's own shape, so a rerun with no change leaves no diff
 spawnSync("bunx", ["oxfmt", out], { cwd: root, stdio: "inherit" });
-console.log(`wrote ${Object.keys(snapshots).length} React snapshots to test/react-snapshots.json`);
+console.log(
+  `wrote ${Object.keys(snapshots).length - 1} React snapshots to test/react-snapshots.json`,
+);
 process.exit(0);
