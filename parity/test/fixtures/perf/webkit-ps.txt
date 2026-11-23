@@ -1,0 +1,8 @@
+38192     1 Mon Nov 23 01:08:10 2026      37648 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+38194     1 Mon Nov 23 01:08:10 2026      10608 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking
+38686     1 Mon Nov 23 01:08:48 2026     100624 /Apps/Better Mayhem Tracker.app/Contents/MacOS/better-mayhem-tracker-tauri
+38691     1 Mon Nov 23 01:08:48 2026      18864 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+38692     1 Mon Nov 23 01:08:48 2026      37888 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+38694     1 Mon Nov 23 01:08:48 2026      10368 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.Networking.xpc/Contents/MacOS/com.apple.WebKit.Networking
+80529     1 Wed Nov 18 21:17:46 2026      19904 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.GPU.xpc/Contents/MacOS/com.apple.WebKit.GPU
+80534     1 Wed Nov 18 21:17:46 2026     137104 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
