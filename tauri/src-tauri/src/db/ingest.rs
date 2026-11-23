@@ -55,8 +55,8 @@ fn coerced(v: Option<&Value>) -> f64 {
         Some(Value::Null) => 0.0,
         Some(Value::Bool(b)) => f64::from(u8::from(*b)),
         Some(Value::Number(n)) => n.as_f64().unwrap_or(f64::NAN),
-        Some(Value::String(s)) => string_to_number(s),
-        Some(Value::Array(items)) => string_to_number(&join(items)),
+        Some(Value::String(s)) => js::string_to_number(s),
+        Some(Value::Array(items)) => js::string_to_number(&join(items)),
         Some(Value::Object(_)) => f64::NAN,
     }
 }
@@ -72,67 +72,6 @@ fn join(items: &[Value]) -> String {
         Value::Object(_) => "[object Object]".into(),
     };
     items.iter().map(text).collect::<Vec<_>>().join(",")
-}
-
-/// `StringToNumber`, ECMA-262 7.1.4.1.1: JavaScript's whitespace trimmed,
-/// `0x`, `0o` and `0b` integers unsigned, and a signed decimal or
-/// `Infinity`. Rust's `f64` parser rounds a decimal the same way, but also
-/// takes `inf` and `nan`, which JavaScript reads as `NaN`.
-fn string_to_number(s: &str) -> f64 {
-    let is_js_space = |c: char| {
-        matches!(
-            c,
-            '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
-                ..='\u{200a}'
-                    | '\u{2028}'
-                    | '\u{2029}'
-                    | '\u{202f}'
-                    | '\u{205f}'
-                    | '\u{3000}'
-                    | '\u{feff}'
-        )
-    };
-    let s = s.trim_matches(is_js_space);
-    if s.is_empty() {
-        return 0.0;
-    }
-    let radix = match s.get(..2) {
-        Some("0x" | "0X") => 16,
-        Some("0o" | "0O") => 8,
-        Some("0b" | "0B") => 2,
-        _ => 10,
-    };
-    if radix != 10 {
-        let digits = &s[2..];
-        if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
-            return f64::NAN;
-        }
-        // Exact up to 128 bits, then rounded once, as JavaScript rounds
-        return u128::from_str_radix(digits, radix).map_or_else(
-            |_| {
-                digits.chars().fold(0.0, |n, c| {
-                    n * f64::from(radix) + f64::from(c.to_digit(radix).unwrap_or(0))
-                })
-            },
-            |n| n as f64,
-        );
-    }
-    let (sign, unsigned) = match s.as_bytes()[0] {
-        b'-' => (-1.0, &s[1..]),
-        b'+' => (1.0, &s[1..]),
-        _ => (1.0, s),
-    };
-    if unsigned == "Infinity" {
-        return sign * f64::INFINITY;
-    }
-    let decimal = unsigned.starts_with(|c: char| c.is_ascii_digit() || c == '.')
-        && unsigned
-            .chars()
-            .all(|c| c.is_ascii_digit() || matches!(c, '.' | 'e' | 'E' | '+' | '-'));
-    if !decimal {
-        return f64::NAN;
-    }
-    unsigned.parse::<f64>().map_or(f64::NAN, |n| sign * n)
 }
 
 const INSERT_GAME: &str = "
