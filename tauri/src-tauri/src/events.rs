@@ -37,6 +37,7 @@ macro_rules! events {
 
         /// Emits an event by name from its JSON payload, through the same
         /// typed emitter the app uses. Parity lanes drive each event with it.
+        #[cfg(feature = "parity-driver")]
         pub fn emit_by_name<R: Runtime>(
             app: &AppHandle<R>,
             name: &str,
@@ -90,7 +91,13 @@ events! {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use tauri::test::{mock_builder, mock_context, noop_assets};
+    use tauri::{Listener, WebviewWindowBuilder};
+
     use super::*;
+    use crate::commands::lcu::BackfillResult;
 
     #[test]
     fn eleven_unique_events() {
@@ -98,5 +105,111 @@ mod tests {
         assert_eq!(specs.len(), 11);
         let names: std::collections::HashSet<_> = specs.iter().map(|s| s.name).collect();
         assert_eq!(names.len(), 11);
+    }
+
+    #[test]
+    fn the_main_window_hears_every_emitter_under_its_electron_name() {
+        let app = mock_builder()
+            .build(mock_context(noop_assets()))
+            .expect("build the mock app");
+        let main = WebviewWindowBuilder::new(&app, WINDOW_LABEL, Default::default())
+            .build()
+            .expect("build the main window");
+        let card = WebviewWindowBuilder::new(&app, "card", Default::default())
+            .build()
+            .expect("build the card window");
+        let heard = Arc::new(Mutex::new(Vec::<(String, String)>::new()));
+        let card_heard = Arc::new(Mutex::new(0));
+        for spec in event_specs() {
+            let heard = heard.clone();
+            main.listen(spec.name, move |event| {
+                let name = spec.name.to_owned();
+                heard
+                    .lock()
+                    .unwrap()
+                    .push((name, event.payload().to_owned()));
+            });
+            let card_heard = card_heard.clone();
+            card.listen(spec.name, move |_| *card_heard.lock().unwrap() += 1);
+        }
+
+        let handle = app.handle();
+        status_changed(handle, &LcuStatus::Connected);
+        games_updated(handle);
+        backfill_progress(
+            handle,
+            &BackfillProgress {
+                current: 1,
+                total: 2,
+                added: 0,
+            },
+        );
+        backfill_done(
+            handle,
+            &BackfillOutcome::Done(BackfillResult {
+                added: 1,
+                scanned: 2,
+                checked: 3,
+                total_games: 4,
+                limit: None,
+                cancelled: false,
+            }),
+        );
+        live_changed(
+            handle,
+            &LiveGameSnapshot {
+                in_game: false,
+                starting: false,
+                game_id: None,
+                queue_id: None,
+                map_id: None,
+                map_name: None,
+                map_skin: None,
+                game_time: 0.0,
+                players: Vec::new(),
+                events: Vec::new(),
+            },
+        );
+        challenges_changed(
+            handle,
+            &ChallengesResult {
+                data: None,
+                pending: true,
+            },
+        );
+        update_progress(handle, &50);
+        update_installing(handle, &UpdateInfo::default());
+        update_install_failed(handle, &"checksum".to_owned());
+        maximized_changed(handle, &true);
+        import_progress(
+            handle,
+            &ImportProgress {
+                current: 1,
+                total: 3,
+                imported: 1,
+            },
+        );
+
+        let heard = heard.lock().unwrap().clone();
+        let names: Vec<&str> = heard.iter().map(|(name, _)| name.as_str()).collect();
+        let expected: Vec<&str> = event_specs().iter().map(|s| s.name).collect();
+        assert_eq!(
+            names, expected,
+            "each event reaches the main window once, in order"
+        );
+        let payload = |name: &str| heard.iter().find(|(n, _)| n == name).unwrap().1.clone();
+        assert_eq!(payload("lcu:status-changed"), "\"connected\"");
+        assert_eq!(payload("lcu:games-updated"), "null");
+        assert_eq!(payload("update:progress"), "50");
+        assert_eq!(payload("update:installing"), r#"{"hasUpdate":false}"#);
+        assert_eq!(
+            payload("lcu:backfill-done"),
+            r#"{"added":1,"scanned":2,"checked":3,"totalGames":4,"limit":null,"cancelled":false}"#
+        );
+        assert_eq!(
+            *card_heard.lock().unwrap(),
+            0,
+            "the card window hears no event"
+        );
     }
 }
