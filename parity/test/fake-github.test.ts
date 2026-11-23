@@ -108,6 +108,21 @@ describe("fake GitHub", () => {
     expect(rewriteGithubUrl("https://example.com/", server.url, "x")).toBeNull();
   });
 
+  test("a release page asked for under the host, as the Tauri app asks, gets the scenario set last", async () => {
+    const own = startFakeGithub();
+    try {
+      const page = async () =>
+        (await (await fetch(`${own.url}/api.github.com${RELEASES_PATH}?per_page=20`)).json()) as {
+          tag_name: string;
+        }[];
+      expect((await page())[0]!.tag_name).toBe("v1.2.1");
+      own.setScenario("update-available");
+      expect((await page())[0]!.tag_name).not.toBe("v1.2.1");
+    } finally {
+      own.close();
+    }
+  });
+
   test("an unknown scenario is a 400, not an empty list", async () => {
     const response = await fetch(`${server.url}${RELEASES_PATH}?scenario=nope`);
     expect(response.status).toBe(400);

@@ -164,6 +164,8 @@ export interface FakeGithub {
   url: string;
   /** Every request path, in order, so a lane can show what the app asked for. */
   requests: string[];
+  /** The scenario a release-page request without one gets, as the Tauri app's requests are. */
+  setScenario(scenario: Scenario): void;
   close(): void;
 }
 
@@ -226,6 +228,7 @@ export function startFakeGithub(
   options: { scenario?: Scenario; port?: number; release?: ReleaseOptions } = {},
 ): FakeGithub {
   const requests: string[] = [];
+  let scenario = options.scenario ?? "up-to-date";
   const served = new Map((options.release?.assets ?? []).map((asset) => [asset.name, asset.file]));
   const server = Bun.serve({
     hostname: "127.0.0.1",
@@ -236,7 +239,7 @@ export function startFakeGithub(
       const pathname = stripHost(url.pathname);
       if (pathname === RELEASES_PATH) {
         if (options.release) return Response.json(releasesWithAssets(options.release));
-        const asked = url.searchParams.get("scenario") ?? options.scenario ?? "up-to-date";
+        const asked = url.searchParams.get("scenario") ?? scenario;
         if (!isScenario(asked)) return new Response(`unknown scenario ${asked}`, { status: 400 });
         return Response.json(releasesFor(asked));
       }
@@ -264,6 +267,7 @@ export function startFakeGithub(
   return {
     url: `http://127.0.0.1:${server.port}`,
     requests,
+    setScenario: (name) => void (scenario = name),
     close: () => void server.stop(true),
   };
 }

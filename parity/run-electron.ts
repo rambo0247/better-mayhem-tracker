@@ -527,7 +527,15 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
 
   const ctx: DriveContext = {
     engine: new PlaywrightEngine(page, resizeWindow),
-    app,
+    main: (call, arg) =>
+      app.evaluate(
+        async (_electron, step) => {
+          const hooks = (globalThis as any).__parity;
+          if (!hooks?.[step.call]) throw new Error(`seam has no ${step.call}`);
+          return hooks[step.call](step.arg);
+        },
+        { call, arg },
+      ),
     viewport,
     touchedSettings: new Map(),
   };

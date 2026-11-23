@@ -310,7 +310,7 @@ export async function applyState(
     lapStart = Date.now();
   };
   await restoreSettings(ctx);
-  if (ctx.app) await runStep(ctx, { op: "main", call: "reset" });
+  if (ctx.main) await runStep(ctx, { op: "main", call: "reset" });
   // The Tauri replay answers from this state's own call list (replay-api.js)
   await engine.evaluate((id) => {
     localStorage.clear();

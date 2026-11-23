@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { ElectronApplication } from "playwright";
 import { refuseRealFolder } from "./lib/real-folder.ts";
 import { settle } from "./settle.ts";
 
@@ -17,7 +16,7 @@ export type Step =
   | { op: "setting"; key: string; value: string }
   | { op: "local"; key: string; value: string }
   | { op: "settle" }
-  /** Calls globalThis.__parity[call](arg) in the main process, through seam-overlays.cjs. */
+  /** A main-process hook: `globalThis.__parity[call](arg)` in Electron (seam-overlays.cjs), the driver's answers in Tauri. */
   | { op: "main"; call: string; arg?: unknown };
 
 export interface Target {
@@ -59,8 +58,8 @@ export interface Engine {
 
 export interface DriveContext {
   engine: Engine;
-  /** The Electron app, for steps that call into the main process. */
-  app?: ElectronApplication;
+  /** Runs a `main` step's call in the app's main process, where the runner offers one. */
+  main?: (call: string, arg?: unknown) => Promise<unknown>;
   viewport: { width: number; height: number };
   touchedSettings: Map<string, string | null>;
 }
@@ -136,18 +135,10 @@ export async function runStep(
     case "settle":
       await settle(engine, ctx.viewport);
       return;
-    case "main": {
-      if (!ctx.app) throw new Error("the main step needs an Electron app");
-      await ctx.app.evaluate(
-        async (_electron, { call, arg }) => {
-          const hooks = (globalThis as any).__parity;
-          if (!hooks?.[call]) throw new Error(`seam has no ${call}`);
-          await hooks[call](arg);
-        },
-        { call: step.call, arg: step.arg },
-      );
+    case "main":
+      if (!ctx.main) throw new Error("this app has no main-process hooks");
+      await ctx.main(step.call, step.arg);
       return;
-    }
   }
 }
 
