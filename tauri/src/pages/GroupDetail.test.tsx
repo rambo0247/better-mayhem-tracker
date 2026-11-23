@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { html, loaded, pending, route } from "../testing/ssr";
+import { html, loaded, mountPage, pending, route } from "../testing/ssr";
 
 const { default: GroupDetail } = await import("./GroupDetail");
 
@@ -53,9 +53,12 @@ describe("GroupDetail", () => {
 
   test("an unknown group says so, and goes back to the groups view", () => {
     route.params = { key: "gone" };
-    const out = html(GroupDetail, loaded(null), loaded(profile));
-    expect(out).toContain("No games found with this group.");
-    expect(out).toContain('state="{&quot;view&quot;:&quot;groups&quot;}"');
+    route.navigations = [];
+    const view = mountPage(GroupDetail, loaded(null), loaded(profile));
+    expect(view.container.textContent).toContain("No games found with this group.");
+    view.container.querySelector<HTMLAnchorElement>('a[href="#/friends"]')!.click();
+    view.dispose();
+    expect(route.navigations).toEqual([{ to: "/friends", options: { state: { view: "groups" } } }]);
   });
 
   test("each member chip links to the friend by encoded key", () => {

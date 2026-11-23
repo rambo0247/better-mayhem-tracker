@@ -17,7 +17,11 @@ export interface IpcAnswer {
 }
 
 export const ipc = { answers: [] as IpcAnswer[], calls: 0 };
-export const route = { params: {} as Record<string, string>, state: null as unknown };
+export const route = {
+  params: {} as Record<string, string>,
+  state: null as unknown,
+  navigations: [] as { to: string; options?: unknown }[],
+};
 
 mock.module("../lib/api-shim", () => ({
   api: {
@@ -38,17 +42,24 @@ mock.module("../hooks/useIpc", () => ({
 mock.module("@solidjs/router", () => ({
   useParams: () => route.params,
   useLocation: () => ({ state: route.state }),
-  useNavigate: () => () => {},
+  useNavigate: () => (to: string, options?: unknown) => {
+    route.navigations.push({ to, options });
+  },
 }));
 
 export const loaded = (data: unknown): IpcAnswer => ({ data, loading: false });
 export const pending: IpcAnswer = { data: null, loading: true };
 
-// What the page draws for these answers, one per useIpc call in call order
-export function html(page: Component, ...answers: IpcAnswer[]): string {
+// The page mounted on these answers, one per useIpc call in call order
+export function mountPage(page: Component, ...answers: IpcAnswer[]) {
   ipc.answers = answers;
   ipc.calls = 0;
-  const view = mount(() => page({}));
+  return mount(() => page({}));
+}
+
+// What the page draws for these answers
+export function html(page: Component, ...answers: IpcAnswer[]): string {
+  const view = mountPage(page, ...answers);
   const out = view.container.innerHTML.replaceAll("<!---->", "");
   view.dispose();
   return out;
