@@ -11,6 +11,8 @@ export interface SettleReport {
   timedOut: boolean;
   pendingImages: number;
   decodeFailures: number;
+  /** The first few images that did not decode, so a run names what failed */
+  failedImages: string[];
 }
 
 export async function settle(
@@ -58,19 +60,19 @@ export async function settle(
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
       observer.disconnect();
-      let decodeFailures = 0;
+      const failed: string[] = [];
       const decodeWithin = (image: HTMLImageElement) =>
         Promise.race([
-          image.decode().catch(() => decodeFailures++),
+          image.decode().catch(() => failed.push(image.currentSrc || image.src)),
           new Promise((resolve) =>
             setTimeout(() => {
-              decodeFailures++;
+              failed.push(`${image.currentSrc || image.src} (3 s)`);
               resolve(undefined);
             }, 3000),
           ),
         ]);
       await Promise.all([...document.images].filter((image) => image.complete).map(decodeWithin));
-      return { timedOut, pending, decodeFailures };
+      return { timedOut, pending, decodeFailures: failed.length, failedImages: failed.slice(0, 5) };
     },
     { quiet: QUIET_MS, timeout: SETTLE_TIMEOUT_MS },
   );
@@ -82,5 +84,6 @@ export async function settle(
     timedOut: report.timedOut,
     pendingImages: report.pending,
     decodeFailures: report.decodeFailures,
+    failedImages: report.failedImages,
   };
 }
