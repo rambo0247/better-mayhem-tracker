@@ -6,7 +6,7 @@ import { PARITY_DIR } from "./lib/data.ts";
 import { parseArgs } from "node:util";
 import { refuseRealFolder } from "./lib/real-folder.ts";
 import { realRoots, VERSION, type Isolation } from "./perf/app.ts";
-import { DEFAULT_MAX_LOAD, loadGate, startLoadSampler, summarizeLoad } from "./perf/load.ts";
+import { DEFAULT_MIN_CPU_IDLE, loadGate, startLoadSampler, summarizeLoad } from "./perf/load.ts";
 import { median } from "./perf/memory-mac.ts";
 import {
   runElectron,
@@ -64,7 +64,7 @@ export const USAGE = [
   "usage: bun parity/perf.ts --app electron-1.2.1 [--app tauri --tauri <.app|.exe>] [--runs 10]",
   "  [--scenario visible-idle|hidden-idle] [--data fixture|<folder>|none] [--electron <.app|.exe>]",
   "  [--tauri-profile release|lane] [--tauri-download <dmg|exe>] [--idle 60] [--samples 5]",
-  "  [--interval 10] [--isolation sandbox|none] [--max-load 10] [--out parity/out/perf]",
+  "  [--interval 10] [--isolation sandbox|none] [--min-cpu-idle 0.3] [--out parity/out/perf]",
   "  [--selector <css>] [--kill-role-after-first-sample <role>] [--sizes-only]",
 ].join("\n");
 
@@ -83,8 +83,8 @@ export interface Cli {
   samples: number;
   intervalSeconds: number;
   isolation: Isolation;
-  maxLoad: number;
-  maxLoadFromFlag: boolean;
+  minCpuIdle: number;
+  minCpuIdleFromFlag: boolean;
   out: string;
   selector?: string;
   killRoleAfterFirstSample?: string;
@@ -104,6 +104,14 @@ function positive(flag: string, value: string, integer = false): number {
     throw new UsageError(
       `${flag} must be a positive ${integer ? "integer" : "number"}, not ${value}`,
     );
+  }
+  return n;
+}
+
+function share(flag: string, value: string): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0 || n > 1) {
+    throw new UsageError(`${flag} must be a share above 0 and at most 1, not ${value}`);
   }
   return n;
 }
@@ -133,7 +141,7 @@ export function parseCli(
         samples: { type: "string", default: "5" },
         interval: { type: "string", default: "10" },
         isolation: { type: "string", default: platform === "darwin" ? "sandbox" : "none" },
-        "max-load": { type: "string" },
+        "min-cpu-idle": { type: "string" },
         out: { type: "string", default: path.join(PARITY_DIR, "out", "perf") },
         selector: { type: "string" },
         "kill-role-after-first-sample": { type: "string" },
@@ -162,11 +170,11 @@ export function parseCli(
     samples: positive("--samples", parsed.samples!, true),
     intervalSeconds: positive("--interval", parsed.interval!),
     isolation,
-    maxLoad:
-      parsed["max-load"] === undefined
-        ? DEFAULT_MAX_LOAD
-        : positive("--max-load", parsed["max-load"]),
-    maxLoadFromFlag: parsed["max-load"] !== undefined,
+    minCpuIdle:
+      parsed["min-cpu-idle"] === undefined
+        ? DEFAULT_MIN_CPU_IDLE
+        : share("--min-cpu-idle", parsed["min-cpu-idle"]),
+    minCpuIdleFromFlag: parsed["min-cpu-idle"] !== undefined,
     out: path.resolve(parsed.out!),
     selector: parsed.selector,
     killRoleAfterFirstSample: parsed["kill-role-after-first-sample"],
@@ -319,9 +327,7 @@ async function main() {
       } catch (error) {
         result.notes.push(`run folder left behind: ${String(error)}`);
       }
-      console.log(
-        `  ${result.valid ? "ok" : `INVALID ${result.invalidReason}`} first=${result.firstContentMs?.toFixed(0)} ms footprint=${result.idleFootprintBytes ? mib(result.idleFootprintBytes) : "-"} MiB rss=${result.idleRssBytes ? mib(result.idleRssBytes) : "-"} MiB median load ${result.load.medianLoad1?.toFixed(1)}`,
-      );
+      console.log(`  ${result.valid ? "ok" : `INVALID ${result.invalidReason}`}`);
       await Bun.sleep(3000);
     }
   }
@@ -335,7 +341,7 @@ async function main() {
     sizes["electron-1.2.1"].installedAllocatedBytes = median(extracted);
   }
   const loadSummary = summarizeLoad(sampler.samples);
-  const gate = loadGate(loadSummary, cli.maxLoad, cli.maxLoadFromFlag);
+  const gate = loadGate(loadSummary, cli.minCpuIdle, cli.minCpuIdleFromFlag);
   const summary = Object.fromEntries(apps.map((app) => [app, summarize(results[app]!)]));
   const full = {
     ...report,
@@ -357,7 +363,7 @@ async function main() {
     const file = path.join(out, `${name(apps.join("+"))}.refused.json`);
     fs.writeFileSync(file, JSON.stringify(full, null, 2));
     console.error(
-      `perf: refused, median 1-minute load ${loadSummary.medianLoad1?.toFixed(1)} is above ${cli.maxLoad}, so no numbers are reported. Raw runs in ${file}`,
+      `perf: refused, median CPU idle ${pct(loadSummary.medianCpuIdle)} is below ${pct(cli.minCpuIdle)}, so no numbers are reported. Raw runs in ${file}`,
     );
     process.exit(1);
   }
@@ -365,9 +371,13 @@ async function main() {
   fs.writeFileSync(file, JSON.stringify(full, null, 2));
   printSummary(summary, sizes);
   console.log(
-    `  median load ${loadSummary.medianLoad1?.toFixed(1)} (max ${cli.maxLoad}${cli.maxLoadFromFlag ? " from --max-load" : ""}), median CPU idle ${loadSummary.medianCpuIdle === null ? "-" : `${(loadSummary.medianCpuIdle * 100).toFixed(0)}%`}`,
+    `  median CPU idle ${pct(loadSummary.medianCpuIdle)} (min ${pct(cli.minCpuIdle)}${cli.minCpuIdleFromFlag ? " from --min-cpu-idle" : ""}), median load ${loadSummary.medianLoad1?.toFixed(1)}`,
   );
   console.log(`perf: wrote ${file}`);
+}
+
+function pct(share: number | null): string {
+  return share === null ? "-" : `${(share * 100).toFixed(0)}%`;
 }
 
 function electronExecutable(appPath: string): string {

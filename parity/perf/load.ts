@@ -1,7 +1,12 @@
 import os from "node:os";
 import { median } from "./memory-mac.ts";
 
-export const DEFAULT_MAX_LOAD = 10;
+/**
+ * A sweep whose median CPU idle is below this share refuses. Set from macOS samples near a
+ * 1-minute load of 16, where idle was 17 to 37% (see the T06 record for why load 10 was not sampled). CPU idle gates on every platform because
+ * `os.loadavg()` is always 0 on Windows.
+ */
+export const DEFAULT_MIN_CPU_IDLE = 0.3;
 
 export interface LoadSample {
   atMs: number;
@@ -28,8 +33,8 @@ export function cpuIdleBetween(before: os.CpuInfo[], after: os.CpuInfo[]): numbe
 
 /**
  * Reads `top -l N -s 2 -n 0` output one line at a time. A `Load Avg` line opens a sample and
- * the next `CPU usage` line closes it. The first sample of each top process covers the time
- * since boot, not the last 2 s, so its CPU idle is dropped.
+ * the next `CPU usage` line closes it. The first sample of each top process is a
+ * short-interval reading, not a full 2 s interval, so its CPU idle is dropped.
  */
 export function topReader(onSample: (sample: Omit<LoadSample, "atMs">) => void) {
   let load1: number | null = null;
@@ -128,19 +133,21 @@ export function summarizeLoad(samples: LoadSample[]): LoadSummary {
 }
 
 export interface LoadGate {
-  maxLoad: number;
-  /** True when `--max-load` set the threshold instead of the default. */
-  maxLoadFromFlag: boolean;
+  minCpuIdle: number;
+  /** True when `--min-cpu-idle` set the threshold instead of the default. */
+  minCpuIdleFromFlag: boolean;
+  medianCpuIdle: number | null;
   medianLoad1: number | null;
   passed: boolean;
 }
 
-/** A sweep whose median 1-minute load is above the threshold reports no numbers. */
-export function loadGate(summary: LoadSummary, maxLoad: number, fromFlag: boolean): LoadGate {
+/** A sweep whose median CPU idle is below the threshold reports no numbers. */
+export function loadGate(summary: LoadSummary, minCpuIdle: number, fromFlag: boolean): LoadGate {
   return {
-    maxLoad,
-    maxLoadFromFlag: fromFlag,
+    minCpuIdle,
+    minCpuIdleFromFlag: fromFlag,
+    medianCpuIdle: summary.medianCpuIdle,
     medianLoad1: summary.medianLoad1,
-    passed: summary.medianLoad1 !== null && summary.medianLoad1 <= maxLoad,
+    passed: summary.medianCpuIdle !== null && summary.medianCpuIdle >= minCpuIdle,
   };
 }

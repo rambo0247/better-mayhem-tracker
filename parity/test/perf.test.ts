@@ -21,7 +21,7 @@ import { rowIsNewestGame, sandboxProfile } from "../perf/app.ts";
 import { parseCli, stat, UsageError } from "../perf.ts";
 import {
   cpuIdleBetween,
-  DEFAULT_MAX_LOAD,
+  DEFAULT_MIN_CPU_IDLE,
   loadGate,
   summarizeLoad,
   topReader,
@@ -285,21 +285,6 @@ describe.skipIf(!mac)("the Seatbelt profile, enforced", () => {
       fs.rmSync(home, { recursive: true, force: true });
     }
   });
-
-  test("a sandboxed write to the real LaunchAgents folder fails", () => {
-    const probe = path.join(
-      os.userInfo().homedir,
-      "Library",
-      "LaunchAgents",
-      `bmt-perf-sandbox-probe-${process.pid}-${Date.now()}.txt`,
-    );
-    const run = underProfile(sandboxProfile(), `echo x > "${probe}"`);
-    const leaked = fs.existsSync(probe);
-    if (leaked) fs.rmSync(probe);
-    expect(run.status).not.toBe(0);
-    expect(run.stderr).toContain("Operation not permitted");
-    expect(leaked).toBe(false);
-  });
 });
 
 describe("tauri runs", () => {
@@ -430,11 +415,16 @@ describe("command line", () => {
     expect(parseCli(["--app", "electron-1.2.1"], "darwin", {}).scenario).toBe("visible-idle");
   });
 
-  test("the load threshold is 10 unless --max-load sets it, and the cli says which", () => {
+  test("the idle threshold is the default unless --min-cpu-idle sets it, and the cli says which", () => {
     const plain = parseCli(["--app", "electron-1.2.1"], "darwin", {});
-    expect([plain.maxLoad, plain.maxLoadFromFlag]).toEqual([10, false]);
-    const raised = parseCli(["--app", "electron-1.2.1", "--max-load", "40"], "darwin", {});
-    expect([raised.maxLoad, raised.maxLoadFromFlag]).toEqual([40, true]);
+    expect([plain.minCpuIdle, plain.minCpuIdleFromFlag]).toEqual([DEFAULT_MIN_CPU_IDLE, false]);
+    const lowered = parseCli(["--app", "electron-1.2.1", "--min-cpu-idle", "0.05"], "darwin", {});
+    expect([lowered.minCpuIdle, lowered.minCpuIdleFromFlag]).toEqual([0.05, true]);
+    for (const bad of ["0", "1.5", "-1", "x"]) {
+      expect(() =>
+        parseCli(["--app", "electron-1.2.1", "--min-cpu-idle", bad], "darwin", {}),
+      ).toThrow(UsageError);
+    }
   });
 
   test("a Tauri run on macOS is refused without the sandbox or without data", () => {
@@ -480,17 +470,51 @@ describe("load", () => {
     ]);
   });
 
-  test("a sweep above the threshold fails the gate", () => {
-    const samples = [3, 12, 14].map((load1, i) => ({ atMs: i, load1, cpuIdle: 0.5 }));
-    const summary = summarizeLoad(samples);
-    expect(summary).toEqual({ samples: 3, medianLoad1: 12, medianCpuIdle: 0.5 });
-    expect(loadGate(summary, DEFAULT_MAX_LOAD, false).passed).toBe(false);
-    expect(loadGate(summary, 40, true)).toEqual({
-      maxLoad: 40,
-      maxLoadFromFlag: true,
-      medianLoad1: 12,
+  test("a sweep whose median CPU idle is below the threshold fails the gate, on any platform", () => {
+    const busy = [0.05, 0.1, 0.5].map((cpuIdle, i) => ({ atMs: i, load1: 0, cpuIdle }));
+    const summary = summarizeLoad(busy);
+    expect(summary).toEqual({ samples: 3, medianLoad1: 0, medianCpuIdle: 0.1 });
+    expect(loadGate(summary, DEFAULT_MIN_CPU_IDLE, false).passed).toBe(false);
+    expect(loadGate(summary, 0.05, true)).toEqual({
+      minCpuIdle: 0.05,
+      minCpuIdleFromFlag: true,
+      medianCpuIdle: 0.1,
+      medianLoad1: 0,
       passed: true,
     });
-    expect(loadGate(summarizeLoad([]), 10, false).passed).toBe(false);
+    const quiet = summarizeLoad(
+      [0.6, 0.7, 0.8].map((cpuIdle, i) => ({ atMs: i, load1: 0, cpuIdle })),
+    );
+    expect(loadGate(quiet, DEFAULT_MIN_CPU_IDLE, false).passed).toBe(true);
+  });
+
+  test("a sweep with no idle reading is refused", () => {
+    const none = summarizeLoad([{ atMs: 0, load1: 1, cpuIdle: null }]);
+    expect(loadGate(none, DEFAULT_MIN_CPU_IDLE, false).passed).toBe(false);
+    expect(loadGate(summarizeLoad([]), DEFAULT_MIN_CPU_IDLE, false).passed).toBe(false);
+  });
+});
+
+describe("no test touches the operator's real folders", () => {
+  const home = ["os", "userInfo().homedir"].join(".");
+  const forbidden = [
+    ["Launch", "Agents"].join(""),
+    ["Application Support", "better-mayhem-tracker"].join("/"),
+  ];
+
+  function testFiles(dir: string): string[] {
+    return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) return entry.name === "fixtures" ? [] : testFiles(full);
+      return entry.name.endsWith(".ts") ? [full] : [];
+    });
+  }
+
+  test("no test file names the user database's home together with LaunchAgents or the data folder", () => {
+    const offenders = testFiles(import.meta.dir).filter((file) => {
+      const text = fs.readFileSync(file, "utf8");
+      return text.includes(home) && forbidden.some((name) => text.includes(name));
+    });
+    expect(offenders).toEqual([]);
   });
 });
