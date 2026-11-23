@@ -60,30 +60,36 @@ const MUTATORS = [
   ["rename", [0, 1]],
   ["copyFile", [1]],
   ["cp", [1]],
-  ["symlink", [1]],
+  ["symlink", [0, 1]],
   ["link", [1]],
   ["mkdtemp", [0]],
 ];
+
+// A relative symlink target is read from the link's folder, not the working directory.
+const targetsOf = (name, indexes, args) =>
+  name === "symlink"
+    ? [path.resolve(path.dirname(asString(args[1])), asString(args[0])), args[1]]
+    : indexes.map((i) => args[i]);
 
 for (const [name, indexes] of MUTATORS) {
   const sync = fs[name + "Sync"];
   if (sync) {
     fs[name + "Sync"] = function (...args) {
-      guard(name + "Sync", ...indexes.map((i) => args[i]));
+      guard(name + "Sync", ...targetsOf(name, indexes, args));
       return sync.apply(this, args);
     };
   }
   const callback = fs[name];
   if (callback) {
     fs[name] = function (...args) {
-      guard(name, ...indexes.map((i) => args[i]));
+      guard(name, ...targetsOf(name, indexes, args));
       return callback.apply(this, args);
     };
   }
   const promise = fs.promises[name];
   if (promise) {
     fs.promises[name] = async function (...args) {
-      guard("promises." + name, ...indexes.map((i) => args[i]));
+      guard("promises." + name, ...targetsOf(name, indexes, args));
       return promise.apply(this, args);
     };
   }

@@ -50,6 +50,23 @@ describe("real folder paths", () => {
     fs.symlinkSync(real, path.join(dir, "link"));
     expect(isUnderRealFolder(path.join(dir, "link", "data"), [real])).toBe(true);
   });
+
+  test("a dangling symlink into the folder is refused, directly, through a relative link, or as a parent", () => {
+    const dir = scratch();
+    const real = path.join(dir, "real");
+    fs.mkdirSync(real);
+    fs.symlinkSync(path.join(real, "data", "new.db"), path.join(dir, "dangling"));
+    fs.symlinkSync("dangling", path.join(dir, "relative"));
+    fs.symlinkSync(path.join(real, "not-yet"), path.join(dir, "dangling-dir"));
+    expect(isUnderRealFolder(path.join(dir, "dangling"), [real])).toBe(true);
+    expect(isUnderRealFolder(path.join(dir, "relative"), [real])).toBe(true);
+    expect(isUnderRealFolder(path.join(dir, "dangling-dir", "x.db"), [real])).toBe(true);
+    fs.symlinkSync(path.join(dir, "nowhere"), path.join(dir, "dangling-elsewhere"));
+    fs.symlinkSync("loop-b", path.join(dir, "loop-a"));
+    fs.symlinkSync("loop-a", path.join(dir, "loop-b"));
+    expect(isUnderRealFolder(path.join(dir, "dangling-elsewhere"), [real])).toBe(false);
+    expect(isUnderRealFolder(path.join(dir, "loop-a"), [real])).toBe(false);
+  });
 });
 
 describe("snapshot", () => {

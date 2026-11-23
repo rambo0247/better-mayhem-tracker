@@ -22,14 +22,33 @@ function lexicallyUnder(candidate, root) {
   return c === r || c.startsWith(r + path.sep);
 }
 
-/** Resolves the nearest existing ancestor, so a path not created yet is judged by where it would land. */
-function resolveThroughSymlinks(target) {
+const readLink = (p) => {
+  try {
+    return fs.readlinkSync(p);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Resolves the nearest existing ancestor, so a path not created yet is judged by where it would
+ * land. A dangling symlink is followed by hand, because realpath refuses it and a write creates
+ * its target. The hop limit is above the kernel's own, so a chain the kernel would follow is.
+ */
+function resolveThroughSymlinks(target, hops = 0) {
   let dir = path.resolve(target);
   const tail = [];
   for (;;) {
     try {
       return path.join(fs.realpathSync(dir), ...tail.reverse());
     } catch {
+      const link = hops < 64 ? readLink(dir) : null;
+      if (link !== null) {
+        return resolveThroughSymlinks(
+          path.resolve(path.dirname(dir), link, ...tail.reverse()),
+          hops + 1,
+        );
+      }
       const parent = path.dirname(dir);
       if (parent === dir) return path.resolve(target);
       tail.push(path.basename(dir));

@@ -355,6 +355,28 @@ describe("the real-folder guard, in the tools and in the seam", () => {
     expect(fs.readdirSync(path.join(real, "data"))).toEqual([]);
   });
 
+  test("the seam blocks a write through a dangling symlink, and a new symlink into the real folder", () => {
+    const { dir, real } = fakeReal();
+    fs.symlinkSync(path.join(real, "data", "created.db"), path.join(dir, "dangling"));
+    const out = seamWrites(
+      real,
+      dir,
+      `attempt("dangling", () => fs.writeFileSync(${JSON.stringify(path.join(dir, "dangling"))}, "x"));
+       attempt("absolute", () => fs.symlinkSync(path.join(real, "data", "a.db"), ${JSON.stringify(path.join(dir, "new-absolute"))}));
+       attempt("relative", () => fs.symlinkSync("App Support/better-mayhem-tracker/data/b.db", ${JSON.stringify(path.join(dir, "new-relative"))}));
+       attempt("elsewhere", () => fs.symlinkSync("elsewhere.db", ${JSON.stringify(path.join(dir, "new-elsewhere"))}));`,
+    );
+    expect(out).toEqual({
+      dangling: "blocked",
+      absolute: "blocked",
+      relative: "blocked",
+      elsewhere: "written",
+    });
+    expect(fs.readdirSync(path.join(real, "data"))).toEqual([]);
+    expect(fs.lstatSync(path.join(dir, "new-absolute"), { throwIfNoEntry: false })).toBeUndefined();
+    expect(fs.lstatSync(path.join(dir, "new-elsewhere")).isSymbolicLink()).toBe(true);
+  });
+
   test("the seam blocks a file: URL, with its escaped space, into the real folder", () => {
     const { dir, real } = fakeReal();
     const out = seamWrites(
