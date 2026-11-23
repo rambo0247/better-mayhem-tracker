@@ -36,8 +36,8 @@ use crate::lcu::{Lcu, LcuStatus};
 pub const ASSET_SCHEME: &str = "asset";
 /// The host WebView2 serves a custom scheme under, since it routes only
 /// `http://<scheme>.localhost`. wry undoes that rewrite before the handler
-/// runs, so the handler sees `asset://localhost/...`. In both forms the kind
-/// of URL ("game-data", "splash") is the first path segment.
+/// runs, so the handler sees `asset://localhost/...`, with the kind of URL
+/// ("game-data", "splash") as the first path segment.
 pub const WEBVIEW2_HOST: &str = "asset.localhost";
 const WRY_HOST: &str = "localhost";
 
@@ -192,12 +192,34 @@ pub mod parity_web {
             .no_proxy()
             .user_agent(USER_AGENT)
             .timeout(REQUEST_TIMEOUT)
+            // A redirect could name any host; the fake has no need to send one
+            .redirect(reqwest::redirect::Policy::none())
     }
 
+    /// Read as the client reads the URL: plain http to a loopback address or
+    /// `localhost`, with no userinfo, query or fragment that could move or
+    /// mangle where `<base>/<host>/<path>` goes.
     fn is_loopback(base: &str) -> bool {
-        ["http://127.0.0.1:", "http://localhost:", "http://[::1]:"]
-            .iter()
-            .any(|prefix| base.starts_with(prefix))
+        let Ok(url) = reqwest::Url::parse(base) else {
+            return false;
+        };
+        // The parsed host: lowercased, IPv4 in dotted form, IPv6 in brackets
+        let host_is_loopback = match url.host_str() {
+            Some("localhost") => true,
+            Some(host) => host
+                .strip_prefix('[')
+                .and_then(|host| host.strip_suffix(']'))
+                .unwrap_or(host)
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback()),
+            None => false,
+        };
+        url.scheme() == "http"
+            && host_is_loopback
+            && url.username().is_empty()
+            && url.password().is_none()
+            && url.query().is_none()
+            && url.fragment().is_none()
     }
 
     impl Web for ParityWeb {
@@ -290,7 +312,8 @@ pub mod parity_web {
                     let (mut socket, _) = listener.accept().await.unwrap();
                     counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                     let mut request = [0u8; 4096];
-                    socket.read(&mut request).await.unwrap();
+                    let read = socket.read(&mut request).await.unwrap();
+                    assert!(read > 0, "a request arrived");
                     socket.write_all(reply.as_bytes()).await.unwrap();
                 }
             });
@@ -380,6 +403,25 @@ impl ClientFiles for NoClient {
 // ---------------------------------------------------------------------------
 // Single flight
 
+/// What a flight answers when its task ends without a value, as when it
+/// panics, so every caller joined to it still gets one. futures' `Shared`
+/// wakes no parked caller when the future it polls panics.
+pub(crate) trait Unanswered {
+    fn unanswered(reason: String) -> Self;
+}
+
+impl Unanswered for Fetched {
+    fn unanswered(_reason: String) -> Self {
+        Fetched::Error
+    }
+}
+
+impl<T> Unanswered for Result<T, String> {
+    fn unanswered(reason: String) -> Self {
+        Err(reason)
+    }
+}
+
 /// Several callers asking for the same thing share one task, which always runs
 /// to the end, as a promise does, and drops its entry once it settles.
 pub(crate) struct Flights<V: Clone> {
@@ -400,7 +442,7 @@ impl<V: Clone> Drop for Landing<V> {
     }
 }
 
-impl<V: Clone + Send + Sync + 'static> Flights<V> {
+impl<V: Clone + Unanswered + Send + Sync + 'static> Flights<V> {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             running: Mutex::new(HashMap::new()),
@@ -425,9 +467,14 @@ impl<V: Clone + Send + Sync + 'static> Flights<V> {
             let _landing = landing;
             work.await
         });
-        let flight = async move { task.await.expect("a single-flight task panicked") }
-            .boxed()
-            .shared();
+        let flight = async move {
+            task.await.unwrap_or_else(|err| {
+                log_error(format!("A load ended without an answer: {err}"));
+                V::unanswered(err.to_string())
+            })
+        }
+        .boxed()
+        .shared();
         running.insert(key.to_string(), flight.clone());
         flight
     }
@@ -585,8 +632,60 @@ pub(crate) fn js_string(value: &Value) -> String {
     match value {
         Value::String(text) => text.clone(),
         Value::Null => "null".into(),
-        other => other.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => js_number_string(n.as_f64().unwrap_or(f64::NAN)),
+        // Array.prototype.join, which writes null elements as nothing
+        Value::Array(items) => items
+            .iter()
+            .map(|item| match item {
+                Value::Null => String::new(),
+                item => js_string(item),
+            })
+            .collect::<Vec<_>>()
+            .join(","),
+        Value::Object(_) => "[object Object]".into(),
     }
+}
+
+/// `String(n)`: the shortest digits that read back as `n`, written out in
+/// full from 1e-6 up to below 1e21 and with an exponent outside that.
+pub(crate) fn js_number_string(n: f64) -> String {
+    if n.is_nan() {
+        return "NaN".into();
+    }
+    if n == 0.0 {
+        return "0".into();
+    }
+    if n.is_infinite() {
+        return if n > 0.0 { "Infinity" } else { "-Infinity" }.into();
+    }
+    // Rust's `{:e}` writes the same shortest round-trip digits as d.ddde<x>
+    let exponential = format!("{:e}", n.abs());
+    let (mantissa, exponent) = exponential.split_once('e').expect("exponent form has an e");
+    let digits: String = mantissa.chars().filter(|c| *c != '.').collect();
+    let k = digits.len() as i64;
+    let point = exponent.parse::<i64>().expect("a decimal exponent") + 1;
+    let body = if k <= point && point <= 21 {
+        format!("{digits}{}", "0".repeat((point - k) as usize))
+    } else if 0 < point && point <= 21 {
+        format!(
+            "{}.{}",
+            &digits[..point as usize],
+            &digits[point as usize..]
+        )
+    } else if -6 < point && point <= 0 {
+        format!("0.{}{digits}", "0".repeat(-point as usize))
+    } else {
+        let (first, rest) = digits.split_at(1);
+        let rest = if rest.is_empty() {
+            String::new()
+        } else {
+            format!(".{rest}")
+        };
+        let e = point - 1;
+        format!("{first}{rest}e{}{}", if e < 0 { '-' } else { '+' }, e.abs())
+    };
+    if n < 0.0 { format!("-{body}") } else { body }
 }
 
 /// A patch that is found once and then kept, asked for again only after a
@@ -604,6 +703,17 @@ impl Remembered {
             pending: None,
             asked_at: None,
         }
+    }
+}
+
+struct AskDone(GameAssets, fn(&Inner) -> &Mutex<Remembered>);
+
+impl Drop for AskDone {
+    fn drop(&mut self) {
+        (self.1)(&(self.0).0)
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .pending = None;
     }
 }
 
@@ -657,20 +767,21 @@ impl GameAssets {
     /// which patch "latest" holds, so the first icon usually reads from the
     /// right one, and prunes a minute in and then daily.
     pub fn start(&self) {
+        // setTimeout and setInterval count from the call, not from when the
+        // tasks first run, nor from the first prune
+        let started = Instant::now();
         let assets = self.clone();
         tokio::spawn(async move {
             assets.confirm_latest_patch().await;
         });
         let assets = self.clone();
         tokio::spawn(async move {
-            tokio::time::sleep(PRUNE_DELAY).await;
+            tokio::time::sleep_until(started + PRUNE_DELAY).await;
             assets.cache().prune(SystemTime::now()).await;
         });
-        // setInterval counts from the start, not from the first prune
         let assets = self.clone();
         tokio::spawn(async move {
-            let mut daily =
-                tokio::time::interval_at(Instant::now() + PRUNE_INTERVAL, PRUNE_INTERVAL);
+            let mut daily = tokio::time::interval_at(started + PRUNE_INTERVAL, PRUNE_INTERVAL);
             daily.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 daily.tick().await;
@@ -806,12 +917,14 @@ impl GameAssets {
         let assets = self.clone();
         let asked = ask(self.clone());
         let task = tokio::spawn(async move {
+            // Ends the ask however the task ends, a panic included, so the
+            // next one after the pause asks again
+            let _done = AskDone(assets.clone(), which);
             let found = asked.await;
             let mut state = which(&assets.0).lock().expect("remembered lock");
             if found.is_some() {
                 state.known = found;
             }
-            state.pending = None;
             state.known.clone()
         });
         let pending = async move { task.await.ok().flatten() }.boxed().shared();
@@ -1137,17 +1250,17 @@ fn is_unsafe_segment(segment: &str) -> bool {
 
 /// The URLs [`game_asset_url`] and [`champion_splash_url`] build, and nothing
 /// else: no segment that could climb out of /lol-game-data/assets/ on the
-/// client, or out of the cache. Takes the WebKit form
-/// (`asset://game-data/...`), the WebView2 one
-/// (`http://asset.localhost/game-data/...`), and the WebView2 one as wry hands
-/// it over (`asset://localhost/game-data/...`).
-fn parse_delivered(uri: &Uri, _form: Delivered) -> Option<GameFile> {
+/// client, or out of the cache. Takes the renderer's own form
+/// (`asset://game-data/...`) on every engine, and on WebView2 also the form
+/// wry hands over (`asset://localhost/game-data/...`). Any other host is a
+/// kind Electron doesn't serve.
+fn parse_delivered(uri: &Uri, form: Delivered) -> Option<GameFile> {
     static IMAGE_PATH: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^[a-z0-9_.-]+(/[a-z0-9_.-]+)*\.(png|jpe?g|webp)$").expect("a valid pattern")
     });
     let host = uri.host()?.to_ascii_lowercase();
     let mut raw = uri.path().split('/').filter(|s| !s.is_empty());
-    let kind = if host == WEBVIEW2_HOST || host == WRY_HOST {
+    let kind = if form == Delivered::WebView2 && host == WRY_HOST {
         raw.next()?.to_string()
     } else {
         host
@@ -1580,7 +1693,7 @@ pub(crate) mod tests {
         assert_eq!(rig.web.total_asked(), 0);
         // Art missing from its patch takes another patch's copy
         let (status, body) = rig
-            .get("http://asset.localhost/game-data/latest/v1/champion-icons/2.png")
+            .get("asset://game-data/latest/v1/champion-icons/2.png")
             .await;
         assert_eq!((status, body), (200, png(2)));
         let response = rig
