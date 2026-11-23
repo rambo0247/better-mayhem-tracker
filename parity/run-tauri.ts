@@ -826,7 +826,13 @@ export async function smoke(options: { binary?: string; out?: string }) {
     await engine.click({ selector: "#i" });
     await engine.press("a");
     await engine.press("Enter");
-    await Bun.sleep(300);
+    // A loaded CI runner delivers the events late: macos-latest had not seen Enter after 300 ms
+    await engine
+      .waitForFunction(
+        () => (window as any).__seen.some((l: string) => l.startsWith("keyup:true:Enter")),
+        5000,
+      )
+      .catch(() => undefined);
     const seen = await engine.evaluate<string[]>("window.__seen");
     const has = (prefix: string) => seen.some((line) => line.startsWith(prefix));
     check("a click arrives as trusted events", has("mousedown:true") && has("click:true"), seen);
