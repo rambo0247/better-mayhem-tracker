@@ -1,7 +1,7 @@
-import type { Page } from "playwright";
+import type { Engine } from "./drive.ts";
 
 export const KILL_SWITCH_CSS =
-  "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important;scroll-behavior:auto!important}::-webkit-scrollbar{display:none!important}";
+  "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important;scroll-behavior:auto!important;scrollbar-width:none!important}::-webkit-scrollbar{display:none!important}";
 
 export const QUIET_MS = 1200;
 export const SETTLE_TIMEOUT_MS = 15_000;
@@ -18,12 +18,12 @@ export interface SettleReport {
 }
 
 export async function settle(
-  page: Page,
+  engine: Engine,
   viewport: { width: number; height: number },
   options: { parkMouse?: boolean } = {},
 ): Promise<SettleReport> {
   const started = Date.now();
-  const report = await page.evaluate(
+  const report = await engine.evaluate(
     async ({ quiet, timeout }) => {
       await document.fonts.ready;
       let lastMutation = performance.now();
@@ -99,9 +99,9 @@ export async function settle(
     },
     { quiet: QUIET_MS, timeout: SETTLE_TIMEOUT_MS },
   );
-  await page.addStyleTag({ content: KILL_SWITCH_CSS });
-  if (options.parkMouse !== false) await page.mouse.move(viewport.width - 2, viewport.height - 2);
-  await page.waitForTimeout(300);
+  await engine.addStyle(KILL_SWITCH_CSS);
+  if (options.parkMouse !== false) await engine.mouseMove(viewport.width - 2, viewport.height - 2);
+  await Bun.sleep(300);
   return {
     ms: Date.now() - started,
     timedOut: report.timedOut,

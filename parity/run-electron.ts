@@ -6,8 +6,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { _electron, type ElectronApplication, type Page } from "playwright";
 import { startFakeGithub } from "./fake-github.ts";
-import { dumpGeometry, runStep, type DriveContext, type Step } from "./drive.ts";
-import { PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
+import { serveControl, type DriveContext, type Engine, type Target } from "./drive.ts";
+import { copyDataTree, PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
 import { waitForNoGame } from "./lib/no-game.ts";
 import { realDataRoots, refuseRealFolder } from "./lib/real-folder.ts";
 import { resolveThroughSymlinks } from "./lib/real-folder.cjs";
@@ -18,6 +18,76 @@ export const DEFAULT_VIEWPORT = { width: 1280, height: 820 };
 export const TIME_ZONE = "America/New_York";
 
 const require = createRequire(import.meta.url);
+
+/** Engine over Playwright, the calls T02 made on the Electron page, one for one. */
+export class PlaywrightEngine implements Engine {
+  readonly name = "playwright" as const;
+  constructor(
+    readonly page: Page,
+    private readonly resize: (width: number, height: number) => Promise<void>,
+  ) {}
+
+  private locate({ selector, nth, text }: Target) {
+    let locator = this.page.locator(selector);
+    if (text !== undefined) locator = locator.filter({ hasText: text });
+    return nth === undefined ? locator.first() : locator.nth(nth);
+  }
+
+  evaluate<R, A = undefined>(fn: string | ((arg: A) => R | Promise<R>), arg?: A): Promise<R> {
+    return this.page.evaluate(fn as any, arg) as Promise<R>;
+  }
+  click(target: Target, button?: "left" | "right") {
+    return this.locate(target).click({ button });
+  }
+  hover(target: Target) {
+    return this.locate(target).hover();
+  }
+  fill(target: Target, text: string) {
+    return this.locate(target).fill(text);
+  }
+  press(key: string) {
+    return this.page.keyboard.press(key);
+  }
+  wheel(dy: number) {
+    return this.page.mouse.wheel(0, dy);
+  }
+  async scrollBy(target: Target, dy: number) {
+    await this.locate(target).evaluate((el, by) => el.scrollBy(0, by), dy);
+  }
+  waitFor(target: Target, timeout: number) {
+    return this.locate(target).waitFor({ state: "visible", timeout });
+  }
+  async waitForFunction(fn: () => unknown, timeout: number) {
+    await this.page.waitForFunction(fn, undefined, { timeout });
+  }
+  count(selector: string) {
+    return this.page.locator(selector).count();
+  }
+  async addStyle(css: string) {
+    await this.page.addStyleTag({ content: css });
+  }
+  mouseMove(x: number, y: number) {
+    return this.page.mouse.move(x, y);
+  }
+  async screenshot(file: string, options: { fullPage?: boolean } = {}) {
+    await this.page.screenshot({
+      path: file,
+      animations: "disabled",
+      caret: "hide",
+      fullPage: options.fullPage,
+    });
+  }
+  content() {
+    return this.page.content();
+  }
+  async reload() {
+    await this.page.reload();
+    await this.page.waitForLoadState("load");
+  }
+  resizeWindow(width: number, height: number) {
+    return this.resize(width, height);
+  }
+}
 
 export interface RunningElectron {
   app: ElectronApplication;
@@ -163,17 +233,9 @@ export function stampDiff(before: Map<string, string>, after: Map<string, string
   return changed;
 }
 
-export function prepareRun(options: {
-  data: string;
-  runDir: string;
-  repo: string;
-  lastRunVersion?: string;
-}) {
-  const { runDir, repo } = options;
+/** Empties a run folder only when a parity run made it, then marks it as one. */
+export function claimRunFolder(runDir: string, dataRoot?: string) {
   refuseRealFolder(runDir, "run folder");
-  // The app creates its own database in an empty data folder, as on a fresh install.
-  const empty = options.data === "empty";
-  const dataRoot = empty ? undefined : resolveDataRoot(options.data);
   if (dataRoot && isInside(fs.realpathSync(dataRoot), resolveThroughSymlinks(runDir))) {
     throw new Error(`run folder ${runDir} contains the data folder ${dataRoot}`);
   }
@@ -187,6 +249,20 @@ export function prepareRun(options: {
   fs.mkdirSync(runDir, { recursive: true });
   fs.writeFileSync(marker, "bmt parity run folder\n");
   assertRunFolderPinned(runDir);
+}
+
+export function prepareRun(options: {
+  data: string;
+  runDir: string;
+  repo: string;
+  lastRunVersion?: string;
+}) {
+  const { runDir, repo } = options;
+  refuseRealFolder(runDir, "run folder");
+  // The app creates its own database in an empty data folder, as on a fresh install.
+  const empty = options.data === "empty";
+  const dataRoot = empty ? undefined : resolveDataRoot(options.data);
+  claimRunFolder(runDir, dataRoot);
 
   const built = path.join(repo, "out");
   if (!fs.existsSync(path.join(built, "main", "index.js"))) {
@@ -216,9 +292,9 @@ export function prepareRun(options: {
     assertNoEscapingLinks(runDir);
     return { dataRoot, version: pkg.version };
   }
-  copyTree(path.join(dataRoot, "data"), path.join(runDir, "data"));
-  copyTree(path.join(dataRoot, "asset-cache"), path.join(runDir, "asset-cache"));
-  copyTree(path.join(dataRoot, "backups"), path.join(runDir, "backups"));
+  copyDataTree(path.join(dataRoot, "data"), path.join(runDir, "data"));
+  copyDataTree(path.join(dataRoot, "asset-cache"), path.join(runDir, "asset-cache"));
+  copyDataTree(path.join(dataRoot, "backups"), path.join(runDir, "backups"));
 
   const db = path.join(runDir, "data", "matches.db");
   const database = new Database(db);
@@ -449,7 +525,12 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     throw error;
   }
 
-  const ctx: DriveContext = { page, app, viewport, resizeWindow, touchedSettings: new Map() };
+  const ctx: DriveContext = {
+    engine: new PlaywrightEngine(page, resizeWindow),
+    app,
+    viewport,
+    touchedSettings: new Map(),
+  };
   const faults = () => readFaults(seamLog);
   return {
     app,
@@ -501,51 +582,18 @@ if (import.meta.main) {
     quit: value("--quit") === "graceful" ? "graceful" : undefined,
   });
   try {
-    if (state) await applyState(running.ctx, state, await resolveVars(running.page));
-    else await settle(running.page, running.ctx.viewport);
+    if (state) await applyState(running.ctx, state, await resolveVars(running.ctx.engine));
+    else await settle(running.ctx.engine, running.ctx.viewport);
   } catch (error) {
     await running.close();
     throw error;
   }
 
-  const token = crypto.randomBytes(16).toString("hex");
-  const shutdown = async () => {
-    await running.close();
-    process.exit(0);
-  };
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    async fetch(request) {
-      if (request.headers.get("authorization") !== `Bearer ${token}`) {
-        return new Response("refused", { status: 401 });
-      }
-      const body = (await request.json()) as Step & { op: string; path?: string };
-      try {
-        if (body.op === "quit") {
-          setTimeout(shutdown, 50);
-          return new Response("bye");
-        }
-        if (body.op === "shot") {
-          const file = body.path ?? path.join(running.runDir, "shot.png");
-          refuseRealFolder(file, "screenshot path");
-          await running.page.screenshot({ path: file, animations: "disabled", caret: "hide" });
-          return new Response(file);
-        }
-        if (body.op === "dom") return new Response(await running.page.content());
-        if (body.op === "geometry") return new Response(await dumpGeometry(running.page));
-        await runStep(running.ctx, body as Step);
-        return new Response("ok");
-      } catch (error) {
-        return new Response(String(error), { status: 500 });
-      }
-    },
+  const control = serveControl({
+    ctx: running.ctx,
+    runDir: running.runDir,
+    token: crypto.randomBytes(16).toString("hex"),
+    close: () => running.close(),
   });
-  fs.writeFileSync(
-    path.join(running.runDir, "control.json"),
-    JSON.stringify({ port: server.port, token }),
-  );
-  console.log(`ready run=${running.runDir} control=127.0.0.1:${server.port}`);
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+  console.log(`ready run=${running.runDir} control=127.0.0.1:${control.port}`);
 }

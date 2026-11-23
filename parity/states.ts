@@ -1,5 +1,11 @@
-import type { Page } from "playwright";
-import { expand, restoreSettings, runStep, type DriveContext, type Step } from "./drive.ts";
+import {
+  expand,
+  restoreSettings,
+  runStep,
+  type DriveContext,
+  type Engine,
+  type Step,
+} from "./drive.ts";
 import { settle, type SettleReport } from "./settle.ts";
 import { CLIENT_STATES } from "./states-client.ts";
 import { OVERLAY_STATES } from "./states-overlays.ts";
@@ -34,6 +40,11 @@ export interface StateRow {
   holdPointer?: boolean;
   /** Captured only on this platform. An id named on its own always runs. */
   platform?: NodeJS.Platform;
+  /**
+   * `window.api` methods the Tauri replay may answer from a default case or not at all in this
+   * state. Any other miss fails the capture, because the page then shows other data.
+   */
+  replayMisses?: string[];
 }
 
 const FULL: Viewport = { width: 1280, height: 820 };
@@ -197,8 +208,8 @@ export function selectStates(spec: string | undefined): StateRow[] {
   return picked;
 }
 
-export async function resolveVars(page: Page): Promise<Record<string, string>> {
-  return page.evaluate(async () => {
+export async function resolveVars(engine: Engine): Promise<Record<string, string>> {
+  return engine.evaluate(async () => {
     const api = window.api as unknown as Record<string, (...args: unknown[]) => Promise<any>>;
     const history = await api.getMatchHistory!(1, 0);
     const seasons = (await api.getSeasons!()) as {
@@ -239,8 +250,8 @@ export const LOOKUP_TIMEOUT_MS = 20_000;
  * for the same data first fills the main process's caches, so the card's own requests return
  * at once.
  */
-async function warmLookups(page: Page): Promise<boolean> {
-  return page.evaluate(async (timeout) => {
+async function warmLookups(engine: Engine): Promise<boolean> {
+  return engine.evaluate(async (timeout) => {
     const api = window.api as unknown as Record<string, () => Promise<object | null>>;
     const deadline = Date.now() + timeout;
     for (;;) {
@@ -264,15 +275,15 @@ async function warmLookups(page: Page): Promise<boolean> {
  * mount starts with every cache full, so the page that is captured never races.
  */
 async function remountWithWarmCaches(
-  page: Page,
+  engine: Engine,
   route: string,
   vars: Record<string, string>,
   viewport: Viewport,
 ) {
-  await page.evaluate(() => (location.hash = "#/__remount"));
-  await page.waitForTimeout(200);
-  await page.evaluate((hash) => (location.hash = hash), "#" + expand(route, vars));
-  await settle(page, viewport);
+  await engine.evaluate(() => (location.hash = "#/__remount"));
+  await Bun.sleep(200);
+  await engine.evaluate((hash) => (location.hash = hash), "#" + expand(route, vars));
+  await settle(engine, viewport);
 }
 
 // Past this, applyState says where the time went, so a stall is attributed and not guessed at
@@ -283,7 +294,7 @@ export async function applyState(
   state: StateRow,
   vars: Record<string, string>,
 ): Promise<StateOutcome> {
-  const { page } = ctx;
+  const { engine } = ctx;
   const laps: string[] = [];
   const startedAt = Date.now();
   let lapStart = startedAt;
@@ -293,10 +304,12 @@ export async function applyState(
   };
   await restoreSettings(ctx);
   if (ctx.app) await runStep(ctx, { op: "main", call: "reset" });
-  await page.evaluate(() => {
+  // The Tauri replay answers from this state's own call list (replay-api.js)
+  await engine.evaluate((id) => {
     localStorage.clear();
     sessionStorage.clear();
-  });
+    sessionStorage.setItem("__bmtReplayState", id);
+  }, state.id);
   lap("reset");
   const pre = state.pre ?? [];
   if (pre.some((step) => step.op === "local" && step.key.startsWith("view:"))) {
@@ -305,38 +318,35 @@ export async function applyState(
   for (const step of pre) await runStep(ctx, step, vars);
   lap("pre steps");
 
-  const lookupsReady = state.card ? await warmLookups(page) : undefined;
+  const lookupsReady = state.card ? await warmLookups(engine) : undefined;
   ctx.viewport = { ...state.viewport };
-  await ctx.resizeWindow(state.viewport.width, state.viewport.height);
-  await page.evaluate((hash) => (location.hash = hash), "#" + expand(state.route, vars));
-  await page.reload();
-  await page.waitForLoadState("load");
+  await engine.resizeWindow(state.viewport.width, state.viewport.height);
+  await engine.evaluate((hash) => (location.hash = hash), "#" + expand(state.route, vars));
+  await engine.reload();
   lap("resize and load");
-  await settle(page, ctx.viewport);
+  await settle(engine, ctx.viewport);
   lap("first settle");
-  if (!state.card) await remountWithWarmCaches(page, state.route, vars, ctx.viewport);
+  if (!state.card) await remountWithWarmCaches(engine, state.route, vars, ctx.viewport);
 
   let card: StateOutcome["card"];
   if (state.card) {
-    await page.waitForFunction(() => (window as any).__mayhemCardStatus, undefined, {
-      timeout: 15_000,
-    });
-    card = await page.evaluate(() => (window as any).__mayhemCardStatus);
+    await engine.waitForFunction(() => (window as any).__mayhemCardStatus, 15_000);
+    card = await engine.evaluate(() => (window as any).__mayhemCardStatus);
     if (card && card.state === "ready" && card.height > 0) {
-      await ctx.resizeWindow(state.viewport.width, Math.max(card.height, 600));
+      await engine.resizeWindow(state.viewport.width, Math.max(card.height, 600));
     }
   }
 
   lap("card");
   for (const step of state.steps ?? []) await runStep(ctx, step, vars);
   lap("steps");
-  const report = await settle(page, ctx.viewport, { parkMouse: !state.holdPointer });
+  const report = await settle(engine, ctx.viewport, { parkMouse: !state.holdPointer });
   lap("final settle");
   const total = Date.now() - startedAt;
   if (total > SLOW_STATE_MS) console.log(`slow ${state.id}: ${total} ms, ${laps.join(", ")}`);
-  const expectFound = (await page.locator(state.expect).count()) > 0;
+  const expectFound = (await engine.count(state.expect)) > 0;
   const placeholders = state.card
-    ? ((await page.locator("body").innerText()).match(PLACEHOLDER) ?? [])
+    ? ((await engine.evaluate(() => document.body.innerText)).match(PLACEHOLDER) ?? [])
     : [];
   return { settle: report, card, lookupsReady, placeholders, expectFound };
 }

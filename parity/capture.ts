@@ -1,11 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
-import { gameRunning, waitForNoGame } from "./lib/no-game.ts";
-import { dumpGeometry } from "./drive.ts";
+import { PNG } from "pngjs";
+import {
+  CROSS_ENGINE,
+  diffFiles,
+  readGeometry,
+  type DiffResult,
+  type GeometryRow,
+  type Region,
+} from "./diff.ts";
+import { dumpGeometry, type DriveContext } from "./drive.ts";
 import { isDataSource, PARITY_DIR } from "./lib/data.ts";
+import { gameRunning, waitForNoGame } from "./lib/no-game.ts";
 import { refuseRealFolder } from "./lib/real-folder.ts";
 import { openClientState } from "./capture-client.ts";
 import { gpuSwitch, startElectron, type RunReport, type RunningElectron } from "./run-electron.ts";
+import { startTauri, type Renderer } from "./run-tauri.ts";
 import {
   applyState,
   resolveVars,
@@ -29,25 +39,43 @@ interface Timing {
   connectMs?: number;
 }
 
+type App = "electron" | "tauri";
+
+interface RunningApp {
+  ctx: DriveContext;
+  runDir: string;
+  faults(): string[];
+  /** Facts recorded in every state's meta file. */
+  meta(): Promise<Record<string, unknown>>;
+  /** Closes the app and copies its logs into `dir`, numbered by launch. */
+  close(dir: string, launch: number): Promise<{ faults: string[]; leaks: string[]; seam: string }>;
+}
+
 function parse(argv: string[]) {
   const out = {
-    app: "electron",
+    app: "electron" as App,
+    renderer: "electron" as Renderer,
     data: "fixture",
     states: undefined as string | undefined,
     all: false,
     withClient: false,
     dir: undefined as string | undefined,
     repo: undefined as string | undefined,
+    golden: undefined as string | undefined,
+    compare: undefined as string | undefined,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
-    if (arg === "--app") out.app = argv[++i]!;
+    if (arg === "--app") out.app = argv[++i] as App;
+    else if (arg === "--renderer") out.renderer = argv[++i] as Renderer;
     else if (arg === "--data") out.data = argv[++i]!;
     else if (arg === "--states") out.states = argv[++i];
     else if (arg === "--all") out.all = true;
     else if (arg === "--with-client") out.withClient = true;
     else if (arg === "--out") out.dir = argv[++i];
     else if (arg === "--repo") out.repo = argv[++i];
+    else if (arg === "--golden") out.golden = argv[++i];
+    else if (arg === "--compare") out.compare = argv[++i];
     else throw new Error(`unknown flag ${arg}`);
   }
   return out;
@@ -85,14 +113,196 @@ function isAlive(pid: number) {
   }
 }
 
+function electronApp(
+  running: RunningElectron,
+  closeApp: () => Promise<RunReport> = () => running.close(),
+): RunningApp {
+  return {
+    ctx: running.ctx,
+    runDir: running.runDir,
+    faults: () => running.faults(),
+    meta: async () => ({ engine: "electron" }),
+    async close(dir, launch) {
+      const report = await closeApp();
+      const mainLog = path.join(running.runDir, "logs", "main.log");
+      if (fs.existsSync(mainLog)) fs.copyFileSync(mainLog, path.join(dir, `main.${launch}.log`));
+      return { ...report, seam: fs.readFileSync(running.seamLog, "utf8") };
+    },
+  };
+}
+
+async function start(
+  args: ReturnType<typeof parse>,
+  data: string,
+  runDir: string,
+): Promise<RunningApp> {
+  if (args.app === "electron") {
+    return electronApp(await startElectron({ data, repo: args.repo, runDir }));
+  }
+  const running = await startTauri({
+    data,
+    repo: args.repo,
+    renderer: args.renderer,
+    goldenDir: args.golden,
+    runDir,
+  });
+  return {
+    ctx: running.ctx,
+    runDir: running.runDir,
+    faults: () => [],
+    meta: async () => ({
+      engine: process.platform === "darwin" ? "wkwebview" : "webview2",
+      renderer: args.renderer,
+      snapshot: running.engine.lastSnapshot,
+      clamped: running.engine.clamped,
+      // A call the goldens do not answer changes what the page shows, not how it renders
+      replayMisses: await running.engine.evaluate(
+        () => ((window as any).api?.__misses ?? []) as string[],
+      ),
+      replayCalls: await running.engine.evaluate(
+        () => ((window as any).api?.__calls ?? []) as string[],
+      ),
+    }),
+    async close(dir, launch) {
+      await running.close();
+      for (const [name, ext] of [
+        ["facts", "json"],
+        ["tauri", "log"],
+      ]) {
+        const file = path.join(running.runDir, `${name}.${ext}`);
+        if (fs.existsSync(file)) fs.copyFileSync(file, path.join(dir, `${name}.${launch}.${ext}`));
+      }
+      return { faults: [], leaks: [], seam: "" };
+    },
+  };
+}
+
+/**
+ * Where the gate's worst tile sits. diff.ts counts the most differing pixels in any 64 CSS px
+ * window, sliding, which pixelmatch reports without a position, so this finds the window with
+ * the most red marks in the diff image, the same pixels pixelmatch counted.
+ */
+export function locateWorstWindow(diff: PNG, scale: number) {
+  const { width: w, height: h } = diff;
+  const n = Math.min(Math.round(CROSS_ENGINE.tileCss * scale), w, h);
+  const sums = new Uint32Array((w + 1) * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let row = 0;
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (diff.data[i] === 255 && diff.data[i + 1] === 0 && diff.data[i + 2] === 0) row++;
+      sums[(y + 1) * (w + 1) + x + 1] = sums[y * (w + 1) + x + 1]! + row;
+    }
+  }
+  const at = (x: number, y: number) => sums[y * (w + 1) + x]!;
+  let best = { x: 0, y: 0, differing: 0 };
+  for (let y = 0; y + n <= h; y++) {
+    for (let x = 0; x + n <= w; x++) {
+      const count = at(x + n, y + n) - at(x + n, y) - at(x, y + n) + at(x, y);
+      if (count > best.differing) best = { x, y, differing: count };
+    }
+  }
+  return { xCss: best.x / scale, yCss: best.y / scale, differing: best.differing };
+}
+
+/** The innermost element box under a CSS px point, to name what a failing tile shows. */
+export function elementAt(rows: GeometryRow[], x: number, y: number) {
+  let best: GeometryRow | undefined;
+  for (const row of rows) {
+    const [, , rx, ry, w, h] = row;
+    if (x >= rx && x < rx + w && y >= ry && y < ry + h) {
+      if (!best || row[0].length >= best[0].length) best = row;
+    }
+  }
+  return best && { path: best[0], tag: best[1], box: best.slice(2) };
+}
+
+export type Cause = "capture" | "size" | "replay-data" | "layout" | "page-budget" | "tile";
+
+/**
+ * The first gate a cross-engine result failed. A state the goldens did not fully answer drew
+ * other data, so its failure says nothing about the engine.
+ */
+export function causeOf(result: DiffResult, replayMisses: string[] = []): Cause | undefined {
+  if (result.pass) return undefined;
+  if (replayMisses.length > 0) return "replay-data";
+  if (result.reasons.some((r) => r.startsWith("image sizes differ"))) return "size";
+  if (result.layout && !result.layout.pass) return "layout";
+  if (result.reasons.some((r) => r.startsWith("page budget"))) return "page-budget";
+  return "tile";
+}
+
+export function compareBaselines(electronDir: string, tauriDir: string, ids: string[]) {
+  const out = path.join(tauriDir, "cross-engine");
+  fs.mkdirSync(out, { recursive: true });
+  const scale = 2;
+  const metaOf = (dir: string, id: string): Record<string, any> => {
+    const file = path.join(dir, `${id}.meta.json`);
+    return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
+  };
+  const states = ids.map((id) => {
+    const a = path.join(electronDir, `${id}.png`);
+    const b = path.join(tauriDir, `${id}.png`);
+    const electronMeta = metaOf(electronDir, id);
+    const tauriMeta = metaOf(tauriDir, id);
+    const replayMisses: string[] = tauriMeta.replayMisses ?? [];
+    if (!fs.existsSync(a) || !fs.existsSync(b)) {
+      return { id, pass: false, cause: "capture" as Cause, reasons: ["missing capture"] };
+    }
+    const blurRegions: Region[] = [
+      ...(electronMeta.blurRegions ?? []),
+      ...(tauriMeta.blurRegions ?? []),
+    ];
+    const geometry: [string, string] = [
+      path.join(electronDir, `${id}.geometry.json`),
+      path.join(tauriDir, `${id}.geometry.json`),
+    ];
+    const result = diffFiles(a, b, {
+      policy: "cross-engine",
+      geometry,
+      scale,
+      blurRegions,
+      outPrefix: path.join(out, id),
+    });
+    const at = result.diffImage ? locateWorstWindow(result.diffImage, scale) : undefined;
+    const half = CROSS_ENGINE.tileCss / 2;
+    const under = at && elementAt(readGeometry(geometry[0]), at.xCss + half, at.yCss + half);
+    const { diffImage: _image, worstTile, ...numbers } = result;
+    return {
+      id,
+      ...numbers,
+      cause: causeOf(result, replayMisses),
+      replayMisses,
+      worstTile: worstTile && {
+        ...worstTile,
+        at: at && { xCss: at.xCss, yCss: at.yCss, located: at.differing },
+        under,
+      },
+    };
+  });
+  const byCause: Record<string, string[]> = {};
+  for (const state of states) if (state.cause) (byCause[state.cause] ??= []).push(state.id);
+  const report = {
+    policy: CROSS_ENGINE,
+    electron: electronDir,
+    tauri: tauriDir,
+    passed: states.filter((s) => s.pass).length,
+    total: states.length,
+    byCause,
+    states,
+  };
+  fs.writeFileSync(
+    path.join(tauriDir, "cross-engine-report.json"),
+    JSON.stringify(report, null, 1),
+  );
+  return report;
+}
+
 async function main() {
   const args = parse(process.argv.slice(2));
-  if (args.app !== "electron") {
-    throw new Error(`--app ${args.app} is not available yet. Only electron is built in this unit.`);
-  }
-  if (!args.all && !args.states) {
+  if (!["electron", "tauri"].includes(args.app) || (!args.all && !args.states)) {
     console.error(
-      `usage: bun parity/capture.ts --app electron --data <fixture|snapshot|folder> (--all [--with-client] | --states <ids or groups>) [--out <folder>]\ngroups: ${stateGroups().join(", ")}`,
+      `usage: bun parity/capture.ts --app <electron|tauri> [--renderer electron|solid] --data <fixture|snapshot|folder> (--all [--with-client] | --states <ids or groups>) [--out <folder>] [--golden <dir>] [--compare <electron baseline folder>]\ngroups: ${stateGroups().join(", ")}`,
     );
     process.exit(2);
   }
@@ -109,28 +319,20 @@ async function main() {
   let launches = 0;
   let data = args.data;
   const launch = () =>
-    startElectron({
+    start(
+      args,
       data,
-      repo: args.repo,
-      runDir: path.join(dir, "..", ".run", `${path.basename(dir)}-${process.pid}-${launches++}`),
-    });
+      path.join(dir, "..", ".run", `${path.basename(dir)}-${process.pid}-${launches++}`),
+    );
   const timings: Timing[] = [];
   const seamLogs: string[] = [];
   const allFaults: string[] = [];
   const leaks: string[] = [];
   let failures = 0;
 
-  const finish = async (
-    session: RunningElectron,
-    seen: number,
-    close: () => Promise<RunReport> = () => session.close(),
-  ) => {
-    const report = await close();
-    const mainLog = path.join(session.runDir, "logs", "main.log");
-    if (fs.existsSync(mainLog)) {
-      fs.copyFileSync(mainLog, path.join(dir, `main.${seamLogs.length}.log`));
-    }
-    seamLogs.push(fs.readFileSync(session.seamLog, "utf8"));
+  const finish = async (session: RunningApp, seen: number) => {
+    const report = await session.close(dir, seamLogs.length);
+    seamLogs.push(report.seam);
     fs.rmSync(session.runDir, { recursive: true, force: true });
     allFaults.push(...report.faults);
     leaks.push(...report.leaks);
@@ -142,7 +344,7 @@ async function main() {
     }
   };
 
-  let running: RunningElectron | undefined;
+  let running: RunningApp | undefined;
   let vars: Record<string, string> = {};
   let seenFaults = 0;
   const closeShared = async () => {
@@ -154,11 +356,11 @@ async function main() {
     await waitForNoGame();
     running = await launch();
     seenFaults = 0;
-    vars = await resolveVars(running.page);
+    vars = await resolveVars(running.ctx.engine);
   };
   try {
     for (const state of states) {
-      let session: RunningElectron;
+      let session: RunningApp;
       let clientRun: Awaited<ReturnType<typeof openClientState>> | undefined;
       let sessionVars = vars;
       let clientSeen = 0;
@@ -168,6 +370,11 @@ async function main() {
         await closeShared();
         await waitForNoGame();
         try {
+          if (args.app !== "electron") {
+            throw new Error(
+              "client states run on Electron only, where the seam reaches the fake client",
+            );
+          }
           clientRun = await openClientState(state as StateRow, {
             data: args.data,
             repo: args.repo,
@@ -182,7 +389,8 @@ async function main() {
           console.log(`FAIL ${state.id} ${record.ms} ms ${record.error}`);
           continue;
         }
-        session = clientRun.running;
+        const run = clientRun;
+        session = electronApp(run.running, () => run.finish(dir));
       } else {
         if (running && gameRunning()) {
           console.log("a League game started, closing the window and waiting");
@@ -239,23 +447,29 @@ async function main() {
         }
         fs.writeFileSync(
           path.join(dir, `${state.id}.geometry.json`),
-          await dumpGeometry(session.page),
+          await dumpGeometry(session.ctx.engine),
         );
-        await session.page.screenshot({
-          path: path.join(dir, `${state.id}.png`),
-          animations: "disabled",
-          caret: "hide",
+        // WebKit snapshots draw no backdrop blur (Appendix A), so every element that asks for
+        // one is a blur region, judged by the 0.2 threshold tile rule
+        const blurRegions = await session.ctx.engine.evaluate(() =>
+          [...document.querySelectorAll("body *")].flatMap((el) => {
+            const style = getComputedStyle(el);
+            const filter =
+              style.getPropertyValue("backdrop-filter") ||
+              style.getPropertyValue("-webkit-backdrop-filter");
+            if (!filter || filter === "none") return [];
+            const box = el.getBoundingClientRect();
+            const x = Math.max(0, box.left);
+            const y = Math.max(0, box.top);
+            const w = Math.min(innerWidth, box.right) - x;
+            const h = Math.min(innerHeight, box.bottom) - y;
+            return w > 0 && h > 0 ? [{ x, y, w, h }] : [];
+          }),
+        );
+        await session.ctx.engine.screenshot(path.join(dir, `${state.id}.png`), {
           fullPage: state.card === true,
         });
-        if (state.card) {
-          const tall = fs.readFileSync(path.join(dir, `${state.id}.png`)).readUInt32BE(20) / 2;
-          // The card publishes Math.ceil of a fractional height, the page a rounded one.
-          if (Math.abs(tall - outcome.card!.height) > 1) {
-            throw new Error(
-              `card image is ${tall} CSS px tall, the card is ${outcome.card!.height}`,
-            );
-          }
-        }
+        const meta = await session.meta();
         fs.writeFileSync(
           path.join(dir, `${state.id}.meta.json`),
           JSON.stringify(
@@ -266,21 +480,35 @@ async function main() {
               data: state.data ?? dataLabel,
               card: outcome.card,
               settle: outcome.settle,
+              blurRegions,
+              ...meta,
             },
             null,
             1,
           ),
         );
+        const misses = ((meta.replayMisses ?? []) as string[]).filter(
+          (miss) => !state.replayMisses?.includes(miss.match(/^\w+: (\w+)\(/)?.[1] ?? ""),
+        );
+        if (misses.length > 0) {
+          throw new Error(`the goldens did not answer: ${misses.join(" | ").slice(0, 400)}`);
+        }
+        if (state.card) {
+          const tall = fs.readFileSync(path.join(dir, `${state.id}.png`)).readUInt32BE(20) / 2;
+          // The card publishes Math.ceil of a fractional height, the page a rounded one.
+          if (Math.abs(tall - outcome.card!.height) > 1) {
+            throw new Error(
+              `card image is ${tall} CSS px tall, the card is ${outcome.card!.height}`,
+            );
+          }
+        }
       } catch (error) {
         record.ok = false;
         record.error = String(error);
         failures++;
       }
       record.ms = Date.now() - t0;
-      if (clientRun) {
-        const run = clientRun;
-        await finish(session, clientSeen, () => run.finish(dir));
-      }
+      if (clientRun) await finish(session, clientSeen);
       timings.push(record);
       console.log(
         `${record.ok ? "ok  " : "FAIL"} ${state.id} ${record.ms} ms${record.connectMs != null ? ` connect ${record.connectMs} ms` : ""}${record.error ? ` ${record.error}` : ""}`,
@@ -303,7 +531,8 @@ async function main() {
   }
   const max = timings.reduce((a, b) => (b.ms > a.ms ? b : a), timings[0]!);
   const summary = {
-    gpu: gpuSwitch(),
+    app: args.app,
+    gpu: args.app === "electron" ? gpuSwitch() : undefined,
     wallMs,
     states: timings.length,
     failures,
@@ -317,6 +546,18 @@ async function main() {
   console.log(
     `${timings.length} states, ${failures} failed, wall ${(wallMs / 1000).toFixed(1)} s, slowest ${max?.id} ${max?.ms} ms, blocked writes ${blockedWrites}, main-process faults ${allFaults.length}, writes outside the run folder ${leaks.length}`,
   );
+
+  if (args.compare) {
+    const report = compareBaselines(
+      path.resolve(args.compare),
+      dir,
+      timings.map((t) => t.id),
+    );
+    const causes = Object.entries(report.byCause).map(
+      ([cause, ids]) => `${cause}: ${ids.join(", ")}`,
+    );
+    console.log(`cross-engine: ${report.passed}/${report.total} pass. ${causes.join("; ")}`);
+  }
   process.exit(failures ? 1 : 0);
 }
 
