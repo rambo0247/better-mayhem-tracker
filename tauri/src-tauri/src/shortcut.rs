@@ -10,7 +10,13 @@ use std::path::{Path, PathBuf};
 use crate::install_location::{self, APP_DISPLAY_NAME};
 
 /// `appId` in package.json's `build`, which Tauri's identifier also is.
+#[cfg(not(feature = "parity-driver"))]
 pub const APP_USER_MODEL_ID: &str = "com.better-mayhem-tracker.app";
+/// A driver build takes the parity identifier, as its Tauri identifier does
+/// (build.rs), so it never claims the app's taskbar entries or shortcut, and
+/// `run-tauri.ts` finds no production identifier in it.
+#[cfg(feature = "parity-driver")]
+pub const APP_USER_MODEL_ID: &str = "com.better-mayhem-tracker.parity";
 
 /// `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Better Mayhem Tracker.lnk`
 /// for `app_data`, Electron's `app.getPath("appData")`.
