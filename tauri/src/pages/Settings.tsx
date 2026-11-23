@@ -528,14 +528,9 @@ export default function Settings() {
             <Section id="general">
               <Row
                 title={IS_MAC ? "Open at login" : "Start with Windows"}
-                description={
-                  <>
-                    Open the program in the {IS_MAC ? "menu bar" : "system tray"} when you sign in
-                    to {IS_MAC ? "your Mac" : "Windows"}, so your games are recorded without having
-                    to remember to start it.
-                    {!packaged() && NOT_INSTALLED_NOTE}
-                  </>
-                }
+                // WebKit shapes each text node on its own, which made this line wrap a word earlier
+                // than Chromium, so the description is a single text node
+                description={`Open the program in the ${IS_MAC ? "menu bar" : "system tray"} when you sign in to ${IS_MAC ? "your Mac" : "Windows"}, so your games are recorded without having to remember to start it.${packaged() ? "" : NOT_INSTALLED_NOTE}`}
                 control={
                   <Switch
                     label={IS_MAC ? "Open at login" : "Start with Windows"}
