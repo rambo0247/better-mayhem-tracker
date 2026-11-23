@@ -4,6 +4,8 @@
 app:open-logs-folder
 app:open-url
 app:version
+settings:get
+settings:set
 window:close
 window:minimize
 window:is-maximized
