@@ -1,46 +1,6 @@
-import { beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
-import { transformSync } from "@babel/core";
-import { Window } from "happy-dom";
-import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { fake } from "../../test/fakeApi";
 import type { ChallengeProgress, ChallengesData, ChallengesResult } from "../lib/types";
-
-// Solid's DOM build and the JSX transform are what the app is built with, so
-// the test loads the page the same way: the browser entries of the two Solid
-// packages, and the Babel plugin over every module under src/.
-const solidDir = fileURLToPath(new URL("../../node_modules/solid-js/dist/", import.meta.url));
-const webDir = fileURLToPath(new URL("../../node_modules/@solidjs/web/dist/", import.meta.url));
-const srcDir = fileURLToPath(new URL("../", import.meta.url));
-
-Bun.plugin({
-  name: "solid-dom",
-  setup(build) {
-    build.onResolve({ filter: /^solid-js$/ }, () => ({ path: `${solidDir}solid.js` }));
-    build.onResolve({ filter: /^@solidjs\/web$/ }, () => ({ path: `${webDir}web.js` }));
-    build.onLoad({ filter: /\.tsx$/ }, ({ path }) => {
-      if (!path.startsWith(srcDir)) return undefined;
-      const out = transformSync(readFileSync(path, "utf8"), {
-        filename: path,
-        babelrc: false,
-        configFile: false,
-        parserOpts: { plugins: ["typescript", "jsx"] },
-        plugins: [["@solidjs/babel-plugin", { moduleName: "@solidjs/web", generate: "dom" }]],
-      });
-      return { contents: out?.code ?? "", loader: "ts" };
-    });
-  },
-});
-
-const win = new Window({ url: "http://localhost/" });
-Object.assign(globalThis, {
-  window: win,
-  document: win.document,
-  navigator: win.navigator,
-  HTMLElement: win.HTMLElement,
-  Node: win.Node,
-  Element: win.Element,
-  requestAnimationFrame: (cb: () => void) => setTimeout(cb, 0),
-});
 
 const progress = (id: number, name: string, over: Partial<ChallengeProgress> = {}) =>
   ({
@@ -85,29 +45,17 @@ const tick = async () => {
 };
 
 let initial: ChallengesResult;
-let emitChanged: (result: ChallengesResult) => void;
+const emitChanged = (result: ChallengesResult) => fake.emit("onChallengesChanged", result);
 
 mock.module("../lib/perf", () => ({ reportFirstContent: () => {} }));
-
-beforeAll(() => {
-  Object.assign(win, {
-    api: {
-      platform: "darwin",
-      getLcuStatus: () => Promise.resolve("Connected"),
-      onStatusChanged: () => () => {},
-      getChallenges: () => Promise.resolve(initial),
-      onChallengesChanged: (cb: (r: ChallengesResult) => void) => {
-        emitChanged = cb;
-        return () => {};
-      },
-      getChampionData: () => Promise.resolve({}),
-    },
-  });
-});
 
 async function mount() {
   const { render } = await import("@solidjs/web");
   const { default: Challenges } = await import("./Challenges");
+  fake.reset();
+  fake.returns.set("getLcuStatus", "Connected");
+  fake.returns.set("getChallenges", initial);
+  fake.returns.set("getChampionData", {});
   document.body.innerHTML = "";
   const root = document.createElement("div");
   document.body.append(root);

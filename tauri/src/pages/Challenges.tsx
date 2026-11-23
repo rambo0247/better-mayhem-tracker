@@ -40,16 +40,16 @@ function formatDay(day: string): string {
 }
 
 function percentileLabel(challenge: ChallengeProgress): string | null {
-  if (challenge.level === "NONE" || challenge.percentile >= 100) return null;
-  return `top ${formatPercent(challenge.percentile / 100)}`;
+  return challenge.level === "NONE" || challenge.percentile >= 100
+    ? null
+    : `top ${formatPercent(challenge.percentile / 100)}`;
 }
 
 // Points are on every tier and already shown as the challenge's own value, so
 // the only reward worth a line is the kind you can wear.
 function rewardNote(challenge: ChallengeProgress): string | null {
   const title = challenge.nextRewards.find((r) => r.category === "TITLE" && r.name);
-  if (!title) return null;
-  return `${levelName(challenge.nextLevel)} unlocks the "${title.name}" title`;
+  return title ? `${levelName(challenge.nextLevel)} unlocks the "${title.name}" title` : null;
 }
 
 // The category heads and challenges each scroll to their own section, so the
