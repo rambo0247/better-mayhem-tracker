@@ -49,6 +49,8 @@ dragon:augments
 dragon:champions
 dragon:items
 dragon:summoner-spells
+export:card-image
+export:copy-card-image
 lcu:backfill
 lcu:backfill-running
 lcu:cancel-backfill

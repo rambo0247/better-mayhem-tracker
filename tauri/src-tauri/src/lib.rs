@@ -22,9 +22,6 @@ pub mod db;
 pub mod dialogs;
 mod dragon;
 pub mod events;
-// export:card-image and export:copy-card-image reach it once T25's restack
-// wires T08's export bodies to it
-#[allow(dead_code)]
 mod export_image;
 pub mod import;
 pub mod install_location;
@@ -50,7 +47,7 @@ pub mod session;
 pub mod shell;
 pub mod shortcut;
 pub mod single_instance;
-// Card export (T25) calls it in release builds; until then only the driver does
+// The driver's page snapshot is a parity-driver tool; card export uses the rest
 #[cfg_attr(not(feature = "parity-driver"), allow(dead_code))]
 mod snapshot;
 pub mod text;
@@ -442,10 +439,10 @@ pub fn run() {
             parity_driver::prepare(app);
             #[cfg(feature = "parity-driver")]
             parity_shell::install_stand_ins(app.handle());
-            #[cfg(feature = "parity-driver")]
-            if let Some(lookup) = export_image::parity_match_lookup() {
-                app.manage(lookup);
-            }
+            app.manage(export_image::Cards::Drawn {
+                app: app.handle().clone(),
+                boot: boot_script(locale.as_deref()),
+            });
             // Before the window, so the script runs ahead of the page's first read
             let import_started = Instant::now();
             let carried = local_storage::import(
