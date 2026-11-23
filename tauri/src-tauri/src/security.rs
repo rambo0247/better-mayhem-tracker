@@ -4,7 +4,8 @@
 //! them on its own, so there is no permission handler to port.
 
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::mpsc::{self, SyncSender, TrySendError};
+use std::sync::{Mutex, OnceLock};
 
 use tauri::{Manager, Runtime, Url, WebviewWindowBuilder, webview::NewWindowResponse};
 
@@ -33,7 +34,9 @@ impl Effects {
 
     fn perform(&self, effect: Effect) {
         match self {
-            Effects::System => in_background(effect, open_with_os),
+            Effects::System => {
+                system_opener().submit(effect);
+            }
             Effects::Recorded(list) => list.lock().unwrap_or_else(|p| p.into_inner()).push(effect),
         }
     }
@@ -54,20 +57,56 @@ impl Effects {
     }
 }
 
-/// The opener waits for the OS (`/usr/bin/open` on macOS) to finish, and a
-/// navigation handler runs on the main thread, so the call happens on its
-/// own thread. Electron's shell calls resolve or reject with nobody waiting.
-fn in_background(effect: Effect, open: fn(&Effect) -> Result<(), String>) {
-    let spawned = std::thread::Builder::new()
-        .name("open-external".into())
-        .spawn(move || {
-            if let Err(err) = open(&effect) {
-                log::error(format!("Failed to open {effect:?}: {err}"));
-            }
-        });
-    if let Err(err) = spawned {
-        log::error(format!("Failed to start the opener thread: {err}"));
+/// Opens waiting behind the one with the OS before more are dropped.
+const OPEN_QUEUE: usize = 32;
+
+/// One thread that hands effects to the OS one at a time, in the order they
+/// were asked for. The opener waits for the OS (`/usr/bin/open` on macOS) to
+/// finish, and a navigation handler runs on the main thread, so the OS call
+/// happens here. Electron's shell calls resolve or reject with nobody waiting.
+struct Opener(SyncSender<Effect>);
+
+impl Opener {
+    fn start(open: fn(&Effect) -> Result<(), String>) -> Self {
+        let (queue, pending) = mpsc::sync_channel::<Effect>(OPEN_QUEUE);
+        let spawned = std::thread::Builder::new()
+            .name("open-external".into())
+            .spawn(move || {
+                for effect in pending {
+                    if let Err(err) = open(&effect) {
+                        log::error(format!("Failed to open {effect:?}: {err}"));
+                    }
+                }
+            });
+        if let Err(err) = spawned {
+            log::error(format!("Failed to start the opener thread: {err}"));
+        }
+        Self(queue)
     }
+
+    /// Queues `effect`, or logs and drops it when the queue is full.
+    fn submit(&self, effect: Effect) -> bool {
+        match self.0.try_send(effect) {
+            Ok(()) => true,
+            Err(TrySendError::Full(effect)) => {
+                log::warn(format!(
+                    "Dropped {effect:?}: {OPEN_QUEUE} opens are already waiting"
+                ));
+                false
+            }
+            Err(TrySendError::Disconnected(effect)) => {
+                log::error(format!(
+                    "Failed to open {effect:?}: the opener thread is not running"
+                ));
+                false
+            }
+        }
+    }
+}
+
+fn system_opener() -> &'static Opener {
+    static SYSTEM: OnceLock<Opener> = OnceLock::new();
+    SYSTEM.get_or_init(|| Opener::start(open_with_os))
 }
 
 fn open_with_os(effect: &Effect) -> Result<(), String> {
@@ -255,10 +294,8 @@ mod tests {
         *OPENED.lock().unwrap() = Some(opened_tx);
         let (returned_tx, returned) = mpsc::channel();
         std::thread::spawn(move || {
-            in_background(
-                Effect::OpenExternal("https://example.com/".into()),
-                blocking_open,
-            );
+            Opener::start(blocking_open)
+                .submit(Effect::OpenExternal("https://example.com/".into()));
             returned_tx.send(()).unwrap();
         });
         returned
@@ -269,6 +306,71 @@ mod tests {
         assert_eq!(
             opened.recv_timeout(Duration::from_secs(5)).unwrap(),
             Effect::OpenExternal("https://example.com/".into())
+        );
+    }
+
+    /// A page can ask for opens faster than the OS serves them. They run one
+    /// at a time in the order asked, and past a full queue they are dropped.
+    #[test]
+    fn opens_run_in_order_and_a_burst_past_the_queue_is_dropped() {
+        use std::sync::Condvar;
+        use std::time::{Duration, Instant};
+        static GATE: (Mutex<bool>, Condvar) = (Mutex::new(false), Condvar::new());
+        static OPENED: (Mutex<Vec<String>>, Condvar) = (Mutex::new(Vec::new()), Condvar::new());
+        static STARTED: (Mutex<usize>, Condvar) = (Mutex::new(0), Condvar::new());
+        fn gated_open(effect: &Effect) -> Result<(), String> {
+            *STARTED.0.lock().unwrap() += 1;
+            STARTED.1.notify_all();
+            let mut open = GATE.0.lock().unwrap();
+            while !*open {
+                open = GATE.1.wait(open).unwrap();
+            }
+            drop(open);
+            let Effect::OpenExternal(url) = effect else {
+                return Err("not a URL".into());
+            };
+            OPENED.0.lock().unwrap().push(url.clone());
+            OPENED.1.notify_all();
+            Ok(())
+        }
+        let url = |i: usize| format!("https://example.com/{i}");
+        let opener = Opener::start(gated_open);
+        assert!(opener.submit(Effect::OpenExternal(url(0))));
+        let started = STARTED.0.lock().unwrap();
+        let (started, _) = STARTED
+            .1
+            .wait_timeout_while(started, Duration::from_secs(5), |n| *n == 0)
+            .unwrap();
+        assert_eq!(*started, 1, "the first open is with the OS");
+        drop(started);
+        let queued: Vec<bool> = (1..100)
+            .map(|i| opener.submit(Effect::OpenExternal(url(i))))
+            .collect();
+        assert_eq!(queued.iter().filter(|q| **q).count(), OPEN_QUEUE);
+        assert!(
+            queued[..OPEN_QUEUE].iter().all(|q| *q),
+            "the first ones wait"
+        );
+        *GATE.0.lock().unwrap() = true;
+        GATE.1.notify_all();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut opened = OPENED.0.lock().unwrap();
+        while opened.len() < 1 + OPEN_QUEUE && Instant::now() < deadline {
+            opened = OPENED
+                .1
+                .wait_timeout(opened, Duration::from_millis(50))
+                .unwrap()
+                .0;
+        }
+        drop(opened);
+        // Anything past the queue would open within this
+        std::thread::sleep(Duration::from_millis(300));
+        let expected: Vec<String> = (0..=OPEN_QUEUE).map(url).collect();
+        assert_eq!(*OPENED.0.lock().unwrap(), expected);
+        assert_eq!(
+            *STARTED.0.lock().unwrap(),
+            1 + OPEN_QUEUE,
+            "the rest never ran"
         );
     }
 
