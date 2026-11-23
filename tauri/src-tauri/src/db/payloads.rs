@@ -3,7 +3,7 @@
 
 use std::io::{Read, Write};
 
-use flate2::read::MultiGzDecoder;
+use flate2::bufread::GzDecoder;
 use flate2::{Compression, GzBuilder};
 use rusqlite::types::{Value as Sql, ValueRef};
 use rusqlite::{Connection, named_params, params};
@@ -47,9 +47,24 @@ pub fn pack_raw(raw: &Value) -> Vec<u8> {
 /// `unpackRaw`: the payload, or `None` for no blob or one that will not
 /// gunzip or parse.
 pub fn unpack_raw(blob: Option<&[u8]>) -> Option<Value> {
-    let mut bytes = Vec::new();
-    MultiGzDecoder::new(blob?).read_to_end(&mut bytes).ok()?;
-    js::parse(&String::from_utf8_lossy(&bytes))
+    js::parse(&String::from_utf8_lossy(&gunzip(blob?)?))
+}
+
+/// `zlib.gunzipSync`: one member, then another for as long as bytes are left
+/// and the next is not zero. Node's inflate loop treats a zero byte as
+/// padding and stops there, whatever follows it, and reads anything else as
+/// a member that must be whole.
+fn gunzip(blob: &[u8]) -> Option<Vec<u8>> {
+    let mut out = Vec::new();
+    let mut rest = blob;
+    loop {
+        let mut member = GzDecoder::new(rest);
+        member.read_to_end(&mut out).ok()?;
+        rest = member.into_inner();
+        if rest.first().is_none_or(|&b| b == 0) {
+            return Some(out);
+        }
+    }
 }
 
 /// One player in one game, unpicked from either of Riot's two shapes: the
