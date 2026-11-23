@@ -325,7 +325,7 @@ export default function Header() {
         </header>
 
         <nav
-          className={`flex min-h-0 flex-1 flex-col overflow-y-auto pb-3 ${
+          className={`flex min-h-0 flex-1 scroll-py-2 flex-col overflow-y-auto pb-3 ${
             rail ? "items-center gap-1 px-2" : "px-3"
           }`}
         >

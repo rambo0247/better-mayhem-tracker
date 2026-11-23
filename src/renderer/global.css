@@ -84,9 +84,16 @@ body {
   color: #fff;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-lol-gold-light);
-  outline-offset: 2px;
+/* Drawn inside the element's own edge rather than around it. Most controls sit
+   flush against a neighbour (a select and its sort button, a segmented row) or
+   at the edge of a panel that clips its overflow, and a ring outside the box is
+   covered by the one and cut off by the other. In the base layer so a
+   component can still say otherwise. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-lol-gold-light);
+    outline-offset: -2px;
+  }
 }
 
 /* The page behind every view: a cool glow from the top and a faint diagonal
@@ -258,11 +265,13 @@ body {
     color: color-mix(in srgb, var(--color-lol-text) 65%, transparent);
   }
 
+  /* A 2px gold edge, all of it inside the box: a glow spread outside it slid
+     under whatever sat next to the field */
   .select:focus,
   .input:focus {
     outline: none;
-    border-color: color-mix(in srgb, var(--color-lol-gold) 70%, transparent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-lol-gold) 14%, transparent);
+    border-color: var(--color-lol-gold);
+    box-shadow: inset 0 0 0 1px var(--color-lol-gold);
   }
 
   /* A button in the toolbar's language: condensed caps, crisp edge */
@@ -391,6 +400,13 @@ body {
     color: #0a0f24;
   }
 
+  /* The light ring disappears into the selected option's light fill */
+  .seg-item[aria-pressed="true"]:focus-visible,
+  .seg-item[aria-selected="true"]:focus-visible,
+  .seg-item.is-active:focus-visible {
+    outline-color: var(--color-lol-gold);
+  }
+
   /* Small tag: a count, a state, a category */
   .chip {
     display: inline-flex;
@@ -438,8 +454,24 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: pointer;
 }
 
+/* A ring inside a 4px track would fill it; the thumb carries the focus instead */
+input[type="range"]:focus-visible {
+  outline: none;
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 2px var(--color-lol-dark),
+    0 0 0 4px var(--color-lol-gold-light);
+}
+
 input[type="checkbox"] {
   accent-color: var(--color-lol-gold);
+}
+
+/* Too small to hold a ring inside it */
+input[type="checkbox"]:focus-visible {
+  outline-offset: 2px;
 }
 
 /* Scrollbar styling */

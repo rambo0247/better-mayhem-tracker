@@ -123,7 +123,7 @@ function Switch({
         aria-label={label}
         disabled={disabled}
         onClick={onChange}
-        className={`relative inline-flex h-[22px] w-10 shrink-0 rounded-md border transition-colors duration-200 ${
+        className={`relative inline-flex h-[22px] w-10 shrink-0 rounded-md border transition-colors duration-200 focus-visible:outline-offset-2 ${
           disabled ? "cursor-not-allowed" : "cursor-pointer"
         } ${lockedOn ? "opacity-60" : disabled ? "opacity-40" : ""} ${
           checked

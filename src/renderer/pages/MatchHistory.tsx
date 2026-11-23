@@ -683,7 +683,7 @@ export default function MatchHistory() {
             setSort(e.target.value === "" ? undefined : (e.target.value as MatchSort));
             setSortDir("desc");
           }}
-          className="select rounded-r-none"
+          className="select relative rounded-r-none hover:z-10 focus:z-10"
           aria-label="Sort by"
         >
           <option value="">Newest</option>
@@ -704,7 +704,7 @@ export default function MatchHistory() {
                 ? "Highest first"
                 : "Lowest first"
           }
-          className="btn btn-icon -ml-px rounded-l-none"
+          className="btn btn-icon relative -ml-px rounded-l-none hover:z-10 focus-visible:z-10"
         >
           <ArrowDownIcon
             className={`h-3.5 w-3.5 transition-transform ${sortDir === "asc" ? "rotate-180" : ""}`}

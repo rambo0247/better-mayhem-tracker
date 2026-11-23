@@ -13,7 +13,9 @@ export default function Layout() {
         <RecoveryBanner />
         {/* Pages cap their own width; on a window wider than that they sit in
             the middle rather than against the left edge */}
-        <main className="scrollbar-edge relative flex-1 overflow-y-auto px-8 pb-10 pt-2">
+        {/* Scroll padding so a control Tab scrolls into view stops clear of the
+            edge, and clear of the sticky table headers, with its focus ring whole */}
+        <main className="scrollbar-edge relative flex-1 scroll-pt-14 scroll-pb-6 overflow-y-auto px-8 pb-10 pt-2">
           {/* Keyed by path so each page eases in as it's opened */}
           <div key={pathname} className="view-in [&>*]:mx-auto">
             <Outlet />

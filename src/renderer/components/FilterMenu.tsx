@@ -18,6 +18,7 @@ export default function FilterMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -25,7 +26,10 @@ export default function FilterMenu({
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      // Focus inside the menu would be left on a control that is now hidden
+      if (ref.current?.contains(document.activeElement)) toggle.current?.focus();
+      setOpen(false);
     };
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -36,8 +40,19 @@ export default function FilterMenu({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div
+      ref={ref}
+      className="relative"
+      // Tabbing on past the last filter closes the menu, rather than leaving it
+      // open over whatever took the focus. Only a move to somewhere else: a
+      // click on the menu's own background sends focus nowhere and keeps it open.
+      onBlur={(e) => {
+        const to = e.relatedTarget as Node | null;
+        if (open && to && !e.currentTarget.contains(to)) setOpen(false);
+      }}
+    >
       <button
+        ref={toggle}
         onClick={() => setOpen((o) => !o)}
         title="Filters"
         aria-expanded={open}
