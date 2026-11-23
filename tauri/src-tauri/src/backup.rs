@@ -422,7 +422,15 @@ impl OpenFailure {
 /// Opens the database, then checks a file that was already there. Damage can
 /// surface on open, in the statements migrations run, or only in the check.
 fn open_checked(data_dir: &Path, missing: bool, now_ms: i64) -> Result<Database, OpenFailure> {
-    let database = Database::open(data_dir, now_ms).map_err(|err| OpenFailure::of(&err))?;
+    let database = Database::open(data_dir, now_ms).map_err(|err| {
+        // SQLite reads a folder where the file belongs as CANTOPEN, which is
+        // otherwise passing. Electron sets the folder aside as damaged
+        if data_dir.join(DB_FILE).is_dir() {
+            OpenFailure::Lost(db::sqlite_error(&err).message)
+        } else {
+            OpenFailure::of(&err)
+        }
+    })?;
     if missing {
         return Ok(database);
     }
@@ -1757,6 +1765,32 @@ mod tests {
         std::fs::remove_dir_all(&root).expect("clean up");
     }
 
+    /// The verifier's `dbdir`. SQLite can't open a directory, and Electron
+    /// sets it aside and restores the newest backup, as for a damaged file.
+    #[test]
+    fn a_directory_at_the_database_is_set_aside_and_restored() {
+        let root = scratch("dbdir");
+        std::fs::create_dir(root.join("data").join(DB_FILE)).expect("a folder named matches.db");
+        backup_of(&root, 3, GOOD);
+        let (db, backups) = open(&root);
+        assert_eq!(
+            report_json(&backups),
+            serde_json::json!({
+                "problem": "corrupt",
+                "restoredFrom": GOOD,
+                "quarantined": "matches.db.corrupt-2026-11-22T21-00-00",
+                "detail": "unable to open database file",
+            })
+        );
+        assert_eq!(db.with(count_games).expect("the restored database"), 3);
+        assert!(
+            root.join("data/matches.db.corrupt-2026-11-22T21-00-00")
+                .is_dir()
+        );
+        drop(db);
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
     /// An open that fails with anything but SQLite's own error, such as a
     /// value of the wrong type, says nothing about the file, so the database
     /// is left as it is rather than replaced by an older snapshot.
@@ -2209,11 +2243,15 @@ mod tests {
                     f.seek(SeekFrom::Start(16)).expect("seek");
                     f.write_all(&[0xff; 8]).expect("damage the header");
                 }
-                damage @ ("notable" | "nocolumn") => {
-                    let sql = if damage == "notable" {
-                        "DROP TABLE games;"
-                    } else {
-                        "DROP INDEX idx_games_puuid; ALTER TABLE games DROP COLUMN puuid;"
+                damage @ ("notable" | "nocolumn" | "blobsetting") => {
+                    let sql = match damage {
+                        "notable" => "DROP TABLE games;",
+                        "nocolumn" => {
+                            "DROP INDEX idx_games_puuid; ALTER TABLE games DROP COLUMN puuid;"
+                        }
+                        _ => {
+                            "UPDATE settings SET value = CAST(value AS BLOB) WHERE key='augment_slots';"
+                        }
                     };
                     let o = Command::new("/usr/bin/sqlite3")
                         .arg(&db_file)
@@ -2221,6 +2259,10 @@ mod tests {
                         .output()
                         .expect("sqlite3 runs");
                     assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+                }
+                "dbdir" => {
+                    std::fs::remove_file(&db_file).expect("remove the database");
+                    std::fs::create_dir(&db_file).expect("a folder at matches.db");
                 }
                 "rodir" => chmod(&["555"], &root.join("data")),
                 "rofile" => chmod(&["444"], &db_file),
