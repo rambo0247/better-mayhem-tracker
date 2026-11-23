@@ -16,6 +16,10 @@ export default function FilterMenu(props: {
   const [open, setOpen] = createSignal(false);
   let root: HTMLDivElement | undefined;
   let toggle: HTMLButtonElement | undefined;
+  // WebKit on macOS leaves a clicked button unfocused, where Chromium focuses
+  // it on the press, so a click can open the menu with focus on nothing
+  let openedUnfocused = false;
+  const focusOnNothing = () => !document.activeElement || document.activeElement === document.body;
 
   createEffect(open, (isOpen) => {
     if (!isOpen) return;
@@ -24,8 +28,11 @@ export default function FilterMenu(props: {
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      // Focus inside the menu would be left on a control that is now hidden
-      if (root?.contains(document.activeElement)) toggle?.focus();
+      // Focus inside the menu would be left on a control that is now hidden,
+      // and focus still on nothing is where Chromium has it on the toggle
+      if (root?.contains(document.activeElement) || (openedUnfocused && focusOnNothing())) {
+        toggle?.focus();
+      }
       setOpen(false);
     };
     document.addEventListener("pointerdown", onPointer);
@@ -51,7 +58,10 @@ export default function FilterMenu(props: {
     >
       <button
         ref={(el) => (toggle = el)}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          openedUnfocused = !open() && focusOnNothing();
+          setOpen((o) => !o);
+        }}
         title="Filters"
         aria-expanded={open() ? "true" : "false"}
         class={["btn relative", { "btn-active": props.active > 0 || open() }]}

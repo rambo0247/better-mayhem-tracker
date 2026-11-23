@@ -10,6 +10,9 @@ const FOCUSABLE =
 // release notes inside it scroll), and a footer strip of actions. A click on the
 // scrim dismisses, unless `onDismiss` is left out to keep the dialog up.
 export default function DialogFrame(props: {
+  // The control the user pressed to open the dialog. WebKit on macOS leaves a
+  // clicked button unfocused, so focus alone can't say where to return.
+  opener?: HTMLElement;
   kicker: JSX.Element;
   title: JSX.Element;
   onDismiss?: () => void;
@@ -23,7 +26,8 @@ export default function DialogFrame(props: {
   // Escape does what a click on the scrim does, and focus goes back where it
   // was once the dialog closes.
   onSettled(() => {
-    const previous = document.activeElement as HTMLElement | null;
+    const active = document.activeElement as HTMLElement | null;
+    const previous = !active || active === document.body ? (props.opener ?? active) : active;
     panel?.focus();
     const onKey = (e: KeyboardEvent) => {
       const root = panel;
