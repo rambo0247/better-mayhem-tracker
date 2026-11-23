@@ -9,6 +9,7 @@ use super::{CommandError, CommandResult, Ctx, Domain};
 use crate::js_arg::{Js, JsValue};
 use crate::paths::Paths;
 use crate::security::{self, Effects};
+use crate::updater;
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -84,33 +85,48 @@ pub async fn get_version<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<String> {
     Ok(crate::app_version().to_owned())
 }
 
-pub async fn check_for_update<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<UpdateInfo> {
-    Err(CommandError::not_ported())
+pub async fn check_for_update<R: Runtime>(ctx: Ctx<R>) -> CommandResult<UpdateInfo> {
+    let host = updater::AppHost::of(&ctx.app);
+    let updater = ctx.app.state::<updater::State>().updater.clone();
+    Ok(updater.check(host.as_ref()).await)
 }
 
+/// The Update button's install. Unlike the launch and background installs it
+/// does not back out when a match starts during the download, as in Electron.
 pub async fn download_update<R: Runtime>(
-    _ctx: Ctx<R>,
-    _asset_url: Js<String>,
+    ctx: Ctx<R>,
+    asset_url: Js<String>,
 ) -> CommandResult<DownloadUpdateResult> {
-    Err(CommandError::not_ported())
+    let host = updater::AppHost::of(&ctx.app);
+    let updater = ctx.app.state::<updater::State>().updater.clone();
+    Ok(updater
+        .download_and_install(host, &js_string(&asset_url), false)
+        .await)
 }
 
-pub async fn get_launch_install<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<Option<UpdateInfo>> {
-    Err(CommandError::not_ported())
+pub async fn get_launch_install<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Option<UpdateInfo>> {
+    Ok(ctx.app.state::<updater::State>().updater.launch_install())
 }
 
-pub async fn get_update_notes<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<Option<UpdateNotes>> {
-    Err(CommandError::not_ported())
+pub async fn get_update_notes<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Option<UpdateNotes>> {
+    let host = updater::AppHost::of(&ctx.app);
+    let updater = ctx.app.state::<updater::State>().updater.clone();
+    Ok(updater.update_notes(host.as_ref()).await)
 }
 
 pub async fn open_url<R: Runtime>(ctx: Ctx<R>, url: Js<String>) -> CommandResult<()> {
     // Electron's `new URL(url)` reads String(url), and only a string can
     // spell a web page
-    let text = match url.value().and_then(JsValue::as_json) {
+    security::open_external_url(&ctx.app.state::<Effects>(), &js_string(&url));
+    Ok(())
+}
+
+/// `String(value)` for a string argument the page sent, as Electron's
+/// handlers read it through `new URL` and string methods.
+fn js_string(value: &Js<String>) -> String {
+    match value.value().and_then(JsValue::as_json) {
         Some(serde_json::Value::String(text)) => text.clone(),
         Some(other) => other.to_string(),
         None => "undefined".to_owned(),
-    };
-    security::open_external_url(&ctx.app.state::<Effects>(), &text);
-    Ok(())
+    }
 }

@@ -32,6 +32,7 @@ mod lcu;
 mod live;
 pub mod locale;
 pub mod log;
+pub mod mac_update_script;
 pub mod op_score;
 #[cfg(feature = "parity-driver")]
 mod parity_driver;
@@ -52,6 +53,7 @@ mod snapshot;
 pub mod text;
 pub mod transfer;
 pub mod tray;
+pub mod updater;
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -116,6 +118,11 @@ impl Host {
 /// the Electron release carries, so both builds of a release agree. build.rs
 /// reads it.
 pub fn app_version() -> &'static str {
+    // A lane builds a release above 1.2.1 without editing package.json
+    #[cfg(feature = "parity-driver")]
+    if let Some(version) = option_env!("BMT_PARITY_VERSION") {
+        return version;
+    }
     env!("BMT_APP_VERSION")
 }
 
@@ -126,6 +133,11 @@ pub fn app_version() -> &'static str {
 pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
     let paths = Paths::resolve();
     let clock = host.clock;
+    // Golden replay recorded Electron with the network blocked
+    let github = match host.effects {
+        Effects::System => updater::Github::from_env(),
+        Effects::Recorded(_) => updater::Github::blocked(),
+    };
     let builder = match open_database(&paths, &host.clock) {
         Some((database, backups)) => builder.manage(database).manage(backups),
         None => builder,
@@ -136,6 +148,7 @@ pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
         .manage(paths)
         .manage(host.effects)
         .plugin(backup::schedule(clock))
+        .manage(updater::State::new(github))
         .plugin(lcu::sync::plugin())
         .plugin(live::plugin())
         .invoke_handler(commands::handler())
@@ -160,6 +173,19 @@ fn open_database(paths: &Paths, clock: &Clock) -> Option<(db::Database, backup::
             None
         }
     }
+}
+
+/// Where the login item goes. A parity build told to count as packaged writes
+/// it under its data root, never the signed-in user's LaunchAgents or Run key.
+fn login_items(paths: &Paths) -> autostart::LoginItems {
+    if install_location::parity_packaged() {
+        return autostart::LoginItems::At {
+            launch_agents: paths.root().join("LaunchAgents"),
+            run_key: r"Software\BetterMayhemTracker-parity\Run".into(),
+            approved_key: r"Software\BetterMayhemTracker-parity\StartupApproved".into(),
+        };
+    }
+    autostart::LoginItems::System
 }
 
 /// Electron's `process.platform` for this OS, which `window.api.platform` is.
@@ -319,11 +345,12 @@ pub fn run() {
             shell.on_will_quit(move || quit::will_quit(&handle));
             shortcut::set_process_app_id();
             shortcut::ensure_start_menu_shortcut();
+            // Before the window can ask whether this launch is the first on a new version
+            updater::record_launch_version(app.handle());
             if let Some(database) = app.try_state::<db::Database>() {
                 let target = autostart::registered_target();
-                let synced = database.with(|conn| {
-                    autostart::sync(conn, &autostart::LoginItems::System, target.as_deref())
-                });
+                let items = login_items(&Paths::resolve());
+                let synced = database.with(|conn| autostart::sync(conn, &items, target.as_deref()));
                 if let Err(err) = synced {
                     log::error(format!("Failed to update the login item: {}", err.message));
                 }
@@ -410,6 +437,8 @@ pub fn run() {
             // ARAM challenges stand each day the client is up
             app.state::<live::Tracking>()
                 .start(tauri::async_runtime::handle().inner(), lcu.lcu.subscribe());
+            // Last, so an update never restarts the app under someone using it
+            updater::start(app.handle());
             Ok(())
         })
         .build(context)

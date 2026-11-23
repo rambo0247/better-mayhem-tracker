@@ -107,7 +107,7 @@ pub fn public_roots() -> RootCertStore {
     roots
 }
 
-fn public_tls_config() -> Result<ClientConfig, rustls::Error> {
+pub(crate) fn public_tls_config() -> Result<ClientConfig, rustls::Error> {
     let mut config =
         ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
             .with_safe_default_protocol_versions()?

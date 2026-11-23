@@ -11,10 +11,24 @@ pub const APP_DISPLAY_NAME: &str = "Better Mayhem Tracker";
 /// The release artifact's name, `build.win.artifactName` in package.json.
 pub const WINDOWS_EXE_NAME: &str = "BetterMayhemTracker.exe";
 
+/// Lets a lane's debug bundle count as packaged, as the Electron seam sets
+/// `app.isPackaged`, so it can update itself. The bundle and exe still come
+/// from where the binary really runs.
+#[cfg(feature = "parity-driver")]
+pub const PARITY_PACKAGED_ENV: &str = "BMT_PARITY_PACKAGED";
+
+/// Whether a parity build was told to count as packaged.
+pub fn parity_packaged() -> bool {
+    #[cfg(feature = "parity-driver")]
+    return std::env::var_os(PARITY_PACKAGED_ENV).is_some_and(|value| value == "1");
+    #[cfg(not(feature = "parity-driver"))]
+    return false;
+}
+
 /// Electron's `app.isPackaged`: only a release-profile build is installed;
 /// any other runs out of a build folder.
 fn is_packaged() -> bool {
-    cfg!(bmt_release_profile)
+    cfg!(bmt_release_profile) || parity_packaged()
 }
 
 /// The exe on Windows. Electron's portable launcher ran a temp copy, so it

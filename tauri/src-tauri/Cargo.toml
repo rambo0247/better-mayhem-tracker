@@ -79,6 +79,8 @@ indexmap = "=2.14.2"
 base64 = "=0.23.1"
 futures-util = "=0.3.34"
 regex = "=1.13.2"
+# sha256 for update downloads, and mkdtemp's random suffix; rustls already builds it
+ring = "=0.17.14"
 reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider"] }
 rustls = { version = "=0.23.46", default-features = false, features = [
   "ring",

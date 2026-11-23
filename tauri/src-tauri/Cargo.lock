@@ -298,6 +298,7 @@ dependencies = [
  "rcgen",
  "regex",
  "reqwest",
+ "ring",
  "rusqlite",
  "rustls",
  "ryu-js",
