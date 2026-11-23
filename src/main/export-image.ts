@@ -39,10 +39,13 @@ const INITIAL_HEIGHT = 1200;
 // this it isn't coming, and an error says more than a half-drawn image would.
 const READY_TIMEOUT_MS = 30_000;
 const POLL_MS = 100;
-// A resize to the full height has to be painted before it can be captured. The
-// paint normally lands in a frame or two; the wait is bounded in case the
-// compositor decides the new area needs no repaint.
+// A resize to the full height has to be painted before it can be captured:
+// asked for any sooner, the capture fails outright ("UnknownVizError") rather
+// than returning the old frame. The paint normally lands in a frame or two; the
+// wait is bounded in case the compositor decides the new area needs no repaint.
 const REPAINT_TIMEOUT_MS = 1_500;
+// A capture that still lands between frames gets another go after the next one
+const CAPTURE_ATTEMPTS = 3;
 
 // Window sizes are in whole pixels, which a fractional scale is not obliged to
 // land on
@@ -152,15 +155,24 @@ async function waitForCard(win: BrowserWindow): Promise<CardStatus> {
   }
 }
 
-function nextPaint(win: BrowserWindow): Promise<void> {
+// Resolves once a frame at least `width` x `height` has been painted. Any paint
+// is not enough: one already queued at the old size can arrive after the
+// resize, and capturing on the strength of it is what fails. Compared by
+// proportion, since the frame is in device pixels and the size asked for is not.
+function paintedAt(win: BrowserWindow, width: number, height: number): Promise<void> {
   return new Promise((resolve) => {
     const timer = setTimeout(finish, REPAINT_TIMEOUT_MS);
+    function onPaint(_event: unknown, _dirty: unknown, image: NativeImage) {
+      const frame = image.getSize();
+      if (frame.width > 0 && frame.height * width >= (height - 1) * frame.width) finish();
+    }
     function finish() {
       clearTimeout(timer);
-      if (!win.isDestroyed()) win.webContents.off("paint", finish);
+      if (!win.isDestroyed()) win.webContents.off("paint", onPaint);
       resolve();
     }
-    win.webContents.once("paint", finish);
+    win.webContents.on("paint", onPaint);
+    win.webContents.invalidate();
   });
 }
 
@@ -171,11 +183,23 @@ async function renderCard(card: CardSpec): Promise<NativeImage> {
     const status = await waitForCard(win);
     // The window was only ever tall enough to lay the card out in; a capture is
     // of what is on screen, so the screen has to become the whole card first.
-    win.setContentSize(scaled(CARD_WIDTH), scaled(status.height));
-    await nextPaint(win);
-    const image = await win.webContents.capturePage();
-    if (image.isEmpty()) throw new Error("The card came back blank");
-    return image;
+    const width = scaled(CARD_WIDTH);
+    const height = scaled(status.height);
+    win.setContentSize(width, height);
+    for (let attempt = 1; ; attempt++) {
+      await paintedAt(win, width, height);
+      try {
+        const image = await win.webContents.capturePage();
+        if (image.isEmpty()) throw new Error("The card came back blank");
+        return image;
+      } catch (err) {
+        if (attempt >= CAPTURE_ATTEMPTS || win.isDestroyed()) {
+          console.error("Card capture failed:", err);
+          // What the compositor says ("UnknownVizError") means nothing to anyone
+          throw new Error("The image couldn't be captured. Try again in a moment.");
+        }
+      }
+    }
   } finally {
     win.destroy();
   }
