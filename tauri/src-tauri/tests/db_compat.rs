@@ -542,3 +542,70 @@ fn node_gzip_and_ours_hold_the_same_text() {
         "Rust reads what Node wrote"
     );
 }
+
+/// The perf probe for T11's open-and-migrate metric, warm cache:
+/// `cargo test --release --test db_compat -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn open_timing_on_the_fixture() {
+    let dir = scratch("timing");
+    let Some(fixture) = fixture_copy(&dir) else {
+        return;
+    };
+    let data = dir.join("data");
+    std::fs::create_dir_all(&data).unwrap();
+    let mut current = Vec::new();
+    let mut from_v0 = Vec::new();
+    for _ in 0..20 {
+        std::fs::copy(&fixture, data.join("matches.db")).unwrap();
+        as_electron_left_it(&data.join("matches.db"));
+        let started = std::time::Instant::now();
+        Database::open(&data, NOW_MS).unwrap().close();
+        current.push(started.elapsed().as_secs_f64() * 1000.0);
+
+        std::fs::remove_file(data.join("matches.db")).unwrap();
+        v0_from_fixture(&fixture, &data.join("matches.db"));
+        let started = std::time::Instant::now();
+        Database::open(&data, NOW_MS).unwrap().close();
+        from_v0.push(started.elapsed().as_secs_f64() * 1000.0);
+        std::fs::remove_file(data.join("matches.db")).unwrap();
+    }
+    let median = |v: &mut Vec<f64>| {
+        v.sort_by(f64::total_cmp);
+        (v[9] + v[10]) / 2.0
+    };
+    println!(
+        "open+close, 20 runs: current database median {:.2} ms (min {:.2}, max {:.2}); from V0 median {:.1} ms",
+        median(&mut current),
+        current[0],
+        current[19],
+        median(&mut from_v0)
+    );
+}
+
+#[test]
+fn a_write_waits_out_another_process_holding_the_lock() {
+    let dir = scratch("busy");
+    let db = fresh(&dir);
+    let holder = Connection::open(dir.join("matches.db")).unwrap();
+    holder
+        .execute_batch("BEGIN IMMEDIATE; INSERT INTO settings VALUES ('held', '1');")
+        .unwrap();
+    let release = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        holder.execute_batch("COMMIT").unwrap();
+    });
+    let started = std::time::Instant::now();
+    db.with(|conn| bmt_lib::db::settings::set_setting(conn, "hide_remakes", "true"))
+        .expect("the write waits for the lock and lands");
+    let waited = started.elapsed();
+    release.join().unwrap();
+    assert!(
+        waited >= std::time::Duration::from_millis(1400),
+        "waited {waited:?}"
+    );
+    let value = db
+        .with(|conn| bmt_lib::db::settings::get_setting(conn, "hide_remakes"))
+        .unwrap();
+    assert_eq!(value.as_deref(), Some("true"));
+}

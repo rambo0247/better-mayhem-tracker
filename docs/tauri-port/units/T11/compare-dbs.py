@@ -9,6 +9,7 @@ Usage: python3 -I compare-dbs.py <a.db> <b.db> [--ignore-scores]
 """
 
 import gzip
+import os
 import sqlite3
 import sys
 
@@ -17,7 +18,10 @@ STARTUP_SETTINGS = {"score_formula_version", "last_run_version"}
 
 
 def connect(path):
-    return sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    # A WAL file opened read-only needs its -shm, which a clean close removes.
+    # With no -wal beside it, the file is the whole database and reads as immutable.
+    mode = "mode=ro" if os.path.exists(path + "-wal") else "immutable=1"
+    return sqlite3.connect(f"file:{path}?{mode}", uri=True)
 
 
 def table_rows(conn, table, ignore_scores):

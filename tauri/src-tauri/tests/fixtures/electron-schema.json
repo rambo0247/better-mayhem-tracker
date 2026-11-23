@@ -1,186 +1,141 @@
 {
- "about": "sqlite_master and user_version of the database trunk Electron 1.2.1 created at launch, through parity/run-electron.ts on a data root holding only the settings table (run-electron.ts writes last_run_version into it before launch). Regenerate with docs/tauri-port/units/T11/electron-open.sh.",
- "user_version": 4,
- "sqlite_master": [
-  [
-   "index",
-   "idx_game_augments_augment",
-   "game_augments",
-   "CREATE INDEX idx_game_augments_augment ON game_augments(augment_id)"
-  ],
-  [
-   "index",
-   "idx_games_creation",
-   "games",
-   "CREATE INDEX idx_games_creation ON games(game_creation DESC)"
-  ],
-  [
-   "index",
-   "idx_games_puuid",
-   "games",
-   "CREATE INDEX idx_games_puuid ON games(puuid)"
-  ],
-  [
-   "index",
-   "idx_games_queue",
-   "games",
-   "CREATE INDEX idx_games_queue ON games(queue_id)"
-  ],
-  [
-   "index",
-   "idx_games_version",
-   "games",
-   "CREATE INDEX idx_games_version ON games(game_version)"
-  ],
-  [
-   "index",
-   "idx_mp_champion",
-   "match_participants",
-   "CREATE INDEX idx_mp_champion\n      ON match_participants(champion_id, is_remake, win)"
-  ],
-  [
-   "index",
-   "idx_mp_game_team",
-   "match_participants",
-   "CREATE INDEX idx_mp_game_team ON match_participants(game_id, team_id)"
-  ],
-  [
-   "index",
-   "idx_mp_puuid",
-   "match_participants",
-   "CREATE INDEX idx_mp_puuid ON match_participants(puuid)"
-  ],
-  [
-   "index",
-   "idx_mpa_augment",
-   "match_participant_augments",
-   "CREATE INDEX idx_mpa_augment\n      ON match_participant_augments(augment_id, is_remake, win, champion_id)"
-  ],
-  [
-   "index",
-   "idx_player_stats_champion",
-   "player_stats",
-   "CREATE INDEX idx_player_stats_champion ON player_stats(champion_id)"
-  ],
-  [
-   "index",
-   "sqlite_autoindex_challenge_game_progress_1",
-   "challenge_game_progress",
-   null
-  ],
-  [
-   "index",
-   "sqlite_autoindex_challenge_history_1",
-   "challenge_history",
-   null
-  ],
-  [
-   "index",
-   "sqlite_autoindex_game_augments_1",
-   "game_augments",
-   null
-  ],
-  [
-   "index",
-   "sqlite_autoindex_match_participant_augments_1",
-   "match_participant_augments",
-   null
-  ],
-  [
-   "index",
-   "sqlite_autoindex_match_participants_1",
-   "match_participants",
-   null
-  ],
-  [
-   "index",
-   "sqlite_autoindex_settings_1",
-   "settings",
-   null
-  ],
-  [
-   "index",
-   "sqlite_autoindex_summoner_1",
-   "summoner",
-   null
-  ],
-  [
-   "table",
-   "challenge_game_progress",
-   "challenge_game_progress",
-   "CREATE TABLE challenge_game_progress (\n      game_id        INTEGER NOT NULL,\n      challenge_id   INTEGER NOT NULL,\n      name           TEXT NOT NULL,\n      description    TEXT NOT NULL,\n      previous_value REAL NOT NULL,\n      current_value  REAL NOT NULL,\n      previous_level TEXT NOT NULL,\n      current_level  TEXT NOT NULL,\n      next_level     TEXT,\n      next_threshold REAL,\n      icon_path      TEXT NOT NULL,\n      PRIMARY KEY (game_id, challenge_id)\n    )"
-  ],
-  [
-   "table",
-   "challenge_history",
-   "challenge_history",
-   "CREATE TABLE challenge_history (\n      day          TEXT NOT NULL,\n      challenge_id INTEGER NOT NULL,\n      value        REAL NOT NULL,\n      level        TEXT NOT NULL,\n      PRIMARY KEY (day, challenge_id)\n    )"
-  ],
-  [
-   "table",
-   "challenge_state",
-   "challenge_state",
-   "CREATE TABLE challenge_state (\n      id         INTEGER PRIMARY KEY CHECK (id = 1),\n      payload    TEXT NOT NULL,\n      fetched_at INTEGER NOT NULL\n    )"
-  ],
-  [
-   "table",
-   "game_augments",
-   "game_augments",
-   "CREATE TABLE game_augments (\n      game_id    INTEGER NOT NULL REFERENCES games(game_id),\n      slot       INTEGER NOT NULL,\n      augment_id INTEGER NOT NULL,\n      PRIMARY KEY (game_id, slot)\n    )"
-  ],
-  [
-   "table",
-   "games",
-   "games",
-   "CREATE TABLE games (\n      game_id       INTEGER PRIMARY KEY,\n      queue_id      INTEGER NOT NULL,\n      game_mode     TEXT NOT NULL,\n      game_creation INTEGER NOT NULL,\n      game_duration INTEGER NOT NULL,\n      is_remake     INTEGER NOT NULL DEFAULT 0,\n      puuid         TEXT NOT NULL DEFAULT '',\n      game_version  TEXT,\n      favorite      INTEGER NOT NULL DEFAULT 0,\n      -- The match exactly as the client handed it to us, gzipped. Nothing on a\n      -- query path reads it: match_participants below answers every question\n      -- the UI asks. It stays because it's the only copy of the fields we\n      -- haven't normalized, and the client's history is too short to refetch\n      -- from \u2014 see unpackRaw.\n      raw_gz        BLOB\n    )"
-  ],
-  [
-   "table",
-   "ignored_games",
-   "ignored_games",
-   "CREATE TABLE ignored_games (\n      game_id INTEGER PRIMARY KEY\n    )"
-  ],
-  [
-   "table",
-   "match_maps",
-   "match_maps",
-   "CREATE TABLE match_maps (\n      game_id  INTEGER PRIMARY KEY,\n      map_id   INTEGER,\n      map_skin TEXT NOT NULL\n    )"
-  ],
-  [
-   "table",
-   "match_participant_augments",
-   "match_participant_augments",
-   "CREATE TABLE match_participant_augments (\n      game_id        INTEGER NOT NULL,\n      participant_id INTEGER NOT NULL,\n      slot           INTEGER NOT NULL,\n      augment_id     INTEGER NOT NULL,\n      champion_id    INTEGER NOT NULL DEFAULT 0,\n      win            INTEGER NOT NULL DEFAULT 0,\n      is_remake      INTEGER NOT NULL DEFAULT 0,\n      queue_id       INTEGER,\n      game_version   TEXT,\n      PRIMARY KEY (game_id, participant_id, slot)\n    )"
-  ],
-  [
-   "table",
-   "match_participants",
-   "match_participants",
-   "CREATE TABLE match_participants (\n      game_id        INTEGER NOT NULL REFERENCES games(game_id),\n      participant_id INTEGER NOT NULL,\n      puuid          TEXT,\n      game_name      TEXT,\n      tag_line       TEXT,\n      profile_icon   INTEGER,\n      team_id        INTEGER NOT NULL DEFAULT 100,\n      champion_id    INTEGER NOT NULL DEFAULT 0,\n      win            INTEGER NOT NULL DEFAULT 0,\n      kills          INTEGER NOT NULL DEFAULT 0,\n      deaths         INTEGER NOT NULL DEFAULT 0,\n      assists        INTEGER NOT NULL DEFAULT 0,\n      double_kills   INTEGER NOT NULL DEFAULT 0,\n      triple_kills   INTEGER NOT NULL DEFAULT 0,\n      quadra_kills   INTEGER NOT NULL DEFAULT 0,\n      penta_kills    INTEGER NOT NULL DEFAULT 0,\n      total_damage_dealt INTEGER NOT NULL DEFAULT 0,\n      total_damage_taken INTEGER NOT NULL DEFAULT 0,\n      gold_earned    INTEGER NOT NULL DEFAULT 0,\n      total_heal     INTEGER NOT NULL DEFAULT 0,\n      largest_killing_spree INTEGER NOT NULL DEFAULT 0,\n      early_surrender INTEGER NOT NULL DEFAULT 0,\n      -- Copied down from games so an aggregate over every participant never\n      -- has to join back. Kept honest by trg_games_denorm_*, since these are\n      -- the only three game columns a stats query filters on.\n      is_remake      INTEGER NOT NULL DEFAULT 0,\n      queue_id       INTEGER,\n      game_version   TEXT,\n      spell1 INTEGER, spell2 INTEGER,\n      item0 INTEGER, item1 INTEGER, item2 INTEGER,\n      item3 INTEGER, item4 INTEGER, item5 INTEGER, item6 INTEGER,\n      PRIMARY KEY (game_id, participant_id)\n    )"
-  ],
-  [
-   "table",
-   "player_stats",
-   "player_stats",
-   "CREATE TABLE player_stats (\n      game_id              INTEGER PRIMARY KEY REFERENCES games(game_id),\n      champion_id          INTEGER NOT NULL,\n      win                  INTEGER NOT NULL,\n      kills                INTEGER NOT NULL DEFAULT 0,\n      deaths               INTEGER NOT NULL DEFAULT 0,\n      assists              INTEGER NOT NULL DEFAULT 0,\n      double_kills         INTEGER NOT NULL DEFAULT 0,\n      triple_kills         INTEGER NOT NULL DEFAULT 0,\n      quadra_kills         INTEGER NOT NULL DEFAULT 0,\n      penta_kills          INTEGER NOT NULL DEFAULT 0,\n      total_damage_dealt   INTEGER NOT NULL DEFAULT 0,\n      total_damage_taken   INTEGER NOT NULL DEFAULT 0,\n      gold_earned          INTEGER NOT NULL DEFAULT 0,\n      total_heal           INTEGER NOT NULL DEFAULT 0,\n      largest_killing_spree INTEGER NOT NULL DEFAULT 0,\n      score                REAL,\n      -- Unclamped score, for ordering and the best-score record (PlayerScore.raw)\n      score_raw            REAL,\n      score_badge          TEXT,\n      spell1 INTEGER, spell2 INTEGER,\n      item0 INTEGER, item1 INTEGER, item2 INTEGER,\n      item3 INTEGER, item4 INTEGER, item5 INTEGER, item6 INTEGER\n    )"
-  ],
-  [
-   "table",
-   "settings",
-   "settings",
-   "CREATE TABLE settings (\n      key   TEXT PRIMARY KEY,\n      value TEXT NOT NULL\n    )"
-  ],
-  [
-   "table",
-   "summoner",
-   "summoner",
-   "CREATE TABLE summoner (\n      puuid        TEXT PRIMARY KEY,\n      game_name    TEXT,\n      tag_line     TEXT,\n      summoner_id  INTEGER,\n      account_id   INTEGER,\n      profile_icon INTEGER,\n      updated_at   INTEGER NOT NULL\n    )"
-  ],
-  [
-   "trigger",
-   "trg_games_denorm_participants",
-   "games",
-   "CREATE TRIGGER trg_games_denorm_participants\n    AFTER UPDATE OF is_remake, queue_id, game_version ON games\n    BEGIN\n      UPDATE match_participants\n         SET is_remake = NEW.is_remake, queue_id = NEW.queue_id, game_version = NEW.game_version\n       WHERE game_id = NEW.game_id;\n      UPDATE match_participant_augments\n         SET is_remake = NEW.is_remake, queue_id = NEW.queue_id, game_version = NEW.game_version\n       WHERE game_id = NEW.game_id;\n    END"
+  "about": "sqlite_master and user_version of the database trunk Electron 1.2.1 created at launch, through parity/run-electron.ts on a data root holding only the settings table (run-electron.ts writes last_run_version into it before launch). Regenerate with docs/tauri-port/units/T11/electron-open.sh.",
+  "user_version": 4,
+  "sqlite_master": [
+    [
+      "index",
+      "idx_game_augments_augment",
+      "game_augments",
+      "CREATE INDEX idx_game_augments_augment ON game_augments(augment_id)"
+    ],
+    [
+      "index",
+      "idx_games_creation",
+      "games",
+      "CREATE INDEX idx_games_creation ON games(game_creation DESC)"
+    ],
+    ["index", "idx_games_puuid", "games", "CREATE INDEX idx_games_puuid ON games(puuid)"],
+    ["index", "idx_games_queue", "games", "CREATE INDEX idx_games_queue ON games(queue_id)"],
+    [
+      "index",
+      "idx_games_version",
+      "games",
+      "CREATE INDEX idx_games_version ON games(game_version)"
+    ],
+    [
+      "index",
+      "idx_mp_champion",
+      "match_participants",
+      "CREATE INDEX idx_mp_champion\n      ON match_participants(champion_id, is_remake, win)"
+    ],
+    [
+      "index",
+      "idx_mp_game_team",
+      "match_participants",
+      "CREATE INDEX idx_mp_game_team ON match_participants(game_id, team_id)"
+    ],
+    [
+      "index",
+      "idx_mp_puuid",
+      "match_participants",
+      "CREATE INDEX idx_mp_puuid ON match_participants(puuid)"
+    ],
+    [
+      "index",
+      "idx_mpa_augment",
+      "match_participant_augments",
+      "CREATE INDEX idx_mpa_augment\n      ON match_participant_augments(augment_id, is_remake, win, champion_id)"
+    ],
+    [
+      "index",
+      "idx_player_stats_champion",
+      "player_stats",
+      "CREATE INDEX idx_player_stats_champion ON player_stats(champion_id)"
+    ],
+    ["index", "sqlite_autoindex_challenge_game_progress_1", "challenge_game_progress", null],
+    ["index", "sqlite_autoindex_challenge_history_1", "challenge_history", null],
+    ["index", "sqlite_autoindex_game_augments_1", "game_augments", null],
+    ["index", "sqlite_autoindex_match_participant_augments_1", "match_participant_augments", null],
+    ["index", "sqlite_autoindex_match_participants_1", "match_participants", null],
+    ["index", "sqlite_autoindex_settings_1", "settings", null],
+    ["index", "sqlite_autoindex_summoner_1", "summoner", null],
+    [
+      "table",
+      "challenge_game_progress",
+      "challenge_game_progress",
+      "CREATE TABLE challenge_game_progress (\n      game_id        INTEGER NOT NULL,\n      challenge_id   INTEGER NOT NULL,\n      name           TEXT NOT NULL,\n      description    TEXT NOT NULL,\n      previous_value REAL NOT NULL,\n      current_value  REAL NOT NULL,\n      previous_level TEXT NOT NULL,\n      current_level  TEXT NOT NULL,\n      next_level     TEXT,\n      next_threshold REAL,\n      icon_path      TEXT NOT NULL,\n      PRIMARY KEY (game_id, challenge_id)\n    )"
+    ],
+    [
+      "table",
+      "challenge_history",
+      "challenge_history",
+      "CREATE TABLE challenge_history (\n      day          TEXT NOT NULL,\n      challenge_id INTEGER NOT NULL,\n      value        REAL NOT NULL,\n      level        TEXT NOT NULL,\n      PRIMARY KEY (day, challenge_id)\n    )"
+    ],
+    [
+      "table",
+      "challenge_state",
+      "challenge_state",
+      "CREATE TABLE challenge_state (\n      id         INTEGER PRIMARY KEY CHECK (id = 1),\n      payload    TEXT NOT NULL,\n      fetched_at INTEGER NOT NULL\n    )"
+    ],
+    [
+      "table",
+      "game_augments",
+      "game_augments",
+      "CREATE TABLE game_augments (\n      game_id    INTEGER NOT NULL REFERENCES games(game_id),\n      slot       INTEGER NOT NULL,\n      augment_id INTEGER NOT NULL,\n      PRIMARY KEY (game_id, slot)\n    )"
+    ],
+    [
+      "table",
+      "games",
+      "games",
+      "CREATE TABLE games (\n      game_id       INTEGER PRIMARY KEY,\n      queue_id      INTEGER NOT NULL,\n      game_mode     TEXT NOT NULL,\n      game_creation INTEGER NOT NULL,\n      game_duration INTEGER NOT NULL,\n      is_remake     INTEGER NOT NULL DEFAULT 0,\n      puuid         TEXT NOT NULL DEFAULT '',\n      game_version  TEXT,\n      favorite      INTEGER NOT NULL DEFAULT 0,\n      -- The match exactly as the client handed it to us, gzipped. Nothing on a\n      -- query path reads it: match_participants below answers every question\n      -- the UI asks. It stays because it's the only copy of the fields we\n      -- haven't normalized, and the client's history is too short to refetch\n      -- from \u2014 see unpackRaw.\n      raw_gz        BLOB\n    )"
+    ],
+    [
+      "table",
+      "ignored_games",
+      "ignored_games",
+      "CREATE TABLE ignored_games (\n      game_id INTEGER PRIMARY KEY\n    )"
+    ],
+    [
+      "table",
+      "match_maps",
+      "match_maps",
+      "CREATE TABLE match_maps (\n      game_id  INTEGER PRIMARY KEY,\n      map_id   INTEGER,\n      map_skin TEXT NOT NULL\n    )"
+    ],
+    [
+      "table",
+      "match_participant_augments",
+      "match_participant_augments",
+      "CREATE TABLE match_participant_augments (\n      game_id        INTEGER NOT NULL,\n      participant_id INTEGER NOT NULL,\n      slot           INTEGER NOT NULL,\n      augment_id     INTEGER NOT NULL,\n      champion_id    INTEGER NOT NULL DEFAULT 0,\n      win            INTEGER NOT NULL DEFAULT 0,\n      is_remake      INTEGER NOT NULL DEFAULT 0,\n      queue_id       INTEGER,\n      game_version   TEXT,\n      PRIMARY KEY (game_id, participant_id, slot)\n    )"
+    ],
+    [
+      "table",
+      "match_participants",
+      "match_participants",
+      "CREATE TABLE match_participants (\n      game_id        INTEGER NOT NULL REFERENCES games(game_id),\n      participant_id INTEGER NOT NULL,\n      puuid          TEXT,\n      game_name      TEXT,\n      tag_line       TEXT,\n      profile_icon   INTEGER,\n      team_id        INTEGER NOT NULL DEFAULT 100,\n      champion_id    INTEGER NOT NULL DEFAULT 0,\n      win            INTEGER NOT NULL DEFAULT 0,\n      kills          INTEGER NOT NULL DEFAULT 0,\n      deaths         INTEGER NOT NULL DEFAULT 0,\n      assists        INTEGER NOT NULL DEFAULT 0,\n      double_kills   INTEGER NOT NULL DEFAULT 0,\n      triple_kills   INTEGER NOT NULL DEFAULT 0,\n      quadra_kills   INTEGER NOT NULL DEFAULT 0,\n      penta_kills    INTEGER NOT NULL DEFAULT 0,\n      total_damage_dealt INTEGER NOT NULL DEFAULT 0,\n      total_damage_taken INTEGER NOT NULL DEFAULT 0,\n      gold_earned    INTEGER NOT NULL DEFAULT 0,\n      total_heal     INTEGER NOT NULL DEFAULT 0,\n      largest_killing_spree INTEGER NOT NULL DEFAULT 0,\n      early_surrender INTEGER NOT NULL DEFAULT 0,\n      -- Copied down from games so an aggregate over every participant never\n      -- has to join back. Kept honest by trg_games_denorm_*, since these are\n      -- the only three game columns a stats query filters on.\n      is_remake      INTEGER NOT NULL DEFAULT 0,\n      queue_id       INTEGER,\n      game_version   TEXT,\n      spell1 INTEGER, spell2 INTEGER,\n      item0 INTEGER, item1 INTEGER, item2 INTEGER,\n      item3 INTEGER, item4 INTEGER, item5 INTEGER, item6 INTEGER,\n      PRIMARY KEY (game_id, participant_id)\n    )"
+    ],
+    [
+      "table",
+      "player_stats",
+      "player_stats",
+      "CREATE TABLE player_stats (\n      game_id              INTEGER PRIMARY KEY REFERENCES games(game_id),\n      champion_id          INTEGER NOT NULL,\n      win                  INTEGER NOT NULL,\n      kills                INTEGER NOT NULL DEFAULT 0,\n      deaths               INTEGER NOT NULL DEFAULT 0,\n      assists              INTEGER NOT NULL DEFAULT 0,\n      double_kills         INTEGER NOT NULL DEFAULT 0,\n      triple_kills         INTEGER NOT NULL DEFAULT 0,\n      quadra_kills         INTEGER NOT NULL DEFAULT 0,\n      penta_kills          INTEGER NOT NULL DEFAULT 0,\n      total_damage_dealt   INTEGER NOT NULL DEFAULT 0,\n      total_damage_taken   INTEGER NOT NULL DEFAULT 0,\n      gold_earned          INTEGER NOT NULL DEFAULT 0,\n      total_heal           INTEGER NOT NULL DEFAULT 0,\n      largest_killing_spree INTEGER NOT NULL DEFAULT 0,\n      score                REAL,\n      -- Unclamped score, for ordering and the best-score record (PlayerScore.raw)\n      score_raw            REAL,\n      score_badge          TEXT,\n      spell1 INTEGER, spell2 INTEGER,\n      item0 INTEGER, item1 INTEGER, item2 INTEGER,\n      item3 INTEGER, item4 INTEGER, item5 INTEGER, item6 INTEGER\n    )"
+    ],
+    [
+      "table",
+      "settings",
+      "settings",
+      "CREATE TABLE settings (\n      key   TEXT PRIMARY KEY,\n      value TEXT NOT NULL\n    )"
+    ],
+    [
+      "table",
+      "summoner",
+      "summoner",
+      "CREATE TABLE summoner (\n      puuid        TEXT PRIMARY KEY,\n      game_name    TEXT,\n      tag_line     TEXT,\n      summoner_id  INTEGER,\n      account_id   INTEGER,\n      profile_icon INTEGER,\n      updated_at   INTEGER NOT NULL\n    )"
+    ],
+    [
+      "trigger",
+      "trg_games_denorm_participants",
+      "games",
+      "CREATE TRIGGER trg_games_denorm_participants\n    AFTER UPDATE OF is_remake, queue_id, game_version ON games\n    BEGIN\n      UPDATE match_participants\n         SET is_remake = NEW.is_remake, queue_id = NEW.queue_id, game_version = NEW.game_version\n       WHERE game_id = NEW.game_id;\n      UPDATE match_participant_augments\n         SET is_remake = NEW.is_remake, queue_id = NEW.queue_id, game_version = NEW.game_version\n       WHERE game_id = NEW.game_id;\n    END"
+    ]
   ]
- ]
 }
