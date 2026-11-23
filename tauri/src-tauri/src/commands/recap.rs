@@ -275,7 +275,7 @@ pub async fn get_season_recap<R: Runtime>(
     let season_id = season_id.typed().flatten();
     let queue = queue.typed().flatten();
     let account = account.typed().flatten();
-    let now = ctx.now_ms();
+    let now = ctx.now_ms()?;
     let tz = TimeZone::system();
     db::of(&ctx)?.with(|conn| {
         season::get_season_recap(
@@ -290,6 +290,6 @@ pub async fn get_season_recap<R: Runtime>(
 }
 
 pub async fn get_seasons<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Vec<SeasonSummary>> {
-    let now = ctx.now_ms();
+    let now = ctx.now_ms()?;
     db::of(&ctx)?.with(|conn| season::get_seasons(conn, now))
 }
