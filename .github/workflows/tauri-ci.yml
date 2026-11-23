@@ -71,3 +71,24 @@ jobs:
 
       - name: Build
         run: bun run tauri build --debug
+
+      - name: Launch the debug build and read its window
+        run: |
+          exe=src-tauri/target/debug/better-mayhem-tracker-tauri
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          "$exe" > window.log 2>&1 &
+          pid=$!
+          sleep 10
+          alive=0
+          if kill -0 "$pid" 2>/dev/null; then alive=1; fi
+          kill "$pid" 2>/dev/null || true
+          cat window.log
+          test "$alive" -eq 1
+          grep -F 'size=1280x820 min=900x600 background=#0a1024' window.log
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: window-${{ matrix.os }}
+          path: tauri/window.log
+          if-no-files-found: ignore
