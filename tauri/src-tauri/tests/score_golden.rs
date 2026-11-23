@@ -284,7 +284,9 @@ const GAME_TABLES: [(&str, &str); 5] = [
 
 /// Deletes each game and ingests its stored payload again, then compares
 /// every row with the row Electron wrote. Favorites are a later toggle, so a
-/// fresh insert leaves them 0.
+/// fresh insert leaves them 0. `raw_gz` is counted apart: the fixture's
+/// blobs are Bun's gzip, which zlib-rs reproduces, while Electron's own
+/// deflate differs (T11 waiver W1).
 fn reingest(conn: &Connection, champions: &ChampionClasses, failures: &mut Vec<String>) {
     let games: Vec<(i64, String, Vec<u8>)> = conn
         .prepare("SELECT game_id, puuid, raw_gz FROM games ORDER BY game_id")
@@ -362,7 +364,7 @@ fn reingest(conn: &Connection, champions: &ChampionClasses, failures: &mut Vec<S
         .unwrap();
     }
     println!(
-        "{matched}/{} re-ingested games write Electron's rows, {same_blob} with byte-identical raw_gz",
+        "{matched}/{} re-ingested games write Electron's rows, {same_blob} with raw_gz byte-identical to the fixture's Bun gzip",
         games.len()
     );
 }

@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use rusqlite::{Connection, params};
 
+use super::js;
 use super::payloads::RawParticipantRow;
 use super::settings::{get_setting, set_setting};
 use super::stmt::{self, FromRow};
@@ -181,7 +182,8 @@ pub struct OwnerFallback {
     pub assists: f64,
 }
 
-/// `computeOwnerScore`: the owner by puuid, else by champion and KDA.
+/// `computeOwnerScore`: the owner by puuid, else by champion and KDA. An
+/// empty puuid is falsy, so it looks nothing up.
 pub fn compute_owner_score(
     participants: &[ScoreRow],
     owner_puuid: Option<&str>,
@@ -191,7 +193,7 @@ pub fn compute_owner_score(
     if participants.is_empty() {
         return None;
     }
-    let by_puuid = owner_puuid.and_then(|puuid| {
+    let by_puuid = owner_puuid.filter(|p| !p.is_empty()).and_then(|puuid| {
         participants
             .iter()
             .find(|p| p.puuid.as_deref() == Some(puuid))
@@ -243,42 +245,42 @@ fn backfill_scores(conn: &Connection, classes: &ChampionClassMap) -> rusqlite::R
         [],
     )?);
 
-    let tx = conn.unchecked_transaction()?;
     let mut update = conn.prepare_cached(
         "UPDATE player_stats SET score = ?, score_raw = ?, score_badge = ? WHERE game_id = ?",
     )?;
-    for game in &games {
-        if game.is_remake != 0 {
+    js::transaction(conn, || {
+        for game in &games {
+            if game.is_remake != 0 {
+                update.execute(params![
+                    None::<f64>,
+                    None::<f64>,
+                    None::<&str>,
+                    game.game_id
+                ])?;
+                continue;
+            }
+            let result = compute_owner_score(
+                participants
+                    .get(&game.game_id)
+                    .map_or(&[][..], Vec::as_slice),
+                Some(game.puuid.as_str()),
+                Some(OwnerFallback {
+                    champion_id: game.champion_id,
+                    kills: game.kills,
+                    deaths: game.deaths,
+                    assists: game.assists,
+                }),
+                classes,
+            );
             update.execute(params![
-                None::<f64>,
-                None::<f64>,
-                None::<&str>,
-                game.game_id
+                result.map(|s| s.score),
+                result.map(|s| s.raw),
+                result.and_then(|s| s.badge).map(|b| b.as_str()),
+                game.game_id,
             ])?;
-            continue;
         }
-        let result = compute_owner_score(
-            participants
-                .get(&game.game_id)
-                .map_or(&[][..], Vec::as_slice),
-            Some(game.puuid.as_str()).filter(|p| !p.is_empty()),
-            Some(OwnerFallback {
-                champion_id: game.champion_id,
-                kills: game.kills,
-                deaths: game.deaths,
-                assists: game.assists,
-            }),
-            classes,
-        );
-        update.execute(params![
-            result.map(|s| s.score),
-            result.map(|s| s.raw),
-            result.and_then(|s| s.badge).map(|b| b.as_str()),
-            game.game_id,
-        ])?;
-    }
-    drop(update);
-    tx.commit()
+        Ok(())
+    })
 }
 
 #[cfg(test)]
@@ -290,5 +292,44 @@ mod tests {
         assert_eq!(GameScoreRow::COLUMNS[1..], *ScoreRow::COLUMNS);
         let listed: Vec<&str> = SCORE_ROW_COLUMNS.split(',').map(str::trim).collect();
         assert_eq!(listed, ScoreRow::COLUMNS);
+    }
+
+    fn row(participant_id: f64, puuid: &str, champion_id: f64, kills: f64) -> ScoreRow {
+        ScoreRow {
+            participant_id,
+            puuid: Some(puuid.into()),
+            team_id: 100.0,
+            champion_id,
+            win: 1.0,
+            kills,
+            deaths: 2.0,
+            assists: 5.0,
+            double_kills: 0.0,
+            triple_kills: 0.0,
+            quadra_kills: 0.0,
+            penta_kills: 0.0,
+            total_damage_dealt: 10_000.0 + kills * 1_000.0,
+            total_damage_taken: 15_000.0,
+            gold_earned: 9_000.0,
+            total_heal: 2_000.0,
+        }
+    }
+
+    #[test]
+    fn an_empty_owner_puuid_falls_back_to_champion_and_kda() {
+        let rows = [row(1.0, "", 1.0, 3.0), row(2.0, "x", 2.0, 9.0)];
+        let fallback = OwnerFallback {
+            champion_id: 2.0,
+            kills: 9.0,
+            deaths: 2.0,
+            assists: 5.0,
+        };
+        let classes = ChampionClassMap::new();
+        let by_fallback = compute_owner_score(&rows, None, Some(fallback), &classes);
+        let empty = compute_owner_score(&rows, Some(""), Some(fallback), &classes);
+        let first = compute_owner_score(&rows, Some(""), None, &classes);
+        assert!(by_fallback.is_some());
+        assert_eq!(empty, by_fallback);
+        assert_eq!(first, None);
     }
 }
