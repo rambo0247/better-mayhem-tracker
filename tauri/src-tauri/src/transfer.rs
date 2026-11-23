@@ -856,11 +856,7 @@ mod tests {
 
         let dir = std::env::temp_dir().join(format!("bmt-export-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::copy(
-            Path::new(&data).join("data/matches.db"),
-            dir.join("matches.db"),
-        )
-        .unwrap();
+        std::fs::copy(Path::new(&data).join("matches.db"), dir.join("matches.db")).unwrap();
         let db = Database::open(&dir, 0).unwrap();
         let out = dir.join("export.json");
         assert_eq!(write_export_to(&db, &out), Ok(669));
