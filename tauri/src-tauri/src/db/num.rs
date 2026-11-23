@@ -3,6 +3,8 @@
 //! stores a fractional value in an `INTEGER` affinity reads as a fraction in
 //! Electron. An `i64` field errors on that value; [`Num`] reads either.
 
+use std::ops::AddAssign;
+
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ValueRef};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use ts_rs::TS;
@@ -12,7 +14,7 @@ const SAFE_INTEGER: f64 = 9_007_199_254_740_992.0;
 
 /// An `INTEGER` or a `REAL`, as one double. A whole value goes out as an
 /// integer, so a column that holds only integers answers as it always did.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]
 pub struct Num(pub f64);
 
 /// Prints as the primitive `number`, as a bare `f64` does.
@@ -32,6 +34,13 @@ impl TS for Num {
 impl From<i64> for Num {
     fn from(n: i64) -> Self {
         Num(n as f64)
+    }
+}
+
+/// `total += value`, in doubles as JavaScript sums.
+impl AddAssign for Num {
+    fn add_assign(&mut self, rhs: Num) {
+        self.0 += rhs.0;
     }
 }
 

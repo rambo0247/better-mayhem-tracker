@@ -11,6 +11,7 @@ use super::types::{
     TeammateStats,
 };
 use super::{CommandResult, Ctx, Domain, whole};
+use crate::db::num::Num;
 use crate::db::{self, recap, season};
 use crate::intl;
 use crate::js_arg::Js;
@@ -50,12 +51,12 @@ pub struct RecapMilestone {
 pub struct RecapSessionGame {
     pub game_id: i64,
     pub game_creation: i64,
-    pub game_duration: i64,
+    pub game_duration: Num,
     pub champion_id: i64,
-    pub win: i64,
-    pub kills: i64,
-    pub deaths: i64,
-    pub assists: i64,
+    pub win: Num,
+    pub kills: Num,
+    pub deaths: Num,
+    pub assists: Num,
     pub score: Option<f64>,
 }
 
@@ -67,11 +68,11 @@ pub struct RecapSession {
     pub games: Vec<RecapSessionGame>,
     pub wins: i64,
     pub losses: i64,
-    pub kills: i64,
-    pub deaths: i64,
-    pub assists: i64,
+    pub kills: Num,
+    pub deaths: Num,
+    pub assists: Num,
     pub avg_score: Option<f64>,
-    pub duration: i64,
+    pub duration: Num,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -95,10 +96,10 @@ pub struct RecapStreak {
 pub struct RecapChampion {
     pub champion_id: i64,
     pub games: i64,
-    pub wins: i64,
-    pub kills: i64,
-    pub deaths: i64,
-    pub assists: i64,
+    pub wins: Num,
+    pub kills: Num,
+    pub deaths: Num,
+    pub assists: Num,
     pub avg_score: Option<f64>,
     pub previous_best: Option<f64>,
     pub first_time: bool,
@@ -108,7 +109,7 @@ pub struct RecapChampion {
 #[serde(rename_all = "camelCase")]
 pub struct RecapCareer {
     pub games: i64,
-    pub wins: i64,
+    pub wins: Num,
     pub avg_score: Option<f64>,
     pub avg_kills: f64,
     pub avg_deaths: f64,
@@ -173,10 +174,10 @@ pub struct SeasonChampion {
     #[serde(rename = "champion_id")]
     pub champion_id: i64,
     pub games: i64,
-    pub wins: i64,
-    pub kills: i64,
-    pub deaths: i64,
-    pub assists: i64,
+    pub wins: Num,
+    pub kills: Num,
+    pub deaths: Num,
+    pub assists: Num,
     pub avg_score: Option<f64>,
 }
 
@@ -192,7 +193,7 @@ pub struct SeasonPlayer {
 pub struct SeasonDay {
     pub day: i64,
     pub games: i64,
-    pub wins: i64,
+    pub wins: Num,
 }
 
 /// `{ days: number; from: number; to: number }`
@@ -214,20 +215,20 @@ pub struct SeasonRecap {
     pub first_game: Option<i64>,
     pub last_game: Option<i64>,
     pub games: i64,
-    pub wins: i64,
-    pub duration: i64,
+    pub wins: Num,
+    pub duration: Num,
     pub days: Vec<SeasonDay>,
     pub busiest_day: Option<SeasonDay>,
     pub day_streak: Option<DayStreak>,
     pub peak_hour: Option<i64>,
     pub top_weekday: Option<i64>,
-    pub kills: i64,
-    pub deaths: i64,
-    pub assists: i64,
-    pub damage: i64,
-    pub damage_taken: i64,
-    pub healing: i64,
-    pub gold: i64,
+    pub kills: Num,
+    pub deaths: Num,
+    pub assists: Num,
+    pub damage: Num,
+    pub damage_taken: Num,
+    pub healing: Num,
+    pub gold: Num,
     pub multikills: Multikills,
     pub kill_participation: Option<f64>,
     pub damage_share: Option<f64>,

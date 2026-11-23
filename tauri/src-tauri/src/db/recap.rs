@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use jiff::tz::TimeZone;
 use rusqlite::{Connection, OptionalExtension};
 
+use super::num::Num;
 use super::records::{CareerFilter, CareerRow, career_rows, higher, lower};
 use super::stmt;
 use crate::commands::recap::{
@@ -389,18 +390,18 @@ fn is_mvp(r: &CareerRow) -> bool {
 }
 
 /// The biggest listed mark a running total passed on this game.
-fn crossed_mark(before: i64, after: i64, marks: &[i64]) -> Option<i64> {
+fn crossed_mark(before: f64, after: f64, marks: &[i64]) -> Option<i64> {
     marks
         .iter()
         .copied()
-        .filter(|&m| before < m && after >= m)
+        .filter(|&m| before < m as f64 && after >= m as f64)
         .max()
 }
 
 /// Repeating marks, for totals that keep climbing past any list.
-fn crossed_step(before: i64, after: i64, step: i64) -> Option<i64> {
-    let mark = after.div_euclid(step) * step;
-    (mark > 0 && before < mark).then_some(mark)
+fn crossed_step(before: f64, after: f64, step: i64) -> Option<i64> {
+    let mark = (after / step as f64).floor() * step as f64;
+    (mark > 0.0 && before < mark).then_some(mark as i64)
 }
 
 struct PlacementDef {
@@ -420,7 +421,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "Kills",
         format: RecapFormat::Int,
         good: true,
-        value: |r| Some(r.kills as f64),
+        value: |r| Some(r.kills.0),
         ranked_on: None,
         better: higher,
     },
@@ -429,7 +430,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "KDA",
         format: RecapFormat::Kda,
         good: true,
-        value: |r| Some((r.kills + r.assists) as f64 / r.deaths.max(1) as f64),
+        value: |r| Some((r.kills.0 + r.assists.0) / r.deaths.0.max(1.0)),
         ranked_on: None,
         better: higher,
     },
@@ -448,7 +449,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "Assists",
         format: RecapFormat::Int,
         good: true,
-        value: |r| Some(r.assists as f64),
+        value: |r| Some(r.assists.0),
         ranked_on: None,
         better: higher,
     },
@@ -457,7 +458,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "Killing spree",
         format: RecapFormat::Int,
         good: true,
-        value: |r| Some(r.largest_killing_spree as f64),
+        value: |r| Some(r.largest_killing_spree.0),
         ranked_on: None,
         better: higher,
     },
@@ -466,7 +467,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "Damage dealt",
         format: RecapFormat::Compact,
         good: true,
-        value: |r| Some(r.total_damage_dealt as f64),
+        value: |r| Some(r.total_damage_dealt.0),
         ranked_on: None,
         better: higher,
     },
@@ -475,7 +476,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "Damage taken",
         format: RecapFormat::Compact,
         good: true,
-        value: |r| Some(r.total_damage_taken as f64),
+        value: |r| Some(r.total_damage_taken.0),
         ranked_on: None,
         better: higher,
     },
@@ -484,7 +485,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "Healing",
         format: RecapFormat::Compact,
         good: true,
-        value: |r| Some(r.total_heal as f64),
+        value: |r| Some(r.total_heal.0),
         ranked_on: None,
         better: higher,
     },
@@ -493,7 +494,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "Gold earned",
         format: RecapFormat::Compact,
         good: true,
-        value: |r| Some(r.gold_earned as f64),
+        value: |r| Some(r.gold_earned.0),
         ranked_on: None,
         better: higher,
     },
@@ -502,7 +503,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "Deaths",
         format: RecapFormat::Int,
         good: false,
-        value: |r| Some(r.deaths as f64),
+        value: |r| Some(r.deaths.0),
         ranked_on: None,
         better: higher,
     },
@@ -511,7 +512,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "Fastest win",
         format: RecapFormat::Duration,
         good: true,
-        value: |r| (r.win != 0).then_some(r.game_duration as f64),
+        value: |r| (r.win.0 != 0.0).then_some(r.game_duration.0),
         ranked_on: None,
         better: lower,
     },
@@ -520,7 +521,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "Longest game",
         format: RecapFormat::Duration,
         good: true,
-        value: |r| Some(r.game_duration as f64),
+        value: |r| Some(r.game_duration.0),
         ranked_on: None,
         better: higher,
     },
@@ -576,25 +577,26 @@ fn build_milestones(rows: &[CareerRow], index: usize, locale: Option<&str>) -> V
         });
     };
 
-    let (mut wins, mut kills, mut mvps, mut pentas, mut quadras) = (0, 0, 0, 0, 0);
-    let (mut champ_games, mut champ_wins) = (0, 0);
+    // Every total a double, as JavaScript keeps them
+    let [mut wins, mut kills, mut mvps, mut pentas, mut quadras] = [0.0; 5];
+    let (mut champ_games, mut champ_wins) = (0.0, 0.0);
     for r in &rows[..=index] {
-        wins += r.win;
-        kills += r.kills;
+        wins += r.win.0;
+        kills += r.kills.0;
         if is_mvp(r) {
-            mvps += 1;
+            mvps += 1.0;
         }
-        pentas += r.penta_kills;
-        quadras += r.quadra_kills;
+        pentas += r.penta_kills.0;
+        quadras += r.quadra_kills.0;
         if r.champion_id == row.champion_id {
-            champ_games += 1;
-            champ_wins += r.win;
+            champ_games += 1.0;
+            champ_wins += r.win.0;
         }
     }
 
-    let games = index as i64 + 1;
-    let games_mark = crossed_mark(games - 1, games, &[10, 25, 50])
-        .or_else(|| crossed_step(games - 1, games, 100));
+    let games = index as f64 + 1.0;
+    let games_mark = crossed_mark(games - 1.0, games, &[10, 25, 50])
+        .or_else(|| crossed_step(games - 1.0, games, 100));
     if let Some(mark) = games_mark {
         add(
             "games",
@@ -603,8 +605,8 @@ fn build_milestones(rows: &[CareerRow], index: usize, locale: Option<&str>) -> V
         );
     }
 
-    let wins_mark = crossed_mark(wins - row.win, wins, &[10, 25, 50])
-        .or_else(|| crossed_step(wins - row.win, wins, 100));
+    let wins_mark = crossed_mark(wins - row.win.0, wins, &[10, 25, 50])
+        .or_else(|| crossed_step(wins - row.win.0, wins, 100));
     if let Some(mark) = wins_mark {
         add(
             "wins",
@@ -613,7 +615,7 @@ fn build_milestones(rows: &[CareerRow], index: usize, locale: Option<&str>) -> V
         );
     }
 
-    if let Some(mark) = crossed_step(kills - row.kills, kills, 1000) {
+    if let Some(mark) = crossed_step(kills - row.kills.0, kills, 1000) {
         add(
             "kills",
             format!("{} career kills", format_integer(mark, locale)),
@@ -621,14 +623,14 @@ fn build_milestones(rows: &[CareerRow], index: usize, locale: Option<&str>) -> V
         );
     }
 
-    if champ_games == 1 {
+    if champ_games == 1.0 {
         add(
             "champion-first",
             "First game on this champion".into(),
             "A new name on the list",
         );
     } else if let Some(mark) =
-        crossed_mark(champ_games - 1, champ_games, &[5, 10, 25, 50, 100, 200])
+        crossed_mark(champ_games - 1.0, champ_games, &[5, 10, 25, 50, 100, 200])
     {
         add(
             "champion-games",
@@ -637,7 +639,7 @@ fn build_milestones(rows: &[CareerRow], index: usize, locale: Option<&str>) -> V
         );
     }
 
-    if let Some(mark) = crossed_mark(champ_wins - row.win, champ_wins, &[5, 10, 25, 50, 100]) {
+    if let Some(mark) = crossed_mark(champ_wins - row.win.0, champ_wins, &[5, 10, 25, 50, 100]) {
         add(
             "champion-wins",
             format!("{} win on this champion", ordinal(mark, locale)),
@@ -645,20 +647,20 @@ fn build_milestones(rows: &[CareerRow], index: usize, locale: Option<&str>) -> V
         );
     }
 
-    if row.penta_kills > 0 {
-        let label = if pentas == row.penta_kills {
+    if row.penta_kills.0 > 0.0 {
+        let label = if pentas == row.penta_kills.0 {
             "First pentakill".into()
         } else {
-            format!("{} pentakill", ordinal(pentas, locale))
+            format!("{} pentakill", ordinal(pentas as i64, locale))
         };
         add("penta", label, "The rarest one");
-    } else if row.quadra_kills > 0 && quadras == row.quadra_kills {
+    } else if row.quadra_kills.0 > 0.0 && quadras == row.quadra_kills.0 {
         add("quadra", "First quadra kill".into(), "So close");
     }
 
     if is_mvp(row) {
-        let mvp_mark = crossed_mark(mvps - 1, mvps, &[1, 5, 10, 25, 50])
-            .or_else(|| crossed_step(mvps - 1, mvps, 50));
+        let mvp_mark = crossed_mark(mvps - 1.0, mvps, &[1, 5, 10, 25, 50])
+            .or_else(|| crossed_step(mvps - 1.0, mvps, 50));
         match mvp_mark {
             Some(1) => add("mvp", "First MVP".into(), "Best player on the winning team"),
             Some(mark) => add(
@@ -695,7 +697,7 @@ fn build_streak(rows: &[CareerRow], index: usize) -> RecapStreak {
         }
     }
     RecapStreak {
-        kind: if win != 0 {
+        kind: if win.0 != 0.0 {
             StreakKind::Win
         } else {
             StreakKind::Loss
@@ -753,15 +755,15 @@ pub fn get_game_recap(
             .collect(),
         wins: 0,
         losses: 0,
-        kills: 0,
-        deaths: 0,
-        assists: 0,
+        kills: Num::default(),
+        deaths: Num::default(),
+        assists: Num::default(),
         avg_score: None,
-        duration: 0,
+        duration: Num::default(),
     };
     let (mut session_score, mut session_scored) = (0.0, 0);
     for r in &session_rows {
-        if r.win != 0 {
+        if r.win.0 != 0.0 {
             session.wins += 1;
         } else {
             session.losses += 1;
@@ -787,10 +789,10 @@ pub fn get_game_recap(
     let mut champion = RecapChampion {
         champion_id,
         games: champion_rows.len() as i64,
-        wins: 0,
-        kills: 0,
-        deaths: 0,
-        assists: 0,
+        wins: Num::default(),
+        kills: Num::default(),
+        deaths: Num::default(),
+        assists: Num::default(),
         avg_score: None,
         previous_best: None,
         first_time: row.is_some_and(|row| {
@@ -821,7 +823,7 @@ pub fn get_game_recap(
 
     let mut career = RecapCareer {
         games: rows.len() as i64,
-        wins: 0,
+        wins: Num::default(),
         avg_score: None,
         avg_kills: 0.0,
         avg_deaths: 0.0,
@@ -834,13 +836,13 @@ pub fn get_game_recap(
     let (mut career_score, mut career_scored) = (0.0, 0);
     for r in &rows {
         career.wins += r.win;
-        career.avg_kills += r.kills as f64;
-        career.avg_deaths += r.deaths as f64;
-        career.avg_assists += r.assists as f64;
-        career.avg_damage += r.total_damage_dealt as f64;
-        career.avg_taken += r.total_damage_taken as f64;
-        career.avg_heal += r.total_heal as f64;
-        career.avg_gold += r.gold_earned as f64;
+        career.avg_kills += r.kills.0;
+        career.avg_deaths += r.deaths.0;
+        career.avg_assists += r.assists.0;
+        career.avg_damage += r.total_damage_dealt.0;
+        career.avg_taken += r.total_damage_taken.0;
+        career.avg_heal += r.total_heal.0;
+        career.avg_gold += r.gold_earned.0;
         if let Some(score) = r.score {
             career_score += score;
             career_scored += 1;
@@ -904,11 +906,11 @@ mod tests {
 
     #[test]
     fn the_largest_mark_crossed_wins() {
-        assert_eq!(crossed_mark(9, 26, &[10, 25, 50]), Some(25));
-        assert_eq!(crossed_mark(10, 11, &[10, 25, 50]), None);
-        assert_eq!(crossed_step(199, 200, 100), Some(200));
-        assert_eq!(crossed_step(200, 201, 100), None);
-        assert_eq!(crossed_step(0, 99, 100), None);
+        assert_eq!(crossed_mark(9.0, 26.0, &[10, 25, 50]), Some(25));
+        assert_eq!(crossed_mark(10.0, 11.0, &[10, 25, 50]), None);
+        assert_eq!(crossed_step(199.0, 200.0, 100), Some(200));
+        assert_eq!(crossed_step(200.0, 201.0, 100), None);
+        assert_eq!(crossed_step(0.0, 99.0, 100), None);
     }
 
     #[test]

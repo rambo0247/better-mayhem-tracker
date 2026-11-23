@@ -1,6 +1,7 @@
 //! `src/main/db/season.ts` for `db:season-recap` and `db:seasons`, with the
 //! friends, items and records read through T14's and T15's module names.
 
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use jiff::tz::TimeZone;
@@ -8,10 +9,11 @@ use rusqlite::types::Value as Sql;
 use rusqlite::{Connection, params_from_iter};
 
 use super::filters::{SEASONS, Where, find_season, season_bounds};
+use super::num::Num;
 use super::records::{CareerFilter, career_rows, career_where, compute_records};
 use super::stats::{ITEM_SLOTS, excluded_items_sql, item_slot_union};
 use super::stmt;
-use super::teammates::{MIN_SHARED_GAMES, get_teammate_stats};
+use super::teammates::{self, MIN_SHARED_GAMES, get_teammate_stats};
 use crate::commands::recap::{
     DayStreak, SeasonChampion, SeasonDay, SeasonPlayer, SeasonRecap, SeasonSummary,
 };
@@ -107,11 +109,11 @@ fn team_shares(conn: &Connection, w: &Where) -> rusqlite::Result<(Option<f64>, O
 }
 
 db_row! {
-    struct AugmentPick { augment_id: i64, picks: i64, wins: i64 }
+    struct AugmentPick { augment_id: i64, picks: i64, wins: Num }
 }
 
 db_row! {
-    struct ItemPick { item_id: i64, picks: i64, wins: i64 }
+    struct ItemPick { item_id: i64, picks: i64, wins: Num }
 }
 
 fn top_augments(conn: &Connection, w: &Where) -> rusqlite::Result<Vec<AugmentStats>> {
@@ -411,15 +413,15 @@ pub fn get_season_recap(
     let rows = career_rows(conn, &filter)?;
     let w = career_where(conn, &filter)?;
 
-    let (mut wins, mut duration, mut kills, mut deaths, mut assists) = (0, 0, 0, 0, 0);
-    let (mut damage, mut damage_taken, mut healing, mut gold) = (0, 0, 0, 0);
+    let [mut wins, mut duration, mut kills, mut deaths, mut assists] = [Num::default(); 5];
+    let [mut damage, mut damage_taken, mut healing, mut gold] = [Num::default(); 4];
     let (mut mvps, mut aces, mut scored, mut scored_wins, mut scored_losses) = (0, 0, 0, 0, 0);
     let mut score_sum = 0.0;
     let mut multikills = Multikills {
-        doubles: 0,
-        triples: 0,
-        quadras: 0,
-        pentas: 0,
+        doubles: Num::default(),
+        triples: Num::default(),
+        quadras: Num::default(),
+        pentas: Num::default(),
     };
     // In the order first met, which is the order played
     let mut days: Vec<SeasonDay> = Vec::new();
@@ -448,7 +450,7 @@ pub fn get_season_recap(
         if let Some(score) = r.score {
             score_sum += score;
             scored += 1;
-            if r.win != 0 {
+            if r.win.0 != 0.0 {
                 scored_wins += 1;
             } else {
                 scored_losses += 1;
@@ -464,7 +466,7 @@ pub fn get_season_recap(
             days.push(SeasonDay {
                 day,
                 games: 0,
-                wins: 0,
+                wins: Num::default(),
             });
             days.len() - 1
         });
@@ -480,10 +482,10 @@ pub fn get_season_recap(
                 champion: SeasonChampion {
                     champion_id: r.champion_id,
                     games: 0,
-                    wins: 0,
-                    kills: 0,
-                    deaths: 0,
-                    assists: 0,
+                    wins: Num::default(),
+                    kills: Num::default(),
+                    deaths: Num::default(),
+                    assists: Num::default(),
                     avg_score: None,
                 },
                 score_sum: 0.0,
@@ -514,7 +516,7 @@ pub fn get_season_recap(
     champion_list.sort_by(|a, b| {
         b.games
             .cmp(&a.games)
-            .then(b.wins.cmp(&a.wins))
+            .then(b.wins.partial_cmp(&a.wins).unwrap_or(Ordering::Equal))
             .then(a.champion_id.cmp(&b.champion_id))
     });
     champion_list.truncate(TOP_CHAMPIONS);
@@ -539,7 +541,13 @@ pub fn get_season_recap(
     } else {
         team_shares(conn, &w)?
     };
-    let mut friends = get_teammate_stats(conn, &filter, MIN_SHARED_GAMES)?;
+    let teammate_filter = teammates::CareerFilter {
+        queue: filter.queue,
+        account: filter.account.clone(),
+        from: filter.from,
+        to: filter.to,
+    };
+    let mut friends = get_teammate_stats(conn, &teammate_filter, MIN_SHARED_GAMES)?;
     friends.truncate(TOP_FRIENDS);
 
     Ok(Some(SeasonRecap {
