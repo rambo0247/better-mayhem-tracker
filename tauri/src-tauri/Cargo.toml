@@ -35,6 +35,12 @@ harness = false
 # Replay freezes the clock, and only test and driver builds have a frozen one
 required-features = ["parity-driver"]
 
+[[test]]
+name = "score_golden"
+path = "tests/score_golden.rs"
+# Prints the match counts straight to the terminal, as golden.rs does
+harness = false
+
 [build-dependencies]
 serde_json = "=1.0.154"
 tauri-build = { version = "=3.0.0-alpha.4", features = [] }

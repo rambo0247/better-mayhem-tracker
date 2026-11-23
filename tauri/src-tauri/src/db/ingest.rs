@@ -215,3 +215,181 @@ fn find_owner_row<'a>(rows: &'a [RawParticipantRow], puuid: &str) -> Option<&'a 
     }
     rows.iter().find(|r| r.puuid.as_deref() == Some(puuid))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::{connection, payloads::unpack_raw, schema};
+    use serde_json::json;
+
+    fn fresh_db(name: &str) -> (std::path::PathBuf, Connection) {
+        let dir = std::env::temp_dir().join(format!("bmt-ingest-{name}-{}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        std::fs::create_dir_all(&dir).unwrap();
+        let conn = connection::open(&dir.join("matches.db")).unwrap();
+        schema::init_database(&conn, 0).unwrap();
+        (dir, conn)
+    }
+
+    fn payload(game_id: i64, duration: i64) -> Value {
+        let player = |id: i64, team: i64, win: bool, kills: i64| {
+            json!({ "participantId": id, "championId": 10 + id, "teamId": team,
+                "spell1Id": 4, "spell2Id": 32,
+                "stats": { "win": win, "kills": kills, "deaths": 3, "assists": 7,
+                    "doubleKills": 1, "totalDamageDealtToChampions": 15000 + id * 1000,
+                    "totalDamageTaken": 20000, "goldEarned": 9000, "totalHeal": 4000,
+                    "largestKillingSpree": 2, "item0": 1001, "item6": 3340,
+                    "playerAugment1": 77, "playerAugment2": 0 } })
+        };
+        let identity = |puuid: &str| json!({ "player": { "puuid": puuid, "gameName": puuid, "tagLine": "NA1" } });
+        json!({
+            "gameId": game_id, "queueId": 2400, "gameMode": "KIWI", "gameCreation": 1_700_000_000_000_i64,
+            "gameDuration": duration, "gameVersion": "16.23.712.3456",
+            "participants": [player(1, 100, true, 9), player(2, 100, true, 4), player(3, 200, false, 6)],
+            "participantIdentities": [identity("me"), identity("ally"), identity("foe")],
+        })
+    }
+
+    fn count(conn: &Connection, sql: &str) -> i64 {
+        conn.query_row(sql, [], |row| row.get(0)).unwrap()
+    }
+
+    #[test]
+    fn a_game_lands_whole_with_the_owner_scored() {
+        let (dir, conn) = fresh_db("whole");
+        let game = payload(42, 1200);
+        assert!(insert_game_full(&conn, &game, "me", &ChampionClassMap::new()).unwrap());
+
+        let rows = participant_rows_from_raw(Some(&game)).unwrap();
+        let score_rows: Vec<ScoreRow> = rows.iter().map(ScoreRow::from).collect();
+        let want =
+            compute_owner_score(&score_rows, Some("me"), None, &ChampionClassMap::new()).unwrap();
+        let (score, raw, badge): (f64, f64, String) = conn
+            .query_row(
+                "SELECT score, score_raw, score_badge FROM player_stats WHERE game_id = 42",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            (score.to_bits(), raw.to_bits()),
+            (want.score.to_bits(), want.raw.to_bits())
+        );
+        assert_eq!(Some(badge.as_str()), want.badge.map(|b| b.as_str()));
+
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT count(*) FROM match_participants WHERE game_id = 42"
+            ),
+            3
+        );
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT count(*) FROM match_participant_augments WHERE game_id = 42"
+            ),
+            3
+        );
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT augment_id FROM game_augments WHERE game_id = 42 AND slot = 1"
+            ),
+            77
+        );
+        assert_eq!(
+            count(&conn, "SELECT is_remake FROM games WHERE game_id = 42"),
+            0
+        );
+        let (version, blob): (String, Vec<u8>) = conn
+            .query_row(
+                "SELECT game_version, raw_gz FROM games WHERE game_id = 42",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(version, "16.23");
+        assert_eq!(unpack_raw(Some(&blob)), Some(game.clone()));
+
+        assert!(game_exists(&conn, 42).unwrap());
+        assert!(is_game_known(&conn, 42).unwrap());
+        drop(conn);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn a_second_insert_and_a_missing_owner_write_nothing() {
+        let (dir, conn) = fresh_db("noop");
+        let game = payload(7, 1200);
+        assert!(insert_game_full(&conn, &game, "me", &ChampionClassMap::new()).unwrap());
+        let before = count(&conn, "SELECT total_changes()");
+        assert!(!insert_game_full(&conn, &game, "me", &ChampionClassMap::new()).unwrap());
+        assert_eq!(count(&conn, "SELECT total_changes()"), before);
+        assert!(
+            !insert_game_full(
+                &conn,
+                &payload(8, 1200),
+                "stranger",
+                &ChampionClassMap::new()
+            )
+            .unwrap()
+        );
+        assert!(!insert_game_full(&conn, &payload(9, 1200), "", &ChampionClassMap::new()).unwrap());
+        assert!(!game_exists(&conn, 8).unwrap());
+        drop(conn);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn a_remake_stores_no_score() {
+        let (dir, conn) = fresh_db("remake");
+        assert!(insert_game_full(&conn, &payload(5, 200), "me", &ChampionClassMap::new()).unwrap());
+        assert_eq!(
+            count(&conn, "SELECT is_remake FROM games WHERE game_id = 5"),
+            1
+        );
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT is_remake FROM match_participants WHERE game_id = 5 LIMIT 1"
+            ),
+            1
+        );
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT count(*) FROM player_stats WHERE game_id = 5 AND score IS NULL AND score_raw IS NULL AND score_badge IS NULL"
+            ),
+            1
+        );
+        drop(conn);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn ignored_ids_count_as_known() {
+        let (dir, conn) = fresh_db("ignored");
+        mark_ignored_game(&conn, 11).unwrap();
+        mark_ignored_game(&conn, 11).unwrap();
+        assert!(
+            insert_game_full(&conn, &payload(12, 1200), "me", &ChampionClassMap::new()).unwrap()
+        );
+        assert!(is_game_known(&conn, 11).unwrap());
+        assert!(!game_exists(&conn, 11).unwrap());
+        assert!(!is_game_known(&conn, 13).unwrap());
+        assert_eq!(get_known_game_ids(&conn).unwrap(), HashSet::from([11, 12]));
+        drop(conn);
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn durations_coerce_as_relational_operators_do() {
+        assert!(coerced(None).is_nan());
+        assert_eq!(coerced(Some(&Value::Null)), 0.0);
+        assert_eq!(coerced(Some(&json!(" 250 "))), 250.0);
+        assert_eq!(coerced(Some(&json!(""))), 0.0);
+        assert!(coerced(Some(&json!("abc"))).is_nan());
+        assert_eq!(coerced(Some(&json!(true))), 1.0);
+    }
+}
