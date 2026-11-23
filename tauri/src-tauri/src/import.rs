@@ -537,8 +537,8 @@ fn to_number(v: Option<&Value>) -> f64 {
         Some(Value::Null) => 0.0,
         Some(Value::Bool(b)) => f64::from(u8::from(*b)),
         Some(Value::Number(n)) => n.as_f64().unwrap_or(f64::NAN),
-        Some(Value::String(s)) => string_to_number(s),
-        Some(array @ Value::Array(_)) => string_to_number(&to_js_string(array)),
+        Some(Value::String(s)) => js::string_to_number(s),
+        Some(array @ Value::Array(_)) => js::string_to_number(&to_js_string(array)),
     }
 }
 
@@ -559,54 +559,6 @@ fn to_js_string(v: &Value) -> String {
             .join(","),
         Value::Object(_) => "[object Object]".into(),
     }
-}
-
-/// ECMA-262 StringToNumber.
-fn string_to_number(s: &str) -> f64 {
-    let t = js_trim(s);
-    if t.is_empty() {
-        return 0.0;
-    }
-    match t {
-        "Infinity" | "+Infinity" => return f64::INFINITY,
-        "-Infinity" => return f64::NEG_INFINITY,
-        _ => {}
-    }
-    let radix = match t.get(..2) {
-        Some("0x" | "0X") => 16,
-        Some("0o" | "0O") => 8,
-        Some("0b" | "0B") => 2,
-        _ => 10,
-    };
-    if radix != 10 {
-        let digits = &t[2..];
-        if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
-            return f64::NAN;
-        }
-        return u128::from_str_radix(digits, radix).map_or_else(
-            |_| {
-                digits.chars().fold(0.0, |acc, c| {
-                    acc * f64::from(radix) + f64::from(c.to_digit(radix).unwrap_or(0))
-                })
-            },
-            |n| n as f64,
-        );
-    }
-    let body = t.strip_prefix(['+', '-']).unwrap_or(t);
-    let (mantissa, exponent) = match body.find(['e', 'E']) {
-        Some(at) => (&body[..at], Some(&body[at + 1..])),
-        None => (body, None),
-    };
-    let (int, frac) = mantissa.split_once('.').unwrap_or((mantissa, ""));
-    let digits = |s: &str| s.bytes().all(|b| b.is_ascii_digit());
-    let exponent_ok = exponent.is_none_or(|e| {
-        let e = e.strip_prefix(['+', '-']).unwrap_or(e);
-        !e.is_empty() && digits(e)
-    });
-    if (int.is_empty() && frac.is_empty()) || !digits(int) || !digits(frac) || !exponent_ok {
-        return f64::NAN;
-    }
-    t.parse().unwrap_or(f64::NAN)
 }
 
 #[cfg(test)]
