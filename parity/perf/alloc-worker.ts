@@ -16,4 +16,4 @@ if (kind === "parent") {
     process.exit(0);
   });
 } else if (kind === "child" || kind === "idle-big") fill(mb);
-setInterval(() => void hold.length, 1000);
+setInterval(() => hold.length, 1000);

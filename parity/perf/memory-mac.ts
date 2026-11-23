@@ -260,13 +260,12 @@ export function readFootprint(pids: number[]): FootprintReading {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bmt-footprint-"));
   const file = path.join(dir, "fp.json");
   try {
-    const out = spawnSync("footprint", ["-p", ...pids.map(String), "-j", file], {
+    spawnSync("footprint", ["-p", ...pids.map(String), "-j", file], {
       encoding: "utf8",
     });
     if (!fs.existsSync(file)) {
       return { footprint: new Map(), missing: pids };
     }
-    void out;
     return parseFootprint(fs.readFileSync(file, "utf8"), pids);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

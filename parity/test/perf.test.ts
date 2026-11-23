@@ -88,7 +88,9 @@ describe("webkit attribution", () => {
   test("takes the app's own three helpers and leaves the older ones", () => {
     const attribution = attributeWebKit(rows, context(older), names);
     expect(attribution.ambiguous).toBe(false);
-    expect(attribution.members.map((m) => [m.row.pid, m.role]).sort()).toEqual([
+    expect(
+      attribution.members.map((m) => [m.row.pid, m.role] as const).sort((a, b) => a[0] - b[0]),
+    ).toEqual([
       [38686, "main"],
       [38691, "gpu"],
       [38692, "webcontent"],

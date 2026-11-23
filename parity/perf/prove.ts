@@ -99,13 +99,13 @@ async function webkitDecoys(appPath: string) {
     return attributeWebKit(rows, context(), openFileNames(fresh.map((r) => r.pid)));
   };
   const alone = resolve();
-  const memberPids = alone.members.map((m) => m.row.pid).sort();
+  const memberPids = alone.members.map((m) => m.row.pid).sort((a, b) => a - b);
   check(
     "WebKit: one app resolves to itself, a GPU, a networking and a content helper",
     !alone.ambiguous &&
       alone.members
         .map((m) => m.role)
-        .sort()
+        .sort((a, b) => a.localeCompare(b))
         .join() === "gpu,main,networking,webcontent",
     `${memberPids.join(",")}`,
   );
