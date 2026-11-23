@@ -41,9 +41,11 @@ pub fn run() {
                 .build()?;
             let size = window.inner_size()?.to_logical::<f64>(window.scale_factor()?);
             log(format!(
-                "window {} title={:?} size={}x{} min={}x{} background=#{:02x}{:02x}{:02x} built {} ms after process start",
+                "window {} title={:?} requested={}x{} size={}x{} min={}x{} background=#{:02x}{:02x}{:02x} built {} ms after process start",
                 window.label(),
                 window.title()?,
+                width,
+                height,
                 size.width,
                 size.height,
                 min_width,
