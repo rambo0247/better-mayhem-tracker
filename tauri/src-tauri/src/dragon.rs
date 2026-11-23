@@ -412,8 +412,11 @@ impl Dragon {
     }
 
     /// What startup runs in the background: champions, then the live augments.
+    /// Champions start loading here unless [`Dragon::load_champion_data`]
+    /// already started them.
     pub fn start(&self) {
-        drop(self.load_champion_data());
+        let ready = self.0.champion_ready.lock().expect("ready lock").clone();
+        tokio::spawn(ready.unwrap_or_else(|| self.load_champion_data()));
         let dragon = self.clone();
         tokio::spawn(async move {
             if let Err(err) = dragon.augments(None).await {
@@ -525,17 +528,18 @@ impl Dragon {
         Ok(())
     }
 
-    /// `loadChampionData`: the disk copy at once, then Data Dragon.
+    /// `loadChampionData`: the disk copy, then Data Dragon. Needs no runtime:
+    /// the load is registered at once, so a [`Dragon::wait_for_champion_data`]
+    /// from then on waits for it, as `waitForChampionData` does after
+    /// `loadChampionData()` in Electron's startup. It runs when
+    /// [`Dragon::start`] spawns it or a waiter polls it, whichever is first.
     pub fn load_champion_data(&self) -> Shared<BoxFuture<'static, ()>> {
         let dragon = self.clone();
-        let task = tokio::spawn(async move {
+        let ready = async move {
             dragon.hydrate_champions_from_disk();
             if let Err(err) = dragon.fetch_champions().await {
                 log_error(format!("Failed to load champion data: {err}"));
             }
-        });
-        let ready = async move {
-            let _ = task.await;
         }
         .boxed()
         .shared();
@@ -1092,6 +1096,27 @@ mod tests {
         assert_eq!(classes.classes.len(), 3);
         assert_eq!(classes.classes[&1], "Mage");
         assert!(file.contains(&serde_json::to_string(&data).unwrap()));
+    }
+
+    #[tokio::test]
+    async fn a_wait_registered_before_start_waits_for_the_load() {
+        let rig = Rig::new("champions-order");
+        serve_champions(&rig.web, "16.23.1");
+        let dragon = dragon(&rig);
+        // Startup's order: register the load, then wait, then start
+        drop(dragon.load_champion_data());
+        let waiter = {
+            let dragon = dragon.clone();
+            tokio::spawn(async move {
+                dragon.wait_for_champion_data().await;
+                dragon.champion_classes()
+            })
+        };
+        dragon.start();
+        let classes = waiter.await.unwrap();
+        assert_eq!(classes.version, "16.23.1");
+        assert_eq!(classes.classes.len(), 3);
+        assert_eq!(rig.web.asked(VERSIONS), 1);
     }
 
     #[tokio::test]

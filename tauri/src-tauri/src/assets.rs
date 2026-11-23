@@ -90,7 +90,6 @@ pub fn public_roots() -> RootCertStore {
     roots
 }
 
-#[cfg_attr(feature = "parity-driver", allow(dead_code))]
 fn public_tls_config() -> Result<ClientConfig, rustls::Error> {
     let mut config =
         ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
@@ -157,9 +156,13 @@ pub mod parity_web {
             .ok()
             .filter(|base| is_loopback(base))
             .map(|base| base.trim_end_matches('/').to_string());
+        // reqwest needs a TLS backend even for plain HTTP; this one only ever
+        // asks a loopback fake over http://
+        let tls = public_tls_config().expect("the public TLS config builds");
         ParityWeb {
             base,
             client: reqwest::Client::builder()
+                .tls_backend_preconfigured(tls)
                 .no_proxy()
                 .user_agent(USER_AGENT)
                 .timeout(REQUEST_TIMEOUT)
@@ -192,6 +195,31 @@ pub mod parity_web {
                 }
             }
             .boxed()
+        }
+    }
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[tokio::test]
+        async fn parity_builds_reach_no_real_host() {
+            let web = from_env();
+            assert!(web.base.is_none() || std::env::var(BASE_ENV).is_ok());
+            let blocked = ParityWeb {
+                base: None,
+                client: web.client.clone(),
+            };
+            for url in [
+                super::super::tests::METADATA,
+                "https://ddragon.leagueoflegends.com/api/versions.json",
+            ] {
+                assert!(
+                    matches!(blocked.get(url).await, WebAnswer::Failed(_)),
+                    "{url}"
+                );
+            }
+            assert!(!is_loopback("https://example.com"));
+            assert!(is_loopback("http://127.0.0.1:4100"));
         }
     }
 }
