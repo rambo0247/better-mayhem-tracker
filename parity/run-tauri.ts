@@ -724,6 +724,11 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
   refuseProductionIdentifier(binary);
   const assets = path.join(runDir, "asset-cache");
   if (dataRoot) copyDataTree(path.join(dataRoot, "asset-cache"), assets);
+  // A debug build refuses to start without a root away from the real folder (data_guard.rs),
+  // and gets a copy, so a run never writes into the snapshot or fixture it came from
+  const appRoot = path.join(runDir, "data-root");
+  if (dataRoot) fs.cpSync(dataRoot, appRoot, { recursive: true });
+  else fs.mkdirSync(appRoot, { recursive: true });
 
   let bundle: ReplayBundle | undefined;
   let api: string | undefined;
@@ -733,6 +738,7 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     BMT_PARITY_ASSETS: assets,
     // The Rust clock freezes with the page's, as SEAM_FIXED_TIME freezes Electron's main
     BMT_FIXED_TIME: String(FIXED_TIME.getTime()),
+    BMT_DATA_ROOT: appRoot,
   };
   if (renderer === "electron") {
     const rendererDir = path.join(repo, "out", "renderer");

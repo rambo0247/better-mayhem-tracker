@@ -111,13 +111,28 @@ jobs:
       - name: Build
         run: bun run tauri build --debug
 
-      # The size is not asserted: a runner's display is smaller than 1280 by 820,
-      # so the OS shrinks the window.
+      # The runner's own folder, never the operator's: a debug build with no
+      # BMT_DATA_ROOT resolves to it and must exit before touching it. The
+      # guard's message is the only text with "Debug and parity builds never";
+      # the parity driver prints "refused to start" too
+      - name: Check the debug build refuses the real data folder
+        run: |
+          exe=src-tauri/target/debug/better-mayhem-tracker-tauri
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          code=0
+          env -u BMT_DATA_ROOT "$exe" > guard.log 2>&1 || code=$?
+          cat guard.log
+          test "$code" -eq 78
+          grep -F 'Debug and parity builds never' guard.log
+
+      # A runner's display is smaller than 1280 by 820 and the OS shrinks the
+      # window to fit, so the check reads the requested size, not the final one
+
       - name: Launch the debug build and read its window
         run: |
           exe=src-tauri/target/debug/better-mayhem-tracker-tauri
           if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
-          "$exe" > window.log 2>&1 &
+          BMT_DATA_ROOT="$RUNNER_TEMP/bmt-data" "$exe" > window.log 2>&1 &
           pid=$!
           sleep 10
           alive=0
@@ -135,15 +150,92 @@ jobs:
           exe=src-tauri/target/release/better-mayhem-tracker-tauri
           if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
           ls -l "$exe"
-          for marker in bmt-parity-driver BMT_PARITY_TOKEN; do
-            if grep -a -q "$marker" "$exe"; then
+          # BMT_DATA_ROOT too: a release build must not be redirectable away
+          # from the player's real data folder (paths.rs), and it has no guard.
+          # devDependencies: only package.json's version is embedded, not the
+          # file (build.rs)
+          for marker in bmt-parity-driver BMT_PARITY_TOKEN BMT_DATA_ROOT \
+            'Debug and parity builds never' devDependencies; do
+            if grep -a -q -F "$marker" "$exe"; then
               echo "release binary contains $marker"
               exit 1
             fi
             echo "release binary: no $marker"
           done
 
-      # The positive control: the same search finds the sentinel in a driver build
+      # build.rs keys the data root override on the profile Cargo builds
+      # with, never on debug_assertions, which a profile setting flips. The
+      # guard is in every build that is not a release profile and every build
+      # with debug assertions, so a hostile build can lose the override but
+      # never the guard. Each hostile build gets its own target folder so the
+      # cached ones stay as they are. The release one skips LTO for speed,
+      # which can only leave more strings in, so its scan is the stricter one.
+      # Each runs on the runner's own folder, as the debug build's check above.
+      - name: A release profile with debug assertions keeps the guard without the override
+        working-directory: tauri/src-tauri
+        run: |
+          count() { { grep -a -o -F "$1" "$2" || test $? -eq 1; } | wc -l | tr -d ' '; }
+          CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true CARGO_PROFILE_RELEASE_LTO=false \
+            cargo build --release --features custom-protocol --target-dir target/hostile-release
+          exe=target/hostile-release/release/better-mayhem-tracker-tauri
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          for marker in BMT_DATA_ROOT devDependencies; do
+            n=$(count "$marker" "$exe")
+            echo "release, debug_assertions=true: $marker x$n"
+            test "$n" -eq 0
+          done
+          n=$(count 'Debug and parity builds never' "$exe")
+          echo "release, debug_assertions=true: guard message x$n"
+          test "$n" -ge 1
+          code=0
+          env -u BMT_DATA_ROOT "$exe" > hostile-release-guard.log 2>&1 || code=$?
+          cat hostile-release-guard.log
+          test "$code" -eq 78
+          grep -F 'Debug and parity builds never' hostile-release-guard.log
+
+      - name: A dev profile without debug assertions keeps the guard
+        working-directory: tauri/src-tauri
+        run: |
+          count() { { grep -a -o -F "$1" "$2" || test $? -eq 1; } | wc -l | tr -d ' '; }
+          export CARGO_PROFILE_DEV_DEBUG_ASSERTIONS=false
+          cargo test --lib --target-dir target/hostile-dev -- paths:: data_guard::
+          cargo build --target-dir target/hostile-dev
+          exe=target/hostile-dev/debug/better-mayhem-tracker-tauri
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          for marker in BMT_DATA_ROOT 'Debug and parity builds never'; do
+            n=$(count "$marker" "$exe")
+            echo "dev, debug_assertions=false: $marker x$n"
+            test "$n" -ge 1
+          done
+          code=0
+          env -u BMT_DATA_ROOT "$exe" > hostile-guard.log 2>&1 || code=$?
+          cat hostile-guard.log
+          test "$code" -eq 78
+          grep -F 'Debug and parity builds never' hostile-guard.log
+
+      # --cfg bmt_release_profile by hand removes the override from a debug
+      # build, and debug_assertions keeps the guard in it
+      - name: A debug build given the release cfg keeps the guard without the override
+        working-directory: tauri/src-tauri
+        run: |
+          count() { { grep -a -o -F "$1" "$2" || test $? -eq 1; } | wc -l | tr -d ' '; }
+          RUSTFLAGS="--cfg bmt_release_profile" cargo build --target-dir target/hostile-cfg
+          exe=target/hostile-cfg/debug/better-mayhem-tracker-tauri
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          n=$(count BMT_DATA_ROOT "$exe")
+          echo "dev, --cfg bmt_release_profile: BMT_DATA_ROOT x$n"
+          test "$n" -eq 0
+          n=$(count 'Debug and parity builds never' "$exe")
+          echo "dev, --cfg bmt_release_profile: guard message x$n"
+          test "$n" -ge 1
+          code=0
+          env -u BMT_DATA_ROOT "$exe" > hostile-cfg-guard.log 2>&1 || code=$?
+          cat hostile-cfg-guard.log
+          test "$code" -eq 78
+          grep -F 'Debug and parity builds never' hostile-cfg-guard.log
+
+      # The positive control: the same search finds the sentinel and the
+      # data root override in a driver build
       - name: Build with the parity driver and find its sentinel
         run: |
           bun run tauri build --debug --no-bundle --features parity-driver
@@ -151,6 +243,8 @@ jobs:
           if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
           grep -a -q bmt-parity-driver-v1 "$exe"
           echo "driver build: bmt-parity-driver-v1 found"
+          grep -a -q BMT_DATA_ROOT "$exe"
+          echo "driver build: BMT_DATA_ROOT found"
 
       - name: Install parity
         working-directory: parity
