@@ -53,6 +53,7 @@ use self::types::{
     AugmentStats, ItemStats, MatchDetail, MatchPage, MatchScope, RecordsData, TeammateStats,
 };
 use crate::Host;
+use crate::js_arg::Js;
 
 /// What a command body gets besides its arguments: the app, for managed
 /// state, and the window that invoked it, as Electron's `event.sender`.
@@ -448,17 +449,17 @@ macro_rules! contract {
 contract! {
     matches {
         get_match_history = "getMatchHistory" "db:match-history"
-            (limit: i64, offset: i64, filters: Option<MatchFilters>) -> MatchPage;
+            (limit: Js<i64>, offset: Js<i64>, filters: Option<MatchFilters>) -> MatchPage;
         get_match_sessions = "getMatchSessions" "db:match-sessions"
             (filters: Option<MatchFilters>) -> Vec<MatchSession>;
         get_match_filter_options = "getMatchFilterOptions" "db:match-filters"
             (filters: Option<MatchScope>) -> MatchFilterOptions;
         get_stored_queues = "getStoredQueues" "db:stored-queues" () -> Vec<i64>;
         get_match_detail = "getMatchDetail" "db:match-detail"
-            (game_id: i64) -> Option<MatchDetail>;
-        toggle_favorite = "toggleFavorite" "db:toggle-favorite" (game_id: i64) -> bool;
+            (game_id: Js<i64>) -> Option<MatchDetail>;
+        toggle_favorite = "toggleFavorite" "db:toggle-favorite" (game_id: Js<i64>) -> bool;
         get_champion_match_history = "getChampionMatchHistory" "db:champion-match-history"
-            (champion_id: i64, limit: i64, offset: i64, patch: Option<String>, queue: Option<i64>, season: Option<String>) -> MatchPage;
+            (champion_id: Js<i64>, limit: Js<i64>, offset: Js<i64>, patch: Js<Option<String>>, queue: Js<Option<i64>>, season: Js<Option<String>>) -> MatchPage;
         get_all_summoner_puuids = "getAllSummonerPuuids" "db:all-summoner-puuids" () -> Vec<String>;
         get_profile = "getProfile" "db:profile" () -> Profile;
     }
@@ -719,6 +720,8 @@ mod tests {
         }
     }
 
+    // The macro writes every item the contract has; the test uses some
+    #[allow(dead_code)]
     mod probe_contract {
         use super::super::*;
         use super::probe;

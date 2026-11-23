@@ -1,13 +1,14 @@
 //! The match list, its filters and sessions, one match's detail, favorites,
 //! and the tracked accounts. Ported by T13.
 
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::Runtime;
 use ts_rs::TS;
 
 use super::types::{MatchDetail, MatchPage, MatchScope};
 use super::{CommandError, CommandResult, Ctx, Domain};
+use crate::js_arg::Js;
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -41,81 +42,70 @@ pub enum MultikillType {
     Pentas,
 }
 
-/// Reads leniently where Electron does: see the `Deserialize` impl below.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, TS)]
-#[serde(rename_all = "camelCase")]
+/// Every field as the page sent it: the page restores filters from
+/// localStorage unchecked (viewState.ts:22-33), and Electron binds or tests
+/// each one as it came. The methods read `sort`, `sortDir` and `multikills`
+/// with Electron's fallbacks.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", default)]
 pub struct MatchFilters {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub champion_id: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub champion_id: Js<Option<i64>>,
+    #[serde(skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub patch: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub patch: Js<Option<String>>,
+    #[serde(skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub queue: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub queue: Js<Option<i64>>,
+    #[serde(skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub account: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Js<Option<String>>,
+    #[serde(skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub season: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub season: Js<Option<String>>,
+    #[serde(skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub sort: Option<MatchSort>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort: Js<Option<MatchSort>>,
+    #[serde(skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub sort_dir: Option<MatchSortDir>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_dir: Js<Option<MatchSortDir>>,
+    #[serde(skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub multikills: Option<Vec<MultikillType>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub multikills: Js<Option<Vec<MultikillType>>>,
+    #[serde(skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub favorites: Option<bool>,
+    pub favorites: Js<Option<bool>>,
 }
 
-/// What a caller may send for [`MatchFilters`]. The page restores filters
-/// from localStorage unchecked (viewState.ts:22-33), so a stale `sort`,
-/// `sortDir` or `multikills` must read as Electron reads it, not reject.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SentMatchFilters {
-    champion_id: Option<i64>,
-    patch: Option<String>,
-    queue: Option<i64>,
-    account: Option<String>,
-    season: Option<String>,
-    sort: Option<Value>,
-    sort_dir: Option<Value>,
-    multikills: Option<Value>,
-    favorites: Option<bool>,
-}
+impl MatchFilters {
+    /// An unknown or missing sort is by date (matches.ts:65).
+    pub fn sort_key(&self) -> MatchSort {
+        self.sort.typed().flatten().unwrap_or(MatchSort::Date)
+    }
 
-impl<'de> Deserialize<'de> for MatchFilters {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let sent = SentMatchFilters::deserialize(deserializer)?;
-        Ok(Self {
-            champion_id: sent.champion_id,
-            patch: sent.patch,
-            queue: sent.queue,
-            account: sent.account,
-            season: sent.season,
-            // Unknown sorts by date, the default (matches.ts:65)
-            sort: sent.sort.and_then(|v| serde_json::from_value(v).ok()),
-            // Anything but "asc" sorts descending, the default (matches.ts:66)
-            sort_dir: sent.sort_dir.and_then(|v| serde_json::from_value(v).ok()),
-            // Unknown kinds are dropped (matches.ts:122-124)
-            multikills: match sent.multikills {
-                Some(Value::Array(items)) => Some(
-                    items
-                        .into_iter()
-                        .filter_map(|item| serde_json::from_value(item).ok())
-                        .collect(),
-                ),
-                _ => None,
-            },
-            favorites: sent.favorites,
-        })
+    /// Anything but exactly `"asc"` sorts descending (matches.ts:66).
+    pub fn sort_direction(&self) -> MatchSortDir {
+        self.sort_dir
+            .typed()
+            .flatten()
+            .unwrap_or(MatchSortDir::Desc)
+    }
+
+    /// The known kinds asked for; unknown ones are dropped (matches.ts:122-124).
+    /// A non-empty string has a length but no `map`, so Electron throws.
+    pub fn multikill_kinds(&self) -> CommandResult<Vec<MultikillType>> {
+        match self.multikills.value() {
+            Some(Value::Array(items)) => Ok(items
+                .iter()
+                .filter_map(|item| serde_json::from_value(item.clone()).ok())
+                .collect()),
+            Some(Value::String(text)) if !text.is_empty() => Err(CommandError::named(
+                "TypeError",
+                "filters.multikills.map is not a function",
+            )),
+            _ => Ok(Vec::new()),
+        }
     }
 }
 
@@ -161,8 +151,8 @@ pub struct Profile {
 
 pub async fn get_match_history<R: Runtime>(
     _ctx: Ctx<R>,
-    _limit: i64,
-    _offset: i64,
+    _limit: Js<i64>,
+    _offset: Js<i64>,
     _filters: Option<MatchFilters>,
 ) -> CommandResult<MatchPage> {
     Err(CommandError::not_ported())
@@ -188,23 +178,23 @@ pub async fn get_stored_queues<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<Vec<i6
 
 pub async fn get_match_detail<R: Runtime>(
     _ctx: Ctx<R>,
-    _game_id: i64,
+    _game_id: Js<i64>,
 ) -> CommandResult<Option<MatchDetail>> {
     Err(CommandError::not_ported())
 }
 
-pub async fn toggle_favorite<R: Runtime>(_ctx: Ctx<R>, _game_id: i64) -> CommandResult<bool> {
+pub async fn toggle_favorite<R: Runtime>(_ctx: Ctx<R>, _game_id: Js<i64>) -> CommandResult<bool> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_champion_match_history<R: Runtime>(
     _ctx: Ctx<R>,
-    _champion_id: i64,
-    _limit: i64,
-    _offset: i64,
-    _patch: Option<String>,
-    _queue: Option<i64>,
-    _season: Option<String>,
+    _champion_id: Js<i64>,
+    _limit: Js<i64>,
+    _offset: Js<i64>,
+    _patch: Js<Option<String>>,
+    _queue: Js<Option<i64>>,
+    _season: Js<Option<String>>,
 ) -> CommandResult<MatchPage> {
     Err(CommandError::not_ported())
 }
@@ -230,17 +220,48 @@ mod tests {
         let read = filters(
             r#"{ "sort": "rank", "sortDir": "ASC", "multikills": ["pentas", "hexas", 3] }"#,
         );
-        assert_eq!(read.sort, None, "an unknown sort is the date default");
         assert_eq!(
-            read.sort_dir, None,
-            "an unknown direction is the descending default"
+            read.sort_key(),
+            MatchSort::Date,
+            "an unknown sort is by date"
         );
-        assert_eq!(read.multikills, Some(vec![MultikillType::Pentas]));
+        assert_eq!(
+            read.sort_direction(),
+            MatchSortDir::Desc,
+            "only \"asc\" ascends"
+        );
+        assert_eq!(read.multikill_kinds(), Ok(vec![MultikillType::Pentas]));
         let known = filters(r#"{ "sort": "damageDealt", "sortDir": "asc", "multikills": [] }"#);
-        assert_eq!(known.sort, Some(MatchSort::DamageDealt));
-        assert_eq!(known.sort_dir, Some(MatchSortDir::Asc));
-        assert_eq!(known.multikills, Some(vec![]));
-        assert_eq!(filters(r#"{ "multikills": null }"#).multikills, None);
+        assert_eq!(known.sort_key(), MatchSort::DamageDealt);
+        assert_eq!(known.sort_direction(), MatchSortDir::Asc);
+        assert_eq!(known.multikill_kinds(), Ok(vec![]));
+        assert_eq!(
+            filters(r#"{ "multikills": 3 }"#).multikill_kinds(),
+            Ok(vec![])
+        );
+        assert_eq!(
+            filters(r#"{ "multikills": "pentas" }"#)
+                .multikill_kinds()
+                .map_err(|e| e.name),
+            Err("TypeError".to_owned())
+        );
         assert_eq!(filters("{}"), MatchFilters::default());
+        assert_eq!(filters("{}").sort_key(), MatchSort::Date);
+    }
+
+    #[test]
+    fn sql_bound_filters_arrive_as_the_page_sent_them() {
+        let read =
+            filters(r#"{ "championId": "2", "queue": "2400", "favorites": 1, "patch": 16 }"#);
+        assert_eq!(read.champion_id.value(), Some(&Value::from("2")));
+        assert_eq!(read.queue.value(), Some(&Value::from("2400")));
+        assert_eq!(read.favorites.value(), Some(&Value::from(1)));
+        assert_eq!(read.patch.value(), Some(&Value::from(16)));
+        assert!(read.season.is_undefined());
+        let written = serde_json::to_value(&read).unwrap();
+        assert_eq!(
+            written,
+            serde_json::json!({ "championId": "2", "queue": "2400", "favorites": 1, "patch": 16 })
+        );
     }
 }

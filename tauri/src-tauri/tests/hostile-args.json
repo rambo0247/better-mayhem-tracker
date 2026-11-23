@@ -1,0 +1,456 @@
+[
+ {
+  "channel": "db:champion-match-history",
+  "case": "champ-history-float-limit",
+  "args": [
+   2,
+   5.5,
+   0
+  ]
+ },
+ {
+  "channel": "db:champion-match-history",
+  "case": "champ-history-negative-limit",
+  "args": [
+   2,
+   -1,
+   0
+  ]
+ },
+ {
+  "channel": "db:champion-match-history",
+  "case": "champ-history-past-end",
+  "args": [
+   2,
+   5,
+   100000
+  ]
+ },
+ {
+  "channel": "db:champion-match-history",
+  "case": "champ-history-patch-number",
+  "args": [
+   2,
+   5,
+   0,
+   16
+  ]
+ },
+ {
+  "channel": "db:champion-match-history",
+  "case": "champ-history-string-id",
+  "args": [
+   "2",
+   5,
+   0
+  ]
+ },
+ {
+  "channel": "db:match-detail",
+  "case": "detail-float-id",
+  "args": [
+   5684865505.5
+  ]
+ },
+ {
+  "channel": "db:match-detail",
+  "case": "detail-missing",
+  "args": [
+   12345
+  ]
+ },
+ {
+  "channel": "db:match-detail",
+  "case": "detail-no-arg",
+  "args": []
+ },
+ {
+  "channel": "db:match-detail",
+  "case": "detail-string-id",
+  "args": [
+   "5684865505"
+  ]
+ },
+ {
+  "channel": "db:match-filters",
+  "case": "filters-champion-string",
+  "args": [
+   {
+    "championId": "2"
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "both-negative",
+  "args": [
+   -50,
+   -50
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "champion-float",
+  "args": [
+   5,
+   0,
+   {
+    "championId": 2.5
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "champion-string",
+  "args": [
+   5,
+   0,
+   {
+    "championId": "2"
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "champion-zero",
+  "args": [
+   5,
+   0,
+   {
+    "championId": 0
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "favorites-number",
+  "args": [
+   5,
+   0,
+   {
+    "favorites": 1
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "filter-fields-null",
+  "args": [
+   5,
+   0,
+   {
+    "sort": null,
+    "sortDir": null,
+    "championId": null,
+    "multikills": null
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "filters-null",
+  "args": [
+   5,
+   0,
+   null
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "limit-1e20",
+  "args": [
+   100000000000000000000,
+   0
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "limit-2pow53",
+  "args": [
+   9007199254740992,
+   0
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "limit-float",
+  "args": [
+   50.5,
+   0
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "limit-nan",
+  "args": [
+   null,
+   0
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "limit-negative",
+  "args": [
+   -1,
+   0
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "limit-negative-float",
+  "args": [
+   -2.5,
+   0
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "limit-string",
+  "args": [
+   "5",
+   0
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "limit-zero",
+  "args": [
+   0,
+   0
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "multikill-unknown-mixed",
+  "args": [
+   5,
+   0,
+   {
+    "multikills": [
+     "pentas",
+     "bogus"
+    ]
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "multikill-unknown-only",
+  "args": [
+   5,
+   0,
+   {
+    "multikills": [
+     "bogus"
+    ]
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "offset-exact-end",
+  "args": [
+   50,
+   669
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "offset-far-past-end",
+  "args": [
+   50,
+   1000000
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "offset-float",
+  "args": [
+   5,
+   0.5
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "offset-missing",
+  "args": [
+   5
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "offset-negative",
+  "args": [
+   5,
+   -10
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "offset-partial-last-page",
+  "args": [
+   50,
+   660
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "offset-past-end",
+  "args": [
+   50,
+   700
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "patch-number",
+  "args": [
+   5,
+   0,
+   {
+    "patch": 16
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "queue-string",
+  "args": [
+   5,
+   0,
+   {
+    "queue": "2400"
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "season-number",
+  "args": [
+   5,
+   0,
+   {
+    "season": 3
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "sort-unknown",
+  "args": [
+   5,
+   0,
+   {
+    "sort": "gold"
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "sort-unknown-asc",
+  "args": [
+   5,
+   0,
+   {
+    "sort": "gold",
+    "sortDir": "asc"
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "sortdir-unknown",
+  "args": [
+   5,
+   0,
+   {
+    "sortDir": "up"
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "sortdir-upper",
+  "args": [
+   5,
+   0,
+   {
+    "sort": "kills",
+    "sortDir": "ASC"
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "toggle-after-string",
+  "args": [
+   5,
+   0,
+   {
+    "favorites": true
+   }
+  ]
+ },
+ {
+  "channel": "db:match-history",
+  "case": "unknown-filter-key",
+  "args": [
+   5,
+   0,
+   {
+    "colour": "red"
+   }
+  ]
+ },
+ {
+  "channel": "db:match-sessions",
+  "case": "sessions-champion-string",
+  "args": [
+   {
+    "championId": "2"
+   }
+  ]
+ },
+ {
+  "channel": "db:match-sessions",
+  "case": "sessions-sort-unknown",
+  "args": [
+   {
+    "sort": "gold"
+   }
+  ]
+ },
+ {
+  "channel": "db:toggle-favorite",
+  "case": "toggle-float-id",
+  "args": [
+   5684865505.5
+  ]
+ },
+ {
+  "channel": "db:toggle-favorite",
+  "case": "toggle-missing-id",
+  "args": [
+   12345
+  ]
+ },
+ {
+  "channel": "db:toggle-favorite",
+  "case": "toggle-missing-negative",
+  "args": [
+   -1
+  ]
+ },
+ {
+  "channel": "db:toggle-favorite",
+  "case": "toggle-no-arg",
+  "args": []
+ },
+ {
+  "channel": "db:toggle-favorite",
+  "case": "toggle-string-id",
+  "args": [
+   "5684865505"
+  ]
+ }
+]

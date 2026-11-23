@@ -5,11 +5,30 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::js_arg::Js;
+
+/// `"MVP" | "ACE"`, as api.ts declares the `score_badge` column. Electron
+/// hands the page whatever text the column holds; another value is not one
+/// this type can carry, so reading it is an error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum ScoreBadge {
     Mvp,
     Ace,
+}
+
+/// The one reader of a `score_badge` column, for every domain that selects it.
+/// NULL reads as `None` through `Option<ScoreBadge>`.
+impl rusqlite::types::FromSql for ScoreBadge {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        match value.as_str()? {
+            "MVP" => Ok(Self::Mvp),
+            "ACE" => Ok(Self::Ace),
+            other => Err(rusqlite::types::FromSqlError::Other(
+                format!("score_badge {other:?} is neither MVP nor ACE").into(),
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -153,25 +172,26 @@ pub struct MatchPage {
     pub total: i64,
 }
 
-/// `Pick<MatchFilters, "championId" | "patch" | "queue" | "account" | "season">`
+/// `Pick<MatchFilters, "championId" | "patch" | "queue" | "account" | "season">`,
+/// each as the page sent it, as [`super::matches::MatchFilters`]'s are
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct MatchScope {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub champion_id: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub champion_id: Js<Option<i64>>,
+    #[serde(default, skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub patch: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub patch: Js<Option<String>>,
+    #[serde(default, skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub queue: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub queue: Js<Option<i64>>,
+    #[serde(default, skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub account: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Js<Option<String>>,
+    #[serde(default, skip_serializing_if = "Js::is_undefined")]
     #[ts(optional)]
-    pub season: Option<String>,
+    pub season: Js<Option<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -288,4 +308,22 @@ pub enum ChallengeLevel {
     Grandmaster,
     Challenger,
     None,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_score_badge_column_reads_as_api_ts_types_it() {
+        let conn = rusqlite::Connection::open_in_memory().expect("an in-memory database");
+        let read = |sql: &str| conn.query_row(sql, [], |row| row.get::<_, Option<ScoreBadge>>(0));
+        assert_eq!(read("SELECT 'MVP'"), Ok(Some(ScoreBadge::Mvp)));
+        assert_eq!(read("SELECT 'ACE'"), Ok(Some(ScoreBadge::Ace)));
+        assert_eq!(read("SELECT NULL"), Ok(None));
+        assert!(
+            read("SELECT 'GOAT'").is_err(),
+            "a hand-edited badge is not representable"
+        );
+    }
 }

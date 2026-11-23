@@ -24,6 +24,7 @@ use std::time::{Duration, SystemTime};
 
 use bmt_lib::Host;
 use bmt_lib::commands::{self, Clock, CommandError, CommandSpec, EffectRecorder, GoldenCase};
+use bmt_lib::replay::{Recording, require_recording_env};
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 use tauri::test::{INVOKE_KEY, MockRuntime, mock_builder, mock_context, noop_assets};
@@ -39,9 +40,6 @@ const RUN: &str = "$RUN";
 const CALL_TIMEOUT: Duration = Duration::from_secs(30);
 /// JavaScript holds integers exactly only up to here.
 const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
-/// What `parity/run-electron.ts` records under when the manifest does not say.
-const DEFAULT_TIME_ZONE: &str = "America/New_York";
-const DEFAULT_LOCALE: &str = "en-US";
 /// SQLite's own files, which a write changes but the seam never lists.
 const DATABASE_FILES: &[&str] = &[
     "matches.db",
@@ -166,6 +164,22 @@ fn same_canonical(a: &Value, b: &Value) -> bool {
 
 fn same(a: &Value, b: &Value) -> bool {
     same_canonical(&canonical(a), &canonical(b))
+}
+
+/// An argument with its `null` object fields dropped. The handlers read a
+/// `null` field as they read a missing one (`!= null`, truthiness, a NULL
+/// bind; the audit in the T08 record), and `Js` carries both as undefined.
+fn argument_shape(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .filter(|(_, v)| !v.is_null())
+                .map(|(k, v)| (k.clone(), argument_shape(v)))
+                .collect(),
+        ),
+        Value::Array(items) => Value::Array(items.iter().map(argument_shape).collect()),
+        other => other.clone(),
+    }
 }
 
 /// Paths to integers JavaScript cannot hold exactly.
@@ -562,12 +576,30 @@ fn first_difference(path: &str, a: &Value, b: &Value) -> Option<String> {
 fn wire_shapes(dir: &Path, goldens: &[Golden], registry: &[CommandSpec]) -> (usize, Vec<String>) {
     let mut checked = 0;
     let mut problems = Vec::new();
-    let mut check = |label: String, roundtrip: fn(Value) -> Result<Value, String>, sent: &Value| {
+    let mut check = |label: String,
+                     roundtrip: fn(Value) -> Result<Value, String>,
+                     sent: &Value,
+                     argument: bool| {
         checked += 1;
-        unsafe_integers(&label, sent, &mut problems);
+        // An argument is a JavaScript number as the page held it; only a
+        // result's integer can be one JavaScript cannot hold
+        if !argument {
+            unsafe_integers(&label, sent, &mut problems);
+        }
+        let shape = |v: &Value| {
+            canonical(&if argument {
+                argument_shape(v)
+            } else {
+                v.clone()
+            })
+        };
         match roundtrip(sent.clone()) {
             Ok(written) => {
-                if let Some(found) = first_difference("", &canonical(sent), &canonical(&written)) {
+                // A key the Rust type drops is one api.ts does not declare, so
+                // the handler never read it; contract-check catches a rename
+                let found = first_difference("", &shape(sent), &shape(&written))
+                    .filter(|f| !(argument && f.ends_with(": dropped by the Rust type")));
+                if let Some(found) = found {
                     problems.push(format!("{label}{found}"));
                 }
             }
@@ -585,6 +617,7 @@ fn wire_shapes(dir: &Path, goldens: &[Golden], registry: &[CommandSpec]) -> (usi
                 format!("{} {} argument {}", golden.channel, golden.case, arg.name),
                 arg.ty.roundtrip,
                 value,
+                true,
             );
         }
         if golden.outcome.get("kind").and_then(Value::as_str) == Some("value") {
@@ -593,6 +626,7 @@ fn wire_shapes(dir: &Path, goldens: &[Golden], registry: &[CommandSpec]) -> (usi
                 format!("{} {} result", golden.channel, golden.case),
                 spec.ret.roundtrip,
                 &result,
+                false,
             );
         }
     }
@@ -614,7 +648,12 @@ fn wire_shapes(dir: &Path, goldens: &[Golden], registry: &[CommandSpec]) -> (usi
                 continue;
             };
             match events.iter().find(|e| e.name == name) {
-                Some(spec) => check(format!("event {name}"), spec.payload.roundtrip, payload),
+                Some(spec) => check(
+                    format!("event {name}"),
+                    spec.payload.roundtrip,
+                    payload,
+                    false,
+                ),
                 None => unknown_events.push(format!("event {name}: not in the contract")),
             }
         }
@@ -671,8 +710,7 @@ fn parse_fixed_time(text: &str) -> Option<i64> {
 
 struct Manifest {
     clock: Clock,
-    time_zone: String,
-    locale: String,
+    recording: Recording,
     db_sha256: Option<String>,
 }
 
@@ -691,46 +729,9 @@ fn read_manifest(dir: &Path) -> Result<Manifest, String> {
     })?;
     Ok(Manifest {
         clock: Clock::Fixed(ms),
-        time_zone: text_field("timeZone").unwrap_or_else(|| DEFAULT_TIME_ZONE.into()),
-        locale: text_field("locale").unwrap_or_else(|| DEFAULT_LOCALE.into()),
+        recording: Recording::from_manifest(&manifest),
         db_sha256: text_field("dbSha256"),
     })
-}
-
-/// Electron's main process reads the process zone (SQLite `'localtime'`, JS
-/// `Date`), and so does the port, so replay runs in the recording's zone.
-fn pin_zone_and_locale(manifest: &Manifest) -> Result<(), String> {
-    if cfg!(windows) {
-        // SQLite's 'localtime' asks the C runtime, which reads only a POSIX TZ
-        // such as EST5EDT, never an IANA name, so the zone cannot be pinned
-        return Err("golden replay runs on macOS and Linux only: on Windows SQLite's zone cannot be pinned to the manifest's".into());
-    }
-    let lang = format!("{}.UTF-8", manifest.locale.replace('-', "_"));
-    // SAFETY: called before any thread is started or app is built
-    unsafe {
-        std::env::set_var("TZ", &manifest.time_zone);
-        std::env::set_var("LANG", &lang);
-        std::env::set_var("LC_ALL", &lang);
-    }
-    // The seam's SEAM_FIXED_TIME, 2026-11-22T21:00:00-05:00, as SQLite reads it
-    if manifest.time_zone == DEFAULT_TIME_ZONE {
-        let conn = rusqlite::Connection::open_in_memory().map_err(|e| e.to_string())?;
-        let wall: String = conn
-            .query_row(
-                "SELECT datetime(1795399200, 'unixepoch', 'localtime')",
-                [],
-                |r| r.get(0),
-            )
-            .map_err(|e| e.to_string())?;
-        if wall != "2026-11-22 21:00:00" {
-            return Err(format!(
-                "TZ={} but SQLite's localtime reads {wall}",
-                manifest.time_zone
-            ));
-        }
-    }
-    println!("replaying in {} with {lang}", manifest.time_zone);
-    Ok(())
 }
 
 /// Refuses a fixture other than the one the goldens were recorded on.
@@ -1070,6 +1071,32 @@ fn check_every_channel(build_app: BuildApp<'_>) -> Result<(), String> {
     Ok(())
 }
 
+/// Arguments the page can send that a Rust type would refuse, recorded from
+/// trunk Electron (T13's verifier). Electron's handler answered each, so
+/// Tauri must hand each to the body, never refuse it; the body then answers
+/// as Electron did, SQLite's own refusals included, which a replay of the
+/// recorded corpus checks.
+fn check_hostile_arguments(build_app: BuildApp<'_>) -> Result<(), String> {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/hostile-args.json");
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let cases: Vec<Value> = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let registry = commands::registry();
+    let replay = build(build_app, Clock::System);
+    for case in &cases {
+        let channel = case["channel"].as_str().unwrap_or_default();
+        let label = format!("{channel} {}", case["case"].as_str().unwrap_or_default());
+        let spec = registry
+            .iter()
+            .find(|c| c.channel == channel)
+            .ok_or(format!("{label}: not a channel"))?;
+        let args = case["args"].as_array().cloned().unwrap_or_default();
+        if let Err(Value::String(refusal)) = call(&replay.window, channel, spec.named_args(&args)) {
+            return Err(format!("self-check {label}: Tauri refused it: {refusal}"));
+        }
+    }
+    Ok(())
+}
+
 fn check_comparison() -> Result<(), String> {
     let json = |text: &str| serde_json::from_str::<Value>(text).map_err(|e| e.to_string());
     let value = |result: Value| serde_json::json!({ "kind": "value", "result": result });
@@ -1248,7 +1275,19 @@ fn run() -> Result<Vec<String>, String> {
     let dir = golden_dir()?;
     let manifest = dir.as_deref().map(read_manifest).transpose()?;
     if let Some(manifest) = &manifest {
-        pin_zone_and_locale(manifest)?;
+        let mut command = String::new();
+        for key in ["BMT_GOLDEN_DIR", "BMT_GOLDEN_DATA"] {
+            if let Ok(value) = std::env::var(key) {
+                command.push_str(&format!("{key}={value} "));
+            }
+        }
+        command.push_str("cargo test --features parity-driver --test golden");
+        require_recording_env(&manifest.recording, &command)?;
+        println!(
+            "replaying in {} with {}",
+            manifest.recording.tz(),
+            manifest.recording.lang()
+        );
     }
     let build_app = |host: Host| bmt_lib::app_builder(mock_builder(), host);
 
@@ -1258,14 +1297,29 @@ fn run() -> Result<Vec<String>, String> {
     check_harness(&root)?;
     check_side_effects(&root)?;
     check_every_channel(&build_app)?;
+    check_hostile_arguments(&build_app)?;
     check_comparison()?;
     check_clock_fields(dir.is_some())?;
     std::fs::remove_dir_all(&root).ok();
     println!(
-        "self-check: a stub reads not ported, a wrong answer and a panic read fail, every channel takes its arguments"
+        "self-check: a stub reads not ported, a wrong answer and a panic read fail, every channel takes its arguments, hostile ones included"
     );
 
     let (Some(dir), Some(manifest)) = (dir, manifest) else {
+        // CI runs this with the recording's TZ set, to show SQLite reads it on
+        // each platform before any replay depends on it
+        let recording = Recording::from_manifest(&Value::Null);
+        if std::env::var("TZ").ok() == Some(recording.tz()) {
+            require_recording_env(
+                &recording,
+                "cargo test --features parity-driver --test golden",
+            )?;
+            println!(
+                "self-check: SQLite reads TZ={} as {}, the recording's zone",
+                recording.tz(),
+                recording.time_zone
+            );
+        }
         println!(
             "behavior replay skipped: no goldens here. They are recorded locally on the fixture, whose release waits on the operator's decision E2, so this run checked the harness and the contract only. Set BMT_GOLDEN_DIR and BMT_GOLDEN_DATA to replay."
         );

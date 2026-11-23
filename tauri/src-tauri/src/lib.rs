@@ -4,8 +4,11 @@
 #[deny(clippy::disallowed_methods)]
 pub mod commands;
 pub mod events;
+pub mod js_arg;
 #[cfg(feature = "parity-driver")]
 mod parity_driver;
+#[cfg(feature = "parity-driver")]
+pub mod replay;
 // Card export (T25) calls it in release builds; until then only the driver does
 #[cfg_attr(not(feature = "parity-driver"), allow(dead_code))]
 mod snapshot;
