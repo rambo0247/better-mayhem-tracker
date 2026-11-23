@@ -1,0 +1,26 @@
+[package]
+name = "better-mayhem-tracker-tauri"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "bmt_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "=3.0.0-alpha.4", features = [] }
+
+[dependencies]
+tauri = { version = "=3.0.0-alpha.6", features = [] }
+tauri-runtime-wry = { version = "=3.0.0-alpha.6" }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
