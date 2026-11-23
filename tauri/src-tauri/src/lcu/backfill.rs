@@ -65,16 +65,48 @@ impl SgpResponse {
         (200..300).contains(&self.status)
     }
 
-    /// `response.json()`.
+    /// `response.json()`, failing with V8's `JSON.parse` messages.
     fn json(&self) -> Result<Value, Thrown> {
-        serde_json::from_slice(&self.body).map_err(|err| {
-            Thrown::Error(if self.body.iter().all(u8::is_ascii_whitespace) {
-                "Unexpected end of JSON input".into()
-            } else {
-                format!("Unexpected token in JSON: {err}")
-            })
-        })
+        // undici drops a byte order mark before parsing
+        let body = self
+            .body
+            .strip_prefix(b"\xef\xbb\xbf")
+            .unwrap_or(&self.body);
+        serde_json::from_slice(body).map_err(|err| Thrown::Error(json_parse_message(body, &err)))
     }
+}
+
+/// V8's message for a `JSON.parse` failure at the character serde stopped on.
+fn json_parse_message(body: &[u8], err: &serde_json::Error) -> String {
+    if err.is_eof() {
+        return "Unexpected end of JSON input".into();
+    }
+    let text = String::from_utf8_lossy(body);
+    let chars: Vec<char> = text.chars().collect();
+    // serde counts lines and columns from 1
+    let line_start: usize = text
+        .split('\n')
+        .take(err.line().saturating_sub(1))
+        .map(|line| line.chars().count() + 1)
+        .sum();
+    let at = (line_start + err.column().saturating_sub(1)).min(chars.len().saturating_sub(1));
+    if err.to_string().starts_with("trailing characters") {
+        return format!("Unexpected non-whitespace character after JSON at position {at}");
+    }
+    // A short source is quoted whole; a longer one by ten characters each side
+    const CONTEXT: usize = 10;
+    let token = chars.get(at).copied().unwrap_or_default();
+    let quoted = if chars.len() <= CONTEXT * 2 {
+        format!("\"{text}\"")
+    } else {
+        let from = at.saturating_sub(CONTEXT);
+        let to = (at + CONTEXT).min(chars.len());
+        let window: String = chars[from..to].iter().collect();
+        let before = if from > 0 { "..." } else { "" };
+        let after = if to < chars.len() { "..." } else { "" };
+        format!("{before}\"{window}\"{after}")
+    };
+    format!("Unexpected token '{token}', {quoted} is not valid JSON")
 }
 
 /// Riot's match history service: Node's global `fetch` with a Bearer token
@@ -155,14 +187,29 @@ impl GameSync {
         client: &Arc<dyn Client>,
         full: bool,
     ) -> Result<BackfillResult, Thrown> {
-        {
-            let mut state = self.state();
-            if state.backfill_running {
-                return Err(Thrown::Error("A backfill is already running".into()));
-            }
-            state.backfill_running = true;
-            state.backfill_cancelled = false;
+        if !self.claim_backfill() {
+            return Err(Thrown::Error("A backfill is already running".into()));
         }
+        self.backfill_claimed(client, full).await
+    }
+
+    /// Marks a walk running, unless one already is.
+    pub(super) fn claim_backfill(&self) -> bool {
+        let mut state = self.state();
+        if state.backfill_running {
+            return false;
+        }
+        state.backfill_running = true;
+        state.backfill_cancelled = false;
+        true
+    }
+
+    /// The walk, once [`GameSync::claim_backfill`] has marked it running.
+    pub(super) async fn backfill_claimed(
+        self: &Arc<Self>,
+        client: &Arc<dyn Client>,
+        full: bool,
+    ) -> Result<BackfillResult, Thrown> {
         let _running = Running(self);
         match self.walk_and_hydrate(client.as_ref(), full).await {
             Ok(result) => {
@@ -1040,6 +1087,34 @@ mod tests {
             "a walk stopped on known games says nothing about the window"
         );
         assert!(rig.env.event_times("lcu:backfill-progress").is_empty());
+    }
+
+    #[test]
+    fn a_body_that_is_not_json_fails_with_v8s_message() {
+        let message = |body: &[u8]| {
+            SgpResponse {
+                status: 200,
+                body: body.to_vec(),
+            }
+            .json()
+            .map_err(|err| err.to_string())
+        };
+        let failed = |body: &str| message(body.as_bytes()).unwrap_err();
+        assert_eq!(failed(""), "Unexpected end of JSON input");
+        assert_eq!(failed(r#"["NA1_1","#), "Unexpected end of JSON input");
+        assert_eq!(
+            failed("<html>"),
+            r#"Unexpected token '<', "<html>" is not valid JSON"#
+        );
+        assert_eq!(
+            failed("<html><body>Service Unavailable</body></html>"),
+            r#"Unexpected token '<', "<html><bod"... is not valid JSON"#
+        );
+        assert_eq!(
+            failed("[1] x"),
+            "Unexpected non-whitespace character after JSON at position 4"
+        );
+        assert_eq!(message(b"\xef\xbb\xbf[]"), Ok(json!([])));
     }
 
     #[test]

@@ -290,11 +290,12 @@ impl GameSync {
         let rolled_over = self
             .fetch_new_games(client.as_ref(), known_summoner)
             .await?;
-        if !rolled_over || self.state().backfill_running || !self.auto_backfill_allowed() {
+        // Checked and claimed in one step, as one synchronous turn of Electron's loop does
+        if !rolled_over || !self.auto_backfill_allowed() || !self.claim_backfill() {
             return Ok(());
         }
         log("Recent games contained nothing already known; walking history for missed games");
-        if let Err(err) = self.backfill_history(client, false).await {
+        if let Err(err) = self.backfill_claimed(client, false).await {
             log(format!(
                 "History walk after a rolled-over window failed: {err}"
             ));
@@ -410,6 +411,21 @@ impl GameSync {
                 .map_err(|err| err.to_string())
         }))
     }
+}
+
+/// Waits on the final fetch from the main thread, where `RunEvent::Exit`
+/// runs and no runtime is entered, for at most `cap`. The process ends when
+/// the event handler returns, so this is what keeps the fetch alive.
+pub fn wait_for_final_fetch(
+    fetch: BoxFuture<'static, Result<(), String>>,
+    cap: Duration,
+) -> Result<(), String> {
+    // The timer is built inside the runtime: built outside, it has no clock to read
+    tauri::async_runtime::block_on(async move {
+        tokio::time::timeout(cap, fetch)
+            .await
+            .unwrap_or_else(|_| Err("timed out".into()))
+    })
 }
 
 /// The transport's hooks: the poll runs `syncGames`, and every socket event
@@ -1466,6 +1482,24 @@ mod tests {
         lcu.stop_polling();
     }
 
+    /// `RunEvent::Exit` calls it on the main thread, outside any runtime.
+    #[test]
+    fn the_final_fetch_is_waited_for_outside_a_runtime_and_capped() {
+        let started = std::time::Instant::now();
+        let hung =
+            wait_for_final_fetch(Box::pin(std::future::pending()), Duration::from_millis(200));
+        assert_eq!(hung, Err("timed out".into()));
+        assert!(started.elapsed() < Duration::from_secs(2));
+        let done = wait_for_final_fetch(
+            Box::pin(async {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                Ok(())
+            }),
+            Duration::from_secs(5),
+        );
+        assert_eq!(done, Ok(()));
+    }
+
     #[test]
     fn friendly_messages_match_friendly_error_message() {
         assert_eq!(
@@ -1498,5 +1532,131 @@ mod tests {
         assert_eq!(js_number(Some(&json!([7]))), 7.0);
         assert_eq!(template(Some(&json!([1, null, "a"]))), "1,,a");
         assert_eq!(template(Some(&summoner())), "[object Object]");
+    }
+}
+
+/// Opt in: run T03's `parity/fake-lcu.ts`, then point `BMT_PARITY_LEAGUE_DIR`,
+/// `BMT_PARITY_CA`, and `BMT_PARITY_SGP_URL` at it and `BMT_TEST_DATA` at a
+/// fixture copy's `data/`. Prints every status and event as a JSON line, with
+/// milliseconds since start, for `BMT_TEST_RUN_MS`.
+#[cfg(all(test, feature = "parity-ca"))]
+mod parity_run {
+    use super::*;
+    use std::path::PathBuf;
+
+    struct PrintingEnv {
+        started: std::time::Instant,
+        db: Database,
+        champions: Arc<dyn Champions>,
+        out: Mutex<()>,
+    }
+
+    impl PrintingEnv {
+        fn print(&self, event: &str, payload: Option<Value>) {
+            let _line = self.out.lock().unwrap();
+            let mut line =
+                serde_json::json!({"t": self.started.elapsed().as_millis() as u64, "event": event});
+            if let Some(payload) = payload {
+                line["payload"] = payload;
+            }
+            println!("EVENT {line}");
+        }
+    }
+
+    impl Env for PrintingEnv {
+        fn db(&self) -> Option<&Database> {
+            Some(&self.db)
+        }
+        fn champions(&self) -> Option<Arc<dyn Champions>> {
+            Some(self.champions.clone())
+        }
+        fn now_ms(&self) -> i64 {
+            super::rig::NOW_MS
+        }
+        fn games_updated(&self) {
+            self.print("lcu:games-updated", None);
+        }
+        fn backfill_progress(&self, progress: &BackfillProgress) {
+            self.print("lcu:backfill-progress", serde_json::to_value(progress).ok());
+        }
+        fn backfill_done(&self, outcome: &BackfillOutcome) {
+            self.print("lcu:backfill-done", serde_json::to_value(outcome).ok());
+        }
+    }
+
+    /// The classes Electron hydrates from `champion-cache.json` at startup.
+    struct CachedChampions(ChampionClasses);
+
+    impl Champions for CachedChampions {
+        fn classes(&self) -> ChampionClasses {
+            self.0.clone()
+        }
+        fn wait_for_champion_data(&self) -> BoxFuture<'_, ()> {
+            Box::pin(async {})
+        }
+    }
+
+    fn cached_champions(data: &std::path::Path) -> ChampionClasses {
+        let text = std::fs::read_to_string(data.join("champion-cache.json")).unwrap_or_default();
+        let cache: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+        let mut classes = ChampionClasses::none();
+        if let Some(version) = cache["version"].as_str() {
+            classes.version = version.into();
+        }
+        if let Some(champions) = cache["champions"].as_object() {
+            for (id, champion) in champions {
+                if let (Ok(id), Some(class)) = (id.parse(), champion["class"].as_str()) {
+                    classes.classes.insert(id, class.into());
+                }
+            }
+        }
+        classes
+    }
+
+    #[ignore = "needs a running parity fake client"]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn against_the_parity_fake_client() {
+        let data = PathBuf::from(std::env::var_os("BMT_TEST_DATA").expect("BMT_TEST_DATA"));
+        let run = std::env::var("BMT_TEST_RUN_MS")
+            .ok()
+            .and_then(|ms| ms.parse().ok())
+            .unwrap_or(20_000);
+        let started = std::time::Instant::now();
+        let env = Arc::new(PrintingEnv {
+            started,
+            db: Database::open(&data, super::rig::NOW_MS).expect("open the fixture copy"),
+            champions: Arc::new(CachedChampions(cached_champions(&data))),
+            out: Mutex::default(),
+        });
+        let printer = env.clone();
+        let app = LcuSync::new(
+            env.clone(),
+            Handle::current(),
+            Box::new(move |status| {
+                printer.print("lcu:status-changed", Some(Value::from(status.as_str())))
+            }),
+        );
+        app.start_polling();
+        if let Ok(cancel_at) = std::env::var("BMT_TEST_CANCEL_MS")
+            && let Ok(cancel_at) = cancel_at.parse()
+        {
+            let sync = app.sync.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(cancel_at)).await;
+                println!("CANCEL {}", started.elapsed().as_millis());
+                sync.cancel_backfill();
+            });
+        }
+        tokio::time::sleep(Duration::from_millis(run)).await;
+        if std::env::var_os("BMT_TEST_QUIT").is_some() {
+            let quit = std::time::Instant::now();
+            if let Some(fetch) = app.final_fetch() {
+                let fetched = tokio::time::timeout(Duration::from_secs(5), fetch).await;
+                println!("FINAL {fetched:?}");
+            }
+            println!("QUIT {} ms", quit.elapsed().as_millis());
+        }
+        app.stop_polling();
+        env.db.close();
     }
 }
