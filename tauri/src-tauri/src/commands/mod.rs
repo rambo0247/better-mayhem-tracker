@@ -244,6 +244,9 @@ pub struct GoldenCase<'a> {
     pub case: &'a str,
     pub group: &'a str,
     pub args: &'a [serde_json::Value],
+    /// The files Electron wrote, `{ path, size, sha256, base64 }`, with the
+    /// data folder written as `$RUN`.
+    pub files: &'a [serde_json::Value],
     /// The data folder the case runs over, which goldens write as `$RUN`.
     pub root: &'a std::path::Path,
 }
@@ -816,6 +819,7 @@ mod tests {
                 case: "maximized",
                 group: "window",
                 args: &[],
+                files: &[],
                 root: std::path::Path::new("/nowhere"),
             };
             probe_contract::before_golden_case(app.handle(), &case);

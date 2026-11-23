@@ -541,6 +541,7 @@ fn replay_case(
             case: &golden.case,
             group: &golden.group,
             args: &golden.args,
+            files: &golden.files,
             root,
         },
     );
