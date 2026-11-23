@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use tauri::Runtime;
 use ts_rs::TS;
 
-use super::{CommandError, CommandResult, Ctx};
+use super::{CommandError, CommandResult, Ctx, Domain};
+
+pub struct Hooks;
+impl Domain for Hooks {}
 
 /// What a card is of, `src/shared/card.ts`
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]

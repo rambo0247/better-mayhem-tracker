@@ -6,7 +6,10 @@ use tauri::Runtime;
 use ts_rs::TS;
 
 use super::types::{AugmentStats, ItemStats, MatchScope, Multikills, RecordsData};
-use super::{CommandError, CommandResult, Ctx};
+use super::{CommandError, CommandResult, Ctx, Domain};
+
+pub struct Hooks;
+impl Domain for Hooks {}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct ChampionStats {

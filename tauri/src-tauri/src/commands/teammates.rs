@@ -5,7 +5,10 @@ use tauri::Runtime;
 use ts_rs::TS;
 
 use super::types::{MatchListItem, ScoreBadge, TeammateStats};
-use super::{CommandError, CommandResult, Ctx};
+use super::{CommandError, CommandResult, Ctx, Domain};
+
+pub struct Hooks;
+impl Domain for Hooks {}
 
 /// `Pick<TeammateStats, "key" | "name" | "profileIcon">`
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]

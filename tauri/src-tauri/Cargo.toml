@@ -32,6 +32,8 @@ name = "golden"
 path = "tests/golden.rs"
 # Prints the channel table straight to the terminal; libtest would capture it
 harness = false
+# Replay freezes the clock, and only test and driver builds have a frozen one
+required-features = ["parity-driver"]
 
 [build-dependencies]
 serde_json = "=1.0.154"
@@ -41,13 +43,15 @@ tauri-build = { version = "=3.0.0-alpha.4", features = [] }
 tauri = { version = "=3.0.0-alpha.6", features = [] }
 tauri-runtime-wry = { version = "=3.0.0-alpha.6" }
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = "=1.0.154"
+serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
 ts-rs = "=12.0.1"
 heck = "=0.5.0"
+rusqlite = { version = "=0.43.0", features = ["bundled", "backup"] }
 sha1_smol = { version = "=1.0.1", optional = true }
 
 [dev-dependencies]
 tauri = { version = "=3.0.0-alpha.6", features = ["test"] }
+sha2 = "=0.10.9"
 
 # Webview snapshots, for the parity driver and later for card export
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -94,5 +98,6 @@ windows-core = "=0.62.2"
 codegen-units = 1
 lto = true
 opt-level = "s"
-panic = "abort"
+# A panicking command rejects its call rather than ending the app
+panic = "unwind"
 strip = true

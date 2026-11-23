@@ -2,7 +2,10 @@
 
 use tauri::Runtime;
 
-use super::{CommandError, CommandResult, Ctx};
+use super::{CommandError, CommandResult, Ctx, Domain};
+
+pub struct Hooks;
+impl Domain for Hooks {}
 
 pub async fn minimize_window<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<()> {
     Err(CommandError::not_ported())

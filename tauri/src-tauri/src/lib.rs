@@ -1,3 +1,7 @@
+// clippy.toml's time reads are refused in command bodies only
+#![allow(clippy::disallowed_methods)]
+
+#[deny(clippy::disallowed_methods)]
 pub mod commands;
 pub mod events;
 #[cfg(feature = "parity-driver")]
@@ -31,12 +35,28 @@ fn page_event(started: tauri::State<'_, StartedAt>, name: String) {
     ));
 }
 
+/// What the app runs against, which golden replay and parity lanes swap for
+/// a frozen clock. Later units add fields here, T09 its OS effects.
+pub struct Host {
+    pub clock: commands::Clock,
+}
+
+impl Host {
+    /// The release app's host: the system clock.
+    pub fn system() -> Self {
+        Self {
+            clock: commands::Clock::System,
+        }
+    }
+}
+
 /// The state and commands every build of the app has, the golden replay's
-/// mock app included.
-pub fn app_builder<R: Runtime>(builder: Builder<R>, clock: commands::Clock) -> Builder<R> {
-    builder
+/// mock app included. Each domain adds its own state through
+/// `commands::Domain::register`.
+pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
+    commands::register(builder, &host)
         .manage(StartedAt(Instant::now()))
-        .manage(clock)
+        .manage(host.clock)
         .invoke_handler(commands::handler())
 }
 
@@ -58,10 +78,14 @@ pub fn boot_script(locale: Option<&str>) -> String {
 
 pub fn run() {
     let started = Instant::now();
-    let builder = app_builder(
-        tauri::Builder::default().runtime(Wry::default()),
-        commands::Clock::System,
-    );
+    #[cfg(not(feature = "parity-driver"))]
+    let host = Host::system();
+    // Lanes freeze the Rust clock as Electron's seam freezes Date
+    #[cfg(feature = "parity-driver")]
+    let host = Host {
+        clock: commands::Clock::from_env().expect("a valid BMT_FIXED_TIME"),
+    };
+    let builder = app_builder(tauri::Builder::default().runtime(Wry::default()), host);
     #[cfg(feature = "parity-driver")]
     let builder = parity_driver::install(builder);
     builder

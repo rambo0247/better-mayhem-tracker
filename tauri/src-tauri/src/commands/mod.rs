@@ -26,25 +26,33 @@ pub mod window;
 
 use std::any::TypeId;
 use std::collections::{BTreeMap, HashSet};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::future::Future;
+use std::panic::AssertUnwindSafe;
+use std::task::Poll;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
+use tauri::{AppHandle, Builder, Manager, Runtime, WebviewWindow};
 use ts_rs::{Config, TS, TypeVisitor};
 
-use self::app::*;
-use self::backup::*;
-use self::data::*;
-use self::dragon::*;
-use self::export::*;
-use self::lcu::*;
-use self::live::*;
-use self::matches::*;
-use self::recap::*;
-use self::stats::*;
-use self::teammates::*;
-use self::types::*;
+use self::app::{DownloadUpdateResult, UpdateInfo, UpdateNotes};
+use self::backup::{BackupInfo, CreateBackupResult, RecoveryReport, RestoreBackupResult};
+use self::data::{ExportDataResult, ImportDataResult, RepairResult};
+use self::dragon::{AugmentData, ChampionData, ItemData, SummonerSpellData};
+use self::export::{CardSpec, CopyCardResult, ExportCardResult};
+use self::lcu::{BackfillOutcome, LcuStatus};
+use self::live::{ChallengesResult, LiveGameSnapshot};
+use self::matches::{MatchFilterOptions, MatchFilters, MatchSession, Profile};
+use self::recap::{GameCardData, GameRecap, SeasonRecap, SeasonSummary};
+use self::stats::{
+    AugmentStatsDetailedResult, ChampionStats, DashboardData, GlobalChampionDetail, GlobalStats,
+    TrendsData,
+};
+use self::teammates::{TeammateDetail, TeammateGroup, TeammateGroupDetail};
+use self::types::{
+    AugmentStats, ItemStats, MatchDetail, MatchPage, MatchScope, RecordsData, TeammateStats,
+};
+use crate::Host;
 
 /// What a command body gets besides its arguments: the app, for managed
 /// state, and the window that invoked it, as Electron's `event.sender`.
@@ -54,30 +62,79 @@ pub struct Ctx<R: Runtime> {
 }
 
 impl<R: Runtime> Ctx<R> {
-    /// Milliseconds since the epoch, frozen when the app was built with
-    /// [`Clock::Fixed`], as the T05 recordings were.
-    pub fn now_ms(&self) -> i64 {
-        self.app.state::<Clock>().now_ms()
+    /// Milliseconds since the epoch from the app's [`Clock`], which golden
+    /// replay and parity lanes freeze. Every time read in a body goes through
+    /// here; clippy refuses the others under `commands/`.
+    pub fn now_ms(&self) -> CommandResult<i64> {
+        self.app
+            .try_state::<Clock>()
+            .map(|clock| clock.now_ms())
+            .ok_or_else(|| CommandError::thrown("the app manages no Clock"))
+    }
+
+    /// Runs blocking work, a database query or file I/O, on the blocking pool
+    /// rather than the async workers that serve every other command. A panic
+    /// in `work` rejects the call, as one in the body does.
+    pub async fn blocking<T, F>(&self, work: F) -> CommandResult<T>
+    where
+        T: Send + 'static,
+        F: FnOnce() -> CommandResult<T> + Send + 'static,
+    {
+        match tauri::async_runtime::spawn_blocking(work).await {
+            Ok(result) => result,
+            Err(tauri::Error::JoinError(error)) if error.is_panic() => {
+                Err(CommandError::panicked(error.into_panic()))
+            }
+            Err(error) => Err(CommandError::thrown(error.to_string())),
+        }
     }
 }
 
-/// The wall clock commands read. Golden replay freezes it at the time the
-/// Electron goldens were recorded under.
+/// The wall clock commands read. Golden replay and parity-driver builds
+/// freeze it at the time the Electron goldens were recorded under; release
+/// builds have only the system clock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Clock {
     System,
+    #[cfg(any(test, feature = "parity-driver"))]
     Fixed(i64),
 }
+
+/// `BMT_FIXED_TIME`, epoch milliseconds, freezes a parity-driver build's
+/// clock, as `SEAM_FIXED_TIME` freezes Electron's.
+#[cfg(feature = "parity-driver")]
+pub const FIXED_TIME_ENV: &str = "BMT_FIXED_TIME";
 
 impl Clock {
     pub fn now_ms(&self) -> i64 {
         match self {
-            Clock::System => SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_or(0, |d| d.as_millis() as i64),
+            Clock::System => system_now_ms(),
+            #[cfg(any(test, feature = "parity-driver"))]
             Clock::Fixed(ms) => *ms,
         }
     }
+
+    /// The clock a parity-driver build runs on: fixed when `BMT_FIXED_TIME`
+    /// holds epoch milliseconds, the system clock when it is unset.
+    #[cfg(feature = "parity-driver")]
+    pub fn from_env() -> Result<Self, String> {
+        match std::env::var(FIXED_TIME_ENV) {
+            Ok(text) => text
+                .trim()
+                .parse::<i64>()
+                .map(Clock::Fixed)
+                .map_err(|_| format!("{FIXED_TIME_ENV}={text:?} is not epoch milliseconds")),
+            Err(std::env::VarError::NotPresent) => Ok(Clock::System),
+            Err(error) => Err(format!("{FIXED_TIME_ENV}: {error}")),
+        }
+    }
+}
+
+#[allow(clippy::disallowed_methods)]
+fn system_now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as i64)
 }
 
 pub const NOT_PORTED: &str = "not ported";
@@ -97,19 +154,35 @@ impl CommandError {
     /// What every command answers until its porting unit lands.
     pub fn not_ported() -> Self {
         Self {
-            name: "Error".into(),
-            message: NOT_PORTED.into(),
             code: Some("NOT_PORTED"),
+            ..Self::thrown(NOT_PORTED)
         }
     }
 
     /// An `Error` thrown by the handler, as `throw new Error(message)`.
     pub fn thrown(message: impl Into<String>) -> Self {
+        Self::named("Error", message)
+    }
+
+    /// An error of another class, as a `TypeError` or better-sqlite3's
+    /// `SqliteError`, whose `name` the page sees in the message.
+    pub fn named(name: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
-            name: "Error".into(),
+            name: name.into(),
             message: message.into(),
             code: None,
         }
+    }
+
+    /// A body that panicked. Electron's handler would have thrown, so the call
+    /// rejects instead of taking the app down.
+    pub fn panicked(payload: Box<dyn std::any::Any + Send>) -> Self {
+        let message = payload
+            .downcast_ref::<&str>()
+            .map(|s| (*s).to_owned())
+            .or_else(|| payload.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "the command panicked".to_owned());
+        Self::thrown(message)
     }
 
     pub fn is_not_ported(&self) -> bool {
@@ -117,7 +190,79 @@ impl CommandError {
     }
 }
 
+/// better-sqlite3 throws a `SqliteError` carrying SQLite's own message.
+impl From<rusqlite::Error> for CommandError {
+    fn from(error: rusqlite::Error) -> Self {
+        match error {
+            rusqlite::Error::SqliteFailure(code, message) => {
+                Self::named("SqliteError", message.unwrap_or_else(|| code.to_string()))
+            }
+            other => Self::thrown(other.to_string()),
+        }
+    }
+}
+
 pub type CommandResult<T> = Result<T, CommandError>;
+
+/// Runs a command body and turns a panic into a rejection. Every command the
+/// contract registers goes through here.
+pub async fn guarded<T>(body: impl Future<Output = CommandResult<T>>) -> CommandResult<T> {
+    let mut body = std::pin::pin!(body);
+    std::future::poll_fn(move |cx| {
+        match std::panic::catch_unwind(AssertUnwindSafe(|| body.as_mut().poll(cx))) {
+            Ok(poll) => poll,
+            Err(payload) => Poll::Ready(Err(CommandError::panicked(payload))),
+        }
+    })
+    .await
+}
+
+/// A domain module's hooks into building the app. Each domain file implements
+/// it for its `Hooks` and overrides only what it needs, so a porting unit adds
+/// managed state without editing `lib.rs` or `tests/golden.rs`.
+pub trait Domain {
+    /// Adds the domain's managed state, for the app and the golden replay alike.
+    fn register<R: Runtime>(builder: Builder<R>, _host: &Host) -> Builder<R> {
+        builder
+    }
+
+    /// Runs before each golden case is replayed: writes the files the case
+    /// reads into its data root, queues a dialog's answer, or seeds state the
+    /// mock runtime cannot hold, such as a maximized window.
+    #[cfg(feature = "parity-driver")]
+    fn before_golden_case<R: Runtime>(_app: &AppHandle<R>, _case: &GoldenCase<'_>) {}
+}
+
+/// The golden case about to be replayed, for [`Domain::before_golden_case`].
+#[cfg(feature = "parity-driver")]
+pub struct GoldenCase<'a> {
+    pub channel: &'a str,
+    pub case: &'a str,
+    pub group: &'a str,
+    pub args: &'a [serde_json::Value],
+    /// The data folder the case runs over, which goldens write as `$RUN`.
+    pub root: &'a std::path::Path,
+}
+
+/// What a body asked of the OS shell, recorded in place of doing it. Golden
+/// replay manages one and compares it with each golden's `effects`, so a
+/// domain's OS seam records here in a parity-driver build when one is managed.
+#[cfg(feature = "parity-driver")]
+#[derive(Default)]
+pub struct EffectRecorder(std::sync::Mutex<Vec<serde_json::Value>>);
+
+#[cfg(feature = "parity-driver")]
+impl EffectRecorder {
+    /// One call in the seam's shape, as `{ api: "shell.openPath", args: [path] }`.
+    pub fn record(&self, api: &str, args: Vec<serde_json::Value>) {
+        let effect = serde_json::json!({ "api": api, "args": args });
+        self.0.lock().expect("the effect log").push(effect);
+    }
+
+    pub fn take(&self) -> Vec<serde_json::Value> {
+        std::mem::take(&mut *self.0.lock().expect("the effect log"))
+    }
+}
 
 /// How one argument or result type prints in TypeScript, and the declarations
 /// it needs.
@@ -175,15 +320,15 @@ impl ArgSpec {
 pub struct CommandSpec {
     pub method: &'static str,
     pub channel: &'static str,
-    /// The domain module that holds the body.
-    pub module: &'static str,
     pub args: Vec<ArgSpec>,
     pub ret: TypeSpec,
 }
 
 impl CommandSpec {
-    /// Electron's positional arguments as the named object Tauri takes. A
-    /// missing trailing argument is left out, which Tauri reads as `None`.
+    /// Electron's positional arguments as the named object the generated
+    /// wrapper sends. JSON drops a key whose value is `undefined`, and a
+    /// golden records a skipped argument as `null`, so a `null` is left out as
+    /// a missing trailing argument is. Tauri reads either as `None`.
     pub fn named_args(
         &self,
         positional: &[serde_json::Value],
@@ -191,6 +336,7 @@ impl CommandSpec {
         self.args
             .iter()
             .zip(positional)
+            .filter(|(_, value)| !value.is_null())
             .map(|(arg, value)| (arg.key(), value.clone()))
             .collect()
     }
@@ -224,8 +370,16 @@ impl TypeVisitor for TypeCollector {
             return;
         }
         if T::output_path().is_some() {
+            let ident = T::ident(&self.cfg);
             let decl = T::decl(&self.cfg);
-            self.decls.insert(T::ident(&self.cfg), decl);
+            if let Some(earlier) = self.decls.get(&ident) {
+                // Two Rust types under one TypeScript name: the file could hold only one
+                assert_eq!(
+                    earlier, &decl,
+                    "two different Rust types export as `{ident}`; rename one"
+                );
+            }
+            self.decls.insert(ident, decl);
         }
         T::visit_dependencies(self);
         T::visit_generics(self);
@@ -247,7 +401,7 @@ macro_rules! contract {
                 window: WebviewWindow<R>,
                 $( $arg: $ty ),*
             ) -> Result<$ret, CommandError> {
-                $module::$name(Ctx { app, window }, $( $arg ),*).await
+                guarded($module::$name(Ctx { app, window }, $( $arg ),*)).await
             }
         )* )*
 
@@ -263,15 +417,30 @@ macro_rules! contract {
                 CommandSpec {
                     method: $method,
                     channel: $channel,
-                    module: stringify!($module),
                     args: vec![$( ArgSpec { name: stringify!($arg), ty: TypeSpec::of::<$ty>() } ),*],
                     ret: TypeSpec::of::<$ret>(),
                 },
             )* )*]
         }
+
+        /// Every domain's [`Domain::register`], which `app_builder` runs.
+        pub fn register<R: Runtime>(builder: Builder<R>, host: &Host) -> Builder<R> {
+            $( let builder = <$module::Hooks as Domain>::register(builder, host); )*
+            builder
+        }
+
+        /// Every domain's [`Domain::before_golden_case`].
+        #[cfg(feature = "parity-driver")]
+        pub fn before_golden_case<R: Runtime>(app: &AppHandle<R>, case: &GoldenCase<'_>) {
+            $( <$module::Hooks as Domain>::before_golden_case(app, case); )*
+        }
     };
 }
 
+// Optional arguments: golden JSON cannot tell `null` from a skipped argument,
+// and no handler treats them differently for a value the renderer sends. The
+// one handler that branches, getAugmentStats (stats.ts:73, `championId !==
+// undefined`), never receives null from the renderer (Champions.tsx:188).
 contract! {
     matches {
         get_match_history = "getMatchHistory" "db:match-history"
@@ -424,5 +593,100 @@ mod tests {
     #[test]
     fn fixed_clock_does_not_move() {
         assert_eq!(Clock::Fixed(1_764_000_000_000).now_ms(), 1_764_000_000_000);
+    }
+
+    fn mock_ctx(clock: Option<Clock>) -> Ctx<tauri::test::MockRuntime> {
+        let builder = tauri::test::mock_builder();
+        let builder = match clock {
+            Some(clock) => builder.manage(clock),
+            None => builder,
+        };
+        let app = builder
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("build the mock app");
+        let window =
+            tauri::WebviewWindowBuilder::new(&app, crate::WINDOW_LABEL, Default::default())
+                .build()
+                .expect("build the mock window");
+        Ctx {
+            app: app.handle().clone(),
+            window,
+        }
+    }
+
+    #[test]
+    fn now_ms_rejects_without_a_clock() {
+        assert_eq!(mock_ctx(Some(Clock::Fixed(7))).now_ms(), Ok(7));
+        let error = mock_ctx(None).now_ms().expect_err("no clock is managed");
+        assert_eq!(error.message, "the app manages no Clock");
+    }
+
+    #[test]
+    fn a_panicking_body_rejects_with_its_message() {
+        let answer: CommandResult<i64> = tauri::async_runtime::block_on(guarded(async {
+            panic!("index out of bounds");
+        }));
+        assert_eq!(answer, Err(CommandError::thrown("index out of bounds")));
+        let formatted: CommandResult<()> = tauri::async_runtime::block_on(guarded(async {
+            panic!("row {} is missing", 3);
+        }));
+        assert_eq!(formatted, Err(CommandError::thrown("row 3 is missing")));
+    }
+
+    #[test]
+    fn blocking_work_runs_and_its_panic_rejects() {
+        let ctx = mock_ctx(None);
+        let answer = tauri::async_runtime::block_on(ctx.blocking(|| Ok(2 + 2)));
+        assert_eq!(answer, Ok(4));
+        let panicked: CommandResult<()> =
+            tauri::async_runtime::block_on(ctx.blocking(|| panic!("database is locked")));
+        assert_eq!(panicked, Err(CommandError::thrown("database is locked")));
+    }
+
+    #[test]
+    fn a_sqlite_failure_keeps_its_class() {
+        let conn = rusqlite::Connection::open_in_memory().expect("an in-memory database");
+        let error: CommandError = conn
+            .execute("SELECT * FROM games", [])
+            .expect_err("no such table")
+            .into();
+        assert_eq!(
+            error,
+            CommandError::named("SqliteError", "no such table: games")
+        );
+    }
+
+    #[test]
+    fn named_args_drop_skipped_arguments_as_the_wrapper_does() {
+        let spec = registry()
+            .into_iter()
+            .find(|c| c.method == "getAugmentStatsDetailed")
+            .expect("getAugmentStatsDetailed is registered");
+        let named = spec.named_args(&[serde_json::Value::Null, serde_json::json!(2400)]);
+        assert_eq!(
+            serde_json::Value::Object(named),
+            serde_json::json!({ "queue": 2400 })
+        );
+    }
+
+    mod one {
+        #[derive(serde::Serialize, serde::Deserialize, ts_rs::TS)]
+        pub struct Row {
+            pub a: i64,
+        }
+    }
+    mod two {
+        #[derive(serde::Serialize, serde::Deserialize, ts_rs::TS)]
+        pub struct Row {
+            pub b: String,
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "two different Rust types export as `Row`")]
+    fn two_types_under_one_name_are_refused() {
+        let mut collector = TypeCollector::new(Config::new());
+        collector.visit::<one::Row>();
+        collector.visit::<two::Row>();
     }
 }

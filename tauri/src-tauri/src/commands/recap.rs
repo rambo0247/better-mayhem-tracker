@@ -9,7 +9,10 @@ use super::types::{
     AugmentStats, ChallengeLevel, ItemStats, MatchDetail, Multikills, RecordsData, ScoreBadge,
     TeammateStats,
 };
-use super::{CommandError, CommandResult, Ctx};
+use super::{CommandError, CommandResult, Ctx, Domain};
+
+pub struct Hooks;
+impl Domain for Hooks {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]

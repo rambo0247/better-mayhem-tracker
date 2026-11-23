@@ -3,7 +3,10 @@
 
 use tauri::Runtime;
 
-use super::{CommandError, CommandResult, Ctx};
+use super::{CommandError, CommandResult, Ctx, Domain};
+
+pub struct Hooks;
+impl Domain for Hooks {}
 
 pub async fn get_setting<R: Runtime>(_ctx: Ctx<R>, _key: String) -> CommandResult<Option<String>> {
     Err(CommandError::not_ported())

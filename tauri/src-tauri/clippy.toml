@@ -1,0 +1,10 @@
+# Bodies under src/commands/ read the time only through Ctx::now_ms, the
+# clock golden replay and parity lanes freeze. lib.rs denies these there.
+disallowed-methods = [
+  { path = "std::time::SystemTime::now", reason = "read the time through Ctx::now_ms" },
+  { path = "std::time::Instant::now", reason = "read the time through Ctx::now_ms" },
+  { path = "chrono::Utc::now", reason = "read the time through Ctx::now_ms", allow-invalid = true },
+  { path = "chrono::Local::now", reason = "read the time through Ctx::now_ms", allow-invalid = true },
+  { path = "jiff::Timestamp::now", reason = "read the time through Ctx::now_ms", allow-invalid = true },
+  { path = "jiff::Zoned::now", reason = "read the time through Ctx::now_ms", allow-invalid = true },
+]
