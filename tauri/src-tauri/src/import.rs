@@ -14,7 +14,7 @@ use crate::commands::data::ImportProgress;
 use crate::db::js::{self, number_to_string};
 use crate::db::{Database, ingest, summoner};
 use crate::op_score::ChampionClassMap;
-use crate::transfer::node_error;
+use crate::transfer::{Stringified, Tree, node_error, parse_json};
 
 /// Games per transaction. One commit per game would be most of what an
 /// import spends its time on; one for the whole file would hold the
@@ -242,8 +242,11 @@ fn js_trim(s: &str) -> &str {
     s.trim_matches(is_js_space)
 }
 
+/// `JSON.parse` of one of the file's small values.
 fn parse(text: &str) -> Result<Value, ImportError> {
-    serde_json::from_str(text).map_err(|_| ImportError::Syntax)
+    let mut tree = Tree::default();
+    parse_json(text, &mut tree).map_err(|_| ImportError::Syntax)?;
+    tree.root.ok_or(ImportError::Syntax)
 }
 
 /// The file as Node's UTF-8 read stream hands it over: 64 KiB reads, each
@@ -341,7 +344,8 @@ struct Games {
     fallback_owner: Value,
     current: i64,
     unreadable: i64,
-    batch: Vec<(Value, Value)>,
+    /// Each game, its owner, and the text `JSON.stringify(game)` prints.
+    batch: Vec<(Value, Value, String)>,
 }
 
 impl Sink for Games {
@@ -349,10 +353,13 @@ impl Sink for Games {
 
     fn game(&mut self, text: &str) {
         self.current += 1;
-        let Ok(game) = serde_json::from_str::<Value>(text) else {
+        // JSON.parse, which keeps a lone surrogate and reads any depth
+        let mut parsed = (Stringified::new(None), Tree::default());
+        let (Ok(()), Some(game)) = (parse_json(text, &mut parsed), parsed.1.root.take()) else {
             self.unreadable += 1;
             return;
         };
+        let printed = parsed.0.text;
         let owner = if self.v3 {
             js::or(&[
                 js::opt_prop(Some(&game), "_ownerPuuid"),
@@ -363,7 +370,7 @@ impl Sink for Games {
         };
         if js::truthy(owner) {
             let owner = owner.cloned().unwrap_or(Value::Null);
-            self.batch.push((game, owner));
+            self.batch.push((game, owner, printed));
         }
     }
 }
@@ -507,14 +514,20 @@ pub fn import_backup_file(
 /// participants are still read, and can still throw.
 fn import_games(
     target: &ImportTarget<'_>,
-    batch: &[(Value, Value)],
+    batch: &[(Value, Value, String)],
 ) -> crate::commands::CommandResult<i64> {
     target.db.with(|conn| {
         js::transaction(conn, || {
             let mut imported = 0;
-            for (game, owner) in batch {
+            for (game, owner, printed) in batch {
                 let new = match owner.as_str() {
-                    Some(puuid) => ingest::insert_game_full(conn, game, puuid, target.classes)?,
+                    Some(puuid) => ingest::insert_printed_game_full(
+                        conn,
+                        game,
+                        printed,
+                        puuid,
+                        target.classes,
+                    )?,
                     None => {
                         crate::db::payloads::participant_rows_from_raw(Some(game))
                             .map_err(js::thrown)?;
@@ -720,6 +733,80 @@ mod tests {
         db.close();
         std::fs::remove_dir_all(&dir).ok();
         (result, events, games)
+    }
+
+    /// Games Electron's JSON.parse reads and serde_json can't, stored as
+    /// `JSON.stringify(game)` prints them. Outputs from Node 26.
+    #[test]
+    fn games_past_serde_json_import_as_electron_stores_them() {
+        let deep = |n: usize| format!("{}{}", "[".repeat(n), "]".repeat(n));
+        let extras = [
+            (r#""\ud800""#.to_owned(), r#""\ud800""#.to_owned()),
+            (deep(130), deep(130)),
+            ("1e400".to_owned(), "null".to_owned()),
+            (
+                r#"{"b":1,"2":2,"0":0}"#.to_owned(),
+                r#"{"0":0,"2":2,"b":1}"#.to_owned(),
+            ),
+        ];
+        let games: Vec<String> = extras
+            .iter()
+            .enumerate()
+            .map(|(i, (extra, _))| {
+                let body = js::stringify(&game(i as i64 + 1));
+                format!(r#"{{"extra":{extra},{}"#, &body[1..])
+            })
+            .collect();
+        let text = format!(
+            r#"{{"version":3,"summoners":[{{"puuid":"me","game_name":"\ud800"}}],"games":[{}]}}"#,
+            games.join(",")
+        );
+        let dir = std::env::temp_dir().join(format!("bmt-import-hostile-{}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("in.json");
+        std::fs::write(&file, text).unwrap();
+        let db = Database::open(&dir, 0).unwrap();
+        let result = import_backup_file(
+            &file,
+            &ImportTarget {
+                db: &db,
+                classes: &ChampionClassMap::new(),
+                now_ms: &|| 0,
+            },
+            || {},
+            &mut |_| {},
+        );
+        assert_eq!(result, Ok(4));
+        let stored: Vec<String> = db
+            .with(|conn| {
+                conn.prepare("SELECT raw_gz FROM games ORDER BY game_id")?
+                    .query_map([], |r| r.get::<_, Vec<u8>>(0))?
+                    .collect::<rusqlite::Result<Vec<_>>>()
+            })
+            .unwrap()
+            .into_iter()
+            .map(|gz| {
+                let mut text = String::new();
+                flate2::read::GzDecoder::new(&gz[..])
+                    .read_to_string(&mut text)
+                    .unwrap();
+                text
+            })
+            .collect();
+        let name: String = db
+            .with(|conn| conn.query_row("SELECT game_name FROM summoner", [], |r| r.get(0)))
+            .unwrap();
+        db.close();
+        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(
+            name, "\u{fffd}",
+            "better-sqlite3 binds a lone surrogate as U+FFFD"
+        );
+        for (i, (_, want)) in extras.iter().enumerate() {
+            let body = js::stringify(&game(i as i64 + 1));
+            assert_eq!(stored[i], format!(r#"{{"extra":{want},{}"#, &body[1..]));
+        }
     }
 
     #[test]

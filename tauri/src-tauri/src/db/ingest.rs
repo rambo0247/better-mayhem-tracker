@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use super::js;
 use super::payloads::{
-    GameDenorm, RawParticipantRow, detect_remake, pack_raw, parse_patch, participant_rows_from_raw,
+    GameDenorm, RawParticipantRow, detect_remake, gzip, parse_patch, participant_rows_from_raw,
     write_participants,
 };
 use super::scoring::{OwnerFallback, ScoreRow, compute_owner_score};
@@ -104,6 +104,19 @@ pub fn insert_game_full(
     puuid: &str,
     classes: &ChampionClassMap,
 ) -> rusqlite::Result<bool> {
+    insert_printed_game_full(conn, game_data, &js::stringify(game_data), puuid, classes)
+}
+
+/// [`insert_game_full`], storing `printed` as the payload: the text
+/// `JSON.stringify` printed for the game, which `game_data` can't always
+/// carry, as with a lone surrogate.
+pub fn insert_printed_game_full(
+    conn: &Connection,
+    game_data: &Value,
+    printed: &str,
+    puuid: &str,
+    classes: &ChampionClassMap,
+) -> rusqlite::Result<bool> {
     let game = Some(game_data);
     let get = |key: &str| js::prop(game, key).map_err(js::thrown);
     let rows = participant_rows_from_raw(game).map_err(js::thrown)?;
@@ -149,7 +162,7 @@ pub fn insert_game_full(
             is_remake,
             puuid,
             game_version,
-            pack_raw(game_data),
+            gzip(printed.as_bytes()),
         ])?;
         if changes == 0 {
             return Ok(false);

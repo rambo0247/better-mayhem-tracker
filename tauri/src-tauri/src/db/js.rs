@@ -736,7 +736,7 @@ fn write_entries<'a>(out: &mut String, entries: impl Iterator<Item = (&'a String
 /// The key as an array index: the canonical decimal form of an integer below
 /// 2^32 - 1. An object's own keys enumerate those first, in ascending order,
 /// then the rest in insertion order (ECMA-262 OrdinaryOwnPropertyKeys).
-fn array_index(key: &str) -> Option<u32> {
+pub fn array_index(key: &str) -> Option<u32> {
     if !key.starts_with(|c: char| c.is_ascii_digit()) {
         return None;
     }

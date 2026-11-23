@@ -3,6 +3,7 @@
 //! are read a page at a time and written straight to disk, and the database
 //! is free between pages, as Electron's event loop is between its awaits.
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufWriter, Read, Write};
 use std::path::Path;
@@ -121,12 +122,7 @@ fn exported_page(rows: Vec<(i64, Option<Vec<u8>>, Cell)>) -> Vec<Result<Option<S
 }
 
 /// `JSON.stringify(Object.assign(unpackRaw(blob), { _ownerPuuid }))` for one
-/// row, or `None` where `unpackRaw` gives nothing truthy. The text is
-/// rewritten in one pass into the form `JSON.stringify` prints, which is
-/// what it already is when Electron stored it, so no tree is built. A shape
-/// that pass leaves to JavaScript's object rules (a repeated key, a key
-/// that is an array index) or a top level that is not an object or array
-/// goes through the parsed tree instead.
+/// row, or `None` where `unpackRaw` gives nothing truthy.
 fn exported_game(blob: Option<&[u8]>, owner: Value) -> Result<Option<String>, String> {
     let mut bytes = Vec::new();
     let Some(blob) = blob else {
@@ -136,71 +132,179 @@ fn exported_game(blob: Option<&[u8]>, owner: Value) -> Result<Option<String>, St
         return Ok(None);
     }
     let text = String::from_utf8_lossy(&bytes);
-    match Canonical::rewrite(&text, &owner) {
-        Ok(out) => return Ok(Some(out)),
-        Err(Rewrite::Invalid) => return Ok(None),
-        Err(Rewrite::Tree) => {}
-    }
-    let Some(mut game) = serde_json::from_str::<Value>(&text)
-        .ok()
-        .filter(|g| js::truthy(Some(g)))
-    else {
+    let mut out = Stringified::new(Some(&owner));
+    if parse_json(&text, &mut out).is_err() {
         return Ok(None);
+    }
+    match out.top {
+        None => Ok(Some(out.text)),
+        Some(scalar) if !scalar.truthy() => Ok(None),
+        // `game._ownerPuuid = owner` in strict mode
+        Some(scalar) => Err(format!(
+            "Cannot create property '_ownerPuuid' on {} '{}'",
+            scalar.kind(),
+            scalar.shown()
+        )),
+    }
+}
+
+/// A JSON value that is not an object or an array.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Scalar {
+    Null,
+    Bool(bool),
+    /// The literal as written, and the double JSON.parse reads it as.
+    Number(String, f64),
+    /// Decoded, each lone surrogate as U+FFFD.
+    String(String),
+}
+
+impl Scalar {
+    fn truthy(&self) -> bool {
+        match self {
+            Scalar::Null => false,
+            Scalar::Bool(b) => *b,
+            Scalar::Number(_, n) => *n != 0.0 && !n.is_nan(),
+            Scalar::String(s) => !s.is_empty(),
+        }
+    }
+
+    fn kind(&self) -> &'static str {
+        match self {
+            Scalar::Null => "null",
+            Scalar::Bool(_) => "boolean",
+            Scalar::Number(..) => "number",
+            Scalar::String(_) => "string",
+        }
+    }
+
+    fn shown(&self) -> String {
+        match self {
+            Scalar::Null => "null".into(),
+            Scalar::Bool(b) => b.to_string(),
+            Scalar::Number(_, n) => js::number_to_string(*n),
+            Scalar::String(s) => s.clone(),
+        }
+    }
+
+    /// As serde_json would hold it, except that a number too large for a
+    /// double is null, as JSON.stringify prints Infinity.
+    fn value(self) -> Value {
+        match self {
+            Scalar::Null => Value::Null,
+            Scalar::Bool(b) => Value::Bool(b),
+            Scalar::Number(literal, n) => {
+                let plain = !literal.contains(['.', 'e', 'E']) && literal != "-0";
+                let integer = plain
+                    .then(|| {
+                        literal
+                            .parse::<u64>()
+                            .map(Number::from)
+                            .or_else(|_| literal.parse::<i64>().map(Number::from))
+                            .ok()
+                    })
+                    .flatten();
+                integer
+                    .or_else(|| Number::from_f64(n))
+                    .map_or(Value::Null, Value::Number)
+            }
+            Scalar::String(s) => Value::String(s),
+        }
+    }
+}
+
+/// What `JSON.parse` reads, in order. `key` and `scalar` carry the text
+/// `JSON.stringify` prints for them.
+pub(crate) trait JsonEvents {
+    fn open(&mut self, object: bool);
+    fn key(&mut self, printed: &str, decoded: &str);
+    fn scalar(&mut self, printed: &str, scalar: Scalar);
+    fn close(&mut self);
+}
+
+/// `JSON.parse(text)` as ECMA-404 and V8 read it, as events. It keeps no
+/// stack frame per level, so any depth parses, as in V8.
+pub(crate) fn parse_json(text: &str, events: &mut impl JsonEvents) -> Result<(), ()> {
+    let mut p = Lexer {
+        text,
+        s: text.as_bytes(),
+        i: 0,
+        printed: String::new(),
+        decoded: String::new(),
     };
-    set_owner(&mut game, owner)?;
-    Ok(Some(js::stringify(&game)))
+    // true for an object
+    let mut open: Vec<bool> = Vec::new();
+    p.ws();
+    loop {
+        match p.peek() {
+            Some(b'{') => {
+                p.i += 1;
+                events.open(true);
+                p.ws();
+                if p.peek() == Some(b'}') {
+                    p.i += 1;
+                    events.close();
+                } else {
+                    open.push(true);
+                    p.member(events)?;
+                    continue;
+                }
+            }
+            Some(b'[') => {
+                p.i += 1;
+                events.open(false);
+                p.ws();
+                if p.peek() == Some(b']') {
+                    p.i += 1;
+                    events.close();
+                } else {
+                    open.push(false);
+                    continue;
+                }
+            }
+            _ => {
+                let scalar = p.scalar()?;
+                events.scalar(&p.printed, scalar);
+            }
+        }
+        loop {
+            p.ws();
+            let Some(&object) = open.last() else {
+                return if p.i == p.s.len() { Ok(()) } else { Err(()) };
+            };
+            let end = if object { b'}' } else { b']' };
+            match p.peek() {
+                Some(b',') => {
+                    p.i += 1;
+                    if object {
+                        p.member(events)?;
+                    } else {
+                        p.ws();
+                    }
+                    break;
+                }
+                Some(b) if b == end => {
+                    p.i += 1;
+                    open.pop();
+                    events.close();
+                }
+                _ => return Err(()),
+            }
+        }
+    }
 }
 
-enum Rewrite {
-    /// Not JSON, so `unpackRaw` answers null.
-    Invalid,
-    /// JSON whose canonical form needs JavaScript's object model.
-    Tree,
-}
-
-/// Deeper than this goes through the tree, and so meets serde_json's own limit.
-const MAX_DEPTH: usize = 100;
-
-/// ECMA-404 JSON rewritten as `JSON.stringify(JSON.parse(text))` prints it.
-struct Canonical<'a> {
+struct Lexer<'a> {
     text: &'a str,
     s: &'a [u8],
     i: usize,
-    out: String,
+    /// The last string or scalar as `JSON.stringify` prints it.
+    printed: String,
+    /// The last string decoded.
+    decoded: String,
 }
 
-impl<'a> Canonical<'a> {
-    fn rewrite(text: &'a str, owner: &Value) -> Result<String, Rewrite> {
-        let mut c = Canonical {
-            text,
-            s: text.as_bytes(),
-            i: 0,
-            out: String::with_capacity(text.len() + 64),
-        };
-        c.ws();
-        match c.peek() {
-            Some(b'{') => c.object(0, Some(owner))?,
-            Some(b'[') => c.array(0)?,
-            Some(_) => {
-                // A primitive is falsy or throws on the assignment; the tree
-                // path tells which, and says it as V8 does
-                c.value(0)?;
-                c.ws();
-                return if c.i == c.s.len() {
-                    Err(Rewrite::Tree)
-                } else {
-                    Err(Rewrite::Invalid)
-                };
-            }
-            None => return Err(Rewrite::Invalid),
-        }
-        c.ws();
-        if c.i != c.s.len() {
-            return Err(Rewrite::Invalid);
-        }
-        Ok(c.out)
-    }
-
+impl Lexer<'_> {
     fn peek(&self) -> Option<u8> {
         self.s.get(self.i).copied()
     }
@@ -211,158 +315,77 @@ impl<'a> Canonical<'a> {
         }
     }
 
-    fn eat(&mut self, b: u8) -> Result<(), Rewrite> {
+    fn eat(&mut self, b: u8) -> Result<(), ()> {
         if self.peek() == Some(b) {
             self.i += 1;
             Ok(())
         } else {
-            Err(Rewrite::Invalid)
+            Err(())
         }
     }
 
-    fn value(&mut self, depth: usize) -> Result<(), Rewrite> {
-        if depth > MAX_DEPTH {
-            return Err(Rewrite::Tree);
-        }
-        match self.peek() {
-            Some(b'{') => self.object(depth, None),
-            Some(b'[') => self.array(depth),
-            Some(b'"') => self.string(),
-            Some(b't') => self.literal("true"),
-            Some(b'f') => self.literal("false"),
-            Some(b'n') => self.literal("null"),
-            Some(b'-' | b'0'..=b'9') => self.number(),
-            _ => Err(Rewrite::Invalid),
-        }
-    }
-
-    fn literal(&mut self, word: &str) -> Result<(), Rewrite> {
-        if self.s[self.i..].starts_with(word.as_bytes()) {
-            self.i += word.len();
-            self.out.push_str(word);
-            Ok(())
-        } else {
-            Err(Rewrite::Invalid)
-        }
-    }
-
-    fn array(&mut self, depth: usize) -> Result<(), Rewrite> {
-        self.eat(b'[')?;
-        self.out.push('[');
+    /// A key and its colon, then the space before its value.
+    fn member(&mut self, events: &mut impl JsonEvents) -> Result<(), ()> {
         self.ws();
-        if self.peek() == Some(b']') {
-            self.i += 1;
-            self.out.push(']');
-            return Ok(());
-        }
-        loop {
-            self.ws();
-            self.value(depth + 1)?;
-            self.ws();
-            match self.peek() {
-                Some(b',') => {
-                    self.i += 1;
-                    self.out.push(',');
-                }
-                Some(b']') => {
-                    self.i += 1;
-                    self.out.push(']');
-                    return Ok(());
-                }
-                _ => return Err(Rewrite::Invalid),
-            }
-        }
-    }
-
-    /// `owner` is set for the top-level object, which takes `_ownerPuuid`
-    /// where its key already is, or last.
-    fn object(&mut self, depth: usize, owner: Option<&Value>) -> Result<(), Rewrite> {
-        self.eat(b'{')?;
-        self.out.push('{');
-        // Each key by a hash of its canonical text, which is one-to-one with
-        // the decoded key. Equal hashes send the payload to the tree, which
-        // is right for a true repeat and only slower for a collision
-        let mut keys: Vec<u64> = Vec::new();
-        let mut owner_written = false;
+        self.string()?;
+        events.key(&self.printed, &self.decoded);
         self.ws();
-        if self.peek() == Some(b'}') {
-            self.i += 1;
-        } else {
-            loop {
-                self.ws();
-                if self.peek() != Some(b'"') {
-                    return Err(Rewrite::Invalid);
-                }
-                if !keys.is_empty() {
-                    self.out.push(',');
-                }
-                let start = self.out.len();
-                self.string()?;
-                let key = &self.out[start + 1..self.out.len() - 1];
-                let hash = fnv1a(key.as_bytes());
-                if is_array_index(key) || keys.contains(&hash) {
-                    return Err(Rewrite::Tree);
-                }
-                let is_owner = key == "_ownerPuuid";
-                self.ws();
-                self.eat(b':')?;
-                self.out.push(':');
-                self.ws();
-                if let Some(owner) = owner.filter(|_| is_owner) {
-                    let at = self.out.len();
-                    self.value(depth + 1)?;
-                    self.out.truncate(at);
-                    self.out.push_str(&js::stringify(owner));
-                    owner_written = true;
-                } else {
-                    self.value(depth + 1)?;
-                }
-                keys.push(hash);
-                self.ws();
-                match self.peek() {
-                    Some(b',') => self.i += 1,
-                    Some(b'}') => {
-                        self.i += 1;
-                        break;
-                    }
-                    _ => return Err(Rewrite::Invalid),
-                }
-            }
-        }
-        if let Some(owner) = owner.filter(|_| !owner_written) {
-            if !keys.is_empty() {
-                self.out.push(',');
-            }
-            self.out.push_str("\"_ownerPuuid\":");
-            self.out.push_str(&js::stringify(owner));
-        }
-        self.out.push('}');
+        self.eat(b':')?;
+        self.ws();
         Ok(())
     }
 
-    /// A string, written as `JSON.stringify` escapes it: `"`, `\\` and
+    fn scalar(&mut self) -> Result<Scalar, ()> {
+        self.printed.clear();
+        let word = |p: &mut Self, word: &str, scalar: Scalar| {
+            if p.s[p.i..].starts_with(word.as_bytes()) {
+                p.i += word.len();
+                p.printed.push_str(word);
+                Ok(scalar)
+            } else {
+                Err(())
+            }
+        };
+        match self.peek() {
+            Some(b'"') => {
+                self.string()?;
+                Ok(Scalar::String(self.decoded.clone()))
+            }
+            Some(b't') => word(self, "true", Scalar::Bool(true)),
+            Some(b'f') => word(self, "false", Scalar::Bool(false)),
+            Some(b'n') => word(self, "null", Scalar::Null),
+            Some(b'-' | b'0'..=b'9') => self.number(),
+            _ => Err(()),
+        }
+    }
+
+    /// A string, printed as `JSON.stringify` escapes it: `"`, `\\` and
     /// control characters escaped, a lone surrogate as `\\udxxx`, everything
     /// else as itself.
-    fn string(&mut self) -> Result<(), Rewrite> {
+    fn string(&mut self) -> Result<(), ()> {
+        self.printed.clear();
+        self.decoded.clear();
         self.eat(b'"')?;
-        self.out.push('"');
+        self.printed.push('"');
         loop {
             let run = self.s[self.i..]
                 .iter()
                 .position(|&b| b == b'"' || b == b'\\' || b < 0x20)
-                .ok_or(Rewrite::Invalid)?;
+                .ok_or(())?;
             // The run stops only at ASCII, so it ends on a character boundary
-            self.out.push_str(&self.text[self.i..self.i + run]);
+            let plain = &self.text[self.i..self.i + run];
+            self.printed.push_str(plain);
+            self.decoded.push_str(plain);
             self.i += run;
             match self.s[self.i] {
                 b'"' => {
                     self.i += 1;
-                    self.out.push('"');
+                    self.printed.push('"');
                     return Ok(());
                 }
                 b'\\' => {
                     self.i += 1;
-                    let escape = self.peek().ok_or(Rewrite::Invalid)?;
+                    let escape = self.peek().ok_or(())?;
                     self.i += 1;
                     let unit = match escape {
                         b'"' => u32::from(b'"'),
@@ -374,7 +397,7 @@ impl<'a> Canonical<'a> {
                         b'r' => 0xd,
                         b't' => 0x9,
                         b'u' => self.hex4()?,
-                        _ => return Err(Rewrite::Invalid),
+                        _ => return Err(()),
                     };
                     let decoded = if (0xd800..0xdc00).contains(&unit)
                         && self.s[self.i..].starts_with(b"\\u")
@@ -396,30 +419,33 @@ impl<'a> Canonical<'a> {
                             let mut buf = [0u8; 4];
                             let one =
                                 js::stringify(&Value::String(c.encode_utf8(&mut buf).to_owned()));
-                            self.out.push_str(&one[1..one.len() - 1]);
+                            self.printed.push_str(&one[1..one.len() - 1]);
+                            self.decoded.push(c);
                         }
                         None => {
-                            // A lone surrogate: well-formed JSON.stringify escapes it
-                            self.out.push_str(&format!("\\u{unit:04x}"));
+                            // A lone surrogate: well-formed JSON.stringify
+                            // escapes it, and better-sqlite3 binds it as U+FFFD
+                            self.printed.push_str(&format!("\\u{unit:04x}"));
+                            self.decoded.push('\u{fffd}');
                         }
                     }
                 }
-                _ => return Err(Rewrite::Invalid),
+                _ => return Err(()),
             }
         }
     }
 
-    fn hex4(&mut self) -> Result<u32, Rewrite> {
-        let digits = self.s.get(self.i..self.i + 4).ok_or(Rewrite::Invalid)?;
-        let text = std::str::from_utf8(digits).map_err(|_| Rewrite::Invalid)?;
-        if !text.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return Err(Rewrite::Invalid);
+    fn hex4(&mut self) -> Result<u32, ()> {
+        let digits = self.s.get(self.i..self.i + 4).ok_or(())?;
+        if !digits.iter().all(u8::is_ascii_hexdigit) {
+            return Err(());
         }
+        let text = std::str::from_utf8(digits).map_err(|_| ())?;
         self.i += 4;
-        u32::from_str_radix(text, 16).map_err(|_| Rewrite::Invalid)
+        u32::from_str_radix(text, 16).map_err(|_| ())
     }
 
-    fn number(&mut self) -> Result<(), Rewrite> {
+    fn number(&mut self) -> Result<Scalar, ()> {
         let start = self.i;
         let digits = |c: &mut Self| {
             let from = c.i;
@@ -434,14 +460,14 @@ impl<'a> Canonical<'a> {
         let int_start = self.i;
         let int = digits(self);
         if int == 0 || (int > 1 && self.s[int_start] == b'0') {
-            return Err(Rewrite::Invalid);
+            return Err(());
         }
         let mut plain = true;
         if self.peek() == Some(b'.') {
             self.i += 1;
             plain = false;
             if digits(self) == 0 {
-                return Err(Rewrite::Invalid);
+                return Err(());
             }
         }
         if matches!(self.peek(), Some(b'e' | b'E')) {
@@ -451,18 +477,223 @@ impl<'a> Canonical<'a> {
                 self.i += 1;
             }
             if digits(self) == 0 {
-                return Err(Rewrite::Invalid);
+                return Err(());
             }
         }
         let literal = &self.text[start..self.i];
+        let n: f64 = literal.parse().map_err(|_| ())?;
         // An integer of up to 15 digits is exact in a double and prints as written
         if plain && int <= 15 && literal != "-0" {
-            self.out.push_str(literal);
+            self.printed.push_str(literal);
         } else {
-            let n: f64 = literal.parse().map_err(|_| Rewrite::Invalid)?;
-            self.out.push_str(&js::number_to_string(n));
+            self.printed.push_str(&js::number_to_string(n));
         }
-        Ok(())
+        Ok(Scalar::Number(literal.to_owned(), n))
+    }
+}
+
+/// `JSON.stringify(JSON.parse(text))`, with `owner` assigned to a top-level
+/// object's `_ownerPuuid`. Text is written as it parses; an object with a
+/// repeated key or an array-index key is laid out again when it closes,
+/// with index keys first in ascending order, as `js::stringify` orders them,
+/// and a repeated key at its first place with its last value.
+pub(crate) struct Stringified<'a> {
+    pub(crate) text: String,
+    /// A top level that is not an object or an array.
+    top: Option<Scalar>,
+    owner: Option<&'a Value>,
+    open: Vec<Open>,
+}
+
+enum Open {
+    Array {
+        empty: bool,
+    },
+    Object {
+        start: usize,
+        members: Vec<Member>,
+        relayout: bool,
+        owner: bool,
+    },
+}
+
+struct Member {
+    key: std::ops::Range<usize>,
+    value: std::ops::Range<usize>,
+    index: Option<u32>,
+    hash: u64,
+}
+
+impl<'a> Stringified<'a> {
+    pub(crate) fn new(owner: Option<&'a Value>) -> Self {
+        Self {
+            text: String::new(),
+            top: None,
+            owner,
+            open: Vec::new(),
+        }
+    }
+
+    fn before_value(&mut self) {
+        if let Some(Open::Array { empty }) = self.open.last_mut() {
+            if !*empty {
+                self.text.push(',');
+            }
+            *empty = false;
+        }
+    }
+
+    fn after_value(&mut self) {
+        let end = self.text.len();
+        if let Some(Open::Object { members, owner, .. }) = self.open.last_mut()
+            && let Some(member) = members.last_mut()
+        {
+            member.value.end = end;
+            let key = &self.text[member.key.clone()];
+            if *owner && key == "\"_ownerPuuid\"" {
+                self.text.truncate(member.value.start);
+                self.text
+                    .push_str(&js::stringify(self.owner.unwrap_or(&Value::Null)));
+                member.value.end = self.text.len();
+            }
+        }
+    }
+
+    fn close_object(
+        &mut self,
+        start: usize,
+        mut members: Vec<Member>,
+        relayout: bool,
+        owner: bool,
+    ) {
+        if owner
+            && !members
+                .iter()
+                .any(|m| &self.text[m.key.clone()] == "\"_ownerPuuid\"")
+        {
+            if !members.is_empty() {
+                self.text.push(',');
+            }
+            let key = self.text.len();
+            self.text.push_str("\"_ownerPuuid\"");
+            let colon = self.text.len();
+            self.text.push(':');
+            self.text
+                .push_str(&js::stringify(self.owner.unwrap_or(&Value::Null)));
+            members.push(Member {
+                key: key..colon,
+                value: colon + 1..self.text.len(),
+                index: None,
+                hash: 0,
+            });
+        }
+        if !relayout {
+            self.text.push('}');
+            return;
+        }
+        let text = &self.text;
+        let mut slots: Vec<&Member> = Vec::with_capacity(members.len());
+        let mut seen: HashMap<&str, usize> = HashMap::with_capacity(members.len());
+        let mut values: Vec<std::ops::Range<usize>> = Vec::with_capacity(members.len());
+        for member in &members {
+            match seen.entry(&text[member.key.clone()]) {
+                std::collections::hash_map::Entry::Occupied(slot) => {
+                    values[*slot.get()] = member.value.clone();
+                }
+                std::collections::hash_map::Entry::Vacant(slot) => {
+                    slot.insert(slots.len());
+                    slots.push(member);
+                    values.push(member.value.clone());
+                }
+            }
+        }
+        let mut order: Vec<usize> = (0..slots.len()).collect();
+        // Stable, so named keys keep their first places after the index keys
+        order.sort_by_key(|&i| slots[i].index.map_or((1, 0), |n| (0, n)));
+        let mut laid = String::with_capacity(text.len() - start + 1);
+        laid.push('{');
+        for (n, &i) in order.iter().enumerate() {
+            if n > 0 {
+                laid.push(',');
+            }
+            laid.push_str(&text[slots[i].key.clone()]);
+            laid.push(':');
+            laid.push_str(&text[values[i].clone()]);
+        }
+        laid.push('}');
+        self.text.truncate(start);
+        self.text.push_str(&laid);
+    }
+}
+
+impl JsonEvents for Stringified<'_> {
+    fn open(&mut self, object: bool) {
+        self.before_value();
+        if object {
+            let owner = self.open.is_empty() && self.owner.is_some();
+            self.open.push(Open::Object {
+                start: self.text.len(),
+                members: Vec::new(),
+                relayout: false,
+                owner,
+            });
+            self.text.push('{');
+        } else {
+            self.open.push(Open::Array { empty: true });
+            self.text.push('[');
+        }
+    }
+
+    fn key(&mut self, printed: &str, decoded: &str) {
+        let Some(Open::Object {
+            members, relayout, ..
+        }) = self.open.last_mut()
+        else {
+            return;
+        };
+        if !members.is_empty() {
+            self.text.push(',');
+        }
+        let key = self.text.len();
+        self.text.push_str(printed);
+        let colon = self.text.len();
+        self.text.push(':');
+        let index = js::array_index(decoded);
+        // A printed key is one-to-one with the key it decodes to
+        let hash = fnv1a(printed.as_bytes());
+        let repeated = members
+            .iter()
+            .any(|m| m.hash == hash && self.text[m.key.clone()] == *printed);
+        *relayout |= index.is_some() || repeated;
+        members.push(Member {
+            key: key..colon,
+            value: colon + 1..colon + 1,
+            index,
+            hash,
+        });
+    }
+
+    fn scalar(&mut self, printed: &str, scalar: Scalar) {
+        if self.open.is_empty() {
+            self.top = Some(scalar);
+        }
+        self.before_value();
+        self.text.push_str(printed);
+        self.after_value();
+    }
+
+    fn close(&mut self) {
+        match self.open.pop() {
+            Some(Open::Array { .. }) => self.text.push(']'),
+            Some(Open::Object {
+                start,
+                members,
+                relayout,
+                owner,
+            }) => self.close_object(start, members, relayout, owner),
+            None => {}
+        }
+        self.after_value();
     }
 }
 
@@ -472,34 +703,94 @@ fn fnv1a(bytes: &[u8]) -> u64 {
     })
 }
 
-/// A key JavaScript orders before the others: a canonical array index.
-fn is_array_index(key: &str) -> bool {
-    !key.is_empty()
-        && key.bytes().all(|b| b.is_ascii_digit())
-        && (key == "0" || !key.starts_with('0'))
-        && key.parse::<u64>().is_ok_and(|n| n < u64::from(u32::MAX))
+/// The tree `JSON.parse` builds, as serde_json holds one: a lone surrogate
+/// as U+FFFD and a number past a double's range as null. A value nested
+/// deeper than [`TREE_DEPTH`] is null; no field this app reads is that deep.
+#[derive(Default)]
+pub(crate) struct Tree {
+    pub(crate) root: Option<Value>,
+    open: Vec<(Value, Option<String>)>,
+    /// Levels open below the depth the tree keeps.
+    skipped: usize,
 }
 
-/// `game._ownerPuuid = row.puuid` in strict mode. An array takes the
-/// property and `JSON.stringify` drops it; any other primitive throws.
-fn set_owner(game: &mut Value, owner: Value) -> Result<(), String> {
-    let (kind, shown) = match game {
-        Value::Object(map) => {
-            map.insert("_ownerPuuid".into(), owner);
-            return Ok(());
+pub(crate) const TREE_DEPTH: usize = 512;
+
+impl Tree {
+    fn insert(&mut self, value: Value) {
+        match self.open.last_mut() {
+            None => self.root = Some(value),
+            Some((Value::Object(map), key)) => {
+                map.insert(key.take().unwrap_or_default(), value);
+            }
+            Some((Value::Array(items), _)) => items.push(value),
+            Some(_) => {}
         }
-        Value::Array(_) => return Ok(()),
-        Value::Number(n) => (
-            "number",
-            js::number_to_string(n.as_f64().unwrap_or(f64::NAN)),
-        ),
-        Value::String(s) => ("string", s.clone()),
-        Value::Bool(b) => ("boolean", b.to_string()),
-        Value::Null => return Ok(()),
-    };
-    Err(format!(
-        "Cannot create property '_ownerPuuid' on {kind} '{shown}'"
-    ))
+    }
+}
+
+impl JsonEvents for Tree {
+    fn open(&mut self, object: bool) {
+        if self.skipped > 0 || self.open.len() >= TREE_DEPTH {
+            self.skipped += 1;
+            return;
+        }
+        let container = if object {
+            Value::Object(Map::new())
+        } else {
+            Value::Array(Vec::new())
+        };
+        self.open.push((container, None));
+    }
+
+    fn key(&mut self, _printed: &str, decoded: &str) {
+        if self.skipped == 0
+            && let Some((_, key)) = self.open.last_mut()
+        {
+            *key = Some(decoded.to_owned());
+        }
+    }
+
+    fn scalar(&mut self, _printed: &str, scalar: Scalar) {
+        if self.skipped == 0 {
+            self.insert(scalar.value());
+        }
+    }
+
+    fn close(&mut self) {
+        if self.skipped > 0 {
+            self.skipped -= 1;
+            if self.skipped == 0 {
+                self.insert(Value::Null);
+            }
+            return;
+        }
+        if let Some((container, _)) = self.open.pop() {
+            self.insert(container);
+        }
+    }
+}
+
+impl<A: JsonEvents, B: JsonEvents> JsonEvents for (A, B) {
+    fn open(&mut self, object: bool) {
+        self.0.open(object);
+        self.1.open(object);
+    }
+
+    fn key(&mut self, printed: &str, decoded: &str) {
+        self.0.key(printed, decoded);
+        self.1.key(printed, decoded);
+    }
+
+    fn scalar(&mut self, printed: &str, scalar: Scalar) {
+        self.0.scalar(printed, scalar.clone());
+        self.1.scalar(printed, scalar);
+    }
+
+    fn close(&mut self) {
+        self.0.close();
+        self.1.close();
+    }
 }
 
 /// A column as better-sqlite3 hands it to `JSON.stringify`.
@@ -654,28 +945,79 @@ mod tests {
         );
     }
 
+    /// Payloads Electron reads with JSON.parse and serde_json can't: a lone
+    /// surrogate beside an index key, and nesting past 128. Outputs from
+    /// Node 26: JSON.stringify(Object.assign(JSON.parse(t), { _ownerPuuid: "me" })).
+    #[test]
+    fn payloads_past_serde_json_print_as_json_stringify_prints_them() {
+        let deep = |n: usize| format!("{}{}", "[".repeat(n), "]".repeat(n));
+        let cases = [
+            (
+                r#"{"b":"\ud800","1":"a"}"#.to_owned(),
+                r#"{"1":"a","b":"\ud800","_ownerPuuid":"me"}"#.to_owned(),
+            ),
+            (
+                r#"{"a":1,"2":{"x":"\ud800"}}"#.to_owned(),
+                r#"{"2":{"x":"\ud800"},"a":1,"_ownerPuuid":"me"}"#.to_owned(),
+            ),
+            (
+                r#"{"b":1,"10":"ten","2":"two","0":"zero","01":"lead","4294967295":"big","4294967294":"max","-1":"neg","1.5":"f"}"#.to_owned(),
+                r#"{"0":"zero","2":"two","10":"ten","4294967294":"max","b":1,"01":"lead","4294967295":"big","-1":"neg","1.5":"f","_ownerPuuid":"me"}"#.to_owned(),
+            ),
+            (
+                r#"{"a":1,"b":2,"a":3,"_ownerPuuid":"x","_ownerPuuid":"y"}"#.to_owned(),
+                r#"{"a":3,"b":2,"_ownerPuuid":"me"}"#.to_owned(),
+            ),
+            (
+                r#"{"3":1,"3":2,"x":{"9":1,"a":2,"9":3}}"#.to_owned(),
+                r#"{"3":2,"x":{"9":3,"a":2},"_ownerPuuid":"me"}"#.to_owned(),
+            ),
+            (
+                r#"[{"2":1,"a":"\ud800"}]"#.to_owned(),
+                r#"[{"2":1,"a":"\ud800"}]"#.to_owned(),
+            ),
+            (
+                format!(r#"{{"deep":{}}}"#, deep(130)),
+                format!(r#"{{"deep":{},"_ownerPuuid":"me"}}"#, deep(130)),
+            ),
+            (
+                format!(r#"{{"deep":{}}}"#, deep(100_000)),
+                format!(r#"{{"deep":{},"_ownerPuuid":"me"}}"#, deep(100_000)),
+            ),
+        ];
+        for (text, want) in cases {
+            let got = exported_game(
+                Some(&crate::db::payloads::gzip(text.as_bytes())),
+                json!("me"),
+            );
+            assert_eq!(got, Ok(Some(want)), "{}", &text[..text.len().min(80)]);
+        }
+    }
+
     #[test]
     fn the_owner_goes_where_assignment_puts_it() {
-        let mut game = json!({ "gameId": 1, "_ownerPuuid": "old", "z": 0 });
-        set_owner(&mut game, json!("me")).unwrap();
+        let export = |text: &str| {
+            exported_game(
+                Some(&crate::db::payloads::gzip(text.as_bytes())),
+                json!("me"),
+            )
+        };
         assert_eq!(
-            js::stringify(&game),
-            r#"{"gameId":1,"_ownerPuuid":"me","z":0}"#
+            export(r#"{"gameId":1,"_ownerPuuid":"old","z":0}"#),
+            Ok(Some(r#"{"gameId":1,"_ownerPuuid":"me","z":0}"#.into()))
         );
-        let mut list = json!([1, 2]);
-        set_owner(&mut list, json!("me")).unwrap();
-        assert_eq!(js::stringify(&list), "[1,2]");
+        assert_eq!(export("[1,2]"), Ok(Some("[1,2]".into())));
         assert_eq!(
-            set_owner(&mut json!(1.5e300), json!("me")).unwrap_err(),
-            "Cannot create property '_ownerPuuid' on number '1.5e+300'"
-        );
-        assert_eq!(
-            set_owner(&mut json!("ab"), json!("me")).unwrap_err(),
-            "Cannot create property '_ownerPuuid' on string 'ab'"
+            export("1.5e300"),
+            Err("Cannot create property '_ownerPuuid' on number '1.5e+300'".into())
         );
         assert_eq!(
-            set_owner(&mut json!(true), json!("me")).unwrap_err(),
-            "Cannot create property '_ownerPuuid' on boolean 'true'"
+            export(r#""ab""#),
+            Err("Cannot create property '_ownerPuuid' on string 'ab'".into())
+        );
+        assert_eq!(
+            export("true"),
+            Err("Cannot create property '_ownerPuuid' on boolean 'true'".into())
         );
     }
 
