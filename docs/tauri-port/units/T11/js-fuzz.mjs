@@ -89,9 +89,12 @@ const PIECES = [
   "Infinity", "infinity", "inf", "NaN", "nan", "0x", "0o", "0b", "1e", "e5", "00", "9007199254740993",
 ];
 const strings = new Set(["", " ", "2450", " 2450 ", "0x10", "-0x10", "0x+1", "inf", "1e3", "1_000", ".5", "5.", "+.5", "-.e1", "0x1fffffffffffff1", "0b" + "1".repeat(70), "0o777777777777777777777"]);
-while (strings.size < 200000) {
+// rnd() cycles too soon to fill a set, so the pieces take an exact LCG
+let pick = 99;
+const next = () => (pick = (Math.imul(pick, 1103515245) + 12345) >>> 0);
+for (let tries = 0; strings.size < 200000 && tries < 2000000; tries++) {
   let s = "";
-  for (let n = rnd() % 5; n >= 0; n--) s += PIECES[rnd() % PIECES.length];
+  for (let n = next() % 5; n >= 0; n--) s += PIECES[next() % PIECES.length];
   strings.add(s);
 }
 const toNumber = [...strings].map((s) => {

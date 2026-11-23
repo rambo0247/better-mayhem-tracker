@@ -1303,7 +1303,8 @@ fn owners_that_are_not_strings_bind_as_better_sqlite3_binds_them() {
     .unwrap();
 }
 
-/// Number formatting and `JSON.stringify(JSON.parse(text))` against Node's
+/// Number formatting, `JSON.stringify(JSON.parse(text))` and `Number(text)`
+/// against Node's
 /// answers, which `docs/tauri-port/units/T11/js-fuzz.mjs` writes into the
 /// folder `BMT_JS_FUZZ` names. A text goes in through `unpack_raw`, the path
 /// every stored payload takes.
@@ -1364,5 +1365,28 @@ fn js_semantics_match_node() {
     for miss in json_misses.iter().take(10) {
         println!("  {}", miss.chars().take(400).collect::<String>());
     }
-    assert!(number_misses.is_empty() && json_misses.is_empty());
+
+    let texts: Vec<(String, String)> =
+        serde_json::from_slice(&std::fs::read(dir.join("to-number.json")).unwrap()).unwrap();
+    let mut to_number_misses = BTreeSet::new();
+    for (text, node) in &texts {
+        let x = bmt_lib::db::js::string_to_number(text);
+        let ours = if x.is_nan() {
+            "nan".to_owned()
+        } else {
+            format!("{:x}", x.to_bits())
+        };
+        if &ours != node {
+            to_number_misses.insert(format!("{text:?}: node {node}, ours {ours}"));
+        }
+    }
+    println!(
+        "Number(): {} of {} texts differ",
+        to_number_misses.len(),
+        texts.len()
+    );
+    for miss in to_number_misses.iter().take(20) {
+        println!("  {miss}");
+    }
+    assert!(number_misses.is_empty() && json_misses.is_empty() && to_number_misses.is_empty());
 }

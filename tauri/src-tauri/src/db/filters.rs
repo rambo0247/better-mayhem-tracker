@@ -7,6 +7,7 @@ use jiff::tz::TimeZone;
 use rusqlite::Connection;
 use rusqlite::types::Value as Sql;
 
+use super::js;
 use super::settings::get_setting;
 
 /// `QUEUE_ID_MAYHEM_CLASSIC` in `src/shared/queues.ts`.
@@ -95,29 +96,6 @@ pub fn season_window(season: Option<&str>) -> SeasonWindow {
         .unwrap_or_default()
 }
 
-/// `Number(text)` for the plain decimal and `0x`/`0o`/`0b` forms.
-fn js_number(text: &str) -> f64 {
-    let t = text.trim_matches(|c: char| c.is_whitespace() || c == '\u{feff}');
-    if t.is_empty() {
-        return 0.0;
-    }
-    let radix = |prefix: [&str; 2], radix| {
-        prefix
-            .iter()
-            .find_map(|p| t.strip_prefix(p))
-            .map(|digits| u64::from_str_radix(digits, radix).map_or(f64::NAN, |n| n as f64))
-    };
-    if let Some(n) = radix(["0x", "0X"], 16)
-        .or_else(|| radix(["0o", "0O"], 8))
-        .or_else(|| radix(["0b", "0B"], 2))
-    {
-        return n;
-    }
-    // Rust also reads "inf" and "nan", which Number() does not; neither is
-    // finite, so the caller drops them either way
-    t.parse::<f64>().unwrap_or(f64::NAN)
-}
-
 /// Queues switched off on the Settings page. An absent key means the setting
 /// was never written; an empty one means everything is switched on.
 fn hidden_queues(conn: &Connection) -> rusqlite::Result<Vec<f64>> {
@@ -127,7 +105,7 @@ fn hidden_queues(conn: &Connection) -> rusqlite::Result<Vec<f64>> {
     }
     Ok(raw
         .split(',')
-        .map(js_number)
+        .map(js::string_to_number)
         .filter(|n| n.is_finite())
         .collect())
 }
@@ -204,11 +182,30 @@ mod tests {
 
     #[test]
     fn queue_lists_parse_as_number_does() {
-        assert_eq!(js_number(" 2450 "), 2450.0);
-        assert_eq!(js_number(""), 0.0);
-        assert_eq!(js_number("0x10"), 16.0);
-        assert_eq!(js_number("1e3"), 1000.0);
-        assert!(js_number("abc").is_nan());
+        assert_eq!(js::string_to_number(" 2450 "), 2450.0);
+        assert_eq!(js::string_to_number(""), 0.0);
+        assert_eq!(js::string_to_number("0x10"), 16.0);
+        assert_eq!(js::string_to_number("1e3"), 1000.0);
+        assert!(js::string_to_number("abc").is_nan());
+        // Node's Number(): Rust's parse reads the first as Infinity and the
+        // old radix path read the second as 1
+        assert!(js::string_to_number("inf").is_nan());
+        assert!(js::string_to_number("0x+1").is_nan());
+        assert!(js::string_to_number("-0x10").is_nan());
+        assert_eq!(js::string_to_number("\u{feff}\u{a0}12\u{2028}"), 12.0);
+        assert!(js::string_to_number("\u{85}12").is_nan());
+        assert_eq!(js::string_to_number("-Infinity"), f64::NEG_INFINITY);
+    }
+
+    /// `getHiddenQueues` keeps only the finite ids `Number` reads.
+    #[test]
+    fn hidden_queues_drop_what_number_reads_as_nan() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(crate::db::schema::CREATE_TABLES)
+            .unwrap();
+        crate::db::settings::set_setting(&conn, "hidden_queues", "2450, 0x+1,inf,0x10,,Infinity")
+            .unwrap();
+        assert_eq!(hidden_queues(&conn).unwrap(), vec![2450.0, 16.0, 0.0]);
     }
 
     #[test]

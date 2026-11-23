@@ -134,6 +134,56 @@ pub fn nullish<'a>(operands: &[Option<&'a Value>]) -> Option<&'a Value> {
         .flatten()
 }
 
+/// `Number(text)` for a string, ECMA-262 StringToNumber: JavaScript's own
+/// whitespace trims, a blank string is 0, `Infinity` and the `0x`, `0o` and
+/// `0b` forms read as JavaScript reads them, and anything else that is not
+/// a plain decimal is NaN. Rust's own parse also takes `inf`, `nan` and a
+/// sign inside a radix literal, which `Number` does not. Lifted from T13.
+pub fn string_to_number(text: &str) -> f64 {
+    let t = text.trim_matches(|c: char| (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}');
+    if t.is_empty() {
+        return 0.0;
+    }
+    for (prefixes, radix) in [(["0x", "0X"], 16), (["0o", "0O"], 8), (["0b", "0B"], 2)] {
+        if let Some(digits) = prefixes.iter().find_map(|p| t.strip_prefix(p)) {
+            if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
+                return f64::NAN;
+            }
+            // Exact below 2^128, then rounded once, as the spec rounds the
+            // literal's mathematical value
+            return match u128::from_str_radix(digits, radix) {
+                Ok(n) => n as f64,
+                Err(_) => digits.chars().fold(0.0, |n, c| {
+                    n * f64::from(radix) + f64::from(c.to_digit(radix).unwrap_or(0))
+                }),
+            };
+        }
+    }
+    let unsigned = t.strip_prefix(['+', '-']).unwrap_or(t);
+    if unsigned == "Infinity" {
+        return if t.starts_with('-') {
+            f64::NEG_INFINITY
+        } else {
+            f64::INFINITY
+        };
+    }
+    let (mantissa, exponent) = match unsigned.split_once(['e', 'E']) {
+        Some((m, e)) => (m, Some(e)),
+        None => (unsigned, None),
+    };
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+    let mantissa_ok = (digits(whole) || whole.is_empty())
+        && (digits(fraction) || fraction.is_empty())
+        && !(whole.is_empty() && fraction.is_empty());
+    let exponent_ok = exponent.is_none_or(|e| digits(e.strip_prefix(['+', '-']).unwrap_or(e)));
+    if mantissa_ok && exponent_ok {
+        t.parse().unwrap_or(f64::NAN)
+    } else {
+        f64::NAN
+    }
+}
+
 /// The value when it is a JavaScript number.
 pub fn number(v: Option<&Value>) -> Option<f64> {
     v.and_then(Value::as_f64)
