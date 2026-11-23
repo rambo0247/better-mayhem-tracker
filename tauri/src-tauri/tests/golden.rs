@@ -2064,9 +2064,16 @@ fn listed_stubs(stubs: &BTreeSet<&str>, ported: &BTreeSet<String>) -> Vec<String
 
 /// Both fixture refusals, over a goldens folder and snapshot made here.
 fn check_fixture_refusals(root: &Path) -> Result<(), String> {
-    let dir = root.join("fixture-check/parity/out/golden");
-    let beside = root.join("fixture-check/parity/snapshots/fixture/data");
-    let other = root.join("fixture-check/other");
+    // One segment per join, so the paths read as fixture_beside builds them on
+    // Windows too, where a "/" inside a joined segment stays a "/"
+    let at = |parts: &[&str]| {
+        parts
+            .iter()
+            .fold(root.join("fixture-check"), |path, part| path.join(part))
+    };
+    let dir = at(&["parity", "out", "golden"]);
+    let beside = at(&["parity", "snapshots", "fixture", "data"]);
+    let other = at(&["other"]);
     for (folder, text) in [(&beside, "recorded"), (&other, "another")] {
         std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
         std::fs::write(folder.join("matches.db"), text).map_err(|e| e.to_string())?;
