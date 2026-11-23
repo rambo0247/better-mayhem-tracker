@@ -4,6 +4,7 @@
 app:open-logs-folder
 app:open-url
 app:version
+autostart:supported
 backup:list
 backup:open-folder
 backup:recovery-report
