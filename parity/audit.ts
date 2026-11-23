@@ -97,7 +97,9 @@ export function auditFixture(fixtureDb: string, snapshotDb: string): AuditResult
           }
         };
         walk(JSON.parse(text));
-      } catch {}
+      } catch {
+        // not JSON, nothing to walk
+      }
     }
     for (const token of text.toLowerCase().split(/[^a-z0-9]+/)) {
       if (token.length >= 4 && names.has(token)) result.wordCoincidences++;

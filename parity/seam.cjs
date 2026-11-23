@@ -163,7 +163,7 @@ for (const name of [
 }
 const realExistsSync = fs.existsSync;
 fs.existsSync = (p) => {
-  if (hidden(p)) return /LeagueClient\.app$/.test(asString(p));
+  if (hidden(p)) return asString(p).endsWith("LeagueClient.app");
   return realExistsSync(p);
 };
 for (const name of ["readFile", "readdir", "stat", "lstat", "access"]) {
@@ -196,7 +196,9 @@ globalThis.fetch = async (input, init) => {
   let host = "";
   try {
     host = new URL(url).hostname;
-  } catch {}
+  } catch {
+    // an unparseable URL is not loopback and gets blocked below
+  }
   if (LOOPBACK.test(host)) return realFetch(input, init);
   log("fetch-blocked", url);
   throw new TypeError(`seam blocked network: ${url}`);
@@ -249,6 +251,8 @@ try {
       app.exit(3);
     }
   });
-} catch {}
+} catch {
+  // outside Electron there is no app to check
+}
 
 log("seam loaded pid", process.pid);

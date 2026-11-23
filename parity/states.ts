@@ -60,8 +60,11 @@ export const STATES: StateRow[] = [
   row("season-recap-default", "default", "/season", "main"),
   row("challenges-default", "default", "/challenges", "main"),
   row("settings-default", "default", "/settings", "main"),
-  row("game-card-default", "card", "/card/{gameId}", "main", { viewport: CARD, card: true }),
-  row("season-card-default", "card", "/season-card/{seasonId}", "main", {
+  row("game-card-default", "card", "/card/{gameId}", "body.card-window", {
+    viewport: CARD,
+    card: true,
+  }),
+  row("season-card-default", "card", "/season-card/{seasonId}", "body.card-window", {
     viewport: CARD,
     card: true,
   }),

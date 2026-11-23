@@ -1,9 +1,14 @@
 [lint]
 ignorePatterns = ["out/", "snapshots/"]
 
+[lint.categories]
+correctness = "error"
+
 [lint.rules]
+# Row shapes read from SQLite and Electron payloads have no types
+"@typescript-eslint/no-explicit-any" = "off"
 "eqeqeq" = ["error", "smart"]
-"no-console" = "off"
 
 [fmt]
 printWidth = 100
+ignorePatterns = ["out/", "snapshots/"]

@@ -8,7 +8,7 @@
     "test": "bun test",
     "capture": "bun capture.ts",
     "diff": "bun diff.ts",
-    "lint": "bun lint --max-warnings 0 --no-config-lookup --ext .ts",
+    "lint": "bun lint --flavor eslint --max-warnings 0",
     "fmt": "bun fmt",
     "fmt:check": "bun fmt --check"
   },

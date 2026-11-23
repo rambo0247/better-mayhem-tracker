@@ -35,7 +35,7 @@ export async function settle(
       });
       const deadline = performance.now() + timeout;
       let timedOut = false;
-      let pending = 0;
+      let pending: number;
       for (;;) {
         const images = [...document.images];
         // Lazy images far below the fold never load, so only the ones near the viewport count

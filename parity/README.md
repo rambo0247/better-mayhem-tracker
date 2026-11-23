@@ -53,5 +53,5 @@ Run from the repository root.
 
 ## Known limits
 
-- `bun lint` runs with `--no-config-lookup --ext .ts` because the root `.oxlintrc.json` and `.eslintignore` name `parity` and would hide every file from it.
+- `bun lint --flavor eslint` is what lints parity. Without the flavor, Bun walks up to the root `.oxlintrc.json`, whose ignore patterns name `parity`, and lints nothing.
 - Client-dependent states, overlays, and menus belong to T03 and T04.
