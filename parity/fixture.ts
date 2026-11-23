@@ -1,0 +1,70 @@
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { anonymizeDatabase, type AnonymizeSummary } from "./anonymize.ts";
+import { realDataRoots, refuseRealFolder } from "./lib/real-folder.ts";
+import { SNAPSHOT_MARKER } from "./snapshot.ts";
+
+export const FIXTURE_MARKER = ".bmt-fixture";
+export const DEFAULT_SNAPSHOT = path.resolve(import.meta.dir, "snapshots", "private");
+
+export interface FixtureOptions {
+  /** A folder `snapshot.ts` wrote. */
+  from: string;
+  out: string;
+  /** Copy the Riot art cache too. It is not private and is not committed. */
+  withAssets?: boolean;
+  realRoots?: string[];
+}
+
+export function buildFixture(options: FixtureOptions): AnonymizeSummary {
+  const realRoots = options.realRoots ?? realDataRoots();
+  const from = path.resolve(options.from);
+  const out = path.resolve(options.out);
+  refuseRealFolder(out, "fixture output", realRoots);
+  refuseRealFolder(from, "fixture source", realRoots);
+  if (!fs.existsSync(path.join(from, SNAPSHOT_MARKER))) {
+    throw new Error(`${from} is not a snapshot folder. Run snapshot.ts first.`);
+  }
+  if (fs.existsSync(out) && fs.readdirSync(out).length > 0) {
+    if (!fs.existsSync(path.join(out, FIXTURE_MARKER))) {
+      throw new Error(`${out} exists, is not empty, and is not a fixture folder`);
+    }
+    fs.rmSync(out, { recursive: true, force: true });
+  }
+  fs.mkdirSync(path.join(out, "data"), { recursive: true });
+  fs.writeFileSync(path.join(out, FIXTURE_MARKER), "anonymized fixture\n");
+
+  const database = path.join(out, "data", "matches.db");
+  fs.copyFileSync(path.join(from, "data", "matches.db"), database);
+  const summary = anonymizeDatabase(database);
+
+  if (options.withAssets !== false) {
+    for (const name of ["champion-cache.json", "augment-icon-cache.json"]) {
+      const file = path.join(from, "data", name);
+      if (fs.existsSync(file)) fs.copyFileSync(file, path.join(out, "data", name));
+    }
+    const assets = path.join(from, "asset-cache");
+    if (fs.existsSync(assets)) execFileSync("cp", ["-R", assets, path.join(out, "asset-cache")]);
+  }
+  return summary;
+}
+
+if (import.meta.main) {
+  const args = process.argv.slice(2);
+  const value = (flag: string) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
+  const out = value("--out");
+  if (!out) {
+    console.error(
+      "usage: bun parity/fixture.ts --out <folder> [--from <snapshot folder>] [--no-assets]",
+    );
+    process.exit(2);
+  }
+  const summary = buildFixture({
+    from: value("--from") ?? DEFAULT_SNAPSHOT,
+    out,
+    withAssets: !args.includes("--no-assets"),
+  });
+  console.log(`fixture ${path.resolve(out)}`);
+  console.log(JSON.stringify(summary, null, 2));
+}
