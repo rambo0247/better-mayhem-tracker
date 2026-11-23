@@ -436,11 +436,12 @@ pub fn import_backup_file(
     target
         .db
         .with(|conn| {
-            let tx = conn.unchecked_transaction()?;
-            for account in &accounts {
-                summoner::upsert_summoner(conn, account, (target.now_ms)())?;
-            }
-            tx.commit()
+            js::transaction(conn, || {
+                for account in &accounts {
+                    summoner::upsert_summoner(conn, account, (target.now_ms)())?;
+                }
+                Ok(())
+            })
         })
         .map_err(thrown)?;
 
@@ -509,23 +510,23 @@ fn import_games(
     batch: &[(Value, Value)],
 ) -> crate::commands::CommandResult<i64> {
     target.db.with(|conn| {
-        let tx = conn.unchecked_transaction()?;
-        let mut imported = 0;
-        for (game, owner) in batch {
-            let new = match owner.as_str() {
-                Some(puuid) => ingest::insert_game_full(conn, game, puuid, target.classes)?,
-                None => {
-                    crate::db::payloads::participant_rows_from_raw(Some(game))
-                        .map_err(js::thrown)?;
-                    false
+        js::transaction(conn, || {
+            let mut imported = 0;
+            for (game, owner) in batch {
+                let new = match owner.as_str() {
+                    Some(puuid) => ingest::insert_game_full(conn, game, puuid, target.classes)?,
+                    None => {
+                        crate::db::payloads::participant_rows_from_raw(Some(game))
+                            .map_err(js::thrown)?;
+                        false
+                    }
+                };
+                if new {
+                    imported += 1;
                 }
-            };
-            if new {
-                imported += 1;
             }
-        }
-        tx.commit()?;
-        Ok(imported)
+            Ok(imported)
+        })
     })
 }
 
@@ -735,6 +736,76 @@ mod tests {
         assert_eq!(chunks.next().unwrap().unwrap(), "é\u{fffd}x");
         assert_eq!(chunks.next().unwrap(), None);
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    fn game(id: i64) -> Value {
+        json!({ "gameId": id, "queueId": 2400, "gameMode": "KIWI", "gameCreation": 1,
+            "gameDuration": 1200, "gameVersion": "16.1.1",
+            "participants": [{ "participantId": 1, "puuid": "me", "championId": 1, "stats": { "win": true } }] })
+    }
+
+    fn import_text(name: &str, text: &str) -> (Result<i64, ImportError>, Vec<ImportEvent>, i64) {
+        let dir = std::env::temp_dir().join(format!("bmt-import-{name}-{}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("in.json");
+        std::fs::write(&file, text).unwrap();
+        let db = Database::open(&dir, 0).unwrap();
+        let mut events = Vec::new();
+        let result = import_backup_file(
+            &file,
+            &ImportTarget {
+                db: &db,
+                classes: &ChampionClassMap::new(),
+                now_ms: &|| 0,
+            },
+            || {},
+            &mut |e| events.push(e),
+        );
+        let games = db
+            .with(|conn| conn.query_row("SELECT count(*) FROM games", [], |r| r.get(0)))
+            .unwrap();
+        db.close();
+        std::fs::remove_dir_all(&dir).ok();
+        (result, events, games)
+    }
+
+    #[test]
+    fn a_throw_in_one_game_undoes_its_whole_batch() {
+        let mut games: Vec<Value> = (1..=60).map(game).collect();
+        games[54]["participants"] = json!([null]);
+        let text =
+            json!({ "version": 3, "summoners": [{ "puuid": "me" }], "games": games }).to_string();
+        let (result, events, stored) = import_text("throw", &text);
+        assert_eq!(
+            result,
+            Err(ImportError::Thrown(
+                "Cannot read properties of null (reading 'stats')".into()
+            ))
+        );
+        // The file is one chunk, so all 60 games make one batch
+        assert_eq!(stored, 0);
+        assert_eq!(events.len(), 1);
+    }
+
+    #[test]
+    fn a_game_with_no_usable_owner_is_skipped() {
+        let mut games: Vec<Value> = (1..=3).map(game).collect();
+        games[0]["_ownerPuuid"] = json!(5);
+        games[1]["_ownerPuuid"] = json!("someone-else");
+        let text = json!({ "version": 3, "summoners": [], "games": games }).to_string();
+        let (result, events, stored) = import_text("owners", &text);
+        // No account to fall back on: the third game has no owner at all
+        assert_eq!(result, Ok(0));
+        assert_eq!(stored, 0);
+        assert_eq!(
+            events.last(),
+            Some(&ImportEvent::Progress(ImportProgress {
+                current: 3,
+                total: 3,
+                imported: 0
+            }))
+        );
     }
 
     /// The T05 export imported into a fresh database exports back to the
