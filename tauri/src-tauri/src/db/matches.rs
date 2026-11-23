@@ -11,6 +11,7 @@ use super::filters::{
     DAY_START_HOUR, SEASONS, Where, apply_queue_filter, apply_season_filter, hide_remakes,
 };
 use super::settings::{SESSION_GROUPING_SETTING, get_setting};
+use super::js;
 use super::stmt::{self, FromRow};
 use super::summoner::{display_name, identity_from_game};
 use crate::commands::matches::{
@@ -234,24 +235,26 @@ fn match_list_where(conn: &Connection, filters: &MatchFilters) -> rusqlite::Resu
     if hide_remakes(conn)? {
         w.conditions.push("g.is_remake = 0".into());
     }
-    if filters.favorites == Some(true) {
+    if js::truthy_js(filters.favorites.value()) {
         w.conditions.push("g.favorite = 1".into());
     }
-    if let Some(account) = given(&filters.account) {
+    if let Some(account) = given(&filters.account.typed().flatten()) {
         w.conditions.push("g.puuid = ?".into());
         w.params.push(Sql::Text(account.to_owned()));
     }
-    if let Some(champion) = filters.champion_id {
+    if let Some(champion) = filters.champion_id.typed().flatten() {
         w.conditions.push("ps.champion_id = ?".into());
         w.params.push(Sql::Integer(champion));
     }
-    if let Some(patch) = given(&filters.patch) {
+    if let Some(patch) = given(&filters.patch.typed().flatten()) {
         w.conditions.push("g.game_version = ?".into());
         w.params.push(Sql::Text(patch.to_owned()));
     }
-    apply_queue_filter(conn, &mut w, filters.queue, "g")?;
-    apply_season_filter(&mut w, filters.season.as_deref(), "g");
-    let kinds = filters.multikills.as_deref().unwrap_or_default();
+    apply_queue_filter(conn, &mut w, filters.queue.typed().flatten(), "g")?;
+    apply_season_filter(&mut w, filters.season.typed().flatten().as_deref(), "g");
+    let kinds = filters
+        .multikill_kinds()
+        .map_err(|err| js::thrown(js::JsError::type_error(err.message)))?;
     if !kinds.is_empty() {
         let any = kinds
             .iter()
@@ -391,7 +394,7 @@ pub fn get_match_history(
     filters: &MatchFilters,
 ) -> rusqlite::Result<MatchPage> {
     let w = match_list_where(conn, filters)?;
-    let order_by = match_order_by(filters.sort, filters.sort_dir);
+    let order_by = match_order_by(Some(filters.sort_key()), Some(filters.sort_direction()));
     match_page(conn, &w, &order_by, limit, offset)
 }
 
@@ -552,8 +555,10 @@ pub fn get_match_filter_options(
     conn: &Connection,
     scope: &MatchScope,
 ) -> rusqlite::Result<MatchFilterOptions> {
-    let account = given(&scope.account);
-    let patch = given(&scope.patch);
+    let account = scope.account.typed().flatten();
+    let account = given(&account);
+    let patch = scope.patch.typed().flatten();
+    let patch = given(&patch);
     let apply_account = |w: &mut Where| {
         if let Some(account) = account {
             w.conditions.push("g.puuid = ?".into());
@@ -561,7 +566,7 @@ pub fn get_match_filter_options(
         }
     };
     let apply_champion = |w: &mut Where| {
-        if let Some(champion) = scope.champion_id {
+        if let Some(champion) = scope.champion_id.typed().flatten() {
             w.conditions.push("ps.champion_id = ?".into());
             w.params.push(Sql::Integer(champion));
         }
@@ -579,8 +584,8 @@ pub fn get_match_filter_options(
 
     let mut patch_where = start("g.game_version IS NOT NULL AND g.game_version != ''");
     apply_champion(&mut patch_where);
-    apply_queue_filter(conn, &mut patch_where, scope.queue, "g")?;
-    apply_season_filter(&mut patch_where, scope.season.as_deref(), "g");
+    apply_queue_filter(conn, &mut patch_where, scope.queue.typed().flatten(), "g")?;
+    apply_season_filter(&mut patch_where, scope.season.typed().flatten().as_deref(), "g");
     apply_account(&mut patch_where);
     let mut patches = strings(
         conn,
@@ -599,8 +604,8 @@ pub fn get_match_filter_options(
 
     let mut champ_where = start("1 = 1");
     apply_patch(&mut champ_where);
-    apply_queue_filter(conn, &mut champ_where, scope.queue, "g")?;
-    apply_season_filter(&mut champ_where, scope.season.as_deref(), "g");
+    apply_queue_filter(conn, &mut champ_where, scope.queue.typed().flatten(), "g")?;
+    apply_season_filter(&mut champ_where, scope.season.typed().flatten().as_deref(), "g");
     apply_account(&mut champ_where);
     let champions = ids(
         conn,
@@ -621,7 +626,7 @@ pub fn get_match_filter_options(
     apply_champion(&mut queue_where);
     apply_patch(&mut queue_where);
     apply_queue_filter(conn, &mut queue_where, None, "g")?;
-    apply_season_filter(&mut queue_where, scope.season.as_deref(), "g");
+    apply_season_filter(&mut queue_where, scope.season.typed().flatten().as_deref(), "g");
     apply_account(&mut queue_where);
     let queues = ids(
         conn,
@@ -643,7 +648,7 @@ pub fn get_match_filter_options(
     let mut season_where = start("1 = 1");
     apply_champion(&mut season_where);
     apply_patch(&mut season_where);
-    apply_queue_filter(conn, &mut season_where, scope.queue, "g")?;
+    apply_queue_filter(conn, &mut season_where, scope.queue.typed().flatten(), "g")?;
     apply_account(&mut season_where);
     let mut seasons = Vec::new();
     for season in &SEASONS {
@@ -1242,8 +1247,8 @@ mod tests {
         let conn = small_db();
         for dir in [MatchSortDir::Asc, MatchSortDir::Desc] {
             let filters = MatchFilters {
-                sort: Some(MatchSort::Score),
-                sort_dir: Some(dir),
+                sort: serde_json::json!(MatchSort::Score).into(),
+                sort_dir: serde_json::json!(dir).into(),
                 ..Default::default()
             };
             let page = get_match_history(&conn, 10, 0, &filters).unwrap();
@@ -1256,7 +1261,7 @@ mod tests {
     fn filters_narrow_the_list_and_paging_keeps_the_total() {
         let conn = small_db();
         let pentas = MatchFilters {
-            multikills: Some(vec![MultikillType::Pentas]),
+            multikills: serde_json::json!([MultikillType::Pentas]).into(),
             ..Default::default()
         };
         assert_eq!(
