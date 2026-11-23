@@ -41,6 +41,9 @@ const WEBVIEW_DATA_ENV: &str = "BMT_PARITY_WEBVIEW_DATA";
 /// Set to `regular` to keep the Dock icon, only to show captures match with and without it.
 #[cfg(target_os = "macos")]
 const ACTIVATION_ENV: &str = "BMT_PARITY_ACTIVATION";
+/// Set to `1` to open a screen-sized window of the app's own over everything else
+/// at the normal level, only to show captures match with the driver window covered.
+const COVER_ENV: &str = "BMT_PARITY_COVER";
 const MIN_TOKEN_LEN: usize = 16;
 const MAX_HEAD_BYTES: usize = 64 * 1024;
 const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
@@ -187,6 +190,9 @@ pub fn configure<'a, M: Manager<DynRuntime>>(
         .incognito(true)
         .focused(false)
         .position(x, y)
+        // An accessory app's window opens behind the active app's, and WebKit stops
+        // painting a covered window. Above other windows, never focused, it stays painted.
+        .always_on_top(true)
         .on_page_load(|_window, payload| {
             if payload.event() == PageLoadEvent::Finished {
                 let (count, changed) = &LOADS;
@@ -231,6 +237,9 @@ pub fn start(window: &WebviewWindow) -> std::io::Result<()> {
     let listener = TcpListener::bind(("127.0.0.1", 0))?;
     let port = listener.local_addr()?.port();
     println!("{SENTINEL} listening 127.0.0.1:{port}");
+    if std::env::var(COVER_ENV).is_ok_and(|v| v == "1") {
+        cover_the_screen(window)?;
+    }
     let window = window.clone();
     std::thread::spawn(move || {
         for stream in listener.incoming().flatten() {
@@ -238,6 +247,24 @@ pub fn start(window: &WebviewWindow) -> std::io::Result<()> {
             std::thread::spawn(move || handle(stream, &window));
         }
     });
+    Ok(())
+}
+
+fn cover_the_screen(window: &WebviewWindow) -> std::io::Result<()> {
+    let to_io = |e: tauri::Error| std::io::Error::other(e.to_string());
+    let monitor = window.primary_monitor().map_err(to_io)?;
+    let (width, height) = monitor.map_or((2560.0, 1440.0), |m| {
+        let size = m.size().to_logical::<f64>(m.scale_factor());
+        (size.width, size.height)
+    });
+    WebviewWindowBuilder::new(window.app_handle(), "cover", WebviewUrl::default())
+        .title("parity cover")
+        .position(0.0, 0.0)
+        .inner_size(width, height)
+        .focused(false)
+        .background_color(tauri::window::Color(128, 128, 128, 255))
+        .build()
+        .map_err(to_io)?;
     Ok(())
 }
 
