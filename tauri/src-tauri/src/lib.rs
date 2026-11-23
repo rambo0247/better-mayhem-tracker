@@ -12,6 +12,7 @@ pub mod app_menu;
 mod asset_cache;
 mod assets;
 pub mod backup;
+mod challenges;
 #[deny(clippy::disallowed_methods)]
 pub mod commands;
 #[cfg(any(not(bmt_release_profile), debug_assertions))]
@@ -27,6 +28,7 @@ pub mod install_location;
 pub mod intl;
 pub mod js_arg;
 mod lcu;
+mod live;
 pub mod locale;
 pub mod log;
 pub mod op_score;
@@ -133,6 +135,7 @@ pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
         .manage(host.effects)
         .plugin(backup::schedule(clock))
         .plugin(lcu::sync::plugin())
+        .plugin(live::plugin())
         .invoke_handler(commands::handler())
 }
 
@@ -305,6 +308,12 @@ pub fn run() {
             let handle = app.handle().clone();
             shell.on_stop_polling(move || quit::stop_polling(&handle));
             let handle = app.handle().clone();
+            shell.on_stop_polling(move || {
+                if let Some(tracking) = handle.try_state::<live::Tracking>() {
+                    tracking.stop();
+                }
+            });
+            let handle = app.handle().clone();
             shell.on_will_quit(move || quit::will_quit(&handle));
             #[cfg(feature = "parity-driver")]
             parity_driver::prepare(app);
@@ -382,7 +391,12 @@ pub fn run() {
             #[cfg(feature = "parity-driver")]
             parity_driver::start(&window)?;
             // After the window, as Electron's startPolling(win) follows createWindow
-            app.state::<lcu::sync::LcuSync>().start_polling();
+            let lcu = app.state::<lcu::sync::LcuSync>();
+            lcu.start_polling();
+            // Follows the client into and out of matches, and records where the
+            // ARAM challenges stand each day the client is up
+            app.state::<live::Tracking>()
+                .start(tauri::async_runtime::handle().inner(), lcu.lcu.subscribe());
             Ok(())
         })
         .build(context)

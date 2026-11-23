@@ -723,6 +723,16 @@ impl Dragon {
             .clone()
     }
 
+    /// `getChampionData()`: what is loaded right now, without waiting.
+    pub fn loaded_champion_data(&self) -> ChampionData {
+        self.0
+            .champions
+            .lock()
+            .expect("champions lock")
+            .data
+            .clone()
+    }
+
     /// `getChampionClasses()`: truthy classes by numeric id. A class that
     /// isn't a string reads as `String()` of it; an id that isn't an integer
     /// names no champion and is left out.
@@ -914,7 +924,6 @@ impl Dragon {
 
     /// Spell ids by the internal name the in-game API reports a spell under,
     /// lowercased ("summonerflash" is 4). Only Data Dragon carries those names.
-    #[allow(dead_code)]
     pub async fn summoner_spell_keys(&self) -> Loaded<HashMap<String, i64>> {
         if let Some(done) = self.0.spell_keys.get("") {
             return Ok(done);

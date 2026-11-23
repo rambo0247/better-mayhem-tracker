@@ -3,10 +3,12 @@
 //! Electron 1.2.1's DDL, byte for byte, so a player who rolls back to 1.2.1
 //! opens what this build wrote.
 
+pub mod challenges;
 pub mod connection;
 pub mod filters;
 pub mod ingest;
 pub mod js;
+pub mod live;
 pub mod matches;
 pub mod migrations;
 pub mod num;

@@ -481,7 +481,7 @@ pub(super) fn is_mayhem_number(queue_id: f64) -> bool {
 }
 
 /// `String(value)`, as a template literal prints it.
-pub(super) fn template(value: Option<&Value>) -> String {
+pub(crate) fn template(value: Option<&Value>) -> String {
     match value {
         None => "undefined".into(),
         Some(Value::Null) => "null".into(),
@@ -502,7 +502,7 @@ pub(super) fn template(value: Option<&Value>) -> String {
 
 /// `Number(text)`: whitespace trimmed, empty is 0, and the hex, octal, and
 /// binary prefixes a JavaScript numeric literal takes.
-pub(super) fn js_number_of_str(text: &str) -> f64 {
+pub(crate) fn js_number_of_str(text: &str) -> f64 {
     let s = text.trim_matches(|c: char| c.is_whitespace() || c == '\u{feff}');
     if s.is_empty() {
         return 0.0;
@@ -543,7 +543,7 @@ pub(super) fn js_number_of_str(text: &str) -> f64 {
 }
 
 /// `Number(value)` for a JSON value, `None` being `undefined`.
-pub(super) fn js_number(value: Option<&Value>) -> f64 {
+pub(crate) fn js_number(value: Option<&Value>) -> f64 {
     match value {
         None => f64::NAN,
         Some(Value::Null) => 0.0,
