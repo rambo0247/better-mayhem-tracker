@@ -748,15 +748,36 @@ async function runPlatform(argv: string[]) {
     pass: reactIsms.code === 0,
     detail: reactIsms.text.trim().split("\n").slice(-1)[0] ?? "",
   });
-  const contract = run(t.build(["cargo", "run", "--bin", "export_bindings", "--", "--check"]), {
-    cwd: path.join(REPO_DIR, "tauri", "src-tauri"),
-    log: path.join(out, `contract-${platform}.log`),
-  });
-  checks.push({
-    name: "contract check (export_bindings --check)",
-    pass: contract.code === 0,
-    detail: contract.text.trim().split("\n").slice(-1)[0] ?? "",
-  });
+  const check = (name: string, cmd: string[], cwd: string, log: string) => {
+    const result = run(cmd, { cwd, log: path.join(out, `${log}-${platform}.log`) });
+    checks.push({
+      name,
+      pass: result.code === 0,
+      detail: result.text.trim().split("\n").slice(-1)[0] ?? "",
+    });
+  };
+  // The Rust contract must equal the committed bindings, and both must equal src/shared/api.ts
+  check(
+    "export_bindings --check",
+    t.build([
+      "cargo",
+      "run",
+      "--bin",
+      "export_bindings",
+      "--features",
+      "export-bindings",
+      "--",
+      "--check",
+    ]),
+    path.join(REPO_DIR, "tauri", "src-tauri"),
+    "export-bindings",
+  );
+  check(
+    "contract-check.ts",
+    ["bun", "scripts/contract-check.ts"],
+    path.join(REPO_DIR, "tauri"),
+    "contract",
+  );
 
   const db = fs.readFileSync(path.join(dataRoot, "data", "matches.db"));
   const result: PlatformRun = {
