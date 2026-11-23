@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { waitForNoGame } from "./lib/no-game.ts";
 import { dumpGeometry } from "./drive.ts";
 import { isDataSource, PARITY_DIR } from "./lib/data.ts";
 import { startElectron } from "./run-electron.ts";
@@ -68,6 +69,7 @@ async function main() {
   try {
     const vars = await resolveVars(running.page);
     for (const state of states) {
+      await waitForNoGame();
       const t0 = Date.now();
       const record: Timing = { id: state.id, ms: 0, settleMs: 0, settleTimedOut: false, ok: true };
       try {

@@ -6,6 +6,7 @@ import path from "node:path";
 import { _electron, type ElectronApplication, type Page } from "playwright";
 import { dumpGeometry, runStep, type DriveContext, type Step } from "./drive.ts";
 import { PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
+import { waitForNoGame } from "./lib/no-game.ts";
 import { realDataRoots, refuseRealFolder } from "./lib/real-folder.ts";
 import { settle } from "./settle.ts";
 
@@ -86,6 +87,7 @@ function electronBinary(repo: string): string {
 }
 
 export async function startElectron(options: StartOptions): Promise<RunningElectron> {
+  await waitForNoGame();
   const repo = options.repo ?? REPO_DIR;
   const viewport = options.viewport ?? DEFAULT_VIEWPORT;
   const runDir = path.resolve(
@@ -118,6 +120,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
       "--force-device-scale-factor=2",
       "--force-color-profile=srgb",
       "--lang=en-US",
+      ...(process.env.PARITY_ELECTRON_ARGS?.split(" ").filter(Boolean) ?? []),
       `--user-data-dir=${userData}`,
       "-r",
       path.join(PARITY_DIR, "seam.cjs"),
