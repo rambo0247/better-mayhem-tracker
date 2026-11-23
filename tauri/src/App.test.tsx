@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createRouter, useLocation, useNavigate, type Navigator } from "@solidjs/router";
 import { fake } from "../test/fakeApi";
 import { mount, settle } from "../test/render";
-import App from "./App";
+import { createAppRouter } from "./App";
 import { hashHistoryWithState } from "./lib/history";
 
 let view: ReturnType<typeof mount> | undefined;
@@ -28,19 +28,27 @@ function link(href: string) {
   return view!.container.querySelector<HTMLAnchorElement>(`a[href="${href}"]`)!;
 }
 
+function openPage() {
+  return view!.container.querySelector("[data-stub-page]")?.getAttribute("data-stub-page");
+}
+
 test("on an http origin only the open page's nav link is current", async () => {
   expect(window.location.origin).toBe("http://localhost");
-  view = mount(() => <App />);
+  const Router = createAppRouter((name) => () => <p data-stub-page={name} />);
+  view = mount(() => <Router>{(props) => props.children}</Router>);
   await settle();
+  expect(openPage()).toBe("MatchHistory");
   expect(currentLinks()).toEqual(["#/ page"]);
 
   link("#/records").click();
   await settle();
   expect(window.location.hash).toBe("#/records");
+  expect(openPage()).toBe("Records");
   expect(currentLinks()).toEqual(["#/records page"]);
 
   link("#/").click();
   await settle();
+  expect(openPage()).toBe("MatchHistory");
   expect(currentLinks()).toEqual(["#/ page"]);
   expect(view.container.querySelector("[data-active]")).toBeNull();
 });
