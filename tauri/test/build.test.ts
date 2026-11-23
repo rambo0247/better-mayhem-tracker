@@ -1,10 +1,13 @@
 import { afterAll, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { build } from "vite";
 
 const TAURI = join(import.meta.dir, "..");
+
+const specifier = (path: string, root = sep) => JSON.stringify(path.split(root).join("/"));
+const tauri = (rel: string) => specifier(join(TAURI, rel));
 const dir = await mkdtemp(join(tmpdir(), "bmt-build-guard-"));
 afterAll(() => rm(dir, { recursive: true }));
 
@@ -35,13 +38,13 @@ test.each([
   [
     "a test helper",
     "helper",
-    `import { settle } from "${TAURI}/test/render"; console.log(settle);`,
+    `import { settle } from ${tauri("test/render")}; console.log(settle);`,
     "is a test helper",
   ],
   [
     "a test file",
     "testfile",
-    `import "${TAURI}/src/components/WinRateBar.test.tsx";`,
+    `import ${tauri("src/components/WinRateBar.test.tsx")};`,
     "is a test module",
   ],
 ])("the app build stops on %s", async (_label, name, code, message) => {
@@ -51,6 +54,12 @@ test.each([
 test("the app build passes app modules", async () => {
   await buildEntry(
     "app",
-    `import { formatKDA } from "${TAURI}/src/lib/format"; console.log(formatKDA);`,
+    `import { formatKDA } from ${tauri("src/lib/format")}; console.log(formatKDA);`,
   );
+});
+
+test("a specifier built from a Windows path with a space uses forward slashes inside one string", () => {
+  const out = specifier("D:\\a\\b c\\x.ts", "\\");
+  expect(out).toBe('"D:/a/b c/x.ts"');
+  expect(JSON.parse(out)).toBe("D:/a/b c/x.ts");
 });
