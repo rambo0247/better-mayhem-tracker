@@ -120,6 +120,12 @@ fn render() -> String {
 fn main() -> ExitCode {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts");
     let rendered = render();
+    // api.ts types every integer as number; a bigint means the large-int
+    // setting was lost and every i64 changed type
+    if rendered.contains("bigint") {
+        eprintln!("the bindings type an integer as bigint; api.ts has number");
+        return ExitCode::FAILURE;
+    }
     if std::env::args().any(|a| a == "--check") {
         let current = std::fs::read_to_string(&path).unwrap_or_default();
         if current == rendered {
