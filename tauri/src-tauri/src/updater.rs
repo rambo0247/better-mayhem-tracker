@@ -1257,7 +1257,7 @@ impl<R: tauri::Runtime> Host for AppHost<R> {
         database
             .with(|conn| crate::db::settings::get_setting(conn, key))
             .ok()
-            .flatten()
+            .and_then(|cell| cell.as_str().map(str::to_owned))
     }
 
     fn install_target(&self) -> Option<InstallTarget> {
@@ -1351,7 +1351,7 @@ pub fn record_launch_version<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     let current = crate::app_version();
     let recorded = database.with(|conn| {
         let previous = crate::db::settings::get_setting(conn, "last_run_version")?;
-        let (updated_from, write) = launch_version_change(previous.as_deref(), current);
+        let (updated_from, write) = launch_version_change(previous.as_str(), current);
         if write {
             crate::db::settings::set_setting(conn, "last_run_version", current)?;
         }
