@@ -1,0 +1,3 @@
+# The channels golden replay expects to pass, one per line. A porting unit
+# adds its channels here once they pass; tests/golden.rs fails when a listed
+# channel reads anything but pass, and when a passing one is missing.
