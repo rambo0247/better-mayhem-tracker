@@ -4,7 +4,7 @@
 //! is free between pages, as Electron's event loop is between its awaits.
 
 use std::fs::File;
-use std::io::{self, BufWriter, Write};
+use std::io::{self, BufWriter, Read, Write};
 use std::path::Path;
 
 use rusqlite::types::ValueRef;
@@ -12,7 +12,7 @@ use serde_json::{Map, Number, Value};
 
 use crate::db::Database;
 use crate::db::js::{self, Cell};
-use crate::db::payloads::unpack_raw;
+use flate2::read::MultiGzDecoder;
 
 const EXPORT_PAGE_SIZE: i64 = 200;
 
@@ -77,14 +77,13 @@ pub fn write_export_to(db: &Database, file: &Path) -> Result<i64, String> {
         for (_, blob, owner) in rows {
             // A backup stays the untouched payloads, so an import into any
             // version rebuilds whatever that version derives from them
-            let Some(mut game) = unpack_raw(blob.as_deref()).filter(|g| js::truthy(Some(g))) else {
+            let Some(game) = exported_game(blob.as_deref(), cell_value(owner))? else {
                 continue;
             };
-            set_owner(&mut game, cell_value(owner))?;
             if count > 0 {
                 chunk.push(',');
             }
-            chunk.push_str(&js::stringify(&game));
+            chunk.push_str(&game);
             count += 1;
         }
         write(&chunk)?;
@@ -93,6 +92,363 @@ pub fn write_export_to(db: &Database, file: &Path) -> Result<i64, String> {
     write("]}")?;
     out.flush().map_err(|err| node_error(&err, "write", None))?;
     Ok(count)
+}
+
+/// `JSON.stringify(Object.assign(unpackRaw(blob), { _ownerPuuid }))` for one
+/// row, or `None` where `unpackRaw` gives nothing truthy. The text is
+/// rewritten in one pass into the form `JSON.stringify` prints, which is
+/// what it already is when Electron stored it, so no tree is built. A shape
+/// that pass leaves to JavaScript's object rules (a repeated key, a key
+/// that is an array index) or a top level that is not an object or array
+/// goes through the parsed tree instead.
+fn exported_game(blob: Option<&[u8]>, owner: Value) -> Result<Option<String>, String> {
+    let mut bytes = Vec::new();
+    let Some(blob) = blob else {
+        return Ok(None);
+    };
+    if MultiGzDecoder::new(blob).read_to_end(&mut bytes).is_err() {
+        return Ok(None);
+    }
+    let text = String::from_utf8_lossy(&bytes);
+    match Canonical::rewrite(&text, &owner) {
+        Ok(out) => return Ok(Some(out)),
+        Err(Rewrite::Invalid) => return Ok(None),
+        Err(Rewrite::Tree) => {}
+    }
+    let Some(mut game) = serde_json::from_str::<Value>(&text)
+        .ok()
+        .filter(|g| js::truthy(Some(g)))
+    else {
+        return Ok(None);
+    };
+    set_owner(&mut game, owner)?;
+    Ok(Some(js::stringify(&game)))
+}
+
+enum Rewrite {
+    /// Not JSON, so `unpackRaw` answers null.
+    Invalid,
+    /// JSON whose canonical form needs JavaScript's object model.
+    Tree,
+}
+
+/// Deeper than this goes through the tree, and so meets serde_json's own limit.
+const MAX_DEPTH: usize = 100;
+
+/// ECMA-404 JSON rewritten as `JSON.stringify(JSON.parse(text))` prints it.
+struct Canonical<'a> {
+    s: &'a [u8],
+    i: usize,
+    out: String,
+}
+
+impl<'a> Canonical<'a> {
+    fn rewrite(text: &'a str, owner: &Value) -> Result<String, Rewrite> {
+        let mut c = Canonical {
+            s: text.as_bytes(),
+            i: 0,
+            out: String::with_capacity(text.len() + 64),
+        };
+        c.ws();
+        match c.peek() {
+            Some(b'{') => c.object(0, Some(owner))?,
+            Some(b'[') => c.array(0)?,
+            Some(_) => {
+                // A primitive is falsy or throws on the assignment; the tree
+                // path tells which, and says it as V8 does
+                c.value(0)?;
+                c.ws();
+                return if c.i == c.s.len() {
+                    Err(Rewrite::Tree)
+                } else {
+                    Err(Rewrite::Invalid)
+                };
+            }
+            None => return Err(Rewrite::Invalid),
+        }
+        c.ws();
+        if c.i != c.s.len() {
+            return Err(Rewrite::Invalid);
+        }
+        Ok(c.out)
+    }
+
+    fn peek(&self) -> Option<u8> {
+        self.s.get(self.i).copied()
+    }
+
+    fn ws(&mut self) {
+        while matches!(self.peek(), Some(b' ' | b'\t' | b'\n' | b'\r')) {
+            self.i += 1;
+        }
+    }
+
+    fn eat(&mut self, b: u8) -> Result<(), Rewrite> {
+        if self.peek() == Some(b) {
+            self.i += 1;
+            Ok(())
+        } else {
+            Err(Rewrite::Invalid)
+        }
+    }
+
+    fn value(&mut self, depth: usize) -> Result<(), Rewrite> {
+        if depth > MAX_DEPTH {
+            return Err(Rewrite::Tree);
+        }
+        match self.peek() {
+            Some(b'{') => self.object(depth, None),
+            Some(b'[') => self.array(depth),
+            Some(b'"') => self.string(None),
+            Some(b't') => self.literal("true"),
+            Some(b'f') => self.literal("false"),
+            Some(b'n') => self.literal("null"),
+            Some(b'-' | b'0'..=b'9') => self.number(),
+            _ => Err(Rewrite::Invalid),
+        }
+    }
+
+    fn literal(&mut self, word: &str) -> Result<(), Rewrite> {
+        if self.s[self.i..].starts_with(word.as_bytes()) {
+            self.i += word.len();
+            self.out.push_str(word);
+            Ok(())
+        } else {
+            Err(Rewrite::Invalid)
+        }
+    }
+
+    fn array(&mut self, depth: usize) -> Result<(), Rewrite> {
+        self.eat(b'[')?;
+        self.out.push('[');
+        self.ws();
+        if self.peek() == Some(b']') {
+            self.i += 1;
+            self.out.push(']');
+            return Ok(());
+        }
+        loop {
+            self.ws();
+            self.value(depth + 1)?;
+            self.ws();
+            match self.peek() {
+                Some(b',') => {
+                    self.i += 1;
+                    self.out.push(',');
+                }
+                Some(b']') => {
+                    self.i += 1;
+                    self.out.push(']');
+                    return Ok(());
+                }
+                _ => return Err(Rewrite::Invalid),
+            }
+        }
+    }
+
+    /// `owner` is set for the top-level object, which takes `_ownerPuuid`
+    /// where its key already is, or last.
+    fn object(&mut self, depth: usize, owner: Option<&Value>) -> Result<(), Rewrite> {
+        self.eat(b'{')?;
+        self.out.push('{');
+        let mut keys: Vec<String> = Vec::new();
+        let mut owner_written = false;
+        self.ws();
+        if self.peek() == Some(b'}') {
+            self.i += 1;
+        } else {
+            loop {
+                self.ws();
+                if self.peek() != Some(b'"') {
+                    return Err(Rewrite::Invalid);
+                }
+                if !keys.is_empty() {
+                    self.out.push(',');
+                }
+                let mut key = String::new();
+                self.string(Some(&mut key))?;
+                if is_array_index(&key) || keys.contains(&key) {
+                    return Err(Rewrite::Tree);
+                }
+                self.ws();
+                self.eat(b':')?;
+                self.out.push(':');
+                self.ws();
+                if let Some(owner) = owner.filter(|_| key == "_ownerPuuid") {
+                    let at = self.out.len();
+                    self.value(depth + 1)?;
+                    self.out.truncate(at);
+                    self.out.push_str(&js::stringify(owner));
+                    owner_written = true;
+                } else {
+                    self.value(depth + 1)?;
+                }
+                keys.push(key);
+                self.ws();
+                match self.peek() {
+                    Some(b',') => self.i += 1,
+                    Some(b'}') => {
+                        self.i += 1;
+                        break;
+                    }
+                    _ => return Err(Rewrite::Invalid),
+                }
+            }
+        }
+        if let Some(owner) = owner.filter(|_| !owner_written) {
+            if !keys.is_empty() {
+                self.out.push(',');
+            }
+            self.out.push_str("\"_ownerPuuid\":");
+            self.out.push_str(&js::stringify(owner));
+        }
+        self.out.push('}');
+        Ok(())
+    }
+
+    /// A string, written as `JSON.stringify` escapes it: `"`, `\\` and
+    /// control characters escaped, a lone surrogate as `\\udxxx`, everything
+    /// else as itself. `key` collects the decoded text when given.
+    fn string(&mut self, mut key: Option<&mut String>) -> Result<(), Rewrite> {
+        self.eat(b'"')?;
+        self.out.push('"');
+        loop {
+            let run = self.s[self.i..]
+                .iter()
+                .position(|&b| b == b'"' || b == b'\\' || b < 0x20)
+                .ok_or(Rewrite::Invalid)?;
+            // The text is a str and the run stops only at ASCII, so it is whole characters
+            let piece =
+                std::str::from_utf8(&self.s[self.i..self.i + run]).map_err(|_| Rewrite::Invalid)?;
+            self.out.push_str(piece);
+            if let Some(key) = key.as_deref_mut() {
+                key.push_str(piece);
+            }
+            self.i += run;
+            match self.s[self.i] {
+                b'"' => {
+                    self.i += 1;
+                    self.out.push('"');
+                    return Ok(());
+                }
+                b'\\' => {
+                    self.i += 1;
+                    let escape = self.peek().ok_or(Rewrite::Invalid)?;
+                    self.i += 1;
+                    let unit = match escape {
+                        b'"' => u32::from(b'"'),
+                        b'\\' => u32::from(b'\\'),
+                        b'/' => u32::from(b'/'),
+                        b'b' => 0x8,
+                        b'f' => 0xc,
+                        b'n' => 0xa,
+                        b'r' => 0xd,
+                        b't' => 0x9,
+                        b'u' => self.hex4()?,
+                        _ => return Err(Rewrite::Invalid),
+                    };
+                    let decoded = if (0xd800..0xdc00).contains(&unit)
+                        && self.s[self.i..].starts_with(b"\\u")
+                    {
+                        let save = self.i;
+                        self.i += 2;
+                        let low = self.hex4()?;
+                        if (0xdc00..0xe000).contains(&low) {
+                            char::from_u32(0x10000 + ((unit - 0xd800) << 10) + (low - 0xdc00))
+                        } else {
+                            self.i = save;
+                            None
+                        }
+                    } else {
+                        char::from_u32(unit)
+                    };
+                    match decoded {
+                        Some(c) => {
+                            let mut buf = [0u8; 4];
+                            let one =
+                                js::stringify(&Value::String(c.encode_utf8(&mut buf).to_owned()));
+                            self.out.push_str(&one[1..one.len() - 1]);
+                            if let Some(key) = key.as_deref_mut() {
+                                key.push(c);
+                            }
+                        }
+                        None => {
+                            // A lone surrogate: well-formed JSON.stringify escapes it
+                            self.out.push_str(&format!("\\u{unit:04x}"));
+                            if key.is_some() {
+                                return Err(Rewrite::Tree);
+                            }
+                        }
+                    }
+                }
+                _ => return Err(Rewrite::Invalid),
+            }
+        }
+    }
+
+    fn hex4(&mut self) -> Result<u32, Rewrite> {
+        let digits = self.s.get(self.i..self.i + 4).ok_or(Rewrite::Invalid)?;
+        let text = std::str::from_utf8(digits).map_err(|_| Rewrite::Invalid)?;
+        if !text.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(Rewrite::Invalid);
+        }
+        self.i += 4;
+        u32::from_str_radix(text, 16).map_err(|_| Rewrite::Invalid)
+    }
+
+    fn number(&mut self) -> Result<(), Rewrite> {
+        let start = self.i;
+        let digits = |c: &mut Self| {
+            let from = c.i;
+            while matches!(c.peek(), Some(b'0'..=b'9')) {
+                c.i += 1;
+            }
+            c.i - from
+        };
+        if self.peek() == Some(b'-') {
+            self.i += 1;
+        }
+        let int_start = self.i;
+        let int = digits(self);
+        if int == 0 || (int > 1 && self.s[int_start] == b'0') {
+            return Err(Rewrite::Invalid);
+        }
+        let mut plain = true;
+        if self.peek() == Some(b'.') {
+            self.i += 1;
+            plain = false;
+            if digits(self) == 0 {
+                return Err(Rewrite::Invalid);
+            }
+        }
+        if matches!(self.peek(), Some(b'e' | b'E')) {
+            self.i += 1;
+            plain = false;
+            if matches!(self.peek(), Some(b'+' | b'-')) {
+                self.i += 1;
+            }
+            if digits(self) == 0 {
+                return Err(Rewrite::Invalid);
+            }
+        }
+        let literal = std::str::from_utf8(&self.s[start..self.i]).map_err(|_| Rewrite::Invalid)?;
+        // An integer of up to 15 digits is exact in a double and prints as written
+        if plain && int <= 15 && literal != "-0" {
+            self.out.push_str(literal);
+        } else {
+            let n: f64 = literal.parse().map_err(|_| Rewrite::Invalid)?;
+            self.out.push_str(&js::number_to_string(n));
+        }
+        Ok(())
+    }
+}
+
+/// A key JavaScript orders before the others: a canonical array index.
+fn is_array_index(key: &str) -> bool {
+    !key.is_empty()
+        && key.bytes().all(|b| b.is_ascii_digit())
+        && (key == "0" || !key.starts_with('0'))
+        && key.parse::<u64>().is_ok_and(|n| n < u64::from(u32::MAX))
 }
 
 /// `game._ownerPuuid = row.puuid` in strict mode. An array takes the
@@ -193,6 +549,80 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
         assert_eq!(got.len(), want.len());
         assert!(got == want.as_bytes(), "the export differs from Electron's");
+    }
+
+    #[test]
+    fn payloads_print_as_json_stringify_prints_them() {
+        // Outputs from Node: JSON.stringify(Object.assign(JSON.parse(t), { _ownerPuuid: "me" }))
+        let cases = [
+            (r##"{}"##, r##"{"_ownerPuuid":"me"}"##),
+            (
+                r##" {"a" : 1 , "b":[ ]}
+"##,
+                r##"{"a":1,"b":[],"_ownerPuuid":"me"}"##,
+            ),
+            (
+                r##"{"_ownerPuuid":"old","z":1}"##,
+                r##"{"_ownerPuuid":"me","z":1}"##,
+            ),
+            (
+                r##"{"n":[1.0,1e2,1E400,-0,0.1,123456789012345678,-5e-7,1.5e21,0e0]}"##,
+                r##"{"n":[1,100,null,0,0.1,123456789012345680,-5e-7,1.5e+21,0],"_ownerPuuid":"me"}"##,
+            ),
+            (
+                r##"{"s":"\u00e9\/\"\\\b\f\n\r\t\u0001\u001f\u2028"}"##,
+                r##"{"s":"é/\"\\\b\f\n\r\t\u0001\u001f ","_ownerPuuid":"me"}"##,
+            ),
+            (
+                r##"{"s":"\ud83d\ude00 \ud800 \udc00x \ud800\u0041"}"##,
+                r##"{"s":"😀 \ud800 \udc00x \ud800A","_ownerPuuid":"me"}"##,
+            ),
+            (
+                r##"{"5":1,"a":2}"##,
+                r##"{"5":1,"a":2,"_ownerPuuid":"me"}"##,
+            ),
+            (r##"{"a":1,"a":2}"##, r##"{"a":2,"_ownerPuuid":"me"}"##),
+            (r##"[1,{"x":2}]"##, r##"[1,{"x":2}]"##),
+            (
+                r##"{"a":{"b":{"c":[true,false,null]}}}"##,
+                r##"{"a":{"b":{"c":[true,false,null]}},"_ownerPuuid":"me"}"##,
+            ),
+            (r##"{"é":"ü"}"##, r##"{"é":"ü","_ownerPuuid":"me"}"##),
+        ];
+        for (text, want) in cases {
+            let got = exported_game(
+                Some(&crate::db::payloads::gzip(text.as_bytes())),
+                json!("me"),
+            );
+            assert_eq!(got, Ok(Some(want.to_owned())), "{text}");
+        }
+        for bad in [
+            r#"{"a":01}"#,
+            r#"{"a":1,}"#,
+            "{\"a\":\"\t\"}",
+            r#"{"a":.5}"#,
+            r#"{"a":1.}"#,
+            "{'a':1}",
+            r#"{"a":"\x"}"#,
+            r#"{"a":1} x"#,
+            r#"{"a":-}"#,
+            r#"{"a":tru}"#,
+            "null",
+            "0",
+            "\"\"",
+            "false",
+        ] {
+            let got = exported_game(
+                Some(&crate::db::payloads::gzip(bad.as_bytes())),
+                json!("me"),
+            );
+            assert_eq!(got, Ok(None), "{bad}");
+        }
+        assert_eq!(exported_game(Some(b"not gzip"), json!("me")), Ok(None));
+        assert_eq!(
+            exported_game(Some(&crate::db::payloads::gzip(b"7")), json!("me")),
+            Err("Cannot create property '_ownerPuuid' on number '7'".into())
+        );
     }
 
     #[test]
