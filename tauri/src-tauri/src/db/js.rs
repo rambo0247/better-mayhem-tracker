@@ -860,6 +860,15 @@ mod tests {
             (r#"{"a":1,"b":2,"a":3}"#, r#"{"a":3,"b":2}"#),
             (r#"{"__proto__":1,"5":2}"#, r#"{"5":2,"__proto__":1}"#),
             (r#"[{"2":1,"1":2}]"#, r#"[{"1":2,"2":1}]"#),
+            // Trunk Electron's answers (probe-fix2.ts), the second at depth
+            (
+                r#"{"b":1,"10":"ten","2":"two","0":"zero","4294967294":"max","01":"lead"}"#,
+                r#"{"0":"zero","2":"two","10":"ten","4294967294":"max","b":1,"01":"lead"}"#,
+            ),
+            (
+                r#"{"a":{"b":1,"10":"ten","2":"two","0":"zero","4294967294":"max","01":"lead"},"9":[{"z":0,"3":1,"1":2}]}"#,
+                r#"{"9":[{"1":2,"3":1,"z":0}],"a":{"0":"zero","2":"two","10":"ten","4294967294":"max","b":1,"01":"lead"}}"#,
+            ),
         ];
         for (text, node) in cases {
             let v: Value = serde_json::from_str(text).unwrap();
