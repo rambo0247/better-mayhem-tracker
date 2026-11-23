@@ -66,8 +66,32 @@ export function invokeError(channel: string, reason: unknown): InvokeError {
   return new InvokeError(channel, "Error", text);
 }
 
+/** js_arg.rs's `NON_FINITE_KEY`. */
+const NON_FINITE_KEY = "$bmtNum";
+
+/**
+ * Tauri sends arguments as JSON, which writes NaN and the infinities as `null`, and a handler
+ * reads `null` as absent. Electron's structured clone keeps the number, so `Number("x")` from
+ * a route still filters by it there. Each such number goes as `{ $bmtNum: "NaN" }`, which
+ * `Js` in js_arg.rs reads back as the number.
+ */
+export function encodeNonFinite(value: unknown): unknown {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : { [NON_FINITE_KEY]: String(value) };
+  }
+  if (Array.isArray(value)) return value.map(encodeNonFinite);
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    Object.getPrototypeOf(value) === Object.prototype
+  ) {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, encodeNonFinite(v)]));
+  }
+  return value;
+}
+
 export const tauriTransport: Transport = <T>(channel: string, args: Record<string, unknown>) =>
-  invoke<T>(channel, args).catch((reason: unknown) => {
+  invoke<T>(channel, encodeNonFinite(args) as Record<string, unknown>).catch((reason: unknown) => {
     throw invokeError(channel, reason);
   });
 

@@ -31,6 +31,7 @@ use std::time::{Duration, SystemTime};
 
 use bmt_lib::Host;
 use bmt_lib::commands::{self, Clock, CommandError, CommandSpec, EffectRecorder, GoldenCase};
+use bmt_lib::js_arg::{Js, JsValue, NON_FINITE_KEY};
 use bmt_lib::replay::{Recording, require_recording_env};
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
@@ -1243,6 +1244,47 @@ fn check_hostile_arguments(build_app: BuildApp<'_>) -> Result<(), String> {
     Ok(())
 }
 
+/// What a hand-made `db:global-stats` received for `queue`, through Tauri's
+/// own argument decoding: whether it read as undefined, and its number.
+#[tauri::command(rename = "db:global-stats")]
+async fn received_queue(
+    patch: Js<Option<String>>,
+    queue: Js<Option<i64>>,
+) -> Result<Value, CommandError> {
+    let _ = patch;
+    let number = queue.value().and_then(JsValue::as_f64);
+    Ok(serde_json::json!({
+        "undefined": queue.is_undefined(),
+        "number": number.map(|n| n.to_string()),
+    }))
+}
+
+/// A NaN or an infinity, as api.ts's transport sends it, reaches the body as
+/// the number the page held: present, so `queue != null` holds as in
+/// Electron, and a NaN, not the `null` JSON alone would carry.
+fn check_non_finite_arguments() -> Result<(), String> {
+    let received = |host: Host| {
+        mock_builder()
+            .manage(host.clock)
+            .invoke_handler(tauri::generate_handler![received_queue])
+    };
+    let replay = build(&received, Clock::System);
+    for (sent, number) in [("NaN", "NaN"), ("Infinity", "inf"), ("-Infinity", "-inf")] {
+        let body = serde_json::json!({ "queue": { NON_FINITE_KEY: sent } });
+        let Value::Object(body) = body else {
+            unreachable!()
+        };
+        let answer = call(&replay.window, "db:global-stats", body);
+        let want = serde_json::json!({ "undefined": false, "number": number });
+        if answer != Ok(want.clone()) {
+            return Err(format!(
+                "self-check non-finite {sent}: the body received {answer:?}, not {want}"
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn check_comparison() -> Result<(), String> {
     let json = |text: &str| serde_json::from_str::<Value>(text).map_err(|e| e.to_string());
     let value = |result: Value| serde_json::json!({ "kind": "value", "result": result });
@@ -1991,6 +2033,7 @@ fn run() -> Result<Vec<String>, String> {
     check_side_effects(&root)?;
     let stubs = check_every_channel(&build_app)?;
     check_hostile_arguments(&build_app)?;
+    check_non_finite_arguments()?;
     check_comparison()?;
     check_clock_fields(dir.is_some())?;
     check_fixture_refusals(&root)?;

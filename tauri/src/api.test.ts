@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { createApi, invokeError, type Listen } from "./api";
+import { createApi, invokeError, tauriTransport, type Listen } from "./api";
 import type { Transport } from "./bindings";
 
 describe("invokeError", () => {
@@ -137,5 +137,47 @@ describe("createApi events", () => {
   test("a page without the boot script is refused", () => {
     globalThis.window = {} as never;
     expect(() => createApi(noTransport, fakeListen().listen)).toThrow("__BMT_BOOT__");
+  });
+});
+
+describe("tauriTransport, numbers JSON cannot carry", () => {
+  let sent: string[];
+  beforeEach(() => {
+    sent = [];
+    globalThis.window = {
+      __BMT_BOOT__: { platform: "darwin", locale: null },
+      // @tauri-apps/api's invoke hands its arguments here, and Tauri sends them as JSON
+      __TAURI_INTERNALS__: {
+        invoke: (_cmd: string, args: unknown) => {
+          sent.push(JSON.stringify(args));
+          return Promise.resolve(null);
+        },
+      },
+    } as never;
+  });
+  afterEach(() => {
+    delete (globalThis as { window?: unknown }).window;
+  });
+
+  // The wire text js_arg.rs's tests decode
+  test.each([
+    [Number("all"), '{"queue":{"$bmtNum":"NaN"}}'],
+    [Infinity, '{"queue":{"$bmtNum":"Infinity"}}'],
+    [-Infinity, '{"queue":{"$bmtNum":"-Infinity"}}'],
+  ])("getGlobalStats(undefined, %p) sends the number", async (queue, json) => {
+    await createApi(tauriTransport).getGlobalStats(undefined, queue);
+    expect(sent).toEqual([json]);
+  });
+
+  test("a finite number, null and undefined go as before, nested ones included", async () => {
+    const api = createApi(tauriTransport);
+    await api.getGlobalStats("16.1", 2400);
+    await api.getMatchHistory(50, 0, { queue: Number.NaN, championId: 2, patch: undefined });
+    await api.getSeasonRecap("s1", -Infinity, undefined);
+    expect(sent).toEqual([
+      '{"patch":"16.1","queue":2400}',
+      '{"limit":50,"offset":0,"filters":{"queue":{"$bmtNum":"NaN"},"championId":2}}',
+      '{"seasonId":"s1","queue":{"$bmtNum":"-Infinity"}}',
+    ]);
   });
 });

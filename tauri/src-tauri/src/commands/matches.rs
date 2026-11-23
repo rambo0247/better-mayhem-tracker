@@ -8,7 +8,7 @@ use ts_rs::TS;
 
 use super::types::{MatchDetail, MatchPage, MatchScope};
 use super::{CommandError, CommandResult, Ctx, Domain};
-use crate::js_arg::Js;
+use crate::js_arg::{Js, JsValue};
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -95,7 +95,7 @@ impl MatchFilters {
     /// The known kinds asked for; unknown ones are dropped (matches.ts:122-124).
     /// A non-empty string has a length but no `map`, so Electron throws.
     pub fn multikill_kinds(&self) -> CommandResult<Vec<MultikillType>> {
-        match self.multikills.value() {
+        match self.multikills.value().and_then(JsValue::as_json) {
             Some(Value::Array(items)) => Ok(items
                 .iter()
                 .filter_map(|item| serde_json::from_value(item.clone()).ok())
@@ -253,10 +253,11 @@ mod tests {
     fn sql_bound_filters_arrive_as_the_page_sent_them() {
         let read =
             filters(r#"{ "championId": "2", "queue": "2400", "favorites": 1, "patch": 16 }"#);
-        assert_eq!(read.champion_id.value(), Some(&Value::from("2")));
-        assert_eq!(read.queue.value(), Some(&Value::from("2400")));
-        assert_eq!(read.favorites.value(), Some(&Value::from(1)));
-        assert_eq!(read.patch.value(), Some(&Value::from(16)));
+        let sent = |js: Option<&JsValue>| js.and_then(JsValue::as_json).cloned();
+        assert_eq!(sent(read.champion_id.value()), Some(Value::from("2")));
+        assert_eq!(sent(read.queue.value()), Some(Value::from("2400")));
+        assert_eq!(sent(read.favorites.value()), Some(Value::from(1)));
+        assert_eq!(sent(read.patch.value()), Some(Value::from(16)));
         assert!(read.season.is_undefined());
         let written = serde_json::to_value(&read).unwrap();
         assert_eq!(
