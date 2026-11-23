@@ -154,6 +154,9 @@ class MemoryStorage {
   setItem(key: string, value: string) {
     this.items.set(key, value);
   }
+  clear() {
+    this.items.clear();
+  }
 }
 
 let bundle: ReturnType<typeof buildReplayBundle>;
@@ -249,6 +252,16 @@ describe("replay api", () => {
       'ReplayMiss: setSetting(["hide_remakes","maybe"])',
     );
     expect(await api.getSetting!("hide_remakes")).toBe("false");
+  });
+
+  test("clearing sessionStorage starts the next state's record afresh", async () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    const api = create(bundle, storage);
+    await api.getMatchHistory!(1, 50);
+    (storage as unknown as MemoryStorage).clear();
+    await api.getMatchHistory!(1, 0);
+    expect((api as any).__misses).toEqual([]);
+    expect((api as any).__calls).toEqual(["getMatchHistory([1,0]) -> default"]);
   });
 
   test("misses and calls survive the reload a state does", async () => {

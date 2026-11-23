@@ -48,8 +48,15 @@
    *   clears before each state's first step.
    */
   function createReplayApi(bundle, storage) {
-    const saved = storage?.getItem(STORE_KEY);
-    const state = saved ? JSON.parse(saved) : { settings: {}, cursors: {}, misses: [], calls: [] };
+    const fresh = () => ({ settings: {}, cursors: {}, misses: [], calls: [] });
+    // Read again on every call, because applyState clears sessionStorage while the page lives
+    let state = fresh();
+    const load = () => {
+      if (!storage) return state;
+      const saved = storage.getItem(STORE_KEY);
+      state = saved ? JSON.parse(saved) : fresh();
+      return state;
+    };
     const save = () => storage?.setItem(STORE_KEY, JSON.stringify(state));
 
     const bySeq = (a, b) => a.seq - b.seq;
@@ -76,6 +83,7 @@
 
     function request(method, channel) {
       return async (...called) => {
+        load();
         const args = recordedArgs(called);
         const call = `${method}(${JSON.stringify(args)})`;
         if (method === "getSetting" && Object.hasOwn(state.settings, args[0])) {
@@ -122,8 +130,8 @@
       api[method] = request(method, channel);
     }
     for (const [method, event] of Object.entries(bundle.events)) api[method] = subscribe(event);
-    Object.defineProperty(api, "__misses", { get: () => [...state.misses] });
-    Object.defineProperty(api, "__calls", { get: () => [...state.calls] });
+    Object.defineProperty(api, "__misses", { get: () => [...load().misses] });
+    Object.defineProperty(api, "__calls", { get: () => [...load().calls] });
     return api;
   }
 

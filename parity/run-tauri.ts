@@ -170,7 +170,8 @@ interface Resolved {
 
 /**
  * Finds a target in the page with Playwright's rules for the selectors the states use: CSS,
- * `text=` (case-insensitive substring, innermost element), `filter({ hasText })`, first or nth.
+ * `text=` (case-insensitive substring, innermost element), a trailing `:has-text("...")`,
+ * `filter({ hasText })`, first or nth.
  * Scrolls it into view and returns its center.
  */
 function resolveInPage(target: {
@@ -183,6 +184,13 @@ function resolveInPage(target: {
 }) {
   const normalize = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
   const all = (selector: string): Element[] => {
+    const hasText = selector.match(/^(.+):has-text\((["'])(.*)\2\)$/);
+    if (hasText) {
+      const wanted = normalize(hasText[3]!);
+      return [...document.querySelectorAll(hasText[1]!)].filter((el) =>
+        normalize(el.textContent ?? "").includes(wanted),
+      );
+    }
     if (!selector.startsWith("text=")) return [...document.querySelectorAll(selector)];
     const wanted = normalize(selector.slice(5).replace(/^"(.*)"$/, "$1"));
     const has = (el: Element) => normalize(el.textContent ?? "").includes(wanted);
@@ -756,6 +764,7 @@ export async function smoke(options: { binary?: string; out?: string }) {
         });
       const button = document.createElement("button");
       button.id = "b";
+      button.textContent = "Press me";
       place(button, 100, 100, 200, 80);
       const input = document.createElement("input");
       input.id = "i";
@@ -809,6 +818,11 @@ export async function smoke(options: { binary?: string; out?: string }) {
     const typed = await engine.evaluate<string>("document.getElementById('i').value");
     check("a key types into the focused input", typed === "a", typed);
 
+    const hasText = [
+      await engine.count('button:has-text("press ME")'),
+      await engine.count('button:has-text("nope")'),
+    ];
+    check("count takes a :has-text selector", hasText[0] === 1 && hasText[1] === 0, hasText);
     await engine.fill({ selector: "textarea.twin", text: "second" }, "typed");
     const areas = await engine.evaluate(() =>
       [...document.querySelectorAll("textarea")].map((a) => a.value),
