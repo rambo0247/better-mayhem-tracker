@@ -1,8 +1,5 @@
 //! `src/main/db/season.ts` for `db:season-recap` and `db:seasons`, with the
-//! piece of `teammates.ts` and `stats.ts` a recap reads.
-//!
-//! T15 ports `getTeammateStats` for `db:teammate-stats`, and T14 the item
-//! slot union, in parallel; once they land, one copy of each should serve.
+//! friends, items and records read through T14's and T15's module names.
 
 use std::collections::HashMap;
 
@@ -10,16 +7,15 @@ use jiff::tz::TimeZone;
 use rusqlite::types::Value as Sql;
 use rusqlite::{Connection, params_from_iter};
 
-use super::career::{CareerFilter, career_rows, career_where, compute_records, where_sql};
-use super::filters::{SEASONS, Where, apply_queue_filter, find_season, season_bounds};
+use super::filters::{SEASONS, Where, find_season, season_bounds};
+use super::records::{CareerFilter, career_rows, career_where, compute_records};
+use super::stats::{ITEM_SLOTS, excluded_items_sql, item_slot_union};
 use super::stmt;
-use super::summoner::{display_name, get_all_puuids};
+use super::teammates::{MIN_SHARED_GAMES, get_teammate_stats};
 use crate::commands::recap::{
     DayStreak, SeasonChampion, SeasonDay, SeasonPlayer, SeasonRecap, SeasonSummary,
 };
-use crate::commands::types::{
-    AugmentStats, ItemStats, Multikills, TeammateChampionGames, TeammateStats,
-};
+use crate::commands::types::{AugmentStats, ItemStats, Multikills};
 use crate::db_row;
 use crate::session::{add_days, local_hour, local_weekday, session_day};
 
@@ -32,13 +28,10 @@ const TOP_AUGMENTS: i64 = 6;
 const TOP_ITEMS: i64 = 20;
 const TOP_FRIENDS: usize = 5;
 
-/// `MIN_SHARED_GAMES` in `src/shared/api.ts`.
-const MIN_SHARED_GAMES: i64 = 3;
-
-/// Poro-Snax, base and upgraded, is handed out free and skews item stats.
-const EXCLUDED_ITEMS_SQL: &str = "2052, 220013";
-/// item0..item6; slot 6 is the trinket.
-const ITEM_SLOTS: [u8; 7] = [0, 1, 2, 3, 4, 5, 6];
+/// The conditions joined for a `WHERE` clause.
+fn where_sql(w: &Where) -> String {
+    w.conditions.join(" AND ")
+}
 
 fn params(w: &Where) -> impl rusqlite::Params + '_ {
     params_from_iter(w.params.iter())
@@ -151,23 +144,15 @@ fn top_augments(conn: &Connection, w: &Where) -> rusqlite::Result<Vec<AugmentSta
         .collect())
 }
 
-/// `itemSlotUnion`: the seven item columns as rows, one SELECT per slot.
-fn item_slot_union(row: impl Fn(u8) -> String) -> String {
-    ITEM_SLOTS
-        .iter()
-        .map(|&slot| row(slot))
-        .collect::<Vec<_>>()
-        .join("\n        UNION ALL\n        ")
-}
-
 fn top_items(conn: &Connection, w: &Where) -> rusqlite::Result<Vec<ItemStats>> {
     let sql = where_sql(w);
+    let excluded = excluded_items_sql();
     let union = item_slot_union(|i| {
         format!(
             "SELECT ps.item{i} as item_id, ps.win
                 FROM player_stats ps JOIN games g ON g.game_id = ps.game_id
                 WHERE {sql}
-                  AND ps.item{i} > 0 AND ps.item{i} NOT IN ({EXCLUDED_ITEMS_SQL})"
+                  AND ps.item{i} > 0 AND ps.item{i} NOT IN ({excluded})"
         )
     });
     let mut p: Vec<Sql> = ITEM_SLOTS
@@ -378,244 +363,6 @@ pub fn get_seasons(conn: &Connection, now_ms: i64) -> rusqlite::Result<Vec<Seaso
     summarize(conn, &CareerFilter::default(), now_ms)
 }
 
-db_row! {
-    struct TeammateRow {
-        game_creation: i64,
-        participant_id: i64,
-        puuid: Option<String>,
-        game_name: Option<String>,
-        tag_line: Option<String>,
-        profile_icon: Option<i64>,
-        champion_id: i64,
-        win: i64,
-        kills: i64,
-        deaths: i64,
-        assists: i64,
-    }
-}
-
-/// `teammateRows`: every participant who shared a team with one of our
-/// accounts, one row per player per game, newest first.
-fn teammate_rows(
-    conn: &Connection,
-    puuids: &[String],
-    filter: &CareerFilter,
-) -> rusqlite::Result<Vec<TeammateRow>> {
-    let account = filter.account();
-    let team_owners: Vec<String> = match account {
-        Some(a) => vec![a.into()],
-        None => puuids.to_vec(),
-    };
-    let mut ours = puuids.to_vec();
-    if let Some(a) = account {
-        ours.push(a.into());
-    }
-    let marks = |n: usize| vec!["?"; n].join(", ");
-    let mut w = Where {
-        conditions: vec![
-            "o.is_remake = 0".into(),
-            format!(
-                "(o.puuid IS NULL OR o.puuid NOT IN ({}))",
-                marks(ours.len())
-            ),
-        ],
-        params: ours.iter().map(|p| Sql::Text(p.clone())).collect(),
-    };
-    apply_queue_filter(conn, &mut w, filter.queue, "o")?;
-    if let Some(a) = account {
-        w.conditions.push("g.puuid = ?".into());
-        w.params.push(Sql::Text(a.into()));
-    }
-    if let Some(from) = filter.from {
-        w.conditions.push("g.game_creation >= ?".into());
-        w.params.push(Sql::Integer(from));
-    }
-    if let Some(to) = filter.to {
-        w.conditions.push("g.game_creation < ?".into());
-        w.params.push(Sql::Integer(to));
-    }
-    let all_params = team_owners
-        .iter()
-        .map(|p| Sql::Text(p.clone()))
-        .chain(w.params.iter().cloned());
-    stmt::all(
-        conn,
-        &format!(
-            "
-      WITH our_teams AS (
-        SELECT DISTINCT game_id, team_id FROM match_participants
-        WHERE puuid IN ({})
-      )
-      SELECT o.game_id, g.game_creation, o.participant_id, o.team_id, o.puuid, o.game_name,
-             o.tag_line, o.profile_icon, o.champion_id, o.win, o.kills, o.deaths, o.assists
-      FROM our_teams t
-      JOIN match_participants o ON o.game_id = t.game_id AND o.team_id = t.team_id
-      JOIN games g ON g.game_id = o.game_id
-      WHERE {}
-      ORDER BY g.game_creation DESC
-    ",
-            marks(team_owners.len()),
-            where_sql(&w)
-        ),
-        params_from_iter(all_params),
-    )
-}
-
-struct Teammate {
-    name: String,
-    puuid: Option<String>,
-    profile_icon: Option<i64>,
-    games: i64,
-    wins: i64,
-    kills: i64,
-    deaths: i64,
-    assists: i64,
-    /// Champion id to games, in the order first met.
-    champions: Vec<(i64, i64)>,
-    last_played: i64,
-}
-
-/// A `Map` keyed by string, which iterates in insertion order and moves a
-/// key to the end when it is deleted and set again.
-#[derive(Default)]
-struct OrderedMap {
-    slots: Vec<Option<(String, Teammate)>>,
-    at: HashMap<String, usize>,
-}
-
-impl OrderedMap {
-    fn has(&self, key: &str) -> bool {
-        self.at.contains_key(key)
-    }
-
-    fn get_mut(&mut self, key: &str) -> Option<&mut Teammate> {
-        let i = *self.at.get(key)?;
-        self.slots[i].as_mut().map(|(_, t)| t)
-    }
-
-    fn set(&mut self, key: String, value: Teammate) {
-        match self.at.get(&key) {
-            Some(&i) => self.slots[i] = Some((key, value)),
-            None => {
-                self.at.insert(key.clone(), self.slots.len());
-                self.slots.push(Some((key, value)));
-            }
-        }
-    }
-
-    fn take(&mut self, key: &str) -> Option<Teammate> {
-        let i = self.at.remove(key)?;
-        self.slots[i].take().map(|(_, t)| t)
-    }
-
-    fn into_entries(self) -> impl Iterator<Item = (String, Teammate)> {
-        self.slots.into_iter().flatten()
-    }
-}
-
-/// `getTeammateStats` under the recap's filter: players we've shared at
-/// least `MIN_SHARED_GAMES` games with, most games first.
-fn teammate_stats(
-    conn: &Connection,
-    filter: &CareerFilter,
-) -> rusqlite::Result<Vec<TeammateStats>> {
-    let puuids = get_all_puuids(conn)?;
-    if puuids.is_empty() {
-        return Ok(Vec::new());
-    }
-    let mut players = OrderedMap::default();
-    for row in teammate_rows(conn, &puuids, filter)? {
-        let name = display_name(row.game_name.as_deref(), row.tag_line.as_deref())
-            .unwrap_or_else(|| format!("Player {}", row.participant_id));
-        let row_puuid = row.puuid.as_deref().filter(|p| !p.is_empty());
-        let key = row_puuid.map_or_else(|| name.clone(), str::to_owned);
-
-        // Now known by puuid but tracked by name so far: merge
-        if let Some(puuid) = row_puuid
-            && !players.has(puuid)
-            && players.has(&name)
-            && players
-                .get_mut(&name)
-                .is_some_and(|old| old.puuid.as_deref().is_none_or(str::is_empty))
-        {
-            let mut old = players.take(&name).expect("checked above");
-            old.puuid = Some(puuid.into());
-            players.set(puuid.into(), old);
-        }
-
-        if !players.has(&key) {
-            players.set(
-                key.clone(),
-                Teammate {
-                    name: name.clone(),
-                    puuid: row.puuid.clone(),
-                    profile_icon: None,
-                    games: 0,
-                    wins: 0,
-                    kills: 0,
-                    deaths: 0,
-                    assists: 0,
-                    champions: Vec::new(),
-                    last_played: 0,
-                },
-            );
-        }
-        let entry = players.get_mut(&key).expect("set above");
-        if row.game_creation > entry.last_played {
-            entry.name = name;
-            if row.profile_icon.is_some() {
-                entry.profile_icon = row.profile_icon;
-            }
-        }
-        entry.games += 1;
-        if row.win != 0 {
-            entry.wins += 1;
-        }
-        entry.kills += row.kills;
-        entry.deaths += row.deaths;
-        entry.assists += row.assists;
-        entry.last_played = entry.last_played.max(row.game_creation);
-        match entry
-            .champions
-            .iter_mut()
-            .find(|(c, _)| *c == row.champion_id)
-        {
-            Some((_, games)) => *games += 1,
-            None => entry.champions.push((row.champion_id, 1)),
-        }
-    }
-
-    let mut out: Vec<TeammateStats> = players
-        .into_entries()
-        .filter(|(_, p)| p.games >= MIN_SHARED_GAMES)
-        .map(|(key, mut p)| {
-            // Champion id breaks ties so the same five come back every time
-            p.champions
-                .sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-            TeammateStats {
-                key,
-                name: p.name,
-                puuid: p.puuid,
-                profile_icon: p.profile_icon,
-                games: p.games,
-                wins: p.wins,
-                kills: p.kills,
-                deaths: p.deaths,
-                assists: p.assists,
-                champions: p
-                    .champions
-                    .into_iter()
-                    .take(5)
-                    .map(|(champion_id, games)| TeammateChampionGames { champion_id, games })
-                    .collect(),
-                last_played: p.last_played,
-            }
-        })
-        .collect();
-    out.sort_by_key(|t| std::cmp::Reverse(t.games));
-    Ok(out)
-}
-
 struct ChampionTally {
     champion: SeasonChampion,
     score_sum: f64,
@@ -692,10 +439,10 @@ pub fn get_season_recap(
         damage_taken += r.total_damage_taken;
         healing += r.total_heal;
         gold += r.gold_earned;
-        if r.is_mvp() {
+        if r.score_badge.as_deref() == Some("MVP") {
             mvps += 1;
         }
-        if r.is_ace() {
+        if r.score_badge.as_deref() == Some("ACE") {
             aces += 1;
         }
         if let Some(score) = r.score {
@@ -782,13 +529,17 @@ pub fn get_season_recap(
     }
     let busiest_day = busiest_day.cloned();
 
-    let (player, accounts) = span_player(conn, &w, filter.account())?;
+    let (player, accounts) = span_player(
+        conn,
+        &w,
+        filter.account.as_deref().filter(|a| !a.is_empty()),
+    )?;
     let (kill_participation, damage_share) = if rows.is_empty() {
         (None, None)
     } else {
         team_shares(conn, &w)?
     };
-    let mut friends = teammate_stats(conn, &filter)?;
+    let mut friends = get_teammate_stats(conn, &filter, MIN_SHARED_GAMES)?;
     friends.truncate(TOP_FRIENDS);
 
     Ok(Some(SeasonRecap {

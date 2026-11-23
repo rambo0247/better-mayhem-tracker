@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use jiff::tz::TimeZone;
 use rusqlite::{Connection, OptionalExtension};
 
-use super::career::{CareerFilter, CareerRow, career_rows, higher, lower};
+use super::records::{CareerFilter, CareerRow, career_rows, higher, lower};
 use super::stmt;
 use crate::commands::recap::{
     GameCardData, GameRecap, RecapCareer, RecapChallenge, RecapChampion, RecapFormat,
@@ -383,6 +383,10 @@ fn game_challenges(conn: &Connection, game_id: i64) -> rusqlite::Result<Vec<Reca
     .collect()
 }
 
+fn is_mvp(r: &CareerRow) -> bool {
+    r.score_badge.as_deref() == Some("MVP")
+}
+
 /// The biggest listed mark a running total passed on this game.
 fn crossed_mark(before: i64, after: i64, marks: &[i64]) -> Option<i64> {
     marks
@@ -424,7 +428,7 @@ const PLACEMENTS: [PlacementDef; 12] = [
         label: "KDA",
         format: RecapFormat::Kda,
         good: true,
-        value: |r| Some(r.kda()),
+        value: |r| Some((r.kills + r.assists) as f64 / r.deaths.max(1) as f64),
         ranked_on: None,
         better: higher,
     },
@@ -576,7 +580,7 @@ fn build_milestones(rows: &[CareerRow], index: usize, locale: Option<&str>) -> V
     for r in &rows[..=index] {
         wins += r.win;
         kills += r.kills;
-        if r.is_mvp() {
+        if is_mvp(r) {
             mvps += 1;
         }
         pentas += r.penta_kills;
@@ -651,7 +655,7 @@ fn build_milestones(rows: &[CareerRow], index: usize, locale: Option<&str>) -> V
         add("quadra", "First quadra kill".into(), "So close");
     }
 
-    if row.is_mvp() {
+    if is_mvp(row) {
         let mvp_mark = crossed_mark(mvps - 1, mvps, &[1, 5, 10, 25, 50])
             .or_else(|| crossed_step(mvps - 1, mvps, 50));
         match mvp_mark {
