@@ -197,8 +197,9 @@ pub fn cells_eq(a: &Cell, b: &Cell) -> bool {
     }
 }
 
-/// `JSON.stringify(value)`: keys in the order `JSON.parse` met them, which
-/// needs serde_json's `preserve_order`, and numbers as JavaScript prints them.
+/// `JSON.stringify(value)`: keys in the order JavaScript enumerates them,
+/// which needs serde_json's `preserve_order` for the insertion order, and
+/// numbers as JavaScript prints them.
 pub fn stringify(value: &Value) -> String {
     let mut out = String::new();
     write_json(&mut out, value);
@@ -223,17 +224,46 @@ fn write_json(out: &mut String, value: &Value) {
         }
         Value::Object(map) => {
             out.push('{');
-            for (i, (key, item)) in map.iter().enumerate() {
-                if i > 0 {
-                    out.push(',');
-                }
-                write_string(out, key);
-                out.push(':');
-                write_json(out, item);
+            if map.keys().any(|key| array_index(key).is_some()) {
+                let mut indexed: Vec<(u32, &String, &Value)> = map
+                    .iter()
+                    .filter_map(|(key, item)| array_index(key).map(|i| (i, key, item)))
+                    .collect();
+                indexed.sort_unstable_by_key(|(i, _, _)| *i);
+                let named = map.iter().filter(|(key, _)| array_index(key).is_none());
+                let indexed = indexed.into_iter().map(|(_, key, item)| (key, item));
+                write_entries(out, indexed.chain(named));
+            } else {
+                write_entries(out, map.iter());
             }
             out.push('}');
         }
     }
+}
+
+fn write_entries<'a>(out: &mut String, entries: impl Iterator<Item = (&'a String, &'a Value)>) {
+    for (i, (key, item)) in entries.enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        write_string(out, key);
+        out.push(':');
+        write_json(out, item);
+    }
+}
+
+/// The key as an array index: the canonical decimal form of an integer below
+/// 2^32 - 1. An object's own keys enumerate those first, in ascending order,
+/// then the rest in insertion order (ECMA-262 OrdinaryOwnPropertyKeys).
+fn array_index(key: &str) -> Option<u32> {
+    if !key.starts_with(|c: char| c.is_ascii_digit()) {
+        return None;
+    }
+    let canonical = key == "0" || (!key.starts_with('0') && !key.is_empty());
+    if !canonical || key.len() > 10 || !key.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    key.parse::<u32>().ok().filter(|&i| i != u32::MAX)
 }
 
 fn write_string(out: &mut String, s: &str) {
@@ -324,6 +354,29 @@ mod tests {
         let v: Value =
             serde_json::from_str(r#"{"z":1,"a":[1.0,"é\u0001\n\"/"],"m":null}"#).unwrap();
         assert_eq!(stringify(&v), r#"{"z":1,"a":[1,"é\u0001\n\"/"],"m":null}"#);
+    }
+
+    /// Node's `JSON.stringify(JSON.parse(text))` for each text: array-index
+    /// keys first in ascending order, then the rest in insertion order.
+    #[test]
+    fn stringify_puts_array_index_keys_first_as_node_does() {
+        let cases = [
+            (
+                r#"{"b":1,"2":0,"1":0,"-1":0,"01":0,"4294967295":0,"4294967294":0,"1.5":0}"#,
+                r#"{"1":0,"2":0,"4294967294":0,"b":1,"-1":0,"01":0,"4294967295":0,"1.5":0}"#,
+            ),
+            (
+                r#"{"0":1,"10":2,"9":3,"x":4,"00":5,"4294967294":6,"4294967295":7,"a":{"3":1,"z":2,"1":3}}"#,
+                r#"{"0":1,"9":3,"10":2,"4294967294":6,"x":4,"00":5,"4294967295":7,"a":{"1":3,"3":1,"z":2}}"#,
+            ),
+            (r#"{"a":1,"b":2,"a":3}"#, r#"{"a":3,"b":2}"#),
+            (r#"{"__proto__":1,"5":2}"#, r#"{"5":2,"__proto__":1}"#),
+            (r#"[{"2":1,"1":2}]"#, r#"[{"1":2,"2":1}]"#),
+        ];
+        for (text, node) in cases {
+            let v: Value = serde_json::from_str(text).unwrap();
+            assert_eq!(stringify(&v), node, "{text}");
+        }
     }
 
     #[test]
