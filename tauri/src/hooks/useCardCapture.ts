@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onSettled, type Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, type Accessor } from "solid-js";
 import { CARD_STATUS_KEY, type CardStatus } from "@shared/card";
 
 // How often the settle check looks at the card, and how long it keeps looking
@@ -40,33 +40,36 @@ export function useCardCapture(drawn: Accessor<boolean>, error: Accessor<string 
     if (message) publish({ state: "error", height: 0, error: message });
   });
 
+  // Compared by value: a fresh pair for the same state would restart the
+  // settle check, and with it the deadline
+  const state = createMemo(() => ({ drawn: drawn(), error: error() }), {
+    equals: (a, b) => a.drawn === b.drawn && a.error === b.error,
+  });
+
   // Icons arrive over the network, and several of them walk a list of candidate
   // URLs when the first one 404s, so the page isn't finished when its images
   // first all report complete — it is finished when that stops changing.
-  createEffect(
-    () => ({ drawn: drawn(), error: error() }),
-    (state) => {
-      const el = root;
-      if (!state.drawn || state.error || !el) return;
+  createEffect(state, (state) => {
+    const el = root;
+    if (!state.drawn || state.error || !el) return;
 
-      let previous: string | null = null;
-      const deadline = Date.now() + SETTLE_TIMEOUT_MS;
+    let previous: string | null = null;
+    const deadline = Date.now() + SETTLE_TIMEOUT_MS;
 
-      const check = () => {
-        const images = Array.from(el.querySelectorAll("img"));
-        const pending = images.filter((img) => !img.complete).length;
-        const signature = `${images.length}|${images.map((img) => img.src).join(" ")}`;
-        const settled = pending === 0 && signature === previous;
-        previous = signature;
-        if (!settled && Date.now() < deadline) return;
-        clearInterval(timer);
-        publish({ state: "ready", height: Math.ceil(el.getBoundingClientRect().height) });
-      };
+    const check = () => {
+      const images = Array.from(el.querySelectorAll("img"));
+      const pending = images.filter((img) => !img.complete).length;
+      const signature = `${images.length}|${images.map((img) => img.src).join(" ")}`;
+      const settled = pending === 0 && signature === previous;
+      previous = signature;
+      if (!settled && Date.now() < deadline) return;
+      clearInterval(timer);
+      publish({ state: "ready", height: Math.ceil(el.getBoundingClientRect().height) });
+    };
 
-      const timer = setInterval(check, SETTLE_POLL_MS);
-      return () => clearInterval(timer);
-    },
-  );
+    const timer = setInterval(check, SETTLE_POLL_MS);
+    return () => clearInterval(timer);
+  });
 
   return (el: HTMLDivElement) => {
     root = el;
