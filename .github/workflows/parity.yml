@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: parity-${{ github.ref }}
+  group: parity-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:

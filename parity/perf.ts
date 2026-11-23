@@ -191,7 +191,11 @@ async function main() {
           ? await runElectron({ ...base, runDir, executable: electronExecutable(electronApp!) })
           : await runTauri({ ...base, runDir, app: tauriApp! });
       results[app]!.push(result);
-      fs.rmSync(runDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(runDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+      } catch (error) {
+        result.notes.push(`run folder left behind: ${String(error)}`);
+      }
       console.log(
         `  ${result.valid ? "ok" : `INVALID ${result.invalidReason}`} first=${result.firstContentMs?.toFixed(0)} ms footprint=${result.idleFootprintBytes ? mib(result.idleFootprintBytes) : "-"} MiB rss=${result.idleRssBytes ? mib(result.idleRssBytes) : "-"} MiB`,
       );
