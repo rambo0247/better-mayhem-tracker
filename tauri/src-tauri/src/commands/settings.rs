@@ -5,7 +5,7 @@ use tauri::Runtime;
 
 use rusqlite::params;
 
-use super::{CommandError, CommandResult, Ctx, Domain};
+use super::{CommandResult, Ctx, Domain};
 use crate::autostart::{self, LoginItems};
 use crate::db::js::Cell;
 use crate::db::{self, js, settings};
