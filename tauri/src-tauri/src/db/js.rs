@@ -21,9 +21,62 @@ impl std::fmt::Display for TypeError {
 
 impl std::error::Error for TypeError {}
 
+/// A JavaScript exception as Electron surfaces it to the page: the name of
+/// its constructor and its message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JsError {
+    pub name: &'static str,
+    pub message: String,
+}
+
+impl JsError {
+    pub fn type_error(message: impl Into<String>) -> Self {
+        Self {
+            name: "TypeError",
+            message: message.into(),
+        }
+    }
+
+    pub fn range_error(message: impl Into<String>) -> Self {
+        Self {
+            name: "RangeError",
+            message: message.into(),
+        }
+    }
+
+    pub fn error(message: impl Into<String>) -> Self {
+        Self {
+            name: "Error",
+            message: message.into(),
+        }
+    }
+}
+
+impl From<TypeError> for JsError {
+    fn from(err: TypeError) -> Self {
+        Self::type_error(err.0)
+    }
+}
+
+impl std::fmt::Display for JsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.name, self.message)
+    }
+}
+
+impl std::error::Error for JsError {}
+
 /// A JavaScript throw, carried out through a rusqlite call chain.
-pub fn thrown(err: TypeError) -> rusqlite::Error {
-    rusqlite::Error::ToSqlConversionFailure(Box::new(err))
+pub fn thrown(err: impl Into<JsError>) -> rusqlite::Error {
+    rusqlite::Error::ToSqlConversionFailure(Box::new(err.into()))
+}
+
+/// The JavaScript throw inside `err`, if [`thrown`] made it.
+pub fn caught(err: &rusqlite::Error) -> Option<&JsError> {
+    match err {
+        rusqlite::Error::ToSqlConversionFailure(inner) => inner.downcast_ref(),
+        _ => None,
+    }
 }
 
 /// `v.key`. Only objects carry the keys this code reads, so any other value

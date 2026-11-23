@@ -99,12 +99,28 @@ fn not_open() -> CommandError {
     }
 }
 
-/// A failed statement as better-sqlite3 throws it: a `SqliteError` carrying
-/// SQLite's own message.
+/// A failed call as Electron surfaces it. A JavaScript throw keeps its own
+/// name, a `TypeError` or `RangeError`. A SQLite failure is better-sqlite3's
+/// `SqliteError` carrying `sqlite3_errmsg` alone: rusqlite appends the path
+/// to an open failure and the SQL to a prepare failure, and better-sqlite3
+/// shows neither.
 pub fn sqlite_error(err: &rusqlite::Error) -> CommandError {
+    if let Some(thrown) = js::caught(err) {
+        return CommandError {
+            name: thrown.name.into(),
+            message: thrown.message.clone(),
+            code: None,
+        };
+    }
     let message = match err {
+        rusqlite::Error::SqliteFailure(code, _)
+            if code.code == rusqlite::ErrorCode::CannotOpen =>
+        {
+            errstr(code.extended_code)
+        }
         rusqlite::Error::SqliteFailure(_, Some(message)) => message.clone(),
-        rusqlite::Error::SqliteFailure(code, None) => code.to_string(),
+        rusqlite::Error::SqliteFailure(code, None) => errstr(code.extended_code),
+        rusqlite::Error::SqlInputError { msg, .. } => msg.clone(),
         other => other.to_string(),
     };
     CommandError {
@@ -112,4 +128,13 @@ pub fn sqlite_error(err: &rusqlite::Error) -> CommandError {
         message,
         code: None,
     }
+}
+
+/// `sqlite3_errstr`: the message SQLite gives a result code when the
+/// connection has no more specific one, as after a failed open.
+fn errstr(code: std::ffi::c_int) -> String {
+    // SAFETY: sqlite3_errstr returns a static, NUL-terminated string for any code
+    unsafe { std::ffi::CStr::from_ptr(rusqlite::ffi::sqlite3_errstr(code)) }
+        .to_string_lossy()
+        .into_owned()
 }

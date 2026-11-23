@@ -621,6 +621,98 @@ fn a_write_waits_out_another_process_holding_the_lock() {
     assert_eq!(value.as_deref(), Some("true"));
 }
 
+/// An Electron outcome from `probe-errors.ts` (`electron-errors.json`).
+fn electron_error(case: &str) -> (String, String) {
+    let path = manifest_dir().join("tests/fixtures/electron-errors.json");
+    let all: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let outcome = &all["cases"][case];
+    assert_eq!(outcome["kind"], "error", "{case}");
+    (
+        outcome["name"].as_str().unwrap().to_owned(),
+        outcome["message"].as_str().unwrap().to_owned(),
+    )
+}
+
+fn surfaced<T>(result: rusqlite::Result<T>) -> (String, String) {
+    let Err(err) = result else {
+        panic!("expected an error");
+    };
+    let err = bmt_lib::db::sqlite_error(&err);
+    (err.name, err.message)
+}
+
+/// Each failure surfaces with the name and message better-sqlite3 gives it
+/// in trunk Electron: `sqlite3_errmsg` alone, without the path or SQL
+/// rusqlite adds, and a JavaScript throw under its own name.
+#[test]
+fn errors_surface_as_better_sqlite3_throws_them() {
+    let dir = scratch("errors");
+    let mem = || {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE t (a INTEGER PRIMARY KEY, b TEXT NOT NULL, c INTEGER UNIQUE);
+             INSERT INTO t VALUES (1, 'x', 1);",
+        )
+        .unwrap();
+        conn
+    };
+    let run = |sql: &str| surfaced(mem().prepare(sql).and_then(|mut s| s.raw_execute()));
+    let cases: Vec<(&str, (String, String))> = vec![
+        (
+            "cantopen_missing_dir",
+            surfaced(Database::open(&dir.join("no-such-dir"), NOW_MS)),
+        ),
+        (
+            "cantopen_directory",
+            surfaced(bmt_lib::db::connection::open(&dir)),
+        ),
+        ("no_such_table", run("SELECT * FROM nowhere")),
+        ("syntax", run("SELEC 1")),
+        ("unique", run("INSERT INTO t VALUES (2, 'y', 1)")),
+        ("primary_key", run("INSERT INTO t VALUES (1, 'y', 2)")),
+        ("not_null", run("INSERT INTO t (a, c) VALUES (3, 3)")),
+        ("mismatch", run("INSERT INTO t VALUES (1.5, 'y', 4)")),
+        (
+            "exec_no_such_table",
+            surfaced(mem().execute_batch("SELECT * FROM nowhere")),
+        ),
+        ("busy", {
+            let file = dir.join("busy.db");
+            let a = Connection::open(&file).unwrap();
+            a.execute_batch("CREATE TABLE IF NOT EXISTS x (v); BEGIN IMMEDIATE")
+                .unwrap();
+            let b = Connection::open(&file).unwrap();
+            b.busy_timeout(std::time::Duration::ZERO).unwrap();
+            surfaced(b.execute("INSERT INTO x VALUES (1)", []))
+        }),
+        ("not_a_database", {
+            let garbage = dir.join("garbage");
+            std::fs::create_dir_all(&garbage).unwrap();
+            std::fs::write(garbage.join("matches.db"), [7u8; 4096]).unwrap();
+            surfaced(Database::open(&garbage, NOW_MS))
+        }),
+        ("closed", {
+            let db = fresh(&scratch("errors-closed"));
+            db.close();
+            let err = db.with(|_| Ok(())).unwrap_err();
+            (err.name, err.message)
+        }),
+    ];
+    for (case, ours) in cases {
+        assert_eq!(ours, electron_error(case), "{case}");
+    }
+
+    // upsertSummoner(null) throws reading `summoner.puuid`
+    let db = fresh(&scratch("errors-type"));
+    let err = db
+        .with(|conn| bmt_lib::db::summoner::upsert_summoner(conn, &Value::Null, NOW_MS))
+        .unwrap_err();
+    assert_eq!(
+        (err.name.as_str(), err.message.as_str()),
+        ("TypeError", "Cannot read properties of null (reading 'puuid')")
+    );
+}
+
 /// One `games` row and its `player_stats` line for a pre-versioning
 /// database. The line is what the V1 backfill matches the owner by.
 fn insert_v0_game(conn: &Connection, game_id: i64, raw_json: &[u8]) {

@@ -5,6 +5,8 @@ use std::time::Duration;
 
 use rusqlite::Connection;
 
+use super::js;
+
 /// better-sqlite3's default `timeout` option.
 pub const BUSY_TIMEOUT: Duration = Duration::from_millis(5000);
 
@@ -12,8 +14,14 @@ pub const BUSY_TIMEOUT: Duration = Duration::from_millis(5000);
 /// rusqlite's bundled build keeps SQLite's 2000-page default.
 const CACHE_SIZE_KIB: i64 = -16000;
 
-/// Opens `path` with the pragmas `openDatabase` sets.
+/// Opens `path` with the pragmas `openDatabase` sets. A missing folder is
+/// the `TypeError` better-sqlite3 throws before SQLite sees the path.
 pub fn open(path: &Path) -> rusqlite::Result<Connection> {
+    if path.parent().is_some_and(|dir| !dir.exists()) {
+        return Err(js::thrown(js::JsError::type_error(
+            "Cannot open database because the directory does not exist",
+        )));
+    }
     let conn = Connection::open(path)?;
     conn.busy_timeout(BUSY_TIMEOUT)?;
     conn.pragma_update(None, "cache_size", CACHE_SIZE_KIB)?;
