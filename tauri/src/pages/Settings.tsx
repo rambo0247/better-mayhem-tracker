@@ -142,21 +142,23 @@ function Switch(props: {
         aria-label={props.label}
         disabled={disabled()}
         onClick={() => props.onChange()}
-        class={`relative inline-flex h-[22px] w-10 shrink-0 rounded-md border transition-colors duration-200 focus-visible:outline-offset-2 ${
-          disabled() ? "cursor-not-allowed" : "cursor-pointer"
-        } ${lockedOn() ? "opacity-60" : disabled() ? "opacity-40" : ""} ${
+        class={[
+          "relative inline-flex h-[22px] w-10 shrink-0 rounded-md border transition-colors duration-200 focus-visible:outline-offset-2",
+          disabled() ? "cursor-not-allowed" : "cursor-pointer",
+          lockedOn() ? "opacity-60" : disabled() ? "opacity-40" : "",
           props.checked
             ? "border-lol-gold bg-gradient-to-b from-[#e2c487] to-lol-gold"
-            : `border-[#3a4680] bg-[#1a2247] ${disabled() ? "" : "hover:border-[#4d5a9c] hover:bg-[#1f2853]"}`
-        }`}
+            : `border-[#3a4680] bg-[#1a2247] ${disabled() ? "" : "hover:border-[#4d5a9c] hover:bg-[#1f2853]"}`,
+        ]}
       >
         <span
-          class={`pointer-events-none absolute top-[2px] left-[2px] flex h-4 w-4 items-center justify-center rounded-sm transition-transform duration-200 ease-snap ${
+          class={[
+            "pointer-events-none absolute top-[2px] left-[2px] flex h-4 w-4 items-center justify-center rounded-sm transition-transform duration-200 ease-snap",
             props.checked
               ? "translate-x-[18px] bg-[#1a1407] text-lol-gold shadow-[0_1px_2px_rgb(0_0_0/0.4)]"
-              : "translate-x-0 bg-[#8a90b0] shadow-[0_1px_2px_rgb(0_0_0/0.45)]"
-          }`}
-        ></span>
+              : "translate-x-0 bg-[#8a90b0] shadow-[0_1px_2px_rgb(0_0_0/0.45)]",
+          ]}
+        />
       </button>
     </span>
   );
@@ -242,16 +244,18 @@ function Status(props: { text: string | null; running?: boolean }) {
     <Show when={props.text}>
       {(text) => (
         <p
-          class={`mt-3 flex items-start gap-2.5 rounded-md border px-3 py-2 text-[13px] leading-[1.45] ${
+          class={[
+            "mt-3 flex items-start gap-2.5 rounded-md border px-3 py-2 text-[13px] leading-[1.45]",
             failed()
               ? "border-lol-loss/30 bg-lol-loss/[0.07] text-lol-loss"
-              : "border-lol-line bg-black/20 text-lol-text-bright/90"
-          }`}
+              : "border-lol-line bg-black/20 text-lol-text-bright/90",
+          ]}
         >
           <span
-            class={`mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full ${
-              failed() ? "bg-lol-loss" : props.running ? "live-pulse bg-lol-gold" : "bg-lol-win"
-            }`}
+            class={[
+              "mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full",
+              failed() ? "bg-lol-loss" : props.running ? "live-pulse bg-lol-gold" : "bg-lol-win",
+            ]}
           />
           <span class="min-w-0 break-words">{text()}</span>
         </p>
@@ -624,7 +628,10 @@ export default function Settings() {
                         return (
                           <div class="flex h-11 items-center justify-between gap-6 px-4">
                             <span
-                              class={`text-[14px] font-medium ${shown() ? "text-lol-text-bright" : "text-lol-text"}`}
+                              class={[
+                                "text-[14px] font-medium",
+                                shown() ? "text-lol-text-bright" : "text-lol-text",
+                              ]}
                             >
                               {queueLabel(q)}
                             </span>
@@ -657,25 +664,28 @@ export default function Settings() {
                       const shown = () => !hiddenNavLinks().has(link.to);
                       return (
                         <div
-                          class={`flex h-12 items-center gap-3 rounded-lg border px-3 transition-colors ${
+                          class={[
+                            "flex h-12 items-center gap-3 rounded-lg border px-3 transition-colors",
                             shown()
                               ? "border-lol-line bg-white/[0.025]"
-                              : "border-dashed border-lol-border/70 bg-transparent"
-                          }`}
+                              : "border-dashed border-lol-border/70 bg-transparent",
+                          ]}
                         >
                           <span
-                            class={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors ${
+                            class={[
+                              "flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors",
                               shown()
                                 ? "bg-lol-gold/10 text-lol-gold"
-                                : "bg-white/[0.04] text-lol-text/75"
-                            }`}
+                                : "bg-white/[0.04] text-lol-text/75",
+                            ]}
                           >
                             <link.icon class="h-4 w-4" />
                           </span>
                           <span
-                            class={`min-w-0 flex-1 truncate text-[14px] font-medium ${
-                              shown() ? "text-lol-text-bright" : "text-lol-text"
-                            }`}
+                            class={[
+                              "min-w-0 flex-1 truncate text-[14px] font-medium",
+                              shown() ? "text-lol-text-bright" : "text-lol-text",
+                            ]}
                           >
                             {link.label}
                           </span>
@@ -741,7 +751,7 @@ export default function Settings() {
                     disabled={backfilling()}
                     class="btn w-[124px]"
                   >
-                    <RefreshIcon class={`h-4 w-4 ${backfilling() ? "animate-spin" : ""}`} />
+                    <RefreshIcon class={backfilling() ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
                     {backfilling() ? "Working..." : "Backfill"}
                   </button>
                 }
@@ -839,11 +849,12 @@ export default function Settings() {
                   <For each={backups()}>
                     {(backup) => (
                       <div
-                        class={`flex min-h-[56px] items-center gap-4 border-t border-lol-line px-5 py-2.5 transition-colors ${
+                        class={[
+                          "flex min-h-[56px] items-center gap-4 border-t border-lol-line px-5 py-2.5 transition-colors",
                           confirmRestore() === backup.file
                             ? "bg-lol-loss/[0.05]"
-                            : "hover:bg-white/[0.02]"
-                        }`}
+                            : "hover:bg-white/[0.02]",
+                        ]}
                       >
                         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-lol-text">
                           <HistoryIcon class="h-4 w-4" />
@@ -997,16 +1008,19 @@ function SectionNav() {
                     ?.scrollIntoView({ behavior: "smooth", block: "start" })
                 }
                 aria-current={isActive() ? "true" : undefined}
-                class={`relative flex h-9 w-full items-center gap-3 rounded-md px-3 text-left text-[14px] font-medium transition-colors ${
+                class={[
+                  "relative flex h-9 w-full items-center gap-3 rounded-md px-3 text-left text-[14px] font-medium transition-colors",
                   isActive()
                     ? "bg-gradient-to-r from-lol-gold/16 to-lol-gold/[0.03] text-lol-text-bright"
-                    : "text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright"
-                }`}
+                    : "text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright",
+                ]}
               >
                 <Show when={isActive()}>
                   <span class="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-sm bg-lol-gold shadow-[0_0_10px_rgb(212_178_115/0.7)]" />
                 </Show>
-                <section.icon class={`h-4 w-4 shrink-0 ${isActive() ? "text-lol-gold" : ""}`} />
+                <section.icon
+                  class={isActive() ? "h-4 w-4 shrink-0 text-lol-gold" : "h-4 w-4 shrink-0"}
+                />
                 {section.title}
               </button>
             );
