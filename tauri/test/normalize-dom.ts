@@ -1,6 +1,7 @@
 // A rendered tree reduced to what both renders must agree on: element tags,
 // attributes (class as a sorted set of tokens, style as sorted declarations)
-// and text, with whitespace runs collapsed. Generated ids and the url(#id)
+// and text, with whitespace runs collapsed to one space but kept, since a
+// space between two inline elements is drawn. Generated ids and the url(#id)
 // references to them are blanked, since each renderer mints its own.
 
 export type DomNode = string | { tag: string; attrs: Record<string, string>; children: DomNode[] };
@@ -23,11 +24,11 @@ export function normalizeDom(node: Node, ignore: readonly string[] = []): DomNod
   const out: DomNode[] = [];
   for (const child of node.childNodes) {
     if (child.nodeType === 3 || child.nodeType === 4) {
-      const text = (child.textContent ?? "").replace(/\s+/g, " ");
+      const text = child.textContent ?? "";
       if (!text) continue;
       const last = out[out.length - 1];
-      if (typeof last === "string") out[out.length - 1] = last + text;
-      else out.push(text);
+      if (typeof last === "string") out[out.length - 1] = (last + text).replace(/\s+/g, " ");
+      else out.push(text.replace(/\s+/g, " "));
       continue;
     }
     if (child.nodeType !== 1) continue;
@@ -47,5 +48,5 @@ export function normalizeDom(node: Node, ignore: readonly string[] = []): DomNod
     }
     out.push({ tag: el.tagName.toLowerCase(), attrs, children: normalizeDom(el, ignore) });
   }
-  return out.map((n) => (typeof n === "string" ? n.trim() || " " : n)).filter((n) => n !== " ");
+  return out;
 }

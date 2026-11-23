@@ -437,7 +437,7 @@
       },
       "children": ["25"]
     },
-    "Move Speed",
+    " Move Speed",
     {
       "tag": "br",
       "attrs": {},
@@ -455,7 +455,7 @@
       },
       "children": ["Quick:"]
     },
-    "Gain",
+    " Gain ",
     {
       "tag": "span",
       "attrs": {
@@ -463,7 +463,7 @@
       },
       "children": ["Move Speed"]
     },
-    "out of combat.",
+    " out of combat.",
     {
       "tag": "br",
       "attrs": {},
@@ -474,7 +474,7 @@
       "attrs": {
         "class": "select-none text-lol-text/40"
       },
-      "children": ["•"]
+      "children": ["• "]
     },
     "Stacks once.",
     {
@@ -493,7 +493,7 @@
       },
       "children": ["Gold"]
     },
-    "kept",
+    " kept",
     {
       "tag": "br",
       "attrs": {},
@@ -1149,7 +1149,7 @@
                     "class": "flex-1"
                   },
                   "children": [
-                    "The",
+                    "The ",
                     {
                       "tag": "strong",
                       "attrs": {
@@ -1157,7 +1157,7 @@
                       },
                       "children": ["card"]
                     },
-                    "export"
+                    " export"
                   ]
                 }
               ]
@@ -1182,7 +1182,7 @@
                     "class": "flex-1"
                   },
                   "children": [
-                    "nested",
+                    "nested ",
                     {
                       "tag": "code",
                       "attrs": {
@@ -1190,7 +1190,7 @@
                       },
                       "children": ["code"]
                     },
-                    "item"
+                    " item"
                   ]
                 }
               ]
@@ -1215,7 +1215,7 @@
                     "class": "flex-1"
                   },
                   "children": [
-                    "See",
+                    "See ",
                     {
                       "tag": "button",
                       "attrs": {
@@ -1233,7 +1233,7 @@
           "tag": "p",
           "attrs": {},
           "children": [
-            "A",
+            "A ",
             {
               "tag": "button",
               "attrs": {
@@ -1241,7 +1241,7 @@
               },
               "children": ["link"]
             },
-            "in prose."
+            " in prose."
           ]
         }
       ]
@@ -2545,7 +2545,7 @@
                                     "class": "flex-1"
                                   },
                                   "children": [
-                                    "The",
+                                    "The ",
                                     {
                                       "tag": "strong",
                                       "attrs": {
@@ -2553,7 +2553,7 @@
                                       },
                                       "children": ["card"]
                                     },
-                                    "export"
+                                    " export"
                                   ]
                                 }
                               ]
@@ -2578,7 +2578,7 @@
                                     "class": "flex-1"
                                   },
                                   "children": [
-                                    "nested",
+                                    "nested ",
                                     {
                                       "tag": "code",
                                       "attrs": {
@@ -2586,7 +2586,7 @@
                                       },
                                       "children": ["code"]
                                     },
-                                    "item"
+                                    " item"
                                   ]
                                 }
                               ]
@@ -2611,7 +2611,7 @@
                                     "class": "flex-1"
                                   },
                                   "children": [
-                                    "See",
+                                    "See ",
                                     {
                                       "tag": "button",
                                       "attrs": {
@@ -2629,7 +2629,7 @@
                           "tag": "p",
                           "attrs": {},
                           "children": [
-                            "A",
+                            "A ",
                             {
                               "tag": "button",
                               "attrs": {
@@ -2637,7 +2637,7 @@
                               },
                               "children": ["link"]
                             },
-                            "in prose."
+                            " in prose."
                           ]
                         }
                       ]
@@ -2764,7 +2764,7 @@
                                 "class": "flex-1"
                               },
                               "children": [
-                                "The",
+                                "The ",
                                 {
                                   "tag": "strong",
                                   "attrs": {
@@ -2772,7 +2772,7 @@
                                   },
                                   "children": ["card"]
                                 },
-                                "export"
+                                " export"
                               ]
                             }
                           ]
@@ -2797,7 +2797,7 @@
                                 "class": "flex-1"
                               },
                               "children": [
-                                "nested",
+                                "nested ",
                                 {
                                   "tag": "code",
                                   "attrs": {
@@ -2805,7 +2805,7 @@
                                   },
                                   "children": ["code"]
                                 },
-                                "item"
+                                " item"
                               ]
                             }
                           ]
@@ -2830,7 +2830,7 @@
                                 "class": "flex-1"
                               },
                               "children": [
-                                "See",
+                                "See ",
                                 {
                                   "tag": "button",
                                   "attrs": {
@@ -2848,7 +2848,7 @@
                       "tag": "p",
                       "attrs": {},
                       "children": [
-                        "A",
+                        "A ",
                         {
                           "tag": "button",
                           "attrs": {
@@ -2856,7 +2856,7 @@
                           },
                           "children": ["link"]
                         },
-                        "in prose."
+                        " in prose."
                       ]
                     }
                   ]
@@ -3534,7 +3534,7 @@
           "attrs": {
             "class": "font-medium text-[17px] text-lol-text/60"
           },
-          "children": ["/ 10"]
+          "children": [" / 10"]
         }
       ]
     }
@@ -3567,7 +3567,7 @@
               },
               "children": ["1"]
             },
-            "game"
+            " game"
           ]
         },
         {
