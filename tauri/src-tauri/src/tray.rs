@@ -3,7 +3,6 @@
 use serde_json::{Value, json};
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, MenuItemKind, PredefinedMenuItem};
-use tauri::path::BaseDirectory;
 use tauri::tray::{MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -72,12 +71,13 @@ pub fn run<R: Runtime>(app: &AppHandle<R>, action: Action) {
     }
 }
 
-/// Electron's `nativeImage` takes the `@2x` file on a HiDPI display.
-fn icon_name(scale: f64) -> &'static str {
+/// Electron's `nativeImage` takes the `@2x` file on a HiDPI display. Built
+/// in, so a dev or driver build, which has no bundle resources, has them too.
+fn icon_bytes(scale: f64) -> &'static [u8] {
     if scale > 1.0 {
-        "assets/tray@2x.png"
+        include_bytes!("../assets/tray@2x.png")
     } else {
-        "assets/tray.png"
+        include_bytes!("../assets/tray.png")
     }
 }
 
@@ -109,11 +109,8 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> {
             Entry::Separator => menu.append(&PredefinedMenuItem::separator(app)?)?,
         }
     }
-    let path = app
-        .path()
-        .resolve(icon_name(icon_scale(app)), BaseDirectory::Resource)?;
     let tray = TrayIconBuilder::with_id(TRAY_ID)
-        .icon(Image::from_path(path)?)
+        .icon(Image::from_bytes(icon_bytes(icon_scale(app)))?)
         .tooltip(TOOLTIP)
         .menu(&menu)
         .show_menu_on_left_click(cfg!(target_os = "macos"))
@@ -253,8 +250,9 @@ mod tests {
 
     #[test]
     fn hidpi_takes_the_2x_icon() {
-        assert_eq!(icon_name(1.0), "assets/tray.png");
-        assert_eq!(icon_name(1.5), "assets/tray@2x.png");
-        assert_eq!(icon_name(2.0), "assets/tray@2x.png");
+        let size = |scale| Image::from_bytes(icon_bytes(scale)).unwrap().width();
+        assert_eq!(size(1.0), 16);
+        assert_eq!(size(1.5), 32);
+        assert_eq!(size(2.0), 32);
     }
 }

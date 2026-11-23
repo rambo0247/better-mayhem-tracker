@@ -557,6 +557,10 @@ export interface StartTauriOptions {
    */
   requireTimeZone?: boolean;
   readyTimeoutMs?: number;
+  /** Extra arguments after the AppKit locale ones, such as `--hidden`. */
+  args?: string[];
+  /** Extra environment, such as the shell's stand-ins in `parity_shell.rs`. */
+  env?: Record<string, string>;
 }
 
 export interface RunningTauri {
@@ -565,6 +569,9 @@ export interface RunningTauri {
   engine: TauriEngine;
   runDir: string;
   token: string;
+  /** What the app was started with, so a lane can start a second instance the same way. */
+  env: Record<string, string>;
+  args: string[];
   ctx: DriveContext;
   facts: Record<string, unknown>;
   close(): Promise<void>;
@@ -773,10 +780,15 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
   }
   const token = crypto.randomBytes(16).toString("hex");
   env.BMT_PARITY_TOKEN = token;
+  Object.assign(env, options.env);
 
   // NSUserDefaults' argument domain, so AppKit and WebKit take en-US whatever the system says
-  const args =
-    process.platform === "darwin" ? ["-AppleLanguages", "(en-US)", "-AppleLocale", "en_US"] : [];
+  const args = [
+    ...(process.platform === "darwin"
+      ? ["-AppleLanguages", "(en-US)", "-AppleLocale", "en_US"]
+      : []),
+    ...(options.args ?? []),
+  ];
   const started = Date.now();
   const child = spawn(binary, args, {
     cwd: runDir,
@@ -817,7 +829,7 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     const facts = { renderer, binary, launchMs: Date.now() - started, page, window: info };
     fs.writeFileSync(path.join(runDir, "facts.json"), JSON.stringify(facts, null, 1));
     const ctx: DriveContext = { engine, viewport, touchedSettings: new Map() };
-    return { child, driver, engine, runDir, token, ctx, facts, close };
+    return { child, driver, engine, runDir, token, env, args, ctx, facts, close };
   } catch (error) {
     await stopApp(child);
     log.end();

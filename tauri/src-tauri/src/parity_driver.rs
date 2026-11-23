@@ -534,6 +534,7 @@ const NAMED_KEYS: &[Key] = &[
     key("End", "End", 119, 0x23, ""),
     key("PageUp", "PageUp", 116, 0x21, ""),
     key("PageDown", "PageDown", 121, 0x22, ""),
+    key("F12", "F12", 111, 0x7b, ""),
 ];
 
 const LETTER_KEY_CODES: [u16; 26] = [
@@ -728,7 +729,17 @@ fn dispatch(window: &WebviewWindow, body: &Value) -> Result<Response, String> {
             headers: vec![("x-bmt-quit", "1".into())],
             body: b"{}".to_vec(),
         }),
-        other => Err(format!("no primitive {other:?}")),
+        other => match crate::parity_shell::dispatch(window, other, body) {
+            Some(Ok(crate::parity_shell::Reply::Json(value))) => Ok(Response::json(200, &value)),
+            Some(Ok(crate::parity_shell::Reply::Image(raw))) => Ok(Response {
+                status: 200,
+                content_type: "image/png",
+                headers: vec![("x-bmt-image", raw.meta.to_string())],
+                body: raw.bytes,
+            }),
+            Some(Err(error)) => Err(error),
+            None => Err(format!("no primitive {other:?}")),
+        },
     }
 }
 
@@ -1164,6 +1175,7 @@ mod mac {
                     "End" => "\u{f72b}",
                     "PageUp" => "\u{f72c}",
                     "PageDown" => "\u{f72d}",
+                    "F12" => "\u{f70f}",
                     _ => key.text,
                 };
                 let characters = NSString::from_str(characters);
