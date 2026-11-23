@@ -201,6 +201,35 @@ describe("the parity report", () => {
     expect(table.win?.tauri).toBeUndefined();
   });
 
+  test("the recorded deviations name each state rule E applied to", () => {
+    const mac = platformRun("mac");
+    mac.states[0] = { ...mac.states[0]!, imageExempt: 1 };
+    const md = renderReport(report({ mac, win: platformRun("win") }), "x");
+    expect(md).toContain(
+      "- Rule E applied, scaled images left out of the tile rule: macOS `match-history-default` (1).",
+    );
+  });
+
+  test("stateLines counts only the scaled images rule E exempted", () => {
+    const timing = JSON.stringify({ timings: [{ id: "a", ok: true }] });
+    const files: Record<string, string> = {
+      "/e/timing.json": timing,
+      "/t/timing.json": timing,
+      "/t/cross-engine-report.json": JSON.stringify({
+        states: [
+          {
+            id: "a",
+            pass: true,
+            reasons: [],
+            scaledImages: [{ exempt: true }, { exempt: false }, { exempt: true }],
+          },
+        ],
+      }),
+    };
+    const { states } = stateLines(["a"], { electron: "/e", tauri: "/t" }, (f) => files[f]);
+    expect(states[0]?.imageExempt).toBe(2);
+  });
+
   test("the deviations come from the README's register", () => {
     const readme = [
       "## Engine-difference register",

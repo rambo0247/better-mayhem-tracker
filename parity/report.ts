@@ -46,6 +46,8 @@ export interface StateLine {
   worstTilePct?: number;
   /** Rows the layout gate compared on x, y and height only (register rule B). */
   widthExempt?: number;
+  /** Scaled images whose boxes the tile rule left out (register rule E). */
+  imageExempt?: number;
   reasons: string[];
   sideBySide?: string;
 }
@@ -366,14 +368,21 @@ export function renderReport(report: Report, command: string): string {
     "",
   );
   for (const d of report.deviations) lines.push(`- **${d.name}.** ${d.where} ${d.rule}`);
-  const exempt = [mac, win].flatMap(
-    (run) =>
-      run?.states
-        .filter((s) => s.widthExempt)
-        .map((s) => `${PLATFORM_NAMES[run.platform]} \`${s.id}\` (${s.widthExempt})`) ?? [],
-  );
-  if (exempt.length > 0)
-    lines.push(`- Rule B applied, rows compared without width: ${exempt.join(", ")}.`);
+  const applied = (count: (s: StateLine) => number | undefined) =>
+    [mac, win].flatMap(
+      (run) =>
+        run?.states
+          .filter((s) => count(s))
+          .map((s) => `${PLATFORM_NAMES[run.platform]} \`${s.id}\` (${count(s)})`) ?? [],
+    );
+  const widthExempt = applied((s) => s.widthExempt);
+  if (widthExempt.length > 0)
+    lines.push(`- Rule B applied, rows compared without width: ${widthExempt.join(", ")}.`);
+  const imageExempt = applied((s) => s.imageExempt);
+  if (imageExempt.length > 0)
+    lines.push(
+      `- Rule E applied, scaled images left out of the tile rule: ${imageExempt.join(", ")}.`,
+    );
   lines.push("");
   return lines.join("\n");
 }
@@ -559,6 +568,7 @@ interface CrossEngineReport {
     differingPct?: number;
     worstTile?: { pct: number };
     layout?: { widthExempt?: number };
+    scaledImages?: { exempt: boolean }[];
     blurRegions?: { region: { x: number; y: number; w: number; h: number } }[];
   }[];
 }
@@ -625,6 +635,7 @@ export function stateLines(
       differingPct: c.differingPct,
       worstTilePct: c.worstTile?.pct,
       widthExempt: c.layout?.widthExempt || undefined,
+      imageExempt: c.scaledImages?.filter((image) => image.exempt).length || undefined,
       reasons: c.reasons,
       sideBySide: path.relative(
         REPO_DIR,
