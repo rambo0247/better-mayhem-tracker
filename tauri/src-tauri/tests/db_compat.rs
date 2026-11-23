@@ -7,6 +7,9 @@
 //! copy. Without it they print why and stop. With `BMT_COMPAT_OUT` set, the
 //! databases these tests build are left there for the Electron lanes.
 
+// clippy.toml keeps wall-clock reads out of command bodies; this test times its own runs
+#![allow(clippy::disallowed_methods)]
+
 use std::collections::BTreeSet;
 use std::io::Read;
 use std::path::{Path, PathBuf};
