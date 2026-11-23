@@ -684,6 +684,104 @@ mod tests {
         );
     }
 
+    /// A domain of one panicking command and one that reads state its hooks
+    /// set, registered through the same macro as the contract.
+    mod probe {
+        use std::sync::Mutex;
+
+        use super::super::{CommandResult, Ctx, Domain};
+        use crate::Host;
+        use tauri::{Builder, Manager, Runtime};
+
+        pub struct Seeded(pub Mutex<String>);
+
+        pub struct Hooks;
+        impl Domain for Hooks {
+            fn register<R: Runtime>(builder: Builder<R>, _host: &Host) -> Builder<R> {
+                builder.manage(Seeded(Mutex::new("registered".into())))
+            }
+
+            #[cfg(feature = "parity-driver")]
+            fn before_golden_case<R: Runtime>(
+                app: &tauri::AppHandle<R>,
+                case: &super::super::GoldenCase<'_>,
+            ) {
+                *app.state::<Seeded>().0.lock().unwrap() = case.case.to_owned();
+            }
+        }
+
+        pub async fn boom<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<String> {
+            panic!("index out of bounds")
+        }
+
+        pub async fn seeded<R: Runtime>(ctx: Ctx<R>) -> CommandResult<String> {
+            Ok(ctx.app.state::<Seeded>().0.lock().unwrap().clone())
+        }
+    }
+
+    mod probe_contract {
+        use super::super::*;
+        use super::probe;
+
+        contract! {
+            probe {
+                boom = "boom" "test:boom" () -> String;
+                seeded = "seeded" "test:seeded" () -> String;
+            }
+        }
+    }
+
+    fn probe_call(
+        window: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+        cmd: &str,
+    ) -> Result<serde_json::Value, serde_json::Value> {
+        let request = tauri::webview::InvokeRequest {
+            cmd: cmd.into(),
+            callback: tauri::ipc::CallbackFn(0),
+            error: tauri::ipc::CallbackFn(1),
+            url: "tauri://localhost".parse().unwrap(),
+            body: tauri::ipc::InvokeBody::Json(serde_json::json!({})),
+            headers: Default::default(),
+            invoke_key: tauri::test::INVOKE_KEY.to_string(),
+        };
+        tauri::test::get_ipc_response(window, request).map(|b| b.deserialize().unwrap())
+    }
+
+    #[test]
+    fn contract_commands_reject_a_panic_and_run_their_domain_hooks() {
+        let host = Host::system();
+        let builder = probe_contract::register(tauri::test::mock_builder(), &host)
+            .invoke_handler(probe_contract::handler());
+        let app = builder
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("build the mock app");
+        let window =
+            tauri::WebviewWindowBuilder::new(&app, crate::WINDOW_LABEL, Default::default())
+                .build()
+                .expect("build the mock window");
+        let hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let answer = probe_call(&window, "test:boom");
+        std::panic::set_hook(hook);
+        assert_eq!(
+            answer,
+            Err(serde_json::json!({ "name": "Error", "message": "index out of bounds" }))
+        );
+        assert_eq!(probe_call(&window, "test:seeded"), Ok("registered".into()));
+        #[cfg(feature = "parity-driver")]
+        {
+            let case = GoldenCase {
+                channel: "window:is-maximized",
+                case: "maximized",
+                group: "window",
+                args: &[],
+                root: std::path::Path::new("/nowhere"),
+            };
+            probe_contract::before_golden_case(app.handle(), &case);
+            assert_eq!(probe_call(&window, "test:seeded"), Ok("maximized".into()));
+        }
+    }
+
     mod one {
         #[derive(serde::Serialize, serde::Deserialize, ts_rs::TS)]
         pub struct Row {

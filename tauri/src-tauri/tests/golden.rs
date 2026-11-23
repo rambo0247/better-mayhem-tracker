@@ -304,6 +304,15 @@ fn build(build_app: BuildApp<'_>, clock: Clock) -> Replay {
 }
 
 fn call(window: &MockWindow, channel: &str, body: Map<String, Value>) -> Answer {
+    call_within(window, channel, body, CALL_TIMEOUT)
+}
+
+fn call_within(
+    window: &MockWindow,
+    channel: &str,
+    body: Map<String, Value>,
+    timeout: Duration,
+) -> Answer {
     let request = InvokeRequest {
         cmd: channel.into(),
         callback: tauri::ipc::CallbackFn(0),
@@ -320,14 +329,14 @@ fn call(window: &MockWindow, channel: &str, body: Map<String, Value>) -> Answer 
             tx.send(response).ok();
         }),
     );
-    match rx.recv_timeout(CALL_TIMEOUT) {
+    match rx.recv_timeout(timeout) {
         Ok(tauri::ipc::InvokeResponse::Ok(body)) => {
             Ok(body.deserialize::<Value>().expect("a JSON response"))
         }
         Ok(tauri::ipc::InvokeResponse::Err(tauri::ipc::InvokeError(rejection))) => Err(rejection),
         Err(_) => Err(Value::from(format!(
-            "{channel} did not answer within {} s",
-            CALL_TIMEOUT.as_secs()
+            "{channel} did not answer within {} ms",
+            timeout.as_millis()
         ))),
     }
 }
@@ -703,6 +712,23 @@ fn pin_zone_and_locale(manifest: &Manifest) -> Result<(), String> {
         std::env::set_var("LANG", &lang);
         std::env::set_var("LC_ALL", &lang);
     }
+    // The seam's SEAM_FIXED_TIME, 2026-11-22T21:00:00-05:00, as SQLite reads it
+    if manifest.time_zone == DEFAULT_TIME_ZONE {
+        let conn = rusqlite::Connection::open_in_memory().map_err(|e| e.to_string())?;
+        let wall: String = conn
+            .query_row(
+                "SELECT datetime(1795399200, 'unixepoch', 'localtime')",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if wall != "2026-11-22 21:00:00" {
+            return Err(format!(
+                "TZ={} but SQLite's localtime reads {wall}",
+                manifest.time_zone
+            ));
+        }
+    }
     println!("replaying in {} with {lang}", manifest.time_zone);
     Ok(())
 }
@@ -843,6 +869,11 @@ async fn panicking() -> Result<String, CommandError> {
 }
 
 #[tauri::command(rename = "app:version")]
+async fn hanging() -> Result<String, CommandError> {
+    std::future::pending().await
+}
+
+#[tauri::command(rename = "app:version")]
 async fn version_and_event(app: tauri::AppHandle<MockRuntime>) -> Result<String, CommandError> {
     bmt_lib::events::games_updated(&app);
     Ok("1.2.1".into())
@@ -909,6 +940,22 @@ fn check_harness(root: &Path) -> Result<(), String> {
     let replay = build(&panics, Clock::System);
     let rejection = call(&replay.window, "app:version", Map::new());
     std::panic::set_hook(hook);
+    let hangs = |host: Host| {
+        mock_builder()
+            .manage(host.clock)
+            .invoke_handler(tauri::generate_handler![hanging])
+    };
+    let hung = call_within(
+        &build(&hangs, Clock::System).window,
+        "app:version",
+        Map::new(),
+        Duration::from_millis(200),
+    );
+    if hung != Err(Value::from("app:version did not answer within 200 ms")) {
+        return Err(format!(
+            "self-check timeout: a hung command answered {hung:?}"
+        ));
+    }
     for ((label, _, want), got) in handlers.iter().zip(verdicts) {
         expect(label, got, *want)?;
     }
