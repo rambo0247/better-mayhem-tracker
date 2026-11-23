@@ -119,11 +119,66 @@ fn open_with_os(effect: &Effect) -> Result<(), String> {
 
 /// A URL can name any protocol the OS will launch, `file:`, a UNC path,
 /// `ms-msdt:`. Everything this app opens is a web page, so only those pass,
-/// parsed the way the URL standard parses them.
-fn web_page(url: &str) -> Option<Url> {
-    Url::parse(url)
-        .ok()
-        .filter(|u| matches!(u.scheme(), "https" | "http"))
+/// parsed the way the URL standard parses them, as Node's `new URL` does.
+fn web_page(url: &str) -> Option<String> {
+    let page = match Url::parse(url) {
+        Ok(page) => page.into(),
+        Err(url::ParseError::IdnaError) => with_ascii_xn_labels(url)?,
+        Err(_) => return None,
+    };
+    let scheme = page.split(':').next().unwrap_or_default();
+    matches!(scheme, "https" | "http").then_some(page)
+}
+
+/// Node keeps a host written in ASCII as it is, so `https://xn--.com/` opens,
+/// where the url crate checks each `xn--` label as Punycode and refuses one
+/// that decodes to nothing or to ASCII. This parses `url` with each `xn--`
+/// swapped for a placeholder, then puts `xn--` back. A host written in other
+/// than plain ASCII is still refused, as Node refuses it: its parsed text
+/// does not appear in the input.
+fn with_ascii_xn_labels(url: &str) -> Option<String> {
+    const PREFIX: &str = "xn--";
+    let placeholder = |i: usize| format!("bmtxn{i}q--");
+    // The URL standard drops these first, so they cannot split a prefix
+    let input: String = url
+        .chars()
+        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
+        .collect();
+    let lower = input.to_ascii_lowercase();
+    if lower.contains("bmtxn") {
+        return None;
+    }
+    let mut originals = Vec::new();
+    let mut swapped = String::new();
+    let mut done = 0;
+    for (i, (at, _)) in lower.match_indices(PREFIX).enumerate() {
+        swapped.push_str(&input[done..at]);
+        swapped.push_str(&placeholder(i));
+        done = at + PREFIX.len();
+        originals.push(&input[at..done]);
+    }
+    swapped.push_str(&input[done..]);
+    let page = Url::parse(&swapped).ok()?;
+    let host = page.host_str()?;
+    if !swapped.to_ascii_lowercase().contains(host) {
+        return None;
+    }
+    let restore = |part: &str, in_host: bool| {
+        originals
+            .iter()
+            .enumerate()
+            .fold(part.to_owned(), |text, (i, original)| {
+                text.replace(&placeholder(i), if in_host { PREFIX } else { original })
+            })
+    };
+    let host_at = url::Position::BeforeHost;
+    let host_end = url::Position::AfterHost;
+    Some(format!(
+        "{}{}{}",
+        restore(&page[..host_at], false),
+        restore(&page[host_at..host_end], true),
+        restore(&page[host_end..], false)
+    ))
 }
 
 /// `openExternalUrl`: hands a web page to the default browser, refusing
@@ -136,7 +191,7 @@ pub fn open_external_url(effects: &Effects, url: &str) -> bool {
         log::warn(format!("Refused to open external URL: {url}"));
         return false;
     };
-    effects.perform(Effect::OpenExternal(page.into()));
+    effects.perform(Effect::OpenExternal(page));
     true
 }
 
@@ -225,6 +280,26 @@ mod tests {
             ),
             ("http://0x7f.1/", Some("http://127.0.0.1/")),
             ("https://ex\u{ad}ample.com", Some("https://example.com/")),
+            ("https://xn--.com/", Some("https://xn--.com/")),
+            (
+                "HTTPS://XN--.COM/XN--?XN--#XN--",
+                Some("https://xn--.com/XN--?XN--#XN--"),
+            ),
+            ("https://xn--abc-.com/", Some("https://xn--abc-.com/")),
+            ("https://xn--zz.com/", Some("https://xn--zz.com/")),
+            ("https://a.xn--/", Some("https://a.xn--/")),
+            ("https://xn--.axn--b.com/", Some("https://xn--.axn--b.com/")),
+            (
+                "https://u@xn--.com:8080/a",
+                Some("https://u@xn--.com:8080/a"),
+            ),
+            ("https://x\tn--.com/", Some("https://xn--.com/")),
+            ("https://xn--.com/\u{fc}", Some("https://xn--.com/%C3%BC")),
+            ("https://xn--\u{df}.com/", None),
+            ("https://\u{ff58}\u{ff4e}--.com/", None),
+            ("https://xn--\u{3002}com/", None),
+            ("https://xn--.\u{fc}.com/", None),
+            ("https://xn--.0x7f/", None),
             ("javascript:alert(1)", None),
             ("JAVASCRIPT:alert(1)", None),
             ("file:///etc/passwd", None),
