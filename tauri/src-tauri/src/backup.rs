@@ -18,6 +18,8 @@ use rusqlite::{Connection, OpenFlags};
 use tauri::plugin::TauriPlugin;
 use tauri::{Manager, RunEvent, Runtime};
 
+mod uv_errors;
+
 use crate::commands::Clock;
 use crate::commands::backup::{BackupInfo, RecoveryProblem, RecoveryReport};
 use crate::db::{self, DB_FILE, Database, settings};
@@ -90,8 +92,7 @@ impl Backups {
     /// can't.
     pub fn dir(&self) -> Result<&Path, String> {
         if !self.dir.exists() {
-            std::fs::create_dir_all(&self.dir)
-                .map_err(|err| node_fs_error(&err, "mkdir", &self.dir, None))?;
+            mkdirp(&self.dir).map_err(|code| node_error(code, "mkdir", &self.dir, None))?;
         }
         Ok(&self.dir)
     }
@@ -165,8 +166,11 @@ impl Backups {
         now_ms: i64,
         spare: Option<&str>,
     ) -> Result<BackupInfo, String> {
-        let file = format!("matches-{}-{}.db", stamp(now_ms, &self.tz), reason.as_str());
-        let dest = self.dir()?.join(&file);
+        let dir = self.dir()?;
+        let (file, created) = first_free(dir, now_ms, &self.tz, |stamp| {
+            format!("matches-{stamp}-{}.db", reason.as_str())
+        });
+        let dest = dir.join(&file);
         // Written under a name the listing ignores, so a crash or a full disk
         // part way through can't leave a truncated file that looks usable
         let partial = suffixed(&dest, ".part");
@@ -201,7 +205,7 @@ impl Backups {
             self.prune(&self.read(), spare);
             Ok(BackupInfo {
                 file: file.clone(),
-                created: now_ms,
+                created,
                 size,
                 games: Some(games),
                 reason: reason.as_str().into(),
@@ -215,7 +219,7 @@ impl Backups {
                 suffixed(&partial, "-wal"),
                 suffixed(&partial, "-shm"),
             ] {
-                remove_if_present(&leftover);
+                remove_logged(&leftover);
             }
         })
     }
@@ -264,7 +268,7 @@ impl Backups {
     fn prune(&self, backups: &[BackupInfo], spare: Option<&str>) {
         let victims = prune_victims(backups, &self.tz);
         for file in victims.into_iter().filter(|file| Some(*file) != spare) {
-            if let Err(err) = remove_file_forced(&self.dir.join(file)) {
+            if let Err(err) = rm_forced(&self.dir.join(file)) {
                 eprintln!("Failed to remove old backup: {file} {err}");
             }
         }
@@ -369,21 +373,33 @@ pub fn init_database_with_recovery(
 
 /// Why the database found at launch can't be used as it is.
 enum OpenFailure {
-    /// The file is damaged, or was missing, so a snapshot takes its place.
+    /// The file is damaged, or holds a schema the migrations can't bring
+    /// forward, or was missing, so a snapshot takes its place.
     Lost(String),
     /// The file may be fine, but this launch can't use it: another process
-    /// holds it, it or its folder is read-only, or the disk is full.
+    /// holds it, it or its folder is read-only, the disk is full or failing.
     Unavailable(String),
 }
 
 impl OpenFailure {
     fn of(err: &rusqlite::Error) -> Self {
+        use rusqlite::ErrorCode::*;
         let message = db::sqlite_error(err).message;
         match err.sqlite_error_code() {
-            Some(rusqlite::ErrorCode::DatabaseCorrupt | rusqlite::ErrorCode::NotADatabase) => {
-                Self::Lost(message)
-            }
-            _ => Self::Unavailable(message),
+            Some(
+                DatabaseBusy
+                | DatabaseLocked
+                | ReadOnly
+                | DiskFull
+                | SystemIoFailure
+                | CannotOpen
+                | PermissionDenied
+                | OutOfMemory
+                | OperationInterrupted
+                | FileLockingProtocolFailed
+                | NoLargeFileSupport,
+            ) => Self::Unavailable(message),
+            _ => Self::Lost(message),
         }
     }
 }
@@ -456,7 +472,7 @@ fn recover(
     // On the missing path this is the empty database the open just made,
     // still worth setting aside rather than overwriting blind
     let quarantined = if db_path.exists() {
-        quarantine(&db_path, &stamp(now_ms, &backups.tz))
+        quarantine(&db_path, now_ms, &backups.tz)
     } else {
         None
     };
@@ -485,15 +501,16 @@ fn recover(
 }
 
 /// Sets a damaged database aside as `matches.db.corrupt-<stamp>`.
-fn quarantine(db_path: &Path, stamp: &str) -> Option<PathBuf> {
-    let dead = suffixed(db_path, &format!(".corrupt-{stamp}"));
+fn quarantine(db_path: &Path, now_ms: i64, tz: &TimeZone) -> Option<PathBuf> {
+    let data_dir = db_path.parent().unwrap_or(Path::new(""));
+    let (name, _) = first_free(data_dir, now_ms, tz, |stamp| {
+        format!("{DB_FILE}.corrupt-{stamp}")
+    });
+    let dead = data_dir.join(name);
     let moved = std::fs::rename(db_path, &dead)
         .map_err(|err| node_fs_error(&err, "rename", db_path, Some(&dead)))
-        .and_then(|()| {
-            remove_file_forced(&suffixed(db_path, "-wal"))
-                .and_then(|()| remove_file_forced(&suffixed(db_path, "-shm")))
-                .map_err(|err| err.to_string())
-        });
+        .and_then(|()| rm_forced(&suffixed(db_path, "-wal")))
+        .and_then(|()| rm_forced(&suffixed(db_path, "-shm")));
     match moved {
         Ok(()) => Some(dead),
         Err(err) => {
@@ -512,19 +529,16 @@ fn swap_in(source: &Path, db_path: &Path) -> Result<(), String> {
     let incoming = suffixed(db_path, ".incoming");
     let swapped = std::fs::copy(source, &incoming)
         .map_err(|err| node_fs_error(&err, "copyfile", source, Some(&incoming)))
-        .and_then(|_| {
-            // The -wal and -shm describe the database being replaced. Left
-            // behind, SQLite would replay them onto the restored file
-            remove_file_forced(&suffixed(db_path, "-wal"))
-                .and_then(|()| remove_file_forced(&suffixed(db_path, "-shm")))
-                .map_err(|err| err.to_string())
-        })
+        // The -wal and -shm describe the database being replaced. Left
+        // behind, SQLite would replay them onto the restored file
+        .and_then(|_| rm_forced(&suffixed(db_path, "-wal")))
+        .and_then(|()| rm_forced(&suffixed(db_path, "-shm")))
         .and_then(|()| {
             std::fs::rename(&incoming, db_path)
                 .map_err(|err| node_fs_error(&err, "rename", &incoming, Some(db_path)))
         });
     if swapped.is_err() {
-        remove_if_present(&incoming);
+        remove_logged(&incoming);
     }
     swapped
 }
@@ -594,6 +608,27 @@ fn parse_name(file: &str) -> Option<(&str, &str)> {
 fn stamp(ms: i64, tz: &TimeZone) -> String {
     let (time, year) = local(ms, tz);
     format!("{year}-{}", time.strftime("%m-%dT%H-%M-%S"))
+}
+
+/// The name `name` gives the first stamp from `now_ms` on, a second at a
+/// time, that nothing in `dir` already has, and that stamp's time. Electron
+/// renames over a file taken in the same second, which loses a backup. The
+/// stepped name keeps Electron's format, so Electron still lists and prunes
+/// it, one second later than the file it would have replaced.
+fn first_free(
+    dir: &Path,
+    now_ms: i64,
+    tz: &TimeZone,
+    name: impl Fn(&str) -> String,
+) -> (String, i64) {
+    let mut ms = now_ms;
+    loop {
+        let candidate = name(&stamp(ms, tz));
+        if std::fs::symlink_metadata(dir.join(&candidate)).is_err() {
+            return (candidate, ms);
+        }
+        ms += 1000;
+    }
 }
 
 const DAY_MS: i64 = 24 * 60 * 60 * 1000;
@@ -723,124 +758,146 @@ fn suffixed(path: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(name)
 }
 
-/// `fs.rmSync(path, { force: true })`: a file already gone is not an error.
-fn remove_file_forced(path: &Path) -> io::Result<()> {
-    match std::fs::remove_file(path) {
-        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
-        other => other,
+/// `fs.rmSync(path, { force: true })` with the errors Node 24 and 26 throw:
+/// the `lstat` check in JavaScript, then `std::filesystem::remove` in C++,
+/// whose failures read `<CODE>, <What>: <path> '<path>'`.
+fn rm_forced(path: &Path) -> Result<(), String> {
+    match std::fs::symlink_metadata(path) {
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(err) => return Err(node_fs_error(&err, "lstat", path, None)),
+        Ok(meta) if meta.is_dir() => {
+            return Err(format!(
+                "Path is a directory: rm returned EISDIR (is a directory) {}",
+                path.display()
+            ));
+        }
+        Ok(_) => {}
+    }
+    let err = match std::fs::remove_file(path) {
+        Err(err) if err.kind() != io::ErrorKind::NotFound => err,
+        _ => return Ok(()),
+    };
+    let shown = path.display();
+    Err(match rm_condition(&err) {
+        Some((code, what)) => format!("{code}, {what}: {shown} '{shown}'"),
+        None => format!(", Unknown error: {} '{shown}'", os_message(&err)),
+    })
+}
+
+/// The `std::errc` Node's `RmSync` names, as `(code, text)`.
+#[cfg(unix)]
+fn rm_condition(err: &io::Error) -> Option<(&'static str, &'static str)> {
+    match err.kind() {
+        io::ErrorKind::DirectoryNotEmpty => Some(("ENOTEMPTY", "Directory not empty")),
+        io::ErrorKind::NotADirectory => Some(("ENOTDIR", "Not a directory")),
+        _ => match err.raw_os_error() {
+            Some(1) => Some(("EPERM", "Operation not permitted")),
+            Some(13) => Some(("EACCES", "Permission denied")),
+            _ => None,
+        },
     }
 }
 
-fn remove_if_present(path: &Path) {
-    if let Err(err) = remove_file_forced(path) {
+/// MSVC's STL maps these Win32 errors to `errc::permission_denied` and
+/// `errc::directory_not_empty`; Node reports the first as EPERM on Windows.
+#[cfg(windows)]
+fn rm_condition(err: &io::Error) -> Option<(&'static str, &'static str)> {
+    match err.raw_os_error()? {
+        5 | 12 | 16 | 19 | 32 | 82 | 998 => Some(("EPERM", "Permission denied")),
+        145 => Some(("ENOTEMPTY", "Directory not empty")),
+        _ => None,
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+fn rm_condition(_err: &io::Error) -> Option<(&'static str, &'static str)> {
+    None
+}
+
+/// The system's text for an OS error, without Rust's ` (os error N)`.
+fn os_message(err: &io::Error) -> String {
+    let text = err.to_string();
+    match err.raw_os_error() {
+        Some(code) => text
+            .strip_suffix(&format!(" (os error {code})"))
+            .unwrap_or(&text)
+            .to_owned(),
+        None => text,
+    }
+}
+
+fn remove_logged(path: &Path) {
+    if let Err(err) = rm_forced(path) {
         eprintln!("Failed to remove {}: {err}", path.display());
     }
+}
+
+/// `fs.mkdirSync(dir, { recursive: true })`, after Node's `MKDirpSync`. A
+/// mkdir that fails for any reason but a missing parent or a short list of
+/// final ones is followed by a stat, and the stat's error is the one thrown:
+/// a dangling link reads ENOENT, and so does a missing folder on a read-only
+/// volume. The `Err` is libuv's name.
+fn mkdirp(dir: &Path) -> Result<(), &'static str> {
+    let mut pending = vec![dir.to_path_buf()];
+    while let Some(next) = pending.pop() {
+        let err = match std::fs::create_dir(&next) {
+            Ok(()) => continue,
+            Err(err) => mkdir_code(&err),
+        };
+        match err {
+            "EACCES" | "ENOSPC" | "ENOTDIR" | "EPERM" => return Err(err),
+            "ENOENT" => match next.parent() {
+                Some(parent) if !parent.as_os_str().is_empty() => {
+                    let parent = parent.to_path_buf();
+                    pending.push(next);
+                    pending.push(parent);
+                }
+                _ => return Err(err),
+            },
+            _ => match std::fs::metadata(&next) {
+                Ok(meta) if meta.is_dir() => {}
+                Ok(_) if err == "EEXIST" && !pending.is_empty() => return Err("ENOTDIR"),
+                Ok(_) => return Err("EEXIST"),
+                Err(stat) => return Err(uv_name(&stat)),
+            },
+        }
+    }
+    Ok(())
+}
+
+/// libuv's `fs__mkdir` on Windows reports a bad name as EINVAL.
+fn mkdir_code(err: &io::Error) -> &'static str {
+    if cfg!(windows) && matches!(err.raw_os_error(), Some(123 | 267)) {
+        return "EINVAL";
+    }
+    uv_name(err)
+}
+
+/// libuv's name for an OS error, or `UNKNOWN` as Node prints one it can't
+/// name.
+fn uv_name(err: &io::Error) -> &'static str {
+    err.raw_os_error()
+        .and_then(uv_errors::uv_code)
+        .unwrap_or("UNKNOWN")
 }
 
 /// A failed `fs` call as Node throws it, `<CODE>: <description>, <syscall>
 /// '<path>'`, with ` -> '<dest>'` for calls that take two. Settings shows it
 /// after `Error: `.
 fn node_fs_error(err: &io::Error, syscall: &str, path: &Path, dest: Option<&Path>) -> String {
-    let code = err.raw_os_error().and_then(uv_code).unwrap_or("UNKNOWN");
+    node_error(uv_name(err), syscall, path, dest)
+}
+
+fn node_error(code: &str, syscall: &str, path: &Path, dest: Option<&Path>) -> String {
     let mut text = format!(
         "{code}: {}, {syscall} '{}'",
-        uv_message(code),
+        uv_errors::uv_message(code),
         path.display()
     );
     if let Some(dest) = dest {
         text.push_str(&format!(" -> '{}'", dest.display()));
     }
     text
-}
-
-/// libuv's name for an errno, as `uv_translate_sys_error` gives it.
-#[cfg(unix)]
-fn uv_code(errno: i32) -> Option<&'static str> {
-    Some(match errno {
-        1 => "EPERM",
-        2 => "ENOENT",
-        5 => "EIO",
-        12 => "ENOMEM",
-        13 => "EACCES",
-        16 => "EBUSY",
-        17 => "EEXIST",
-        18 => "EXDEV",
-        20 => "ENOTDIR",
-        21 => "EISDIR",
-        22 => "EINVAL",
-        23 => "ENFILE",
-        24 => "EMFILE",
-        26 => "ETXTBSY",
-        27 => "EFBIG",
-        28 => "ENOSPC",
-        30 => "EROFS",
-        #[cfg(target_os = "macos")]
-        45 => "ENOTSUP",
-        #[cfg(target_os = "macos")]
-        62 => "ELOOP",
-        #[cfg(target_os = "macos")]
-        63 => "ENAMETOOLONG",
-        #[cfg(target_os = "macos")]
-        66 => "ENOTEMPTY",
-        #[cfg(target_os = "linux")]
-        36 => "ENAMETOOLONG",
-        #[cfg(target_os = "linux")]
-        39 => "ENOTEMPTY",
-        #[cfg(target_os = "linux")]
-        40 => "ELOOP",
-        #[cfg(target_os = "linux")]
-        95 => "ENOTSUP",
-        _ => return None,
-    })
-}
-
-/// libuv's name for a Win32 error, from `uv_translate_sys_error` in
-/// `src/win/error.c`.
-#[cfg(windows)]
-fn uv_code(error: i32) -> Option<&'static str> {
-    Some(match error {
-        2 | 3 | 123 | 267 => "ENOENT",
-        4 => "EMFILE",
-        5 => "EPERM",
-        8 => "ENOMEM",
-        17 => "EXDEV",
-        19 => "EROFS",
-        32 | 33 => "EBUSY",
-        39 | 112 => "ENOSPC",
-        80 | 183 => "EEXIST",
-        87 => "EINVAL",
-        145 => "ENOTEMPTY",
-        206 => "ENAMETOOLONG",
-        _ => return None,
-    })
-}
-
-/// `uv_strerror`, measured with Node's `util.getSystemErrorMap()`.
-fn uv_message(code: &str) -> &'static str {
-    match code {
-        "EPERM" => "operation not permitted",
-        "ENOENT" => "no such file or directory",
-        "EIO" => "i/o error",
-        "ENOMEM" => "not enough memory",
-        "EACCES" => "permission denied",
-        "EBUSY" => "resource busy or locked",
-        "EEXIST" => "file already exists",
-        "EXDEV" => "cross-device link not permitted",
-        "ENOTDIR" => "not a directory",
-        "EISDIR" => "illegal operation on a directory",
-        "EINVAL" => "invalid argument",
-        "ENFILE" => "file table overflow",
-        "EMFILE" => "too many open files",
-        "ETXTBSY" => "text file is busy",
-        "EFBIG" => "file too large",
-        "ENOSPC" => "no space left on device",
-        "EROFS" => "read-only file system",
-        "ENOTSUP" => "operation not supported on socket",
-        "ELOOP" => "too many symbolic links encountered",
-        "ENAMETOOLONG" => "name too long",
-        "ENOTEMPTY" => "directory not empty",
-        _ => "unknown error",
-    }
 }
 
 /// `startBackupSchedule`, as a plugin so the check starts once the app is
@@ -1470,6 +1527,371 @@ mod tests {
         std::fs::remove_dir_all(&root).expect("clean up");
     }
 
+    /// A backup as the app writes one, in rollback-journal mode.
+    fn backup_of(root: &Path, games: i64, name: &str) -> PathBuf {
+        let dest = root.join("backups").join(name);
+        let source = database_file(&scratch_sibling(root), games);
+        std::fs::copy(&source, &dest).expect("a backup");
+        std::fs::remove_dir_all(scratch_sibling(root)).expect("clean up the source");
+        Connection::open(&dest)
+            .and_then(|conn| conn.pragma_update(None, "journal_mode", "DELETE"))
+            .expect("leave WAL mode");
+        dest
+    }
+
+    fn live_database(root: &Path, games: i64) {
+        std::fs::copy(database_file(root, games), root.join("data").join(DB_FILE))
+            .expect("place the database");
+    }
+
+    fn games_in(file: &Path) -> i64 {
+        let conn = Connection::open_with_flags(file, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .expect("opens read-only");
+        count_games(&conn).expect("count")
+    }
+
+    /// The verifier's `create-collide`. Electron renames the new snapshot over
+    /// the one already named for this second and reason.
+    #[test]
+    fn a_backup_never_replaces_one_with_its_name() {
+        let root = scratch("create-collide");
+        let taken = backup_of(&root, 2, "matches-2026-11-22T21-00-00-manual.db");
+        live_database(&root, 5);
+        let (db, backups) = open(&root);
+        let made = backups
+            .create(&db, Reason::Manual, NOW)
+            .expect("a manual backup");
+        assert_eq!(
+            (made.file.as_str(), made.created, made.games),
+            ("matches-2026-11-22T21-00-01-manual.db", NOW + 1000, Some(5))
+        );
+        assert_eq!(games_in(&taken), 2, "the earlier backup is untouched");
+        assert_eq!(
+            names(&root.join("backups")),
+            [
+                "matches-2026-11-22T21-00-00-manual.db",
+                "matches-2026-11-22T21-00-01-manual.db"
+            ]
+        );
+        drop(db);
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// The verifier's `restore-collide`. In Electron the pre-restore snapshot
+    /// takes the name of the backup being restored, so the player's pick is
+    /// gone and the restore brings back the database it was meant to replace.
+    #[test]
+    fn a_restore_keeps_the_backup_its_snapshot_would_be_named_as() {
+        let root = scratch("restore-collide");
+        let picked = backup_of(&root, 2, "matches-2026-11-22T21-00-00-pre-restore.db");
+        live_database(&root, 5);
+        let (db, backups) = open(&root);
+        assert_eq!(
+            backups.restore(&db, "matches-2026-11-22T21-00-00-pre-restore.db", NOW),
+            Ok(2)
+        );
+        assert_eq!(db.with(count_games).expect("the restored database"), 2);
+        assert_eq!(games_in(&picked), 2, "the picked backup is untouched");
+        assert_eq!(
+            games_in(&root.join("backups/matches-2026-11-22T21-00-01-pre-restore.db")),
+            5,
+            "the snapshot of what the restore replaced"
+        );
+        drop(db);
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// When clocks fall back, 01:30 comes twice and names the same second.
+    /// The second one steps to 01:30:01, which lists just after the first.
+    #[test]
+    fn a_backup_in_the_repeated_hour_keeps_the_first_one() {
+        const FIRST: i64 = 1_793_511_000_000;
+        const SECOND: i64 = FIRST + 60 * 60 * 1000;
+        let root = scratch("fold");
+        let first = backup_of(&root, 2, "matches-2026-11-01T01-30-00-manual.db");
+        live_database(&root, 5);
+        let (db, backups) = open(&root);
+        let made = backups
+            .create(&db, Reason::Manual, SECOND)
+            .expect("a manual backup");
+        assert_eq!(made.file, "matches-2026-11-01T01-30-01-manual.db");
+        assert_eq!(games_in(&first), 2, "the first 01:30 is untouched");
+        let listed: Vec<(String, i64, Option<i64>)> = backups
+            .list()
+            .expect("a listing")
+            .into_iter()
+            .map(|b| (b.file, b.created, b.games))
+            .collect();
+        assert_eq!(
+            listed,
+            [
+                (made.file.clone(), FIRST + 1000, Some(5)),
+                (
+                    "matches-2026-11-01T01-30-00-manual.db".to_owned(),
+                    FIRST,
+                    Some(2)
+                ),
+            ],
+            "both kept, the new one newest"
+        );
+        drop(db);
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// A damaged file set aside in the same second as an earlier one gets the
+    /// next second's name rather than replacing it.
+    #[test]
+    fn a_quarantine_never_replaces_an_earlier_one() {
+        let root = scratch("quarantine-collide");
+        let earlier = root.join("data/matches.db.corrupt-2026-11-22T21-00-00");
+        std::fs::write(&earlier, b"the first damaged file").expect("an earlier quarantine");
+        garbage(&root.join("data").join(DB_FILE), "this is not a database ");
+        let (db, backups) = open(&root);
+        assert_eq!(
+            report_json(&backups)["quarantined"],
+            "matches.db.corrupt-2026-11-22T21-00-01"
+        );
+        assert_eq!(
+            std::fs::read(&earlier).expect("read it"),
+            b"the first damaged file"
+        );
+        drop(db);
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// The verifier's `damage-nocolumn`: a valid file whose schema the
+    /// migrations can't bring forward is set aside and the backup restored,
+    /// as Electron does. Electron's detail is `no such column: puuid`. T11's
+    /// error mapping still appends the statement, which T11's fix round owns.
+    #[test]
+    fn a_database_its_migrations_reject_is_set_aside_and_restored() {
+        let root = scratch("nocolumn");
+        let db_file = root.join("data").join(DB_FILE);
+        std::fs::copy(database_file(&root, 4), &db_file).expect("place the database");
+        Connection::open(&db_file)
+            .and_then(|conn| {
+                conn.execute_batch(
+                    "DROP INDEX idx_games_puuid; ALTER TABLE games DROP COLUMN puuid;",
+                )
+            })
+            .expect("drop a column");
+        backup_of(&root, 3, GOOD);
+        let (db, backups) = open(&root);
+        let mut report = report_json(&backups);
+        let detail = report["detail"].take();
+        assert_eq!(
+            report,
+            serde_json::json!({
+                "problem": "corrupt",
+                "restoredFrom": GOOD,
+                "quarantined": "matches.db.corrupt-2026-11-22T21-00-00",
+                "detail": null,
+            })
+        );
+        assert!(
+            detail
+                .as_str()
+                .is_some_and(|d| d.starts_with("no such column: puuid")),
+            "{detail}"
+        );
+        assert_eq!(db.with(count_games).expect("the restored database"), 3);
+        assert!(
+            root.join("data/matches.db.corrupt-2026-11-22T21-00-00")
+                .exists()
+        );
+        drop(db);
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// Node's recursive mkdir reports the stat after a failed mkdir, so a
+    /// backups folder that is a dangling link reads ENOENT, not EEXIST.
+    #[cfg(unix)]
+    #[test]
+    fn a_backups_folder_behind_a_dangling_link_fails_as_node_does() {
+        let root = scratch("dangling");
+        let dir = root.join("backups-link");
+        std::os::unix::fs::symlink(root.join("nowhere"), &dir).expect("a dangling link");
+        let (db, backups) = open_with_recovery(
+            &root.join("data"),
+            Backups::new(dir.clone(), new_york()),
+            NOW,
+        )
+        .expect("a first launch");
+        assert_eq!(
+            backups.list().map(|_| ()),
+            Err(format!(
+                "ENOENT: no such file or directory, mkdir '{}'",
+                dir.display()
+            ))
+        );
+        drop(db);
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// The swap's `-wal` and `-shm` removal fails with `fs.rmSync`'s text,
+    /// measured in Node 26.8.1, which Electron 44's Node 24.21.0 shares.
+    #[test]
+    fn a_wal_that_cannot_be_removed_fails_as_rm_sync_does() {
+        let root = scratch("rm-wal");
+        let source = database_file(&root, 2);
+        let db_file = root.join("data").join(DB_FILE);
+        std::fs::copy(&source, &db_file).expect("place the database");
+        let wal = suffixed(&db_file, "-wal");
+        std::fs::create_dir(&wal).expect("a folder where the -wal goes");
+        assert_eq!(
+            swap_in(&source, &db_file),
+            Err(format!(
+                "Path is a directory: rm returned EISDIR (is a directory) {}",
+                wal.display()
+            ))
+        );
+        assert!(!suffixed(&db_file, ".incoming").exists());
+        std::fs::remove_dir(&wal).expect("clear the folder");
+
+        #[cfg(target_os = "macos")]
+        {
+            let chflags = |flag: &str| {
+                let status = std::process::Command::new("chflags")
+                    .arg(flag)
+                    .arg(&wal)
+                    .status();
+                assert!(status.expect("chflags runs").success());
+            };
+            std::fs::write(&wal, b"").expect("a -wal");
+            chflags("uchg");
+            let swapped = swap_in(&source, &db_file);
+            chflags("nouchg");
+            assert_eq!(
+                swapped,
+                Err(format!(
+                    "EPERM, Operation not permitted: {0} '{0}'",
+                    wal.display()
+                ))
+            );
+        }
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// Every errno Node names has its name and message, not only the few the
+    /// backup code has hit.
+    #[test]
+    fn file_errors_carry_every_name_node_has() {
+        let path = Path::new("/x");
+        let text = |raw: i32| node_fs_error(&io::Error::from_raw_os_error(raw), "open", path, None);
+        #[cfg(target_os = "macos")]
+        {
+            assert_eq!(
+                text(35),
+                "EAGAIN: resource temporarily unavailable, open '/x'"
+            );
+            assert_eq!(text(57), "ENOTCONN: socket is not connected, open '/x'");
+            assert_eq!(text(100), "EPROTO: protocol error, open '/x'");
+        }
+        #[cfg(windows)]
+        {
+            assert_eq!(
+                text(1),
+                "EISDIR: illegal operation on a directory, open '/x'"
+            );
+            assert_eq!(text(1113), "ECHARSET: invalid Unicode character, open '/x'");
+            assert_eq!(text(1920), "EACCES: permission denied, open '/x'");
+        }
+        assert_eq!(text(99_999), "UNKNOWN: unknown error, open '/x'");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn removals_fail_as_rm_sync_does() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = scratch("rm");
+        let (file, locked) = (root.join("file"), root.join("locked"));
+        std::fs::write(&file, b"x").expect("a file");
+        std::fs::create_dir(&locked).expect("make locked/");
+        std::fs::write(locked.join("inner"), b"x").expect("a file inside");
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o555)).expect("lock it");
+        let inner = locked.join("inner");
+        assert_eq!(rm_forced(&root.join("gone")), Ok(()));
+        assert_eq!(
+            rm_forced(&file.join("x")),
+            Err(format!(
+                "ENOTDIR: not a directory, lstat '{}'",
+                file.join("x").display()
+            ))
+        );
+        assert_eq!(
+            rm_forced(&inner),
+            Err(format!(
+                "EACCES, Permission denied: {0} '{0}'",
+                inner.display()
+            ))
+        );
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755))
+            .expect("unlock it");
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// Each failing call in `BMT_T17_ERR_OPS` (`[op, a, b?]`, with `{B}`,
+    /// `{VOL}` and `{RO}` standing for the folders those variables name) run
+    /// through the code that formats its error, written to `BMT_T17_ERR_OUT`
+    /// in the shape of the Node probe's output so the two diff line by line.
+    #[test]
+    #[ignore = "needs prepared folders; run with BMT_T17_ERR_OPS, BMT_T17_ERR_OUT, B, VOL and RO"]
+    fn node_error_text_on_real_failures() {
+        use serde_json::{Value, json};
+        let var = |name: &str| std::env::var(name).expect(name);
+        let (b, vol, ro) = (var("B"), var("VOL"), var("RO"));
+        let sub = |p: &str| {
+            p.replace("{B}", &b)
+                .replace("{VOL}", &vol)
+                .replace("{RO}", &ro)
+        };
+        let back = |p: String| {
+            p.replace(&b, "{B}")
+                .replace(&vol, "{VOL}")
+                .replace(&ro, "{RO}")
+        };
+        let ops: Vec<Vec<Value>> =
+            serde_json::from_str(&std::fs::read_to_string(var("BMT_T17_ERR_OPS")).expect("ops"))
+                .expect("a list of ops");
+        let mut results = Vec::new();
+        for op in ops {
+            let name = op[0].as_str().expect("an op");
+            let a = PathBuf::from(sub(op[1].as_str().expect("a path")));
+            let b_path = op
+                .get(2)
+                .and_then(Value::as_str)
+                .map(|p| PathBuf::from(sub(p)));
+            let dest = b_path.as_deref();
+            let outcome: Result<(), String> = match name {
+                "copyfile" => std::fs::copy(&a, dest.expect("a destination"))
+                    .map(drop)
+                    .map_err(|err| node_fs_error(&err, name, &a, dest)),
+                "rename" => std::fs::rename(&a, dest.expect("a destination"))
+                    .map_err(|err| node_fs_error(&err, name, &a, dest)),
+                "stat" => std::fs::metadata(&a)
+                    .map(drop)
+                    .map_err(|err| node_fs_error(&err, name, &a, None)),
+                "scandir" => std::fs::read_dir(&a)
+                    .map(drop)
+                    .map_err(|err| node_fs_error(&err, name, &a, None)),
+                "mkdir" => mkdirp(&a).map_err(|code| node_error(code, name, &a, None)),
+                "rm" => rm_forced(&a),
+                other => panic!("unknown op {other}"),
+            };
+            results.push(json!({
+                "op": name,
+                "a": op[1],
+                "b": op.get(2).cloned().unwrap_or(Value::Null),
+                "message": back(outcome.err().unwrap_or_else(|| "ok".into())),
+            }));
+        }
+        std::fs::write(
+            var("BMT_T17_ERR_OUT"),
+            serde_json::to_string_pretty(&json!({ "results": results })).expect("JSON") + "\n",
+        )
+        .expect("write the results");
+    }
+
     /// `new Date(iso).getTime()` in Node with `TZ=America/New_York`, for
     /// every edge the verifier tried, the years past jiff's range included.
     #[test]
@@ -1635,6 +2057,9 @@ mod tests {
                             .expect("the other app's backup"),
                     ),
                     "garbage" => garbage(&dest, "garbage "),
+                    "small" => {
+                        std::fs::copy(out.join("small.db"), &dest).expect("a small backup");
+                    }
                     "dir" => std::fs::create_dir(&dest).expect("a folder"),
                     _ => std::fs::write(&dest, b"").expect("an empty backup"),
                 }
@@ -1686,6 +2111,36 @@ mod tests {
                         held = Some(child);
                     }
                 }
+                "half" => {
+                    let f = std::fs::OpenOptions::new()
+                        .write(true)
+                        .open(&db_file)
+                        .expect("open");
+                    let len = f.metadata().expect("its size").len();
+                    f.set_len(len / 2).expect("truncate");
+                }
+                "header" => {
+                    use std::io::{Seek, SeekFrom, Write};
+                    let mut f = std::fs::OpenOptions::new()
+                        .write(true)
+                        .open(&db_file)
+                        .expect("open");
+                    f.seek(SeekFrom::Start(16)).expect("seek");
+                    f.write_all(&[0xff; 8]).expect("damage the header");
+                }
+                damage @ ("notable" | "nocolumn") => {
+                    let sql = if damage == "notable" {
+                        "DROP TABLE games;"
+                    } else {
+                        "DROP INDEX idx_games_puuid; ALTER TABLE games DROP COLUMN puuid;"
+                    };
+                    let o = Command::new("/usr/bin/sqlite3")
+                        .arg(&db_file)
+                        .arg(sql)
+                        .output()
+                        .expect("sqlite3 runs");
+                    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+                }
                 "rodir" => chmod(&["555"], &root.join("data")),
                 "rofile" => chmod(&["444"], &db_file),
                 _ => {}
@@ -1706,19 +2161,40 @@ mod tests {
                     entry.insert("report".into(), report_json(&backups));
                     entry.insert("listAtStart".into(), list(&backups).expect("JSON"));
                     let mut calls = Vec::new();
+                    let restore = |file: &str| match backups.restore(&db, file, NOW) {
+                        Ok(games) => json!({ "success": true, "games": games }),
+                        Err(error) => json!({ "success": false, "error": error }),
+                    };
+                    let create = || match backups.create(&db, Reason::Manual, NOW) {
+                        Ok(backup) => json!({ "success": true, "backup": backup }),
+                        Err(error) => json!({ "success": false, "error": error }),
+                    };
                     for call in sc["calls"].as_array().expect("calls") {
                         let method = call[0].as_str().expect("a method");
-                        let result = if method == "restoreBackup" {
-                            let file = call[1].as_str().expect("a file");
-                            match backups.restore(&db, file, NOW) {
-                                Ok(games) => json!({ "success": true, "games": games }),
-                                Err(error) => json!({ "success": false, "error": error }),
-                            }
+                        let file = call.get(1).and_then(Value::as_str).unwrap_or("");
+                        // The probe's two calls a few milliseconds apart
+                        let result = if method == "parallel" || method == "parallelCreateFirst" {
+                            let create_first = method == "parallelCreateFirst";
+                            let one = |first: bool| {
+                                if first == create_first {
+                                    create()
+                                } else {
+                                    restore(file)
+                                }
+                            };
+                            std::thread::scope(|s| {
+                                let first = s.spawn(|| one(true));
+                                std::thread::sleep(Duration::from_millis(5));
+                                let second = s.spawn(|| one(false));
+                                json!([
+                                    first.join().expect("first"),
+                                    second.join().expect("second")
+                                ])
+                            })
+                        } else if method == "restoreBackup" {
+                            restore(file)
                         } else {
-                            match backups.create(&db, Reason::Manual, NOW) {
-                                Ok(backup) => json!({ "success": true, "backup": backup }),
-                                Err(error) => json!({ "success": false, "error": error }),
-                            }
+                            create()
                         };
                         let args = call.as_array().expect("a call")[1..].to_vec();
                         calls.push(json!({ "method": method, "args": args, "result": result }));
