@@ -1338,13 +1338,13 @@ pub fn plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
 /// Per-case seeding for T05's state goldens of `live:snapshot` and
 /// `challenges:get`, which were recorded with T03's fake client in a given
-/// state. T08's `Domain::before_golden_case` calls [`golden::seed`] at the
-/// restack. A script is what the fake answers in one scenario, written by
+/// state. The live domain's `Domain::before_golden_case` calls
+/// [`golden::seed`]. A script is what the fake answers in one scenario, written by
 /// T21's `record-scenarios.ts` from T03's scenario code over the fixture.
 #[cfg(debug_assertions)]
 #[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "T08's before_golden_case calls it at the restack")
+    not(any(test, feature = "parity-driver")),
+    expect(dead_code, reason = "only the golden replay and tests seed")
 )]
 pub mod golden {
     use std::path::Path;
