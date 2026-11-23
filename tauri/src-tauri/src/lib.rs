@@ -16,9 +16,9 @@ fn log(message: impl AsRef<str>) {
 }
 
 #[tauri::command]
-fn first_paint(started: tauri::State<'_, StartedAt>) {
+fn page_event(started: tauri::State<'_, StartedAt>, name: String) {
     log(format!(
-        "first paint {} ms after process start",
+        "page {name} {} ms after process start",
         started.0.elapsed().as_millis()
     ));
 }
@@ -28,7 +28,7 @@ pub fn run() {
     tauri::Builder::default()
         .runtime(Wry::default())
         .manage(StartedAt(started))
-        .invoke_handler(tauri::generate_handler![first_paint])
+        .invoke_handler(tauri::generate_handler![page_event])
         .setup(move |app| {
             let (width, height) = WINDOW_SIZE;
             let (min_width, min_height) = WINDOW_MIN_SIZE;
