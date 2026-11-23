@@ -1,0 +1,73 @@
+name: Tauri CI
+
+# The Tauri workspace on both platforms the app ships for: lint, format,
+# typecheck and tests, the Rust checks, then a debug build of the app.
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "tauri/**"
+      - ".github/workflows/tauri-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tauri-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: tauri
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Tauri toolchain runs on bun's newest canary, the same one used locally
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: canary
+
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri/src-tauri
+
+      - run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Format
+        run: bun run fmt:check
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test
+        run: bun test
+
+      - name: Rust format
+        working-directory: tauri/src-tauri
+        run: cargo fmt --check
+
+      - name: Rust lint
+        working-directory: tauri/src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Rust test
+        working-directory: tauri/src-tauri
+        run: cargo test
+
+      - name: Build
+        run: bun run tauri build --debug
