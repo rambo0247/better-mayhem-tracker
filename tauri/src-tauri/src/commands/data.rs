@@ -115,8 +115,8 @@ fn dialogs<R: Runtime>(ctx: &Ctx<R>) -> &Dialogs {
 /// `snapshotBeforeWrite` for imports and repairs: a backup that is logged
 /// when it fails and never stops the work.
 fn backup_quietly<R: Runtime>(ctx: &Ctx<R>, db: &Database, reason: Reason) {
-    if let Some(backups) = ctx.app.try_state::<Backups>() {
-        backups.backup_quietly(db, reason, ctx.now_ms());
+    if let (Some(backups), Ok(now_ms)) = (ctx.app.try_state::<Backups>(), ctx.now_ms()) {
+        backups.backup_quietly(db, reason, now_ms);
     }
 }
 
@@ -166,7 +166,7 @@ fn utc_date(now_ms: i64) -> String {
 pub async fn export_data<R: Runtime>(ctx: Ctx<R>) -> CommandResult<ExportDataResult> {
     let options = SaveDialog {
         title: "Export Better Mayhem Tracker Data".into(),
-        default_path: format!("better-mayhem-backup-{}.json", utc_date(ctx.now_ms())),
+        default_path: format!("better-mayhem-backup-{}.json", utc_date(ctx.now_ms()?)),
         filters: json_filter(),
     };
     let Some(path) = dialogs(&ctx).save(&ctx.window, options).await else {
@@ -248,7 +248,8 @@ pub async fn import_data<R: Runtime>(ctx: Ctx<R>) -> CommandResult<ImportDataRes
 fn import_file<R: Runtime>(ctx: &Ctx<R>, path: &Path) -> Result<i64, ImportError> {
     let db = db::of(ctx).map_err(|err| ImportError::Thrown(err.message))?;
     let champions = champion_classes(&db);
-    let now_ms = || ctx.now_ms();
+    let clock = *ctx.app.state::<super::Clock>();
+    let now_ms = move || clock.now_ms();
     let target = ImportTarget {
         db: &db,
         classes: &champions.classes,
@@ -273,7 +274,8 @@ pub async fn repair_puuids<R: Runtime>(ctx: Ctx<R>) -> CommandResult<RepairResul
     // A repair reassigns game ownership and rewrites every derived stat, so
     // there is no undo for it short of the snapshot taken here
     backup_quietly(&ctx, &db, Reason::PreRepair);
-    db.with(|conn| repair::repair_puuids(conn, &champions, || ctx.now_ms()))
+    let clock = *ctx.app.state::<super::Clock>();
+    db.with(|conn| repair::repair_puuids(conn, &champions, || clock.now_ms()))
 }
 
 #[cfg(test)]
@@ -308,7 +310,7 @@ mod tests {
             let root = std::path::PathBuf::from(scenario["root"].as_str().unwrap());
             // SAFETY: this test is the only one that runs with the variable set
             unsafe { std::env::set_var("BMT_DATA_ROOT", &root) };
-            let app = crate::app_builder(mock_builder(), clock)
+            let app = crate::app_builder(mock_builder(), crate::Host::replay(clock))
                 .manage(Dialogs::scripted())
                 .build(mock_context(noop_assets()))
                 .unwrap();
