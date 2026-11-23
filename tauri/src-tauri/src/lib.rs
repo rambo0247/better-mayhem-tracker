@@ -8,24 +8,30 @@ compile_error!(
     "Better Mayhem Tracker must build with panic = \"unwind\": a panicking command rejects its call rather than ending the app"
 );
 
+pub mod app_menu;
 #[deny(clippy::disallowed_methods)]
 pub mod commands;
 #[cfg(any(not(bmt_release_profile), debug_assertions))]
 pub mod data_guard;
 pub mod events;
-pub mod js_arg;
 pub mod install_location;
+pub mod js_arg;
 pub mod locale;
 pub mod log;
 #[cfg(feature = "parity-driver")]
 mod parity_driver;
 #[cfg(feature = "parity-driver")]
-pub mod replay;
-// Card export (T25) calls it in release builds; until then only the driver does
+mod parity_shell;
 pub mod paths;
+#[cfg(feature = "parity-driver")]
+pub mod replay;
 pub mod security;
+pub mod shell;
+pub mod single_instance;
+// Card export (T25) calls it in release builds; until then only the driver does
 #[cfg_attr(not(feature = "parity-driver"), allow(dead_code))]
 mod snapshot;
+pub mod tray;
 
 use std::time::Instant;
 
@@ -121,14 +127,56 @@ pub fn boot_script(locale: Option<&str>) -> String {
     format!("Object.defineProperty(window, \"__BMT_BOOT__\", {{ value: Object.freeze({boot}) }});")
 }
 
+/// The first thing a launch does once it holds the single-instance lock. A
+/// later launch hands over and exits before Tauri builds anything, so it
+/// writes nothing, as Electron's second instance writes nothing. T09's
+/// `log::start` goes here.
+/// Only the instance that runs writes the log. The data guard has already run
+/// in `app_builder`'s `Paths::resolve`, before anything was created or opened.
+fn first_instance_started(hidden: bool) {
+    log::start(Paths::resolve(), app_version());
+    log(format!(
+        "first instance started{}",
+        if hidden { " with --hidden" } else { "" }
+    ));
+}
+
 pub fn run() {
     let started = Instant::now();
-    // First, so a debug build that would open the real data folder exits
-    // before anything is created or opened
-    // T10 moves this behind the single-instance check: only the instance
-    // that runs writes the log
-    log::start(Paths::resolve(), app_version());
+    let mut context = tauri::generate_context!();
+    let identifier = shell::scope_identifier(
+        &context.config().identifier,
+        shell::data_root_override().as_deref(),
+    );
+    let first = match single_instance::claim(&identifier) {
+        single_instance::Claim::First(first) => Some(first),
+        single_instance::Claim::HandedOver => std::process::exit(0),
+        single_instance::Claim::NoAnswer(error) => {
+            eprintln!("Better Mayhem Tracker is already running but did not answer: {error}");
+            std::process::exit(1);
+        }
+        single_instance::Claim::Unguarded(error) => {
+            eprintln!("starting without the single-instance lock: {error}");
+            None
+        }
+    };
+    // Before anything opens the data root, which a running 1.2.1 has open too
+    if let Some(pid) = shell::electron_user_data()
+        .as_deref()
+        .and_then(single_instance::electron_holder)
+    {
+        log(format!(
+            "Better Mayhem Tracker 1.2.1 (pid {pid}) is running on this data folder, so this launch exits"
+        ));
+        std::process::exit(0);
+    }
+    context.config_mut().identifier = identifier;
+    let hidden = shell::launched_hidden(std::env::args());
     let locale = locale::system_locale();
+    let mut builder = tauri::Builder::default().runtime(Wry::default());
+    if let Some(first) = first {
+        builder = builder.plugin(first.plugin(|app, _args, _cwd| shell::on_second_launch(app)));
+    }
     #[cfg(not(feature = "parity-driver"))]
     let host = Host::system();
     // Lanes freeze the Rust clock as Electron's seam freezes Date
@@ -137,13 +185,25 @@ pub fn run() {
         clock: Clock::from_env().expect("a valid BMT_FIXED_TIME"),
         effects: Effects::System,
     };
-    let builder = app_builder(tauri::Builder::default().runtime(Wry::default()), host);
+    let builder = app_builder(builder, host)
+        .manage(shell::Shell::new(hidden, |line| log(line)))
+        .on_window_event(shell::on_window_event);
+    // Electron's window with `show: false` never takes focus, so a login
+    // launch leaves the app the user is in active
+    #[cfg(target_os = "macos")]
+    let builder = builder.activate_ignoring_other_apps(!hidden);
     #[cfg(feature = "parity-driver")]
     let builder = parity_driver::install(builder);
     builder
         .setup(move |app| {
+            first_instance_started(hidden);
+            shell::quit_on_signals(app.handle());
+            #[cfg(target_os = "macos")]
+            shell::quit_on_terminate(app.handle());
             #[cfg(feature = "parity-driver")]
             parity_driver::prepare(app);
+            #[cfg(feature = "parity-driver")]
+            parity_shell::install_stand_ins(app.handle());
             let (width, height) = WINDOW_SIZE;
             let (min_width, min_height) = WINDOW_MIN_SIZE;
             let (r, g, b) = WINDOW_BACKGROUND;
@@ -155,7 +215,20 @@ pub fn run() {
                 .inner_size(width, height)
                 .min_inner_size(min_width, min_height)
                 .background_color(tauri::window::Color(r, g, b, 255))
-                .initialization_script(boot_script(locale.as_deref()));
+                .visible(!hidden)
+                .initialization_script(boot_script(locale.as_deref()))
+                .initialization_script(shell::devtools_keys_script());
+            // The header doubles as the title bar. macOS keeps its traffic
+            // lights, inset into the header; tao lays the title bar out 9 pt
+            // shorter than Electron, so its y of 24 lands where Electron's 15 does
+            #[cfg(target_os = "macos")]
+            let window = window
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true)
+                .traffic_light_position(tauri::LogicalPosition::new(16.0, 24.0));
+            // Windows draws its own controls in the header (Header.tsx)
+            #[cfg(windows)]
+            let window = window.decorations(false);
             let window = security::harden(window, app.handle());
             #[cfg(feature = "parity-driver")]
             let window = parity_driver::configure(window);
@@ -180,10 +253,13 @@ pub fn run() {
                 started.elapsed().as_millis()
             ));
             debug_assert_eq!(app.webview_windows().len(), 1);
+            tray::build(app.handle())?;
+            app_menu::install(app.handle())?;
             #[cfg(feature = "parity-driver")]
             parity_driver::start(&window)?;
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("failed to run the Better Mayhem Tracker shell");
+        .build(context)
+        .expect("failed to build the Better Mayhem Tracker shell")
+        .run(shell::on_run_event);
 }
