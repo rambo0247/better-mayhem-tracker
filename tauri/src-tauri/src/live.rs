@@ -26,6 +26,7 @@ use crate::db::Database;
 use crate::db::js::{self, TypeError, nullish, opt_prop, or, prop, truthy};
 use crate::db::live::{PlayerHistory, PlayerRef, get_player_histories, set_game_map};
 use crate::dragon::{ChampionData, SummonerSpellData};
+use crate::js_arg::JsNumber;
 use crate::lcu::LcuStatus;
 use crate::lcu::sync::{Client, js_number, template};
 
@@ -689,10 +690,10 @@ fn describe_event(event: &Value, by_name: &HashMap<String, (String, String)>) ->
         _ => return None,
     };
     Some(LiveEvent {
-        id: id as i64,
-        time,
-        text,
+        id: JsNumber(id),
+        time: JsNumber(time),
         tone,
+        text,
     })
 }
 
@@ -768,19 +769,15 @@ fn empty_snapshot(reference: Option<crate::lcu::LiveGameRef>) -> LiveGameSnapsho
     LiveGameSnapshot {
         in_game: false,
         starting: false,
-        game_id: whole(reference.map(|r| r.game_id)),
-        queue_id: whole(reference.map(|r| r.queue_id)),
+        game_id: reference.map(|r| JsNumber(r.game_id)),
+        queue_id: reference.map(|r| JsNumber(r.queue_id)),
         map_id: None,
         map_name: None,
         map_skin: None,
-        game_time: 0.0,
+        game_time: JsNumber(0.0),
         players: Vec::new(),
         events: Vec::new(),
     }
-}
-
-fn whole(x: Option<f64>) -> Option<i64> {
-    x.filter(|x| !x.is_nan()).map(|x| x as i64)
 }
 
 impl LiveTracker {
@@ -877,7 +874,7 @@ impl LiveTracker {
             game_id.map_or("null".into(), js::number_to_string),
             players
                 .iter()
-                .map(|p| format!("{}@{}", p.key, p.champion_id))
+                .map(|p| format!("{}@{}", p.key, js::number_to_string(p.champion_id.0)))
                 .collect::<Vec<_>>()
                 .join("|")
         );
@@ -893,7 +890,7 @@ impl LiveTracker {
                 puuid: p.puuid.clone(),
                 game_name: Some(p.name.clone()),
                 tag_line: p.tag_line.clone(),
-                champion_id: p.champion_id as f64,
+                champion_id: p.champion_id.0,
             })
             .collect();
         let histories = with_db(self.env.as_ref(), |conn| get_player_histories(conn, &refs))?;
@@ -931,12 +928,12 @@ impl LiveTracker {
         let mut snapshot = LiveGameSnapshot {
             in_game: false,
             starting: false,
-            game_id: whole(game_id),
-            queue_id: whole(queue_id),
-            map_id: whole(map_id),
+            game_id: game_id.map(JsNumber),
+            queue_id: queue_id.map(JsNumber),
+            map_id: map_id.map(JsNumber),
             map_name: None,
             map_skin: None,
-            game_time: 0.0,
+            game_time: JsNumber(0.0),
             players: Vec::new(),
             events: Vec::new(),
         };
@@ -949,7 +946,7 @@ impl LiveTracker {
 
         let game = opt_prop(data, "gameData");
         snapshot.in_game = true;
-        snapshot.game_time = number_or_zero(opt_prop(game, "gameTime")).floor();
+        snapshot.game_time = JsNumber(number_or_zero(opt_prop(game, "gameTime")).floor());
         let (map_skin, map_name) = match nullish(&[opt_prop(game, "mapTerrain")]) {
             Some(Value::String(skin)) => (Some(skin.clone()), map_name_for_skin(skin)),
             // A falsy skin names nothing, and anything else has no replace()
@@ -958,7 +955,7 @@ impl LiveTracker {
         };
         snapshot.map_name = map_name;
         map_id = or_number(js_number(opt_prop(game, "mapNumber")), map_id);
-        snapshot.map_id = whole(map_id);
+        snapshot.map_id = map_id.map(JsNumber);
 
         let roster = build_roster(session).map_err(|err| format!("TypeError: {err}"))?;
         let active = opt_prop(data, "activePlayer");
@@ -1066,8 +1063,8 @@ impl LiveTracker {
         let spells = field("summonerSpells")?;
         let spell_ids = self.spells.lock().expect("spell lock");
         let spell = |own: Option<f64>, key| {
-            own.map(|id| id as i64)
-                .or_else(|| spell_ids.resolve(opt_prop(spells, key)))
+            own.or_else(|| spell_ids.resolve(opt_prop(spells, key)).map(|id| id as f64))
+                .map(JsNumber)
         };
         let lower_active = |s: &str| !active_name.is_empty() && s.to_lowercase() == active_name;
         Ok(LivePlayer {
@@ -1078,7 +1075,7 @@ impl LiveTracker {
             key,
             tag_line: (!tag_line.is_empty()).then_some(tag_line),
             puuid,
-            champion_id: champion_id as i64,
+            champion_id: JsNumber(champion_id),
             champion_name: template(or(&[field("championName")?, Some(&EMPTY)])),
             team_id: if is_one_of(field("team")?, &["CHAOS"]) {
                 200
@@ -1087,14 +1084,14 @@ impl LiveTracker {
             },
             is_self: lower_active(&riot_id) || lower_active(&name),
             is_bot: field("isBot")? == Some(&Value::Bool(true)),
-            level: number_or_zero(field("level")?) as i64,
-            kills: score("kills") as i64,
-            deaths: score("deaths") as i64,
-            assists: score("assists") as i64,
-            creep_score: score("creepScore"),
-            items: items.iter().map(|id| *id as i64).collect(),
+            level: JsNumber(number_or_zero(field("level")?)),
+            kills: JsNumber(score("kills")),
+            deaths: JsNumber(score("deaths")),
+            assists: JsNumber(score("assists")),
+            creep_score: JsNumber(score("creepScore")),
+            items: items.map(JsNumber).to_vec(),
             is_dead: field("isDead")? == Some(&Value::Bool(true)),
-            respawn_timer: number_or_zero(field("respawnTimer")?).ceil() as i64,
+            respawn_timer: JsNumber(number_or_zero(field("respawnTimer")?).ceil()),
             spell1_id: spell(entry.and_then(|e| e.spell1), "summonerSpellOne"),
             spell2_id: spell(entry.and_then(|e| e.spell2), "summonerSpellTwo"),
             champion_record: None,
@@ -1971,6 +1968,75 @@ mod tests {
         )]));
     }
 
+    /// The hostile-game scenario T21's verifier ran against trunk Electron:
+    /// `Number(x) || 0` keeps a fraction and an infinity, an event without a
+    /// finite id takes its time as one, and the page gets them as they are.
+    #[tokio::test]
+    async fn a_running_game_keeps_javascripts_numbers() {
+        let rig = rig("hostile");
+        in_game(&rig);
+        let mut data = all_game_data();
+        let ann = &mut data["allPlayers"][0];
+        ann["level"] = json!(3.5);
+        ann["scores"]["kills"] = json!(2.5);
+        ann["scores"]["deaths"] = json!("Infinity");
+        ann["respawnTimer"] = json!("Infinity");
+        ann["items"][0]["itemID"] = json!(1001.5);
+        data["gameData"]["gameTime"] = json!("-Infinity");
+        data["events"]["Events"] = json!([
+            { "EventName": "FirstBlood", "EventTime": 12.5, "Recorder": "Ann" },
+            { "EventID": 9.5, "EventName": "Ace", "EventTime": 400, "Acer": "Ann" },
+            { "EventID": "x", "EventName": "Ace", "EventTime": "Infinity", "Acer": "Ann" },
+        ]);
+        rig.game.serve(data);
+        *rig.client.live.lock().unwrap() = Some(LiveGameRef {
+            game_id: 7_000_000_000.0,
+            queue_id: f64::NAN,
+        });
+        rig.client.route(SESSION_PATH, vec![Reply::Fail]);
+        let snapshot = serde_json::to_value(rig.live.refresh().await).unwrap();
+
+        let ann = &snapshot["players"][0];
+        assert_eq!(
+            [
+                &ann["level"],
+                &ann["kills"],
+                &ann["deaths"],
+                &ann["respawnTimer"]
+            ],
+            [
+                &json!(3.5),
+                &json!(2.5),
+                &json!({"$bmtNum": "Infinity"}),
+                &json!({"$bmtNum": "Infinity"})
+            ]
+        );
+        assert_eq!(ann["items"], json!([1001.5, 0, 0, 0, 0, 0, 3340]));
+        assert_eq!(
+            [
+                &snapshot["gameId"],
+                &snapshot["queueId"],
+                &snapshot["gameTime"]
+            ],
+            [
+                &json!(7_000_000_000_i64),
+                &json!({"$bmtNum": "NaN"}),
+                &json!({"$bmtNum": "-Infinity"})
+            ]
+        );
+        let ace = "Ace by \u{2068}Annie\u{2069}";
+        assert_eq!(
+            serde_json::to_string(&snapshot["events"]).unwrap(),
+            serde_json::to_string(&json!([
+                { "id": 12.5, "time": 12.5, "tone": "special", "text": "First blood: \u{2068}Annie\u{2069}" },
+                { "id": 9.5, "time": 400, "tone": "special", "text": ace },
+                { "id": {"$bmtNum": "Infinity"}, "time": {"$bmtNum": "Infinity"}, "tone": "special", "text": ace },
+            ]))
+            .unwrap(),
+            "Electron's describeEvent writes {{id, time, tone, text}}"
+        );
+    }
+
     #[tokio::test]
     async fn no_game_is_an_empty_snapshot_that_keeps_the_last_game_id() {
         let rig = rig("empty");
@@ -1982,8 +2048,9 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&snapshot).unwrap(),
             json!({
-                "inGame": false, "starting": false, "gameId": 55, "queueId": null, "mapId": null,
-                "mapName": null, "mapSkin": null, "gameTime": 0.0, "players": [], "events": [],
+                "inGame": false, "starting": false, "gameId": 55, "queueId": {"$bmtNum": "NaN"},
+                "mapId": null, "mapName": null, "mapSkin": null, "gameTime": 0, "players": [],
+                "events": [],
             })
         );
         assert_eq!(rig.env.events("live:changed").len(), 1);
@@ -2000,7 +2067,11 @@ mod tests {
         assert!(snapshot.starting && !snapshot.in_game);
         assert_eq!(
             (snapshot.game_id, snapshot.queue_id, snapshot.map_id),
-            (Some(7_000_000_000), Some(2400), Some(12))
+            (
+                Some(JsNumber(7_000_000_000.0)),
+                Some(JsNumber(2400.0)),
+                Some(JsNumber(12.0))
+            )
         );
 
         rig.client
@@ -2024,12 +2095,16 @@ mod tests {
         let player = |i: usize, key: &str| players[i][key].clone();
 
         assert!(snapshot.in_game && !snapshot.starting);
-        assert_eq!(snapshot.game_time, 1450.0);
+        assert_eq!(snapshot.game_time, JsNumber(1450.0));
         assert_eq!(snapshot.map_skin.as_deref(), Some("Bloom"));
         assert_eq!(snapshot.map_name.as_deref(), Some("Koeshin's Crossing"));
         assert_eq!(
             (snapshot.game_id, snapshot.queue_id, snapshot.map_id),
-            (Some(7_000_000_000), Some(2400), Some(12))
+            (
+                Some(JsNumber(7_000_000_000.0)),
+                Some(JsNumber(2400.0)),
+                Some(JsNumber(12.0))
+            )
         );
 
         // Ann: puuid, champion and spells from the client, trimmed name, self
@@ -2074,52 +2149,57 @@ mod tests {
             (json!(6), Value::Null)
         );
 
-        let feed: Vec<(i64, f64, &str, LiveEventTone)> = snapshot
+        let feed: Vec<(f64, f64, &str, LiveEventTone)> = snapshot
             .events
             .iter()
-            .map(|e| (e.id, e.time, e.text.as_str(), e.tone))
+            .map(|e| (e.id.0, e.time.0, e.text.as_str(), e.tone))
             .collect();
         assert_eq!(
             feed,
             vec![
                 (
-                    1,
+                    1.0,
                     90.5,
                     "First blood: \u{2068}Annie\u{2069}",
                     LiveEventTone::Special
                 ),
                 (
-                    2,
+                    2.0,
                     91.0,
                     "\u{2068}Annie\u{2069} killed \u{2068}Wukong\u{2069} (+1)",
                     LiveEventTone::Kill
                 ),
                 (
-                    3,
+                    3.0,
                     92.0,
                     "\u{2068}Annie\u{2069}: Double Kill",
                     LiveEventTone::Special
                 ),
                 (
-                    93,
+                    93.25,
                     93.25,
                     "\u{2068}Annie\u{2069}: 7 kills",
                     LiveEventTone::Special
                 ),
                 (
-                    5,
+                    5.0,
                     300.0,
                     "a turret destroyed a turret",
                     LiveEventTone::Objective
                 ),
                 (
-                    6,
+                    6.0,
                     400.0,
                     "\u{2068}Stranger\u{2069} destroyed an inhibitor",
                     LiveEventTone::Objective
                 ),
-                (7, 401.0, "Ace by someone", LiveEventTone::Special),
-                (8, 402.0, "First tower: a minion", LiveEventTone::Objective),
+                (7.0, 401.0, "Ace by someone", LiveEventTone::Special),
+                (
+                    8.0,
+                    402.0,
+                    "First tower: a minion",
+                    LiveEventTone::Objective
+                ),
             ]
         );
         assert_eq!(
@@ -2150,7 +2230,10 @@ mod tests {
             .collect();
         rig.game.serve(data);
         let events = rig.live.refresh().await.events;
-        assert_eq!((events.len(), events[0].id, events[39].id), (40, 5, 44));
+        assert_eq!(
+            (events.len(), events[0].id, events[39].id),
+            (40, JsNumber(5.0), JsNumber(44.0))
+        );
     }
 
     #[tokio::test]

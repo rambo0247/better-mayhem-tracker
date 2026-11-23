@@ -81,7 +81,7 @@ export type ItemStats = { item_id: number, picks: number, wins: number, };
 
 export type LcuStatus = "disconnected" | "connecting" | "connected" | "ingame";
 
-export type LiveEvent = { id: number, time: number, text: string, tone: LiveEventTone, };
+export type LiveEvent = { id: number, time: number, tone: LiveEventTone, text: string, };
 
 export type LiveEventTone = "kill" | "objective" | "special";
 

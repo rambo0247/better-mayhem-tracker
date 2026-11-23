@@ -27,6 +27,7 @@ use crate::db::challenges::{
     has_game_challenges, save_challenges, save_game_challenges,
 };
 use crate::db::js::{self, opt_prop, or};
+use crate::js_arg::{JsNumber, non_finite_as_null};
 use crate::lcu::LcuStatus;
 use crate::lcu::sync::{Client, js_number, template};
 use crate::live::{SESSION_PATH, TrackingEnv, iterate, object_values, query, text, with_db};
@@ -188,7 +189,7 @@ fn shape(raw: &Value, baseline: Option<&HashMap<String, f64>>) -> ChallengeProgr
         name => template(name),
     };
     ChallengeProgress {
-        id: id as i64,
+        id: JsNumber(id),
         name,
         description: first_text(&[field("description"), field("descriptionShort")]),
         level,
@@ -207,9 +208,10 @@ fn shape(raw: &Value, baseline: Option<&HashMap<String, f64>>) -> ChallengeProgr
         retired: finite(field("retireTimestamp"), 0.0) > 0.0,
         completed_champion_ids: (field("idListType") == Some(&Value::String("CHAMPION".into())))
             .then(|| match field("completedIds") {
-                Some(Value::Array(ids)) => {
-                    ids.iter().map(|id| js_number(Some(id)) as i64).collect()
-                }
+                Some(Value::Array(ids)) => ids
+                    .iter()
+                    .map(|id| Some(JsNumber(js_number(Some(id)))))
+                    .collect(),
                 _ => Vec::new(),
             }),
         delta: previous.map(|previous| value - previous),
@@ -287,9 +289,9 @@ fn has_values(raw: Option<&Value>) -> Option<&Value> {
 
 /// The challenges payload as `JSON.stringify` writes it, numbers included.
 fn stringify(data: &ChallengesData) -> Result<String, String> {
-    serde_json::to_value(data)
-        .map(|value| js::stringify(&value))
-        .map_err(|err| err.to_string())
+    let mut value = serde_json::to_value(data).map_err(|err| err.to_string())?;
+    non_finite_as_null(&mut value);
+    Ok(js::stringify(&value))
 }
 
 // ---------------------------------------------------------------------------
@@ -437,7 +439,7 @@ impl ChallengeTracker {
             .chain(&data.seasonal)
             .filter(|c| !c.retired)
             .map(|c| DayValue {
-                id: c.id as f64,
+                id: c.id.0,
                 value: c.value,
                 level: level_name(c.level),
             })
@@ -729,7 +731,7 @@ mod tests {
     }
 
     fn ids(list: &[ChallengeProgress]) -> Vec<i64> {
-        list.iter().map(|c| c.id).collect()
+        list.iter().map(|c| c.id.0 as i64).collect()
     }
 
     #[tokio::test]
@@ -738,7 +740,7 @@ mod tests {
         serve(&rig);
         let data = rig.challenges.refresh_and_broadcast().await.expect("data");
 
-        assert_eq!(data.capstone.as_ref().map(|c| c.id), Some(101000));
+        assert_eq!(data.capstone.as_ref().map(|c| c.id.0), Some(101000.0));
         assert_eq!(data.groups.len(), 1);
         // Closest to a new tier first, finished last
         assert_eq!(
@@ -788,7 +790,7 @@ mod tests {
         let retired = &data.seasonal[0];
         assert_eq!(
             (retired.retired, retired.completed_champion_ids.clone()),
-            (true, Some(vec![1, 2]))
+            (true, Some(vec![Some(JsNumber(1.0)), Some(JsNumber(2.0))]))
         );
 
         // Everything but the retired one and the equipped-only one gets a row
@@ -952,6 +954,42 @@ mod tests {
             (closed.name.as_str(), closed.message.as_str()),
             ("TypeError", "The database connection is not open")
         );
+    }
+
+    /// T21's hostile scenario: `completedIds.map(Number)` sends the page NaN
+    /// and a fraction as they are, JSON.stringify stores the NaN as `null`, and
+    /// `readStored` hands the stored ids back as JSON.parse read them.
+    #[tokio::test]
+    async fn champion_ids_are_javascript_numbers_fresh_and_stored() {
+        let rig = rig("hostile-ids");
+        let mut hostile = tree();
+        hostile["202005"]["completedIds"] = json!(["x", 1.5, 22]);
+        rig.client
+            .route(CHALLENGES_PATH, vec![Reply::Json(hostile)]);
+        rig.client.route(SUMMARY_PATH, vec![Reply::Json(summary())]);
+        let seasonal = |result: Value| result["data"]["seasonal"][0].clone();
+
+        rig.challenges.refresh_and_broadcast().await.expect("data");
+        let sent = seasonal(rig.env.events("challenges:changed")[0].clone());
+        assert_eq!(
+            sent["completedChampionIds"],
+            json!([{"$bmtNum": "NaN"}, 1.5, 22])
+        );
+        let stored: String = rig.env.query("SELECT payload FROM challenge_state");
+        assert!(
+            stored.contains(r#""completedChampionIds":[null,1.5,22]"#),
+            "{stored}"
+        );
+
+        // An Electron-written row, a fractional challenge id included
+        rig.env.exec(
+            r#"UPDATE challenge_state SET payload = replace(payload, '"id":202005,', '"id":202005.5,')"#,
+        );
+        rig.client.connected.store(false, Ordering::SeqCst);
+        let read =
+            seasonal(serde_json::to_value(rig.challenges.get_challenges().unwrap()).unwrap());
+        assert_eq!(read["completedChampionIds"], json!([null, 1.5, 22]));
+        assert_eq!(read["id"], json!(202005.5));
     }
 
     fn updated(id: i64) -> Value {

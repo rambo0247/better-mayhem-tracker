@@ -6,6 +6,7 @@ use ts_rs::TS;
 
 use super::types::ChallengeLevel;
 use super::{CommandResult, Ctx, Domain};
+use crate::js_arg::JsNumber;
 
 pub struct Hooks;
 impl Domain for Hooks {
@@ -72,21 +73,21 @@ pub struct LivePlayer {
     pub name: String,
     pub tag_line: Option<String>,
     pub puuid: Option<String>,
-    pub champion_id: i64,
+    pub champion_id: JsNumber,
     pub champion_name: String,
     pub team_id: i64,
     pub is_self: bool,
     pub is_bot: bool,
-    pub level: i64,
-    pub kills: i64,
-    pub deaths: i64,
-    pub assists: i64,
-    pub creep_score: f64,
-    pub items: Vec<i64>,
+    pub level: JsNumber,
+    pub kills: JsNumber,
+    pub deaths: JsNumber,
+    pub assists: JsNumber,
+    pub creep_score: JsNumber,
+    pub items: Vec<JsNumber>,
     pub is_dead: bool,
-    pub respawn_timer: i64,
-    pub spell1_id: Option<i64>,
-    pub spell2_id: Option<i64>,
+    pub respawn_timer: JsNumber,
+    pub spell1_id: Option<JsNumber>,
+    pub spell2_id: Option<JsNumber>,
     pub champion_record: Option<PlayerRecord>,
     pub overall_record: Option<PlayerRecord>,
     pub games_with_us: i64,
@@ -103,10 +104,10 @@ pub enum LiveEventTone {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct LiveEvent {
-    pub id: i64,
-    pub time: f64,
-    pub text: String,
+    pub id: JsNumber,
+    pub time: JsNumber,
     pub tone: LiveEventTone,
+    pub text: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -114,12 +115,12 @@ pub struct LiveEvent {
 pub struct LiveGameSnapshot {
     pub in_game: bool,
     pub starting: bool,
-    pub game_id: Option<i64>,
-    pub queue_id: Option<i64>,
-    pub map_id: Option<i64>,
+    pub game_id: Option<JsNumber>,
+    pub queue_id: Option<JsNumber>,
+    pub map_id: Option<JsNumber>,
     pub map_name: Option<String>,
     pub map_skin: Option<String>,
-    pub game_time: f64,
+    pub game_time: JsNumber,
     pub players: Vec<LivePlayer>,
     pub events: Vec<LiveEvent>,
 }
@@ -134,7 +135,7 @@ pub struct ChallengeReward {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ChallengeProgress {
-    pub id: i64,
+    pub id: JsNumber,
     pub name: String,
     pub description: String,
     pub level: ChallengeLevel,
@@ -147,7 +148,10 @@ pub struct ChallengeProgress {
     pub points_awarded: f64,
     pub icon_path: String,
     pub retired: bool,
-    pub completed_champion_ids: Option<Vec<i64>>,
+    // `completedIds.map(Number)`, read back from the stored payload with
+    // JSON.stringify's `null` where it was NaN
+    #[ts(as = "Option<Vec<JsNumber>>")]
+    pub completed_champion_ids: Option<Vec<Option<JsNumber>>>,
     pub delta: Option<f64>,
 }
 

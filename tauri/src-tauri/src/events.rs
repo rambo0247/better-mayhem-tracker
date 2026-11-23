@@ -165,7 +165,7 @@ mod tests {
                 map_id: None,
                 map_name: None,
                 map_skin: None,
-                game_time: 0.0,
+                game_time: crate::js_arg::JsNumber(0.0),
                 players: Vec::new(),
                 events: Vec::new(),
             },
