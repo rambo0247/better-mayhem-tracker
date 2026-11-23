@@ -82,14 +82,18 @@ export default function GlobalStatsPage() {
 
   // Those three live in the URL, so remembering them means putting the query
   // string back on the way in. Arriving with one already set — the back link
-  // from a champion page — wins over whatever was stored.
+  // from a champion page — wins over whatever was stored. The router drops a
+  // navigation made while it is still landing the first location, so a page
+  // opened directly has to restore a tick later.
   const [restored, setRestored] = createSignal(false);
   onSettled(() => {
     const saved = readViewState("global.params", "");
     if (saved && !location.search) {
-      setSearchParams(Object.fromEntries(new URLSearchParams(saved)), { replace: true });
-    }
-    setRestored(true);
+      setTimeout(() => {
+        setSearchParams(Object.fromEntries(new URLSearchParams(saved)), { replace: true });
+        setRestored(true);
+      }, 0);
+    } else setRestored(true);
   });
   createEffect(
     () => (restored() ? location.search : null),
