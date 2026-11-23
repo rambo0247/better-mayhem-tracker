@@ -212,7 +212,7 @@ const hovers: StateRow[] = [
   overlay("overlay-hover-trends-chart", "/trends", "svg", {
     holdPointer: true,
     steps: [
-      { op: "hover", selector: "svg >> nth=0" },
+      { op: "hover", selector: "svg.block >> nth=0" },
       { op: "wait", ms: 400 },
     ],
   }),
