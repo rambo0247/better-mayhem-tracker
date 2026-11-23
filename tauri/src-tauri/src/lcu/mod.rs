@@ -44,7 +44,8 @@ fn log(message: impl AsRef<str>) {
 #[derive(Debug)]
 pub enum LcuError {
     NotFound,
-    #[cfg_attr(not(windows), allow(dead_code))]
+    /// Only the Windows process lookup finds it, and a parity build has none
+    #[cfg_attr(any(not(windows), feature = "parity-ca"), allow(dead_code))]
     Elevated,
     /// Refused, reset, or closed mid-answer: Node's ECONNREFUSED, ECONNRESET,
     /// socket hang up, and EPIPE
