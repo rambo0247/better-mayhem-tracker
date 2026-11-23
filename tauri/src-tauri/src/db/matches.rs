@@ -318,7 +318,7 @@ pub fn get_match_sessions(
     filters: &MatchFilters,
     week_start: u8,
 ) -> rusqlite::Result<Vec<MatchSession>> {
-    let grouping = SessionGrouping::parse(get_setting(conn, SESSION_GROUPING_SETTING)?.as_deref());
+    let grouping = SessionGrouping::parse(get_setting(conn, SESSION_GROUPING_SETTING)?.as_str());
     let Some(key) = session_key_sql(grouping, week_start) else {
         return Ok(Vec::new());
     };
