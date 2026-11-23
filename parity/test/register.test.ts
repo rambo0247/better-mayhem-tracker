@@ -12,11 +12,15 @@ class FakeElement {
   scrollWidth = 0;
   clientWidth = 0;
   style: Style = { textOverflow: "clip", overflowX: "visible" };
+  attributes = new Set<string>();
   constructor(
     readonly tagName: string,
     readonly box: [number, number, number, number],
     readonly children: FakeElement[] = [],
   ) {}
+  hasAttribute(name: string) {
+    return this.attributes.has(name);
+  }
   getBoundingClientRect() {
     const [x, y, width, height] = this.box;
     return { x, y, width, height };
@@ -194,5 +198,66 @@ describe("rule B: inline boxes inside an overflowing ellipsis container", () => 
     const result = compareLayout(chromium, geometryOf(page("webkit")), tolerance);
     expect(result.pass).toBe(false);
     expect(result.widthExempt).toBe(0);
+  });
+});
+
+describe("elements the port marks data-parity-skip", () => {
+  // global-champion-detail-default: Electron draws the portrait as one img with
+  // object-view-box. The port draws a clipping span at the same box with a larger img inside.
+  const electron = () =>
+    new FakeElement(
+      "BODY",
+      [0, 0, 1280, 820],
+      [
+        new FakeElement("DIV", [289, 73, 116, 116], [new FakeElement("IMG", [291, 75, 112, 112])]),
+        new FakeElement("DIV", [429, 81, 790, 108]),
+      ],
+    );
+  const port = (marked: boolean) => {
+    const span = new FakeElement(
+      "SPAN",
+      [291, 75, 112, 112],
+      [new FakeElement("IMG", [285.64, 69.64, 122.72, 122.72])],
+    );
+    if (marked) span.attributes.add("data-parity-skip");
+    return new FakeElement(
+      "BODY",
+      [0, 0, 1280, 820],
+      [
+        new FakeElement("DIV", [289, 73, 116, 116], [span]),
+        new FakeElement("DIV", [429, 81.2, 790, 107.8]),
+      ],
+    );
+  };
+
+  test("a marked element keeps its own box and leaves out what it wraps", () => {
+    expect(geometryOf(port(true)).map((row) => [row[0], row[1]])).toEqual([
+      ["b", "BODY"],
+      ["b/0", "DIV"],
+      ["b/0/0", "SPAN"],
+      ["b/1", "DIV"],
+    ]);
+  });
+
+  test("the marked crop span compares with Electron's img, every path aligned", () => {
+    const result = compareLayout(geometryOf(electron()), geometryOf(port(true)), tolerance);
+    expect(result.pathMismatches).toBe(0);
+    expect(result.beyond).toBe(0);
+    expect(result.pass).toBe(true);
+  });
+
+  test("negative control: the same extra element without the mark still fails", () => {
+    const result = compareLayout(geometryOf(electron()), geometryOf(port(false)), tolerance);
+    expect(result.elementsB).toBe(result.elementsA + 1);
+    expect(result.pathMismatches).toBeGreaterThan(0);
+    expect(result.pass).toBe(false);
+  });
+
+  test("negative control: a marked element moved 2 px still fails", () => {
+    const moved = port(true);
+    moved.children[0]!.children[0]!.box[0] += 2;
+    const result = compareLayout(geometryOf(electron()), geometryOf(moved), tolerance);
+    expect(result.beyond).toBe(1);
+    expect(result.pass).toBe(false);
   });
 });

@@ -33,6 +33,9 @@
       if (inEllipsis) row.push("ellipsis");
       out.push(row);
     }
+    // A port element marked data-parity-skip stands for one element Electron drew: its box is
+    // that element's, and what it wraps to get there has no counterpart (ChampionIcon's crop)
+    if (el.hasAttribute("data-parity-skip")) return;
     const childInEllipsis = inEllipsis || (el !== document.body && truncates(el));
     [...el.children].forEach((child, i) => walk(child, path + "/" + i, childInEllipsis));
   };
