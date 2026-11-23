@@ -240,6 +240,27 @@ describe("main-process faults under the seam", () => {
     },
     300_000,
   );
+  test.skipIf(!hasElectron)(
+    "run-electron pins the fork depth to 0 whatever the parent's environment holds",
+    async () => {
+      const app = fakeApp(`
+        const { app, BrowserWindow } = require("electron");
+        app.whenReady().then(() => new BrowserWindow({ show: false }).loadURL("data:text/html,<p>x</p>"));
+      `);
+      const before = process.env.SEAM_FORK_DEPTH;
+      process.env.SEAM_FORK_DEPTH = "abc";
+      let running: Awaited<ReturnType<typeof startElectron>> | undefined;
+      try {
+        running = await startElectron(app);
+        expect(await running.app.evaluate(() => process.env.SEAM_FORK_DEPTH)).toBe("0");
+      } finally {
+        if (before === undefined) delete process.env.SEAM_FORK_DEPTH;
+        else process.env.SEAM_FORK_DEPTH = before;
+        await running?.close();
+      }
+    },
+    300_000,
+  );
 });
 
 describe("the real-folder guard, in the tools and in the seam", () => {
@@ -452,6 +473,32 @@ describe("forks under the seam", () => {
     expect(seamArgs(out.grandchild)).toBe(1);
     expect(out.child).not.toContain("-e");
     expect(out.grandchild).not.toContain("-e");
+  });
+
+  test("a depth that is not a whole number at or above zero refuses the fork instead of switching the cap off", () => {
+    const dir = scratch();
+    fs.writeFileSync(path.join(dir, "child.js"), "process.exit(0)");
+    for (const depth of ["abc", "NaN", "-1", "1.5", "Infinity"]) {
+      const result = spawnSync(
+        "node",
+        [
+          "-r",
+          seam,
+          "-e",
+          `try { require("child_process").fork("child.js"); console.log("forked"); } catch (e) { console.log(e.message); }`,
+        ],
+        {
+          cwd: dir,
+          env: { ...process.env, SEAM_LOG: path.join(dir, "seam.log"), SEAM_FORK_DEPTH: depth },
+          encoding: "utf8",
+          timeout: 20_000,
+        },
+      );
+      expect([depth, result.stdout.trim()]).toEqual([
+        depth,
+        expect.stringContaining("seam refused fork"),
+      ]);
+    }
   });
 
   test("a module that forks itself forever stops at the depth cap", () => {

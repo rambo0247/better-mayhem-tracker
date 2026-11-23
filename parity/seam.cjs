@@ -278,7 +278,8 @@ cp.fork = function (modulePath, args, options) {
   const argList = Array.isArray(args) ? args : [];
   const opts = { ...(Array.isArray(args) || args === undefined ? options : args) };
   const depth = Number(process.env.SEAM_FORK_DEPTH ?? 0);
-  if (depth >= MAX_FORK_DEPTH) {
+  // NaN fails every comparison, so a non-numeric value would turn the cap off
+  if (!Number.isInteger(depth) || depth < 0 || depth >= MAX_FORK_DEPTH) {
     log("blocked-fork depth", depth);
     throw new Error(`seam refused fork: already ${depth} forks deep`);
   }
@@ -287,7 +288,22 @@ cp.fork = function (modulePath, args, options) {
   return realFork.call(this, modulePath, argList, opts);
 };
 
-const LOOPBACK = /^(127\.0\.0\.1|localhost|\[::1\])$/;
+// The names and addresses that reach this machine: localhost, all of 127.0.0.0/8, 0.0.0.0, ::1
+function isLoopback(given) {
+  let host = String(given).toLowerCase();
+  if (host.startsWith("["))
+    host = host.slice(1, host.indexOf("]") === -1 ? undefined : host.indexOf("]"));
+  else if (host.split(":").length === 2) host = host.split(":")[0];
+  if (host === "localhost" || host === "::1" || host === "0:0:0:0:0:0:0:1" || host === "0.0.0.0") {
+    return true;
+  }
+  const octets = host.split(".");
+  return (
+    octets.length === 4 &&
+    octets[0] === "127" &&
+    octets.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)
+  );
+}
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : (input.url ?? String(input));
@@ -297,7 +313,7 @@ globalThis.fetch = async (input, init) => {
   } catch {
     // an unparseable URL is not loopback and gets blocked below
   }
-  if (LOOPBACK.test(host)) return realFetch(input, init);
+  if (isLoopback(host)) return realFetch(input, init);
   log("fetch-blocked", url);
   throw new TypeError(`seam blocked network: ${url}`);
 };
@@ -313,7 +329,7 @@ for (const lib of ["http", "https"]) {
           : first instanceof URL
             ? first.hostname
             : (first?.hostname ?? first?.host ?? "");
-      if (!LOOPBACK.test(String(host).replace(/:\d+$/, ""))) {
+      if (!isLoopback(host)) {
         log("request-blocked", lib, String(host));
         throw new Error(`seam blocked network: ${host}`);
       }

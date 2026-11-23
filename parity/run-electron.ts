@@ -297,6 +297,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     SEAM_LOG: seamLog,
     SEAM_RUN_DIR: runDir,
     SEAM_FIXED_TIME: String(FIXED_TIME.getTime()),
+    SEAM_FORK_DEPTH: "0",
     SEAM_REAL_ROOTS: JSON.stringify(realDataRoots()),
     TZ: TIME_ZONE,
     LANG: "en_US.UTF-8",

@@ -286,4 +286,56 @@ describe("seam", () => {
     });
     expect(log).toContain("fetch-blocked https://ddragon.leagueoflegends.com/api/versions.json");
   });
+  test("loopback names and addresses reach this machine and nothing else does", () => {
+    const script = `
+      const http = require("http");
+      const attempt = (host, port) => {
+        try {
+          const req = http.get({ host, port: 1, timeout: 500 }, () => {});
+          req.on("error", () => {});
+          req.destroy();
+          return "allowed";
+        } catch (e) { return /seam blocked/.test(e.message) ? "blocked" : "other " + e.message; }
+      };
+      const urls = async (list) => {
+        const out = {};
+        for (const url of list) {
+          try { await fetch(url, { signal: AbortSignal.timeout(500) }); out[url] = "allowed"; }
+          catch (e) { out[url] = /seam blocked/.test(e.message) ? "blocked" : "allowed"; }
+        }
+        return out;
+      };
+      (async () => {
+        const hosts = {};
+        for (const host of ["localhost", "127.0.0.1", "127.0.0.2", "127.255.255.254", "::1", "[::1]", "0.0.0.0",
+          "128.0.0.1", "127.0.0.256", "127.0.0.1.example.com", "localhost.example.com", "10.0.0.1", "example.com", "::2", "::ffff:8.8.8.8"]) {
+          hosts[host] = attempt(host);
+        }
+        const fetched = await urls(["http://127.0.0.2:1/", "http://[::1]:1/", "http://0.0.0.0:1/", "http://128.0.0.1:1/", "https://example.com/"]);
+        console.log(JSON.stringify({ hosts, fetched }));
+        process.exit(0);
+      })();
+    `;
+    const { result } = run(script);
+    const { hosts, fetched } = JSON.parse(result.stdout);
+    const reach = [
+      "localhost",
+      "127.0.0.1",
+      "127.0.0.2",
+      "127.255.255.254",
+      "::1",
+      "[::1]",
+      "0.0.0.0",
+    ];
+    for (const host of Object.keys(hosts)) {
+      expect([host, hosts[host]]).toEqual([host, reach.includes(host) ? "allowed" : "blocked"]);
+    }
+    expect(fetched).toEqual({
+      "http://127.0.0.2:1/": "allowed",
+      "http://[::1]:1/": "allowed",
+      "http://0.0.0.0:1/": "allowed",
+      "http://128.0.0.1:1/": "blocked",
+      "https://example.com/": "blocked",
+    });
+  });
 });
