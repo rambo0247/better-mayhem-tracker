@@ -392,6 +392,33 @@ fn sha256(path: &Path) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+/// SQLite's header field naming the library version that last wrote the
+/// file. Electron's better-sqlite3 bundles 3.53.4 and Rust 3.54.1, which T11
+/// accepted, so it is the one byte range the two apps' databases differ in.
+const SQLITE_WRITER_VERSION: std::ops::Range<usize> = 96..100;
+
+/// A written file as `path size sha256`, the form both sides compare in. A
+/// SQLite file is hashed with its writer version zeroed (Appendix A, rule D).
+fn file_key(path: &str, bytes: &[u8]) -> String {
+    let mut hashed = bytes.to_vec();
+    if hashed.starts_with(b"SQLite format 3\0") && hashed.len() >= SQLITE_WRITER_VERSION.end {
+        hashed[SQLITE_WRITER_VERSION].fill(0);
+    }
+    format!("{path} {} {:x}", bytes.len(), Sha256::digest(&hashed))
+}
+
+/// The bytes a golden file record holds, from its `text` or its `base64`.
+fn golden_bytes(file: &Value) -> Option<Vec<u8>> {
+    use base64::Engine;
+    if let Some(text) = file.get("text").and_then(Value::as_str) {
+        return Some(text.as_bytes().to_vec());
+    }
+    let encoded = file.get("base64").and_then(Value::as_str)?;
+    base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .ok()
+}
+
 /// The files the golden says were written against those this call wrote,
 /// compared as `path size sha256`.
 fn file_differences(golden: &Golden, root: &Path, before: &Listing) -> Vec<String> {
@@ -400,9 +427,14 @@ fn file_differences(golden: &Golden, root: &Path, before: &Listing) -> Vec<Strin
         .iter()
         .map(|f| {
             let path = f.get("path").and_then(Value::as_str).unwrap_or_default();
-            let size = f.get("size").map(Value::to_string).unwrap_or_default();
-            let sha = f.get("sha256").and_then(Value::as_str).unwrap_or_default();
-            format!("{path} {size} {sha}")
+            match golden_bytes(f) {
+                Some(bytes) => file_key(path, &bytes),
+                None => {
+                    let size = f.get("size").map(Value::to_string).unwrap_or_default();
+                    let sha = f.get("sha256").and_then(Value::as_str).unwrap_or_default();
+                    format!("{path} {size} {sha}")
+                }
+            }
         })
         .collect();
     let listed: BTreeSet<&str> = golden
@@ -420,7 +452,10 @@ fn file_differences(golden: &Golden, root: &Path, before: &Listing) -> Vec<Strin
         // A file the call made and removed again, such as a journal, was not
         // left written
         .filter(|(name, _)| root.join(name).is_file())
-        .map(|(name, (size, _))| format!("{RUN}/{name} {size} {}", sha256(&root.join(&name))))
+        .map(|(name, _)| {
+            let bytes = std::fs::read(root.join(&name)).expect("read a written file");
+            file_key(&format!("{RUN}/{name}"), &bytes)
+        })
         .collect();
     let mut out: Vec<String> = expected
         .difference(&written)
@@ -1397,6 +1432,42 @@ fn check_comparison() -> Result<(), String> {
 
 /// `CLOCK_FIELDS` here must equal `parity/canon.ts`'s. Without canon.ts, which
 /// T05 adds, no clock field could be masked: that fails a replay, but not a
+/// Two SQLite files that differ only in the writer-version header field
+/// compare equal; a byte anywhere else, header or page, still differs.
+fn check_sqlite_writer_version() -> Result<(), String> {
+    let page = 4096;
+    let mut electron = vec![0u8; 2 * page];
+    electron[..16].copy_from_slice(b"SQLite format 3\0");
+    electron[96..100].copy_from_slice(&3_053_004u32.to_be_bytes());
+    let mut rust = electron.clone();
+    rust[96..100].copy_from_slice(&3_054_001u32.to_be_bytes());
+    let key = |bytes: &[u8]| file_key("$RUN/x.db", bytes);
+    if key(&electron) != key(&rust) {
+        return Err(
+            "self-check sqlite: a writer-version difference alone reads as a different file".into(),
+        );
+    }
+    for offset in [0, 18, 24, 28, 92, 95, 100, page - 1, page, 2 * page - 1] {
+        let mut changed = rust.clone();
+        changed[offset] ^= 0xff;
+        if key(&electron) == key(&changed) {
+            return Err(format!(
+                "self-check sqlite: a change at byte {offset} reads as the same file"
+            ));
+        }
+    }
+    let mut plain = b"not a database".to_vec();
+    plain.resize(200, 0);
+    let mut other = plain.clone();
+    other[97] ^= 0xff;
+    if key(&plain) == key(&other) {
+        return Err(
+            "self-check sqlite: bytes 96..100 of a file that is not SQLite were ignored".into(),
+        );
+    }
+    Ok(())
+}
+
 /// run with no goldens, where nothing is compared.
 fn check_clock_fields(replaying: bool) -> Result<(), String> {
     let canon = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../parity/canon.ts");
@@ -2056,6 +2127,7 @@ fn run() -> Result<Vec<String>, String> {
     check_hostile_arguments(&build_app)?;
     check_non_finite_arguments()?;
     check_comparison()?;
+    check_sqlite_writer_version()?;
     check_clock_fields(dir.is_some())?;
     check_fixture_refusals(&root)?;
     check_replay_ratchet(&root)?;
