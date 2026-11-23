@@ -39,6 +39,7 @@ const row = (
 });
 
 const FIRST_MATCH_ROW = "button.group.relative.flex.w-full";
+const FILTERS_ACTIVE = 'button[title="Filters"].btn-active';
 
 export const STATES: StateRow[] = [
   row("match-history-default", "default", "/", FIRST_MATCH_ROW),
@@ -89,12 +90,13 @@ export const STATES: StateRow[] = [
   row("match-history-sorted-score", "match-history", "/", FIRST_MATCH_ROW, {
     pre: [{ op: "local", key: "view:matches.sort", value: '"score"' }],
   }),
-  row("match-history-favorites", "match-history", "/", FIRST_MATCH_ROW, {
+  row("match-history-favorites", "match-history", "/", FILTERS_ACTIVE, {
     pre: [{ op: "local", key: "view:matches.favorites", value: "true" }],
   }),
   row("match-history-no-matches", "match-history", "/", "text=No games match the current filters", {
     // The app drops a filter value it does not offer, so this pairs two it does: neither
-    // favorite in the fixture has a penta.
+    // favorite in the fixture has a penta. The view keys only
+    // take effect with remember_filters on, which applyState turns on for them.
     pre: [
       { op: "local", key: "view:matches.favorites", value: "true" },
       { op: "local", key: "view:matches.multikills", value: '["pentas"]' },
@@ -115,7 +117,7 @@ export const STATES: StateRow[] = [
       { op: "local", key: "view:matches.sortDir", value: '"asc"' },
     ],
   }),
-  row("match-history-multikills-pressed", "match-history", "/", FIRST_MATCH_ROW, {
+  row("match-history-multikills-pressed", "match-history", "/", FILTERS_ACTIVE, {
     pre: [{ op: "local", key: "view:matches.multikills", value: '["doubles"]' }],
   }),
   row("match-history-hide-remakes", "match-history", "/", FIRST_MATCH_ROW, {
@@ -220,6 +222,25 @@ async function warmLookups(page: Page): Promise<boolean> {
   }, LOOKUP_TIMEOUT_MS);
 }
 
+/**
+ * The renderer's item, augment and spell hooks read their module cache when a row renders and
+ * again when its effect runs. A reply that lands between the two fills the cache, so the effect
+ * returns early and the row keeps the empty record it rendered with. That left the rows below
+ * the first section without items, spells or augment frames in about 1 launch in 8. A second
+ * mount starts with every cache full, so the page that is captured never races.
+ */
+async function remountWithWarmCaches(
+  page: Page,
+  route: string,
+  vars: Record<string, string>,
+  viewport: Viewport,
+) {
+  await page.evaluate(() => (location.hash = "#/__remount"));
+  await page.waitForTimeout(200);
+  await page.evaluate((hash) => (location.hash = hash), "#" + expand(route, vars));
+  await settle(page, viewport);
+}
+
 export async function applyState(
   ctx: DriveContext,
   state: StateRow,
@@ -231,7 +252,11 @@ export async function applyState(
     localStorage.clear();
     sessionStorage.clear();
   });
-  for (const step of state.pre ?? []) await runStep(ctx, step, vars);
+  const pre = state.pre ?? [];
+  if (pre.some((step) => step.op === "local" && step.key.startsWith("view:"))) {
+    await runStep(ctx, { op: "setting", key: "remember_filters", value: "true" }, vars);
+  }
+  for (const step of pre) await runStep(ctx, step, vars);
 
   const lookupsReady = state.card ? await warmLookups(page) : undefined;
   ctx.viewport = { ...state.viewport };
@@ -240,6 +265,7 @@ export async function applyState(
   await page.reload();
   await page.waitForLoadState("load");
   await settle(page, ctx.viewport);
+  if (!state.card) await remountWithWarmCaches(page, state.route, vars, ctx.viewport);
 
   let card: StateOutcome["card"];
   if (state.card) {
