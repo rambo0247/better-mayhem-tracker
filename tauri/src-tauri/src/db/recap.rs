@@ -22,8 +22,9 @@ use crate::commands::types::{
 };
 use crate::db::js::number_to_string;
 use crate::db_row;
+use crate::intl::format_integer;
 use crate::session::session_day;
-use crate::text::{group_digits, ordinal};
+use crate::text::ordinal;
 
 /// `ARAM_S_GRADE_CHALLENGE_ID` in `src/shared/challenges.ts`.
 const ARAM_S_GRADE_CHALLENGE_ID: i64 = 101301;
@@ -615,7 +616,7 @@ fn build_milestones(rows: &[CareerRow], index: usize, locale: Option<&str>) -> V
     if let Some(mark) = crossed_step(kills - row.kills, kills, 1000) {
         add(
             "kills",
-            format!("{} career kills", group_digits(mark, locale)),
+            format!("{} career kills", format_integer(mark, locale)),
             "Every game, every champion",
         );
     }

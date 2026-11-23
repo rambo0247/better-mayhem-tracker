@@ -5,14 +5,24 @@
 //! Electron's main process uses its ICU default locale. Under Finder that is
 //! en-US, and a terminal launch with `LANG=da_DK.UTF-8` makes it da-DK. A
 //! locale argument of `None` here means the en-US default, which is ICU's
-//! root order for collation.
+//! root order for collation and writes integers as en-US does.
 
 use std::cmp::Ordering;
 use std::sync::LazyLock;
 
 use icu_collator::options::CollatorOptions;
 use icu_collator::{Collator, CollatorBorrowed, CollatorPreferences};
+use icu_decimal::input::Decimal;
+use icu_decimal::options::DecimalFormatterOptions;
+use icu_decimal::{DecimalFormatter, DecimalFormatterPreferences};
 use icu_locale_core::Locale;
+
+/// Electron's `systemLocale()`, the regional format the main process writes
+/// recap text in. T09 ports it as `crate::locale::system_locale`, which is not
+/// on this base yet.
+pub fn system_locale() -> Option<String> {
+    None
+}
 
 /// A collator for a BCP 47 tag, with `Intl.Collator`'s default options.
 /// `None` and any tag that does not parse give the root collator.
@@ -30,6 +40,19 @@ pub fn collator(locale: Option<&str>) -> CollatorBorrowed<'static> {
 pub fn locale_compare(a: &str, b: &str) -> Ordering {
     static ROOT: LazyLock<CollatorBorrowed<'static>> = LazyLock::new(|| collator(None));
     ROOT.compare(a, b)
+}
+
+/// `n.toLocaleString(locale)` for an integer. `None` and any tag that does
+/// not parse write it as en-US does.
+pub fn format_integer(n: i64, locale: Option<&str>) -> String {
+    let prefs = locale
+        .and_then(|tag| tag.parse::<Locale>().ok())
+        .map(|locale| DecimalFormatterPreferences::from(&locale))
+        .unwrap_or_default();
+    DecimalFormatter::try_new(prefs, DecimalFormatterOptions::default())
+        .expect("decimal data for every locale is compiled in")
+        .format(&Decimal::from(n))
+        .to_string()
 }
 
 #[cfg(test)]
@@ -84,5 +107,34 @@ mod tests {
             collator(Some("not a tag")).compare("aa", "b"),
             Ordering::Less
         );
+    }
+
+    #[test]
+    fn integers_are_written_as_electron_writes_them() {
+        let cases: [(i64, Option<&str>, &str); 12] = [
+            (1000, None, "1,000"),
+            (1000, Some("not a tag"), "1,000"),
+            (1000, Some("pt-BR"), "1.000"),
+            (1000, Some("es-ES"), "1000"),
+            (1000, Some("es-MX"), "1,000"),
+            (1000, Some("it-IT"), "1000"),
+            (3000, Some("fr-FR"), "3\u{202f}000"),
+            (1234567, Some("en-IN"), "12,34,567"),
+            (1234567, Some("de-CH"), "1'234'567"),
+            (-1000, Some("sv-SE"), "\u{2212}1\u{a0}000"),
+            (
+                1234567,
+                Some("ar-EG"),
+                "\u{661}\u{66c}\u{662}\u{663}\u{664}\u{66c}\u{665}\u{666}\u{667}",
+            ),
+            (
+                -1000,
+                Some("ar-EG"),
+                "\u{61c}-\u{661}\u{66c}\u{660}\u{660}\u{660}",
+            ),
+        ];
+        for (n, locale, want) in cases {
+            assert_eq!(format_integer(n, locale), want, "{n} in {locale:?}");
+        }
     }
 }
