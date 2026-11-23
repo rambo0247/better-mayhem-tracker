@@ -154,8 +154,13 @@ pub fn participant_rows_from_raw(raw: Option<&Value>) -> Result<Vec<RawParticipa
                     get(player, "summonerName")?,
                     get(p, "summonerName")?,
                     get(p, "riotIdGameName")?,
+                    Some(&Value::Null),
                 ])),
-                tag_line: text(js::or(&[get(player, "tagLine")?, get(p, "riotIdTagline")?])),
+                tag_line: text(js::or(&[
+                    get(player, "tagLine")?,
+                    get(p, "riotIdTagline")?,
+                    Some(&Value::Null),
+                ])),
                 profile_icon: icon,
                 team_id: js::number(js::nullish(&[get(p, "teamId")?, get(s, "teamId")?]))
                     .unwrap_or(100.0),
@@ -458,6 +463,23 @@ mod tests {
             },
             b[0]
         );
+    }
+
+    /// Electron stores NULL here: each chain ends in `|| null`, so a name that
+    /// is present but empty doesn't survive (the verifier's hostile V0 lane).
+    #[test]
+    fn empty_names_store_as_null() {
+        let sgp = json!({ "participants": [{ "puuid": "p", "riotIdGameName": "",
+            "riotIdTagline": "" }] });
+        let lcu = json!({
+            "participants": [{ "summonerName": "" }],
+            "participantIdentities": [{ "player": { "gameName": "", "summonerName": "",
+                "tagLine": "" } }]
+        });
+        for raw in [sgp, lcu] {
+            let row = &participant_rows_from_raw(Some(&raw)).unwrap()[0];
+            assert_eq!((row.game_name.as_deref(), row.tag_line.as_deref()), (None, None), "{raw}");
+        }
     }
 
     #[test]
