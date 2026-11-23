@@ -1,0 +1,20 @@
+{
+  "name": "bmt-parity",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Parity tooling for the Tauri port: baselines, diff gate, anonymized fixture",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "capture": "bun capture.ts",
+    "diff": "bun diff.ts",
+    "lint": "bun lint --max-warnings 0 --no-config-lookup --ext .ts",
+    "fmt": "bun fmt",
+    "fmt:check": "bun fmt --check"
+  },
+  "dependencies": {
+    "pixelmatch": "8.0.0",
+    "playwright": "1.66.0-alpha-2026-11-22",
+    "pngjs": "7.0.0"
+  }
+}

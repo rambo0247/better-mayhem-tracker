@@ -1,0 +1,9 @@
+[lint]
+ignorePatterns = ["out/", "snapshots/"]
+
+[lint.rules]
+"eqeqeq" = ["error", "smart"]
+"no-console" = "off"
+
+[fmt]
+printWidth = 100
