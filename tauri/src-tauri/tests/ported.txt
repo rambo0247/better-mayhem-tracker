@@ -44,6 +44,11 @@ db:teammate-groups
 db:teammate-stats
 db:toggle-favorite
 db:trends
+dragon:augment-icon
+dragon:augments
+dragon:champions
+dragon:items
+dragon:summoner-spells
 lcu:backfill
 lcu:backfill-running
 lcu:cancel-backfill

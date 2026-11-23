@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import * as shared from "../../../src/shared/game-assets";
+import * as routed from "./asset-url";
 import { WEBVIEW2_BASE, forWebview, isWebView2 } from "./asset-url";
+import * as constants from "./constants";
 
 const urls = [
   shared.championIconUrl(266),
@@ -30,6 +32,13 @@ describe("asset-url", () => {
   test("other URLs pass through", () => {
     expect(forWebview("data:image/png;base64,AA", true)).toBe("data:image/png;base64,AA");
     expect(forWebview("https://example.com/a.png", true)).toBe("https://example.com/a.png");
+  });
+
+  test("the components' URL constants are the routed builders, not the shared ones", () => {
+    expect(constants.CHAMPION_ICON_URL).toBe(routed.championIconUrl);
+    expect(constants.PROFILE_ICON_URL).toBe(routed.profileIconUrl);
+    expect(constants.CHAMPION_SPLASH_URL).toBe(routed.championSplashUrl);
+    expect(constants.GAME_ASSET_URL).toBe(routed.gameAssetUrl);
   });
 
   test("only WebView2 counts as Windows", () => {

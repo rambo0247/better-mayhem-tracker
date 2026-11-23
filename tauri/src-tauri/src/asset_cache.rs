@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
-use crate::assets::{log, log_error};
+use crate::log;
 
 /// Past the first, the least recently used files go until the second is reached
 pub const MAX_CACHE_BYTES: u64 = 256 * 1024 * 1024;
@@ -167,7 +167,7 @@ impl AssetCache {
             }
             Err(err) => {
                 let _ = tokio::fs::remove_file(&temp).await;
-                log_error(format!("Failed to cache {key}/{game_path}: {err}"));
+                log::error(format!("Failed to cache {key}/{game_path}: {err}"));
             }
         }
     }
@@ -182,7 +182,7 @@ impl AssetCache {
             .ok()
             .flatten()?;
         *self.patches.lock().expect("patches lock") = None;
-        log(format!(
+        log::info(format!(
             "Pruned the asset cache from {} to {}",
             mb(pruned.before),
             mb(pruned.after)
@@ -482,6 +482,56 @@ pub(crate) mod tests {
         assert_eq!(cache.patches().await, ["16.23", "16.22", "16.21"]);
         assert_eq!(mb(pruned.before), "280.0 MB");
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// The child half of [`a_prune_is_logged_to_the_apps_log`]: the app's log
+    /// is one per process, so the prune runs where nothing else starts it.
+    #[tokio::test]
+    async fn prune_log_child() {
+        let (Some(data_root), Some(cache)) = (
+            std::env::var_os("BMT_PRUNE_LOG_ROOT"),
+            std::env::var_os("BMT_PRUNE_LOG_CACHE"),
+        ) else {
+            return;
+        };
+        crate::log::start(crate::paths::Paths::at(Path::new(&data_root)), "9.9.9");
+        let now = SystemTime::now();
+        AssetCache::new(PathBuf::from(cache))
+            .prune(now)
+            .await
+            .unwrap();
+    }
+
+    /// The prune's line went through `println!` with a pid before T09's
+    /// logger; now it is a timestamped `INFO` line in `logs/main.log`.
+    #[test]
+    fn a_prune_is_logged_to_the_apps_log() {
+        let data_root = temp_dir("prune-log-root");
+        let cache = temp_dir("prune-log");
+        oversized_cache(&cache, SystemTime::now());
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "asset_cache::tests::prune_log_child",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env("BMT_PRUNE_LOG_ROOT", &data_root)
+            .env("BMT_PRUNE_LOG_CACHE", &cache)
+            .output()
+            .expect("run the child");
+        assert!(output.status.success(), "{output:?}");
+        let log = std::fs::read_to_string(data_root.join("logs/main.log")).unwrap();
+        let line = log
+            .lines()
+            .find(|l| l.contains("Pruned the asset cache"))
+            .expect("the prune's line");
+        assert!(
+            line.ends_with(" INFO Pruned the asset cache from 280.0 MB to 180.0 MB"),
+            "{line}"
+        );
+        std::fs::remove_dir_all(cache).unwrap();
+        std::fs::remove_dir_all(data_root).unwrap();
     }
 
     #[tokio::test]

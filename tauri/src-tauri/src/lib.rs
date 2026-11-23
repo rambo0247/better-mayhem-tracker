@@ -20,8 +20,6 @@ pub mod commands;
 pub mod data_guard;
 pub mod db;
 pub mod dialogs;
-// The commands that read it land with the dragon bodies, still stubs
-#[allow(dead_code)]
 mod dragon;
 pub mod events;
 // export:card-image and export:copy-card-image reach it once T25's restack
@@ -183,6 +181,7 @@ pub fn app_version() -> &'static str {
 /// app is built, so a lane process can build apps over several roots.
 pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
     let paths = Paths::resolve();
+    let game_data = game_data(paths.clone());
     let clock = host.clock;
     // Golden replay recorded Electron with the network blocked
     let github = match host.effects {
@@ -202,6 +201,7 @@ pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
         .plugin(backup::schedule(clock))
         .manage(updater::State::new(github))
         .plugin(lcu::sync::plugin())
+        .plugin(game_data)
         .plugin(live::plugin())
         .invoke_handler(commands::handler())
 }
@@ -269,26 +269,53 @@ fn first_instance_started(hidden: bool) {
 }
 
 /// The game asset source and the game data built on it, over the data root's
-/// `asset-cache/` and `data/`, as Electron lays them out.
-fn game_data(paths: &Paths) -> Option<(assets::GameAssets, dragon::Dragon)> {
+/// `asset-cache/` and `data/`, started as Electron's startup starts them:
+/// `startGameAssets()`, `loadChampionData()`, then `loadAugmentData()`. The
+/// assets read the running client's own copies first, so the plugin goes after
+/// the client's. A plugin, so the golden replay's mock app starts them too.
+fn game_data<R: Runtime>(paths: Paths) -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("game-data")
+        .setup(move |app, _api| {
+            let client = app.state::<lcu::sync::LcuSync>().lcu.clone();
+            if let Some((game_assets, dragon)) = game_data_parts(&paths, &client) {
+                app.manage(game_assets.clone());
+                app.manage(dragon.clone());
+                app.manage::<Arc<dyn lcu::sync::Champions>>(Arc::new(dragon.clone()));
+                // Registered before any command can wait on it
+                drop(dragon.load_champion_data());
+                tauri::async_runtime::spawn(async move {
+                    game_assets.follow_client(client.subscribe());
+                    game_assets.start();
+                    dragon.start();
+                });
+            }
+            Ok(())
+        })
+        .build()
+}
+
+fn game_data_parts(
+    paths: &Paths,
+    client: &lcu::Lcu,
+) -> Option<(assets::GameAssets, dragon::Dragon)> {
     let dirs = paths
         .asset_cache_dir()
         .and_then(|cache| Ok((cache, paths.data_dir()?)));
     let (cache, data) = match dirs {
         Ok(dirs) => dirs,
         Err(err) => {
-            assets::log_error(format!("Cannot create the asset folders: {err}"));
+            log::error(format!("Cannot create the asset folders: {err}"));
             return None;
         }
     };
     let web = match assets::app_web() {
         Ok(web) => web,
         Err(err) => {
-            assets::log_error(format!("Cannot build the web client: {err}"));
+            log::error(format!("Cannot build the web client: {err}"));
             return None;
         }
     };
-    let game_assets = assets::GameAssets::new(cache, web.clone(), Arc::new(assets::NoClient));
+    let game_assets = assets::GameAssets::new(cache, web.clone(), Arc::new(client.clone()));
     let dragon = dragon::Dragon::new(web, game_assets.clone(), data);
     Some((game_assets, dragon))
 }
@@ -337,8 +364,6 @@ pub fn run() {
         clock: Clock::from_env().expect("a valid BMT_FIXED_TIME"),
         effects: Effects::System,
     };
-    let game_data = game_data(&Paths::resolve());
-    let scheme_assets = game_data.as_ref().map(|(assets, _)| assets.clone());
     let builder = app_builder(builder, host)
         .manage(shell::Shell::new(hidden, |line| log(line)))
         .plugin(tauri_plugin_dialog::init())
@@ -346,8 +371,12 @@ pub fn run() {
         // Owns the `asset` name: Tauri's own asset protocol is off
         .register_asynchronous_uri_scheme_protocol(
             assets::ASSET_SCHEME,
-            move |_ctx, request, responder| {
-                let Some(assets) = scheme_assets.clone() else {
+            |ctx, request, responder| {
+                let Some(assets) = ctx
+                    .app_handle()
+                    .try_state::<assets::GameAssets>()
+                    .map(|assets| assets.inner().clone())
+                else {
                     responder.respond(
                         tauri::http::Response::builder()
                             .status(503)
@@ -416,17 +445,6 @@ pub fn run() {
             #[cfg(feature = "parity-driver")]
             if let Some(lookup) = export_image::parity_match_lookup() {
                 app.manage(lookup);
-            }
-            if let Some((game_assets, dragon)) = game_data {
-                app.manage(game_assets.clone());
-                app.manage(dragon.clone());
-                app.manage::<Arc<dyn lcu::sync::Champions>>(Arc::new(dragon.clone()));
-                // Registered before any command can wait on it
-                drop(dragon.load_champion_data());
-                tauri::async_runtime::spawn(async move {
-                    game_assets.start();
-                    dragon.start();
-                });
             }
             // Before the window, so the script runs ahead of the page's first read
             let import_started = Instant::now();

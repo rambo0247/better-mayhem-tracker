@@ -32,6 +32,7 @@ use tokio::time::Instant;
 
 use crate::asset_cache::{AssetCache, is_patch_branch};
 use crate::lcu::{Lcu, LcuStatus};
+use crate::log;
 
 pub const ASSET_SCHEME: &str = "asset";
 /// The host WebView2 serves a custom scheme under, since it routes only
@@ -71,16 +72,6 @@ const LATEST_RETRY: Duration = Duration::from_secs(60);
 const CLIENT_PATCH_RETRY: Duration = Duration::from_secs(10);
 pub const PRUNE_DELAY: Duration = Duration::from_secs(60);
 pub const PRUNE_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
-
-/// `console.log`, until T09's logger lands.
-pub(crate) fn log(message: impl AsRef<str>) {
-    println!("[bmt pid={}] {}", std::process::id(), message.as_ref());
-}
-
-/// `console.error`, until T09's logger lands.
-pub(crate) fn log_error(message: impl AsRef<str>) {
-    eprintln!("[bmt pid={}] {}", std::process::id(), message.as_ref());
-}
 
 // ---------------------------------------------------------------------------
 // The public web: Data Dragon and CommunityDragon
@@ -226,7 +217,7 @@ pub mod parity_web {
         fn get<'a>(&'a self, url: &'a str) -> BoxFuture<'a, WebAnswer> {
             async move {
                 let (Some(base), Some(rest)) = (&self.base, url.strip_prefix("https://")) else {
-                    log(format!("parity blocked network: {url}"));
+                    log::info(format!("parity blocked network: {url}"));
                     return WebAnswer::Failed(format!("parity blocked network: {url}"));
                 };
                 let response = match self.client.get(format!("{base}/{rest}")).send().await {
@@ -391,15 +382,6 @@ impl ClientFiles for Lcu {
     }
 }
 
-/// No client to ask, until T20 builds the [`Lcu`] the app runs.
-pub struct NoClient;
-
-impl ClientFiles for NoClient {
-    fn bytes<'a>(&'a self, _path: &'a str) -> BoxFuture<'a, Option<Vec<u8>>> {
-        async { None }.boxed()
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Single flight
 
@@ -469,7 +451,7 @@ impl<V: Clone + Unanswered + Send + Sync + 'static> Flights<V> {
         });
         let flight = async move {
             task.await.unwrap_or_else(|err| {
-                log_error(format!("A load ended without an answer: {err}"));
+                log::error(format!("A load ended without an answer: {err}"));
                 V::unanswered(err.to_string())
             })
         }
@@ -790,9 +772,7 @@ impl GameAssets {
         });
     }
 
-    /// Forgets the client's patch whenever the client's status changes. T20
-    /// calls it once it builds the app's [`Lcu`].
-    #[allow(dead_code)]
+    /// Forgets the client's patch whenever the client's status changes.
     pub fn follow_client(&self, mut changes: broadcast::Receiver<LcuStatus>) {
         let assets = self.clone();
         tokio::spawn(async move {
@@ -844,7 +824,7 @@ impl GameAssets {
         let mut until = self.0.outage_until.lock().expect("outage lock");
         let now = Instant::now();
         if until.is_none_or(|until| now >= until) {
-            log(format!(
+            log::info(format!(
                 "CommunityDragon is not answering ({reason}); serving art from the client and disk"
             ));
         }

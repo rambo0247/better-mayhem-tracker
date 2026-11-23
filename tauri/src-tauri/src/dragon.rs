@@ -21,9 +21,11 @@ use tokio::sync::Semaphore;
 use crate::asset_cache::by_newest_patch;
 use crate::assets::{
     Fetched, Flights, GameAssets, Web, WebAnswer, game_asset_url, game_data_path, js_number_string,
-    js_string, js_truthy, log, log_error,
+    js_string, js_truthy,
 };
+use crate::db::js;
 use crate::db::scoring::ChampionClasses;
+use crate::log;
 
 const VERSIONS: &str = "https://ddragon.leagueoflegends.com/api/versions.json";
 const DDRAGON_CDN: &str = "https://ddragon.leagueoflegends.com/cdn";
@@ -152,6 +154,7 @@ impl<V> JsObject<V> {
         self.0.len()
     }
 
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -210,42 +213,6 @@ enum Field {
     Other(Value),
 }
 
-/// `JSON.stringify`: numbers as JavaScript writes them, so `-0` and `0.0` are
-/// `0`, `100.0` is `100` and `1e21` is `1e+21`.
-fn js_json(value: &impl Serialize) -> String {
-    struct JsNumbers;
-    impl serde_json::ser::Formatter for JsNumbers {
-        fn write_f64<W: ?Sized + std::io::Write>(
-            &mut self,
-            writer: &mut W,
-            value: f64,
-        ) -> std::io::Result<()> {
-            writer.write_all(js_number_string(value).as_bytes())
-        }
-        fn write_i64<W: ?Sized + std::io::Write>(
-            &mut self,
-            writer: &mut W,
-            value: i64,
-        ) -> std::io::Result<()> {
-            self.write_f64(writer, value as f64)
-        }
-        fn write_u64<W: ?Sized + std::io::Write>(
-            &mut self,
-            writer: &mut W,
-            value: u64,
-        ) -> std::io::Result<()> {
-            self.write_f64(writer, value as f64)
-        }
-    }
-    let mut out = Vec::new();
-    value
-        .serialize(&mut serde_json::Serializer::with_formatter(
-            &mut out, JsNumbers,
-        ))
-        .expect("strings and JSON values serialize");
-    String::from_utf8(out).expect("JSON is UTF-8")
-}
-
 /// The keys JavaScript orders first: canonical integers below 2^32 - 1.
 fn array_index(key: &str) -> Option<u64> {
     let index: u64 = key.parse().ok()?;
@@ -275,62 +242,6 @@ fn panic_text(panic: &(dyn std::any::Any + Send)) -> String {
     }
 }
 
-/// JavaScript's whitespace and line terminators: Rust's set less U+0085,
-/// plus U+FEFF.
-fn is_js_whitespace(c: char) -> bool {
-    (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}'
-}
-
-/// `Number(text)` for a string, ECMA-262 StringToNumber: JavaScript's own
-/// whitespace trims, a blank string is 0, `Infinity` and the `0x`, `0o` and
-/// `0b` forms read as JavaScript reads them, and anything else that is not a
-/// plain decimal is NaN. The same function as T11's `db::js::string_to_number`,
-/// which replaces it at the restack.
-fn string_to_number(text: &str) -> f64 {
-    let t = text.trim_matches(is_js_whitespace);
-    if t.is_empty() {
-        return 0.0;
-    }
-    for (prefixes, radix) in [(["0x", "0X"], 16), (["0o", "0O"], 8), (["0b", "0B"], 2)] {
-        if let Some(digits) = prefixes.iter().find_map(|p| t.strip_prefix(p)) {
-            if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
-                return f64::NAN;
-            }
-            // Exact below 2^128, then rounded once, as the spec rounds the
-            // literal's mathematical value
-            return match u128::from_str_radix(digits, radix) {
-                Ok(n) => n as f64,
-                Err(_) => digits.chars().fold(0.0, |n, c| {
-                    n * f64::from(radix) + f64::from(c.to_digit(radix).unwrap_or(0))
-                }),
-            };
-        }
-    }
-    let unsigned = t.strip_prefix(['+', '-']).unwrap_or(t);
-    if unsigned == "Infinity" {
-        return if t.starts_with('-') {
-            f64::NEG_INFINITY
-        } else {
-            f64::INFINITY
-        };
-    }
-    let (mantissa, exponent) = match unsigned.split_once(['e', 'E']) {
-        Some((m, e)) => (m, Some(e)),
-        None => (unsigned, None),
-    };
-    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
-    let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
-    let mantissa_ok = (digits(whole) || whole.is_empty())
-        && (digits(fraction) || fraction.is_empty())
-        && !(whole.is_empty() && fraction.is_empty());
-    let exponent_ok = exponent.is_none_or(|e| digits(e.strip_prefix(['+', '-']).unwrap_or(e)));
-    if mantissa_ok && exponent_ok {
-        t.parse().unwrap_or(f64::NAN)
-    } else {
-        f64::NAN
-    }
-}
-
 /// `Number(value)`.
 fn js_number(value: Option<&Value>) -> f64 {
     match value {
@@ -338,7 +249,7 @@ fn js_number(value: Option<&Value>) -> f64 {
         Some(Value::Null) => 0.0,
         Some(Value::Bool(b)) => f64::from(u8::from(*b)),
         Some(Value::Number(n)) => n.as_f64().unwrap_or(f64::NAN),
-        Some(Value::String(s)) => string_to_number(s),
+        Some(Value::String(s)) => js::string_to_number(s),
         Some(Value::Array(items)) => match items.as_slice() {
             [] => 0.0,
             [one] => js_number(Some(one)),
@@ -352,35 +263,6 @@ fn js_number(value: Option<&Value>) -> f64 {
 /// slot in an integer-keyed map and is dropped.
 fn id_key(id: f64) -> Option<i64> {
     (id.is_finite() && id.fract() == 0.0 && id.abs() < 9_007_199_254_740_992.0).then_some(id as i64)
-}
-
-/// `parseInt(text)`: leading whitespace, a sign, a `0x` for hex, then digits
-/// up to the first that isn't. NaN when there are none.
-fn js_parse_int(text: &str) -> f64 {
-    let text = text.trim_start_matches(is_js_whitespace);
-    let (sign, rest) = match text.as_bytes().first() {
-        Some(b'-') => (-1.0, &text[1..]),
-        Some(b'+') => (1.0, &text[1..]),
-        _ => (1.0, text),
-    };
-    let (radix, rest) = match rest.get(..2) {
-        Some("0x" | "0X") => (16, &rest[2..]),
-        _ => (10, rest),
-    };
-    let digits: Vec<f64> = rest
-        .chars()
-        .map_while(|c| c.to_digit(radix))
-        .map(f64::from)
-        .collect();
-    if digits.is_empty() {
-        return f64::NAN;
-    }
-    let value = if radix == 10 {
-        rest[..digits.len()].parse().unwrap_or(f64::NAN)
-    } else {
-        digits.iter().fold(0.0, |n, d| n * 16.0 + d)
-    };
-    sign * value
 }
 
 /// `champ.tags?.[0]`.
@@ -572,7 +454,7 @@ impl Dragon {
         let dragon = self.clone();
         tokio::spawn(async move {
             if let Err(err) = dragon.augments(None).await {
-                log_error(format!("Failed to load augment data: {err}"));
+                log::error(format!("Failed to load augment data: {err}"));
             }
         });
     }
@@ -638,7 +520,7 @@ impl Dragon {
         };
         let mut champions = ChampionData::default();
         for (key, champion) in listed.entries() {
-            let id = js_parse_int(&champion.get("key").map_or("undefined".into(), js_string));
+            let id = js::parse_int(&champion.get("key").map_or("undefined".into(), js_string));
             champions.set(
                 js_number_string(id),
                 ChampionInfo {
@@ -654,10 +536,13 @@ impl Dragon {
             version: &'a str,
             champions: &'a ChampionData,
         }
-        let json = js_json(&CacheFile {
-            version: &version,
-            champions: &champions,
-        });
+        let json = js::stringify(
+            &serde_json::to_value(CacheFile {
+                version: &version,
+                champions: &champions,
+            })
+            .expect("strings and JSON values serialize"),
+        );
         {
             let mut current = self.0.champions.lock().expect("champions lock");
             current.data = champions;
@@ -668,9 +553,9 @@ impl Dragon {
             .await
             .unwrap_or_else(|err| Err(std::io::Error::other(err)));
         if let Err(err) = written {
-            log_error(format!("Failed to persist champion cache: {err}"));
+            log::error(format!("Failed to persist champion cache: {err}"));
         }
-        log(format!(
+        log::info(format!(
             "Loaded {count} champions from Data Dragon v{version}"
         ));
         Ok(())
@@ -696,7 +581,7 @@ impl Dragon {
                 .await
                 .unwrap_or_else(|panic| Err(panic_text(panic.as_ref())));
             if let Err(err) = fetched {
-                log_error(format!("Failed to load champion data: {err}"));
+                log::error(format!("Failed to load champion data: {err}"));
             }
         }
         .boxed()
@@ -746,7 +631,7 @@ impl Dragon {
                 .filter(|(_, champion)| js_truthy(champion.class.as_ref()))
                 .filter_map(|(id, champion)| {
                     Some((
-                        id_key(string_to_number(id))?,
+                        id_key(js::string_to_number(id))?,
                         js_string(champion.class.as_ref()?),
                     ))
                 })
@@ -827,7 +712,7 @@ impl Dragon {
                 if resolved == branch {
                     dragon.0.augments.keep(&key, augments.clone());
                 }
-                log(format!("Loaded {} augments ({resolved})", augments.len()));
+                log::info(format!("Loaded {} augments ({resolved})", augments.len()));
                 Ok(augments)
             })
             .await
@@ -879,7 +764,7 @@ impl Dragon {
                 }
                 let items = Arc::new(items);
                 dragon.0.items.keep(&key, items.clone());
-                log(format!("Loaded {} items ({branch})", items.len()));
+                log::info(format!("Loaded {} items ({branch})", items.len()));
                 Ok(items)
             })
             .await
@@ -916,7 +801,7 @@ impl Dragon {
                 }
                 let spells = Arc::new(spells);
                 dragon.0.spells.keep("latest", spells.clone());
-                log(format!("Loaded {} summoner spells", spells.len()));
+                log::info(format!("Loaded {} summoner spells", spells.len()));
                 Ok(spells)
             })
             .await
@@ -1010,7 +895,7 @@ impl Dragon {
             cache.set(key, url);
             let json = serde_json::to_string(cache).expect("URLs serialize");
             if let Err(err) = std::fs::write(dragon.icon_cache_file(), json) {
-                log_error(format!("Failed to persist augment icon cache: {err}"));
+                log::error(format!("Failed to persist augment icon cache: {err}"));
             }
         })
         .await;
@@ -1216,7 +1101,7 @@ impl Dragon {
             };
             let found = self.find_icon_on_branch(branch, icon_path).await;
             if let Some(url) = found.url {
-                log(format!("Resolved augment {id} icon from branch {branch}"));
+                log::info(format!("Resolved augment {id} icon from branch {branch}"));
                 if live_is_gone {
                     self.write_icon_cache(hit_key, Some(url.clone())).await;
                 }
@@ -1238,7 +1123,7 @@ impl Dragon {
 
 /// `patch.split(".").map(Number)`, where a missing minor compares as nothing.
 fn split_patch(patch: &str) -> (f64, f64) {
-    let mut parts = patch.split('.').map(string_to_number);
+    let mut parts = patch.split('.').map(js::string_to_number);
     (
         parts.next().unwrap_or(f64::NAN),
         parts.next().unwrap_or(f64::NAN),
@@ -1832,87 +1717,11 @@ mod tests {
         }
     }
 
-    /// `Number(text)` and `parseInt(text)`, against what Node 26.8 prints for
-    /// each. U+0085 is not JavaScript whitespace and U+FEFF is.
-    #[test]
-    fn strings_read_as_numbers_as_javascript_does() {
-        let number = [
-            ("\u{85}5", f64::NAN),
-            ("\u{feff}5", 5.0),
-            ("\u{a0}5\u{3000}", 5.0),
-            ("0b11", 3.0),
-            ("0o17", 15.0),
-            ("0B2", f64::NAN),
-            ("0O8", f64::NAN),
-            ("+0x1", f64::NAN),
-            ("-0b1", f64::NAN),
-            ("0x", f64::NAN),
-            ("0b", f64::NAN),
-            (" 0x1A ", 26.0),
-            ("1e3", 1000.0),
-            (".5", 0.5),
-            ("5.", 5.0),
-            (".", f64::NAN),
-            ("Infinity", f64::INFINITY),
-            ("-Infinity", f64::NEG_INFINITY),
-            ("+Infinity", f64::INFINITY),
-            ("inf", f64::NAN),
-            ("nan", f64::NAN),
-            ("1_0", f64::NAN),
-            ("0x1g", f64::NAN),
-            ("1e", f64::NAN),
-            ("-", f64::NAN),
-            ("", 0.0),
-            (" ", 0.0),
-        ];
-        for (text, want) in number {
-            let got = string_to_number(text);
-            assert!(
-                got == want || (got.is_nan() && want.is_nan()),
-                "Number({text:?}) = {got}"
-            );
-        }
-        let wide = format!("0b{}", "1".repeat(70));
-        assert_eq!(
-            js_number_string(string_to_number(&wide)),
-            "1.1805916207174113e+21"
-        );
-        for (text, want) in [
-            ("\u{85}66", f64::NAN),
-            ("\u{feff}66", 66.0),
-            ("\u{a0}66", 66.0),
-            ("\u{3000}-7", -7.0),
-            ("\u{200b}5", f64::NAN),
-        ] {
-            let got = js_parse_int(text);
-            assert!(
-                got == want || (got.is_nan() && want.is_nan()),
-                "parseInt({text:?}) = {got}"
-            );
-        }
-    }
-
     #[test]
     fn javascript_number_rules() {
-        assert_eq!(js_parse_int("266"), 266.0);
-        assert_eq!(js_parse_int(" 12abc"), 12.0);
-        assert_eq!(js_parse_int("0x1A"), 26.0);
-        assert!(js_parse_int("abc").is_nan());
-        assert_eq!(js_number_string(js_parse_int("-0")), "0");
-        assert_eq!(
-            js_number_string(js_parse_int("1000000000000000000000")),
-            "1e+21"
-        );
-        assert_eq!(
-            js_number_string(js_parse_int("123456789012345678901")),
-            "123456789012345680000"
-        );
         // `.` in JavaScript stops at U+2028, so this old hit is left as it is
         let odd = "https://raw.communitydragon.org/16.1/game/a\u{2028}.png".to_string();
         assert_eq!(as_asset_url(Some(odd.clone())), Some(odd));
-        assert_eq!(string_to_number(""), 0.0);
-        assert_eq!(string_to_number(" 16 "), 16.0);
-        assert!(string_to_number("16a").is_nan());
         assert_eq!(js_number(Some(&Value::Null)), 0.0);
         assert!(js_number(None).is_nan());
         assert_eq!(id_key(js_number(Some(&json!("1002")))), Some(1002));

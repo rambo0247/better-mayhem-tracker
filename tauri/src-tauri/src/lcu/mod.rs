@@ -438,7 +438,6 @@ impl Lcu {
     }
 
     /// Changes only, in order: what `onLcuStatusChange` listeners hear.
-    #[allow(dead_code)]
     pub fn subscribe(&self) -> broadcast::Receiver<LcuStatus> {
         self.0.status.subscribe()
     }
