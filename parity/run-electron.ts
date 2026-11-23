@@ -114,9 +114,13 @@ export function checkoutStamp(repo: string): Map<string, string> {
       ".",
       ":(exclude)parity/out",
     ],
-    { cwd: repo, encoding: "utf8" },
+    { cwd: repo, encoding: "utf8", maxBuffer: 512 * 1024 * 1024 },
   );
-  if (status.status !== 0) throw new Error(`git status failed in ${repo}: ${status.stderr}`);
+  if (status.error || status.status !== 0) {
+    throw new Error(
+      `git status failed in ${repo}: ${status.error?.message ?? `exit ${status.status}`} ${status.stderr}`,
+    );
+  }
   for (const line of status.stdout.split("\n").filter(Boolean)) stamp.set(`git ${line}`, "");
   const walk = (dir: string) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
