@@ -1,14 +1,6 @@
-import { describe, expect, test } from "bun:test";
-import { beforeAll } from "bun:test";
-import type * as TrendsLib from "./trends";
-
-// lib/format reads the locale from window.api when it loads
-let lib: typeof TrendsLib;
-beforeAll(async () => {
-  Object.assign(globalThis, { window: { api: { platform: "darwin", locale: "en-US" } } });
-  lib = await import("./trends");
-});
-type SeriesPoint = TrendsLib.SeriesPoint;
+import { beforeAll, describe, expect, test } from "bun:test";
+import * as lib from "./trends";
+type SeriesPoint = lib.SeriesPoint;
 
 function days(count: number): { day: string; games: number; wins: number }[] {
   const start = new Date(2025, 0, 1);
@@ -76,7 +68,7 @@ describe("time series geometry", () => {
     value,
     detail: "",
   }));
-  let layout: TrendsLib.SeriesLayout;
+  let layout: lib.SeriesLayout;
   beforeAll(() => {
     layout = lib.layoutSeries(points, 640, 250, 20, 100, 46);
   });

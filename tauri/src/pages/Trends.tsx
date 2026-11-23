@@ -810,6 +810,18 @@ function SectionHead(props: { title: string; children?: JSX.Element }) {
   );
 }
 
+// Whole-number ticks while the range is narrow enough to label every one,
+// quarters of the range past that
+function scoreAxis(values: number[]): { min: number; max: number; ticks: number[] } {
+  const min = Math.floor(Math.min(...values) - 0.5);
+  const max = Math.ceil(Math.max(...values) + 0.5);
+  const ticks =
+    max - min <= 6
+      ? Array.from({ length: max - min + 1 }, (_, i) => min + i)
+      : Array.from({ length: 5 }, (_, i) => min + ((max - min) * i) / 4);
+  return { min, max, ticks };
+}
+
 function Loaded(props: {
   data: TrendsData;
   granularity: Granularity;
@@ -843,16 +855,7 @@ function Loaded(props: {
     const values = scorePoints()
       .map((p) => p.value)
       .filter((v): v is number => v != null);
-    if (values.length === 0) return null;
-    const min = Math.floor(Math.min(...values) - 0.5);
-    const max = Math.ceil(Math.max(...values) + 0.5);
-    // Whole-number ticks while the range is narrow enough to label every one,
-    // quarters of the range past that
-    const ticks =
-      max - min <= 6
-        ? Array.from({ length: max - min + 1 }, (_, i) => min + i)
-        : Array.from({ length: 5 }, (_, i) => min + ((max - min) * i) / 4);
-    return { min, max, ticks };
+    return values.length === 0 ? null : scoreAxis(values);
   });
 
   const totalGames = () => props.data.daily.reduce((sum, d) => sum + d.games, 0);
