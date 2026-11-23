@@ -44,14 +44,23 @@ const MULTIKILL_NAMES: [&str; 6] = [
     "PENTAKILL",
 ];
 /// Champion select through the end of the game itself.
-#[cfg_attr(not(test), expect(dead_code, reason = "T24's updater asks it"))]
+#[cfg_attr(
+    not(any(test, feature = "parity-driver")),
+    expect(dead_code, reason = "T24's updater asks it")
+)]
 const MATCH_PHASES: [&str; 4] = ["ChampSelect", "GameStart", "InProgress", "Reconnect"];
 
 pub const ALL_GAME_DATA_PATH: &str = "/liveclientdata/allgamedata";
-#[cfg_attr(not(test), expect(dead_code, reason = "T24's updater asks it"))]
+#[cfg_attr(
+    not(any(test, feature = "parity-driver")),
+    expect(dead_code, reason = "T24's updater asks it")
+)]
 pub const GAME_STATS_PATH: &str = "/liveclientdata/gamestats";
 pub const SESSION_PATH: &str = "/lol-gameflow/v1/session";
-#[cfg_attr(not(test), expect(dead_code, reason = "T24's updater asks it"))]
+#[cfg_attr(
+    not(any(test, feature = "parity-driver")),
+    expect(dead_code, reason = "T24's updater asks it")
+)]
 const PHASE_PATH: &str = "/lol-gameflow/v1/gameflow-phase";
 
 static EMPTY: Value = Value::String(String::new());
@@ -421,14 +430,20 @@ fn unverified_config() -> Result<rustls::ClientConfig, String> {
 /// `isGameRunning`: a game is running unless the connection is refused. The
 /// API answers non-200 while the game loads, and a probe that fails some
 /// other way is no proof the game is gone.
-#[cfg_attr(not(test), expect(dead_code, reason = "T24's updater asks it"))]
+#[cfg_attr(
+    not(any(test, feature = "parity-driver")),
+    expect(dead_code, reason = "T24's updater asks it")
+)]
 pub async fn is_game_running(game: &dyn GameApi) -> bool {
     game.get(GAME_STATS_PATH).await != Err(GameApiError::Refused)
 }
 
 /// `isMatchUnderway` from `lcu.ts`: champion select through the end of the
 /// game itself, the stretch a restart would pull the app out from under.
-#[cfg_attr(not(test), expect(dead_code, reason = "T24's updater asks it"))]
+#[cfg_attr(
+    not(any(test, feature = "parity-driver")),
+    expect(dead_code, reason = "T24's updater asks it")
+)]
 pub async fn is_match_underway(client: &dyn Client) -> bool {
     if !client.is_client_connected() {
         return false;
@@ -1224,8 +1239,8 @@ impl Tracking {
     /// Puts scripted trackers in place for one golden case ([`golden`]).
     #[cfg(debug_assertions)]
     #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "T08's before_golden_case calls it at the restack")
+        not(any(test, feature = "parity-driver")),
+        expect(dead_code, reason = "only the golden replay and tests seed")
     )]
     pub fn replace(&self, live: Arc<LiveTracker>, challenges: Arc<ChallengeTracker>) {
         *self.trackers.lock().expect("trackers lock") = (live, challenges);

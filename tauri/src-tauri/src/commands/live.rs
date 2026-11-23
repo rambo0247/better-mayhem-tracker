@@ -5,7 +5,7 @@ use tauri::Runtime;
 use ts_rs::TS;
 
 use super::types::ChallengeLevel;
-use super::{CommandError, CommandResult, Ctx, Domain};
+use super::{CommandResult, Ctx, Domain};
 
 pub struct Hooks;
 impl Domain for Hooks {
