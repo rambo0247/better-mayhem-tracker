@@ -1156,7 +1156,7 @@ mod golden_tests {
         let dir = scratch.join(group);
         std::fs::create_dir_all(&dir).unwrap();
         for name in [DB_FILE, "matches.db-wal"] {
-            let from = data.join("data").join(name);
+            let from = data.join(name);
             if from.exists() {
                 std::fs::copy(&from, dir.join(name)).unwrap();
             }
