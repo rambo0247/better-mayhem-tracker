@@ -159,7 +159,9 @@ async function main() {
           seenFaults = faults.length;
           throw new Error(`main process fault: ${fresh.join(" | ").slice(0, 400)}`);
         }
-        if (outcome.settle.timedOut) throw new Error("the page never settled");
+        if (outcome.settle.timedOut) {
+          throw new Error(`the page never settled: ${outcome.settle.stuckOn}`);
+        }
         if (!outcome.expectFound) throw new Error(`expected ${state.expect} on the page`);
         if (state.card && outcome.card?.state !== "ready") {
           throw new Error(`card status ${JSON.stringify(outcome.card)}`);

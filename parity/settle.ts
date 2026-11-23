@@ -13,6 +13,8 @@ export interface SettleReport {
   decodeFailures: number;
   /** The first few images that did not decode, so a run names what failed */
   failedImages: string[];
+  /** What still moved when the wait ran out, for a page that never settled */
+  stuckOn?: string;
 }
 
 export async function settle(
@@ -24,7 +26,18 @@ export async function settle(
     async ({ quiet, timeout }) => {
       await document.fonts.ready;
       let lastMutation = performance.now();
-      const observer = new MutationObserver(() => (lastMutation = performance.now()));
+      let lastChanged = "";
+      const describe = (node: any) => {
+        const element = node instanceof Element ? node : node?.parentElement;
+        if (!element) return String(node?.nodeName);
+        const label = element.getAttribute("aria-label") ?? element.textContent ?? "";
+        return `${element.tagName.toLowerCase()}.${[...element.classList].slice(0, 3).join(".")} "${label.slice(0, 60)}"`;
+      };
+      const observer = new MutationObserver((records) => {
+        lastMutation = performance.now();
+        const last = records.at(-1);
+        if (last) lastChanged = `${last.type} on ${describe(last.target)}`;
+      });
       observer.observe(document.documentElement, {
         subtree: true,
         childList: true,
@@ -34,6 +47,7 @@ export async function settle(
       const deadline = performance.now() + timeout;
       let timedOut = false;
       let pending: number;
+      let stuckOn: string | undefined;
       for (;;) {
         const images = [...document.images];
         // A lazy image loads when the engine decides it is near enough, and engines differ on
@@ -55,6 +69,7 @@ export async function settle(
         if (performance.now() - lastMutation > quiet) break;
         if (performance.now() > deadline) {
           timedOut = true;
+          stuckOn = `${pending} images pending, connecting ${connecting}, last change ${Math.round(performance.now() - lastMutation)} ms ago: ${lastChanged}`;
           break;
         }
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -72,7 +87,13 @@ export async function settle(
           ),
         ]);
       await Promise.all([...document.images].filter((image) => image.complete).map(decodeWithin));
-      return { timedOut, pending, decodeFailures: failed.length, failedImages: failed.slice(0, 5) };
+      return {
+        timedOut,
+        pending,
+        stuckOn,
+        decodeFailures: failed.length,
+        failedImages: failed.slice(0, 5),
+      };
     },
     { quiet: QUIET_MS, timeout: SETTLE_TIMEOUT_MS },
   );
@@ -85,5 +106,6 @@ export async function settle(
     pendingImages: report.pending,
     decodeFailures: report.decodeFailures,
     failedImages: report.failedImages,
+    stuckOn: report.stuckOn,
   };
 }
