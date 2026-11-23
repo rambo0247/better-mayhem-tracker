@@ -9,3 +9,4 @@
 
 # Byte for byte as the audit read them (decision E2)
 parity/snapshots/fixture/** -text
+parity/goldens/data/** -text
