@@ -78,6 +78,17 @@ fn log(message: impl AsRef<str>) {
     println!("[bmt pid={}] {}", std::process::id(), message.as_ref());
 }
 
+/// The line a page event logs. First content names its first row as JSON
+/// text, which T06's probe reads to prove the run opened the fixture copy.
+fn page_line(name: &str, ms: u128, row: Option<&str>) -> String {
+    let mut line = format!("page {name} {ms} ms after process start");
+    if let Some(row) = row.filter(|_| name == "first-content") {
+        line.push_str(" row=");
+        line.push_str(&serde_json::Value::from(row).to_string());
+    }
+    line
+}
+
 #[tauri::command]
 fn page_event(
     started: tauri::State<'_, StartedAt>,
@@ -85,11 +96,9 @@ fn page_event(
     clock: tauri::State<'_, Clock>,
     confirmation: tauri::State<'_, local_storage::Confirmation>,
     name: String,
+    row: Option<String>,
 ) {
-    let line = format!(
-        "page {name} {} ms after process start",
-        started.0.elapsed().as_millis()
-    );
+    let line = page_line(&name, started.0.elapsed().as_millis(), row.as_deref());
     // T06's launch probe reads first-content from stdout, or from the file
     // BMT_PERF_LOG names, since a Windows release build has no stdout
     if name == "first-content" {
@@ -506,4 +515,30 @@ pub fn run() {
             }
             shell::on_run_event(app, event);
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::page_line;
+
+    #[test]
+    fn first_content_names_its_row_as_json_text() {
+        assert_eq!(
+            page_line(
+                "first-content",
+                812,
+                Some("VICTORY\n\"Kog'Maw\" 16 / 13 / 32")
+            ),
+            r#"page first-content 812 ms after process start row="VICTORY\n\"Kog'Maw\" 16 / 13 / 32""#
+        );
+        assert_eq!(
+            page_line("first-content", 812, None),
+            "page first-content 812 ms after process start"
+        );
+        // Only first content carries a row
+        assert_eq!(
+            page_line("local-storage-filled", 9, Some("x")),
+            "page local-storage-filled 9 ms after process start"
+        );
+    }
 }

@@ -9,7 +9,10 @@ export function reportFirstContent(): void {
   reported = true;
   requestAnimationFrame(() =>
     requestAnimationFrame(() => {
-      invoke("page_event", { name: "first-content" }).catch((error: unknown) =>
+      // The first match-history row, which T06's probe checks against the fixture
+      const row = document.querySelector<HTMLElement>("button.group.relative.flex.w-full");
+      const detail = row ? { row: row.innerText.slice(0, 300) } : {};
+      invoke("page_event", { name: "first-content", ...detail }).catch((error: unknown) =>
         console.warn("first-content was not logged:", error),
       );
     }),
