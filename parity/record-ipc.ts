@@ -21,7 +21,7 @@ import { IPC_CASES, READ_GROUP, type IpcCase, type Prior, type Vars } from "./ip
 import { startFakeLcu } from "./fake-lcu.ts";
 import { loadContext } from "./fake-lcu/context.ts";
 import { PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
-import { FIXED_TIME, startElectron, type RunningElectron } from "./run-electron.ts";
+import { FIXED_TIME, TIME_ZONE, startElectron, type RunningElectron } from "./run-electron.ts";
 
 const GOLDEN_DIR = path.join(PARITY_DIR, "out", "golden");
 const API_PATH = path.join(REPO_DIR, "src", "shared", "api.ts");
@@ -561,6 +561,20 @@ function writeJsonl(file: string, lines: EventLine[], runDir: string) {
   fs.writeFileSync(file, lines.map((l) => redact(JSON.stringify(l), runDir)).join("\n") + "\n");
 }
 
+/** T02's final fixture. Goldens recorded on any other `matches.db` would mislead every replay. */
+export const FIXTURE_DB_SHA256 = "32f91f0a88b50ea3f53bc1970b9d7247443a1a389bfe5c0f73a4a35ee7641136";
+/** The `--lang` run-electron passes, so dates and numbers format as in the goldens. */
+export const LOCALE = "en-US";
+
+/** The sha256 of the data source's `matches.db`. Refuses the fixture when it is not T02's final one. */
+export function dataDbSha256(data: string): string {
+  const sha = sha256File(path.join(resolveDataRoot(data), "data", "matches.db"));
+  if (data === "fixture" && sha !== FIXTURE_DB_SHA256) {
+    throw new Error(`fixture matches.db is ${sha}, not T02's final ${FIXTURE_DB_SHA256}`);
+  }
+  return sha;
+}
+
 function sha256File(file: string) {
   return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 }
@@ -658,6 +672,7 @@ if (import.meta.main) {
     process.exit(coverage.channels.missing.length + coverage.events.missing.length ? 1 : 0);
   }
 
+  const dbSha256 = dataDbSha256(data);
   process.env.SEAM_IPC = "1";
   const channels = parseChannels(fs.readFileSync(API_PATH, "utf8"));
 
@@ -740,8 +755,10 @@ if (import.meta.main) {
     appVersion,
     platform: process.platform,
     fixedTime: FIXED_TIME.toISOString(),
+    timeZone: TIME_ZONE,
+    locale: LOCALE,
     data,
-    dbSha256: sha256File(path.join(resolveDataRoot(data), "data", "matches.db")),
+    dbSha256,
     channels: coverage.channels.covered.sort(),
     events: coverage.events.covered.sort(),
   };

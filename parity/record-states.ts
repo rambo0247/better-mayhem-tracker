@@ -11,15 +11,24 @@ import {
   type Outcome,
   type StateIndex,
 } from "./golden-format.ts";
-import { drain, parseChannels, redact, writeJson, type SeamRecord } from "./record-ipc.ts";
+import {
+  dataDbSha256,
+  drain,
+  parseChannels,
+  redact,
+  writeJson,
+  type SeamRecord,
+} from "./record-ipc.ts";
 import { PARITY_DIR, REPO_DIR } from "./lib/data.ts";
 import { gameRunning } from "./lib/no-game.ts";
 import { startElectron, type RunningElectron } from "./run-electron.ts";
-import { applyState, resolveVars, selectStates, type StateRow } from "./states.ts";
+import { STATES, applyState, resolveVars, selectStates, type StateRow } from "./states.ts";
 import crypto from "node:crypto";
+import type { Page } from "playwright";
 
 const GOLDEN_DIR = path.join(PARITY_DIR, "out", "golden");
 const QUIET_MS = 400;
+const FIRST_TICK_TIMEOUT_MS = 45_000;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export interface Call {
@@ -85,6 +94,13 @@ export class CaseBook {
   find(channel: string, args: Json[], answer: string): string | undefined {
     const key = canonicalize(args);
     return this.load(channel).find((c) => c.key === key && c.answer === answer)?.id;
+  }
+
+  /** The cases replay picks by arguments alone: every case at the lowest `seq` with these arguments. */
+  byArgs(channel: string, args: Json[]): { id: string; answer: string }[] {
+    const key = canonicalize(args);
+    const matches = this.load(channel).filter((c) => c.key === key);
+    return matches.filter((c) => c.seq === matches[0]?.seq);
   }
 
   add(channel: string, id: string, args: Json[], answer: string) {
@@ -154,6 +170,69 @@ export function recordState(
   return index;
 }
 
+/**
+ * The status reads "connecting" until the connect loop's first tick, about 5 s after launch.
+ * Poller events are left out of the goldens, so a replay never sees that tick, and a page that
+ * read "connecting" never settles there. A state that holds the loop keeps "connecting" by design.
+ */
+async function waitForFirstTick(page: Page, state: StateRow): Promise<string> {
+  const deadline = Date.now() + FIRST_TICK_TIMEOUT_MS;
+  for (;;) {
+    const status = await page.evaluate(async () => {
+      const api = window.api as unknown as Record<string, () => Promise<string>>;
+      return api.getLcuStatus!();
+    });
+    if (status !== "connecting" || state.client?.hold) return status;
+    if (Date.now() > deadline) throw new Error(`${state.id}: status still "connecting"`);
+    await sleep(100);
+  }
+}
+
+/**
+ * A replay resolves a state's variables from the answers it picks by arguments alone, so each of
+ * `resolveVars`' reads must pick exactly the answer Electron gave on this data. Otherwise a game
+ * id from another state's answer, such as a fake client's new game, ends up in the route.
+ */
+export function varsReadMismatches(calls: Call[], book: CaseBook, runDir: string): string[] {
+  return calls.flatMap((call) => {
+    const answer = canonicalize(JSON.parse(redact(JSON.stringify(call.outcome), runDir)) as Json);
+    const picks = book.byArgs(call.channel, call.args);
+    const label = `${call.channel} ${canonicalize(call.args)}`;
+    if (picks.length !== 1) return [`${label}: replay picks ${picks.length} cases`];
+    return picks[0]!.answer === answer ? [] : [`${label}: replay picks ${picks[0]!.id}`];
+  });
+}
+
+const SETTINGS_CHANNELS = new Set(["settings:get", "settings:set"]);
+
+/** The page's own calls, without the driver's settings reads and writes. */
+export const pageCalls = (index: StateIndex) =>
+  index.calls
+    .filter((call) => !SETTINGS_CHANNELS.has(call.channel))
+    .map((call) => `${call.channel} ${canonicalize(call.args)} ${call.case}`);
+
+/** Rows that seed `view:` keys, each paired with the default state of its route. */
+export const viewKeyRows = (states: StateRow[]) =>
+  states.flatMap((state) => {
+    if (!state.pre?.some((step) => step.op === "local" && step.key.startsWith("view:"))) return [];
+    const base = states.find((other) => other.group === "default" && other.route === state.route);
+    return base ? [{ state: state.id, base: base.id }] : [];
+  });
+
+/** A view-key row whose page calls equal its route's default never applied its filters. */
+export function unfilteredViewKeyRows(states: StateRow[], dir: string): string[] {
+  const read = (id: string) => {
+    const file = path.join(dir, `${id}.json`);
+    return fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf8")) as StateIndex) : null;
+  };
+  return viewKeyRows(states).flatMap(({ state, base }) => {
+    const [mine, theirs] = [read(state), read(base)];
+    if (!mine || !theirs) return [];
+    const same = canonicalize(pageCalls(mine)) === canonicalize(pageCalls(theirs));
+    return same ? [`${state}: page calls equal ${base}'s`] : [];
+  });
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   const value = (flag: string) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
@@ -163,6 +242,12 @@ async function main() {
   const states = selectStates(value("--states") ?? "all");
   if (!fs.existsSync(path.join(out, "ipc"))) {
     throw new Error(`${out} has no ipc goldens. Run record-ipc.ts first.`);
+  }
+  const recorded = (
+    JSON.parse(fs.readFileSync(path.join(out, "manifest.json"), "utf8")) as GoldenManifest
+  ).dbSha256;
+  if (dataDbSha256(data) !== recorded) {
+    throw new Error(`${data} is not the data the ipc goldens in ${out} were recorded on`);
   }
   process.env.SEAM_IPC = "1";
 
@@ -182,6 +267,7 @@ async function main() {
   };
 
   const failures: string[] = [];
+  const varsReads: { calls: Call[]; runDir: string }[] = [];
   let running: RunningElectron | undefined;
   let runData = "";
   let vars: Record<string, string> = {};
@@ -196,6 +282,9 @@ async function main() {
         await close();
         const clientRun = await openClientState(state, { data, repo, dir: scratch });
         try {
+          console.log(
+            `state ${state.id}: status ${await waitForFirstTick(clientRun.running.page, state)}`,
+          );
           await drain(clientRun.running);
           let error: string | undefined;
           try {
@@ -219,8 +308,13 @@ async function main() {
       if (!running) {
         runData = wanted;
         running = await startElectron({ data: wanted, repo });
+        await drain(running);
         vars = await resolveVars(running.page);
+        console.log(`vars ${wanted}: ${JSON.stringify(vars)}`);
+        if (wanted === data)
+          varsReads.push({ calls: callsFrom(await drain(running)), runDir: running.runDir });
       }
+      console.log(`state ${state.id}: status ${await waitForFirstTick(running.page, state)}`);
       await drain(running);
       await applyState(running.ctx, state, vars);
       await sleep(QUIET_MS);
@@ -232,6 +326,12 @@ async function main() {
     fs.rmSync(scratch, { recursive: true, force: true });
   }
 
+  const finalBook = new CaseBook(out);
+  for (const { calls, runDir } of varsReads) {
+    for (const miss of varsReadMismatches(calls, finalBook, runDir))
+      failures.push(`resolveVars ${miss}`);
+  }
+  failures.push(...unfilteredViewKeyRows(STATES, path.join(out, "states")));
   for (const failure of failures) console.log(`FAIL ${failure}`);
   const manifestFile = path.join(out, "manifest.json");
   if (fs.existsSync(manifestFile)) {

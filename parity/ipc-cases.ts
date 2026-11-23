@@ -91,6 +91,9 @@ add("getMatchHistory", "filter-combined", "season, queue and champion together",
   { season: v.season, queue: v.queue, championId: v.championId },
 ]);
 add("getMatchHistory", "empty", "a champion with no games", () => [50, 0, { championId: -1 }]);
+add("getMatchHistory", "newest", "the newest game, where the states read their game id", () => [
+  1, 0,
+]);
 
 add("getMatchSessions", "default", "no filters");
 add("getMatchSessions", "filter-queue", "one queue", (v) => [{ queue: v.queue }]);

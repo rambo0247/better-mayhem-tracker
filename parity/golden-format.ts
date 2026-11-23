@@ -67,6 +67,10 @@ export interface GoldenManifest {
   appVersion: string;
   platform: string;
   fixedTime: string;
+  /** The IANA zone Electron ran in (`TZ`). A replay sets it before it starts. */
+  timeZone: string;
+  /** The renderer's locale (`--lang`, `LANG`). A replay sets it before it starts. */
+  locale: string;
   data: string;
   dbSha256: string;
   channels: string[];
