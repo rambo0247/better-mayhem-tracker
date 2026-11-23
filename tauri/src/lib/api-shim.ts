@@ -1,10 +1,5 @@
 import { INVOKE_CHANNELS, type ElectronAPI } from "@shared/api";
-
-declare global {
-  interface Window {
-    api?: ElectronAPI;
-  }
-}
+import { install } from "../api";
 
 // Every channel fails the way T08's Rust stubs do, so the shell still renders
 // in a plain Tauri run with nothing behind it
@@ -25,6 +20,8 @@ function notPortedApi(): ElectronAPI {
   }) as unknown as ElectronAPI;
 }
 
-// The preload's window.api until T08's generated api.ts replaces this module.
-// Read at import, before any other module, because the locale and platform are.
-export const api: ElectronAPI = window.api ?? notPortedApi();
+// window.api when something provides it (the replay API in parity runs), else
+// T08's api.ts over the Rust commands once lib.rs's boot script has run. Read at
+// import, before any other module, because the locale and platform are.
+const provided = window.api as ElectronAPI | undefined;
+export const api: ElectronAPI = provided ?? (window.__BMT_BOOT__ ? install() : notPortedApi());
