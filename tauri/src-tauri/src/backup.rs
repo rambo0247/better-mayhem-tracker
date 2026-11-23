@@ -86,12 +86,14 @@ impl Backups {
         self.report.clone()
     }
 
-    /// `getBackupDir`, which makes the folder on every use.
-    pub fn dir(&self) -> &Path {
-        if let Err(err) = std::fs::create_dir_all(&self.dir) {
-            eprintln!("Failed to create backup directory: {err}");
+    /// `getBackupDir`, which makes the folder on every use and throws when it
+    /// can't.
+    pub fn dir(&self) -> Result<&Path, String> {
+        if !self.dir.exists() {
+            std::fs::create_dir_all(&self.dir)
+                .map_err(|err| node_fs_error(&err, "mkdir", &self.dir, None))?;
         }
-        &self.dir
+        Ok(&self.dir)
     }
 
     fn hold(&self) -> Held<'_> {
@@ -102,10 +104,11 @@ impl Backups {
 
     /// `listBackups`: newest first, each with its game count, or none when the
     /// snapshot cannot be read. A damaged one still belongs in the list.
-    pub fn list(&self) -> Vec<BackupInfo> {
+    pub fn list(&self) -> Result<Vec<BackupInfo>, String> {
         let _held = self.hold();
-        let dir = self.dir().to_path_buf();
-        self.read()
+        let dir = self.dir()?.to_path_buf();
+        Ok(self
+            .read()
             .into_iter()
             .map(|backup| {
                 let games = Connection::open_with_flags(
@@ -116,27 +119,35 @@ impl Backups {
                 .ok();
                 BackupInfo { games, ..backup }
             })
-            .collect()
+            .collect())
     }
 
     /// `createBackup`, queued behind any backup already running.
     pub fn create(&self, db: &Database, reason: Reason, now_ms: i64) -> Result<BackupInfo, String> {
         let held = self.hold();
-        self.run_backup(&held, db, reason, now_ms)
+        self.run_backup(&held, db, reason, now_ms, None)
     }
 
     /// `backupQuietly`: a failed snapshot is logged and never aborts the work
     /// it was protecting. Skipped when the player turned automatic backups off.
     pub fn backup_quietly(&self, db: &Database, reason: Reason, now_ms: i64) {
         let held = self.hold();
-        self.quietly(&held, db, reason, now_ms);
+        self.quietly(&held, db, reason, now_ms, None);
     }
 
-    fn quietly(&self, held: &Held<'_>, db: &Database, reason: Reason, now_ms: i64) {
+    /// `spare` names a backup this snapshot's prune must keep.
+    fn quietly(
+        &self,
+        held: &Held<'_>,
+        db: &Database,
+        reason: Reason,
+        now_ms: i64,
+        spare: Option<&str>,
+    ) {
         if auto_backup_off(db) {
             return;
         }
-        match self.run_backup(held, db, reason, now_ms) {
+        match self.run_backup(held, db, reason, now_ms, spare) {
             Ok(backup) => println!(
                 "Backed up {} games to {}",
                 backup.games.unwrap_or_default(),
@@ -152,9 +163,10 @@ impl Backups {
         db: &Database,
         reason: Reason,
         now_ms: i64,
+        spare: Option<&str>,
     ) -> Result<BackupInfo, String> {
         let file = format!("matches-{}-{}.db", stamp(now_ms, &self.tz), reason.as_str());
-        let dest = self.dir().join(&file);
+        let dest = self.dir()?.join(&file);
         // Written under a name the listing ignores, so a crash or a full disk
         // part way through can't leave a truncated file that looks usable
         let partial = suffixed(&dest, ".part");
@@ -179,13 +191,14 @@ impl Backups {
                     "snapshot holds {games} games, database had {before}"
                 ));
             }
-            std::fs::rename(&partial, &dest).map_err(|err| err.to_string())?;
+            std::fs::rename(&partial, &dest)
+                .map_err(|err| node_fs_error(&err, "rename", &partial, Some(&dest)))?;
             let size = std::fs::metadata(&dest)
-                .map_err(|err| err.to_string())?
+                .map_err(|err| node_fs_error(&err, "stat", &dest, None))?
                 .len() as i64;
             // Only once the new snapshot is verified on disk: a database that
             // has gone bad must never rotate out the good copies
-            self.prune(&self.read());
+            self.prune(&self.read(), spare);
             Ok(BackupInfo {
                 file: file.clone(),
                 created: now_ms,
@@ -195,8 +208,10 @@ impl Backups {
             })
         };
         attempt().inspect_err(|_| {
+            // A copy that stops part way, as on a full disk, leaves a journal
             for leftover in [
                 partial.clone(),
+                suffixed(&partial, "-journal"),
                 suffixed(&partial, "-wal"),
                 suffixed(&partial, "-shm"),
             ] {
@@ -208,8 +223,9 @@ impl Backups {
     /// `readBackups`: every file named as a backup, newest first. Names carry
     /// the time, so this never trusts mtimes a copy or sync client rewrites.
     fn read(&self) -> Vec<BackupInfo> {
-        let dir = self.dir();
-        let entries = match std::fs::read_dir(dir) {
+        let entries = match self.dir().and_then(|dir| {
+            std::fs::read_dir(dir).map_err(|err| node_fs_error(&err, "scandir", dir, None))
+        }) {
             Ok(entries) => entries,
             Err(err) => {
                 eprintln!("Failed to read backup directory: {err}");
@@ -228,7 +244,7 @@ impl Backups {
                 let (text, reason) = parse_name(&file)?;
                 let created = parse_stamp(text, &self.tz);
                 let reason = reason.to_owned();
-                let size = std::fs::metadata(dir.join(&file)).ok()?.len() as i64;
+                let size = std::fs::metadata(self.dir.join(&file)).ok()?.len() as i64;
                 Some(BackupInfo {
                     file,
                     created,
@@ -243,11 +259,12 @@ impl Backups {
     }
 
     /// Grandfather-father-son: the newest few, then the newest snapshot of
-    /// each of the last few weeks and months. Everything else goes.
-    fn prune(&self, backups: &[BackupInfo]) {
-        let dir = self.dir();
-        for file in prune_victims(backups, &self.tz) {
-            if let Err(err) = remove_file_forced(&dir.join(file)) {
+    /// each of the last few weeks and months. Everything else goes, except
+    /// `spare`.
+    fn prune(&self, backups: &[BackupInfo], spare: Option<&str>) {
+        let victims = prune_victims(backups, &self.tz);
+        for file in victims.into_iter().filter(|file| Some(*file) != spare) {
+            if let Err(err) = remove_file_forced(&self.dir.join(file)) {
                 eprintln!("Failed to remove old backup: {file} {err}");
             }
         }
@@ -264,23 +281,35 @@ impl Backups {
             return;
         }
         if self.is_stale(now_ms) {
-            self.quietly(held, db, Reason::Auto, now_ms);
+            self.quietly(held, db, Reason::Auto, now_ms, None);
         }
     }
 
     /// `restoreBackup`: puts a snapshot in place of the live database, after
     /// taking a `pre-restore` snapshot so a mistaken restore can be undone.
+    ///
+    /// Electron can lose the database twice here, and this does not: the
+    /// pre-restore snapshot's prune keeps the file being restored, and a swap
+    /// that fails opens the untouched database again.
     pub fn restore(&self, db: &Database, file: &str, now_ms: i64) -> Result<i64, String> {
         let held = self.hold();
         let source = self.resolve(file)?;
         // Checked again now, not trusted from when it was written
         let games = verify_snapshot(&source)?;
-        self.quietly(&held, db, Reason::PreRestore, now_ms);
+        self.quietly(&held, db, Reason::PreRestore, now_ms, Some(file));
         db.close();
-        swap_in(&source, db.path()).map_err(|err| err.to_string())?;
-        db.reopen(now_ms)
-            .map_err(|err| db::sqlite_error(&err).message)?;
-        Ok(games)
+        let swapped = swap_in(&source, db.path());
+        let reopened = db
+            .reopen(now_ms)
+            .map_err(|err| db::sqlite_error(&err).message);
+        match (swapped, reopened) {
+            (Ok(()), reopened) => reopened.map(|()| games),
+            (Err(err), Ok(())) => Err(err),
+            (Err(err), Err(reopen)) => {
+                eprintln!("Failed to reopen the database after a failed restore: {reopen}");
+                Err(err)
+            }
+        }
     }
 
     /// Only a bare name this module would have written, inside the backups
@@ -289,7 +318,7 @@ impl Backups {
         if parse_name(file).is_none() {
             return Err("Not a backup file name".into());
         }
-        let full = self.dir().join(file);
+        let full = self.dir()?.join(file);
         if !full.exists() {
             return Err("That backup no longer exists".into());
         }
@@ -298,9 +327,9 @@ impl Backups {
 
     /// Newest first, verifying as it goes: the newest snapshot is worth
     /// nothing if it can't be opened, and the one before it usually can.
-    fn newest_usable(&self) -> Option<PathBuf> {
-        let dir = self.dir().to_path_buf();
-        self.read().into_iter().find_map(|backup| {
+    fn newest_usable(&self) -> Result<Option<PathBuf>, String> {
+        let dir = self.dir()?.to_path_buf();
+        Ok(self.read().into_iter().find_map(|backup| {
             let full = dir.join(&backup.file);
             match verify_snapshot(&full) {
                 Ok(_) => Some(full),
@@ -309,7 +338,7 @@ impl Backups {
                     None
                 }
             }
-        })
+        }))
     }
 
     fn stop_schedule(&self) {
@@ -323,13 +352,14 @@ impl Backups {
 }
 
 /// `initDatabaseWithRecovery`: opens `matches.db` in `data_dir`, and when the
-/// file is gone or will not open, brings back the newest good snapshot from
-/// `backup_dir` before anything reads it.
+/// file is gone or damaged, brings back the newest good snapshot from
+/// `backup_dir` before anything reads it. A database that can't be opened for
+/// any other reason is left as it is, and the error is the app's open error.
 pub fn init_database_with_recovery(
     data_dir: &Path,
     backup_dir: PathBuf,
     now_ms: i64,
-) -> rusqlite::Result<(Database, Backups)> {
+) -> Result<(Database, Backups), String> {
     open_with_recovery(
         data_dir,
         Backups::new(backup_dir, TimeZone::system()),
@@ -337,61 +367,81 @@ pub fn init_database_with_recovery(
     )
 }
 
+/// Why the database found at launch can't be used as it is.
+enum OpenFailure {
+    /// The file is damaged, or was missing, so a snapshot takes its place.
+    Lost(String),
+    /// The file may be fine, but this launch can't use it: another process
+    /// holds it, it or its folder is read-only, or the disk is full.
+    Unavailable(String),
+}
+
+impl OpenFailure {
+    fn of(err: &rusqlite::Error) -> Self {
+        let message = db::sqlite_error(err).message;
+        match err.sqlite_error_code() {
+            Some(rusqlite::ErrorCode::DatabaseCorrupt | rusqlite::ErrorCode::NotADatabase) => {
+                Self::Lost(message)
+            }
+            _ => Self::Unavailable(message),
+        }
+    }
+}
+
+/// Opens the database, then checks a file that was already there. Damage can
+/// surface on open, in the statements migrations run, or only in the check.
+fn open_checked(data_dir: &Path, missing: bool, now_ms: i64) -> Result<Database, OpenFailure> {
+    let database = Database::open(data_dir, now_ms).map_err(|err| OpenFailure::of(&err))?;
+    if missing {
+        return Ok(database);
+    }
+    // The SQLite error itself, not `with`'s message, so its code survives
+    match database.with(|conn| Ok(first_quick_check_row(conn))) {
+        Ok(Ok(Some(row))) if row == "ok" => Ok(database),
+        Ok(Ok(row)) => Err(OpenFailure::Lost(
+            row.unwrap_or_else(|| "integrity check failed".into()),
+        )),
+        Ok(Err(err)) => Err(OpenFailure::of(&err)),
+        Err(closed) => Err(OpenFailure::Unavailable(closed.message)),
+    }
+}
+
 fn open_with_recovery(
     data_dir: &Path,
     mut backups: Backups,
     now_ms: i64,
-) -> rusqlite::Result<(Database, Backups)> {
-    let db_path = data_dir.join(DB_FILE);
-    let missing = !db_path.exists();
-
-    // Damage can surface on open or in the statements migrations run, so the
-    // check and the open share one failure path
-    let opened = Database::open(data_dir, now_ms)
-        .map_err(|err| db::sqlite_error(&err).message)
-        .and_then(|database| {
-            if !missing {
-                quick_check(&database)?;
+) -> Result<(Database, Backups), String> {
+    let missing = !data_dir.join(DB_FILE).exists();
+    let detail = match open_checked(data_dir, missing, now_ms) {
+        Ok(database) => {
+            // Opened cleanly but was not there a moment ago. With snapshots on
+            // disk the file was deleted, and starting empty would look like loss
+            if !(missing && !backups.read().is_empty()) {
+                return Ok((database, backups));
             }
-            Ok(database)
-        });
-    let database = match opened {
-        Ok(database) => database,
-        Err(detail) => {
-            eprintln!("Database failed to open: {detail}");
-            let (database, report) = recover(
-                &backups,
-                data_dir,
-                RecoveryProblem::Corrupt,
-                Some(detail),
-                now_ms,
-            )?;
-            backups.report = Some(report);
-            return Ok((database, backups));
+            drop(database);
+            None
+        }
+        Err(OpenFailure::Lost(detail)) => Some(detail),
+        // Nothing to lose when the file was not there
+        Err(OpenFailure::Unavailable(detail)) if missing => Some(detail),
+        Err(OpenFailure::Unavailable(detail)) => {
+            // Electron sets the file aside here too, and restores over a
+            // database that was only locked, read-only, or on a full disk
+            eprintln!("Database failed to open, left as it is: {detail}");
+            return Err(detail);
         }
     };
-
-    // Opened cleanly but was not there a moment ago. With snapshots on disk
-    // that means the file was deleted, and starting empty would look like loss
-    if missing && !backups.read().is_empty() {
-        drop(database);
-        let (database, report) =
-            recover(&backups, data_dir, RecoveryProblem::Missing, None, now_ms)?;
-        backups.report = Some(report);
-        return Ok((database, backups));
-    }
+    let problem = match &detail {
+        Some(detail) => {
+            eprintln!("Database failed to open: {detail}");
+            RecoveryProblem::Corrupt
+        }
+        None => RecoveryProblem::Missing,
+    };
+    let (database, report) = recover(&backups, data_dir, problem, detail, now_ms)?;
+    backups.report = Some(report);
     Ok((database, backups))
-}
-
-fn quick_check(database: &Database) -> Result<(), String> {
-    let result = database
-        .with(first_quick_check_row)
-        .map_err(|err| err.message)?;
-    match result.as_deref() {
-        Some("ok") => Ok(()),
-        Some(problem) => Err(problem.to_owned()),
-        None => Err("integrity check failed".into()),
-    }
 }
 
 /// `recover`. The database must already be closed.
@@ -401,7 +451,7 @@ fn recover(
     problem: RecoveryProblem,
     detail: Option<String>,
     now_ms: i64,
-) -> rusqlite::Result<(Database, RecoveryReport)> {
+) -> Result<(Database, RecoveryReport), String> {
     let db_path = data_dir.join(DB_FILE);
     // On the missing path this is the empty database the open just made,
     // still worth setting aside rather than overwriting blind
@@ -411,7 +461,7 @@ fn recover(
         None
     };
 
-    let mut source = backups.newest_usable();
+    let mut source = backups.newest_usable()?;
     if let Some(from) = &source
         && let Err(err) = swap_in(from, &db_path)
     {
@@ -420,7 +470,8 @@ fn recover(
         eprintln!("Failed to restore from backup: {err}");
         source = None;
     }
-    let database = Database::open(data_dir, now_ms)?;
+    let database =
+        Database::open(data_dir, now_ms).map_err(|err| db::sqlite_error(&err).message)?;
 
     let name = |path: &Path| path.file_name().map(|n| n.to_string_lossy().into_owned());
     let report = RecoveryReport {
@@ -437,8 +488,12 @@ fn recover(
 fn quarantine(db_path: &Path, stamp: &str) -> Option<PathBuf> {
     let dead = suffixed(db_path, &format!(".corrupt-{stamp}"));
     let moved = std::fs::rename(db_path, &dead)
-        .and_then(|()| remove_file_forced(&suffixed(db_path, "-wal")))
-        .and_then(|()| remove_file_forced(&suffixed(db_path, "-shm")));
+        .map_err(|err| node_fs_error(&err, "rename", db_path, Some(&dead)))
+        .and_then(|()| {
+            remove_file_forced(&suffixed(db_path, "-wal"))
+                .and_then(|()| remove_file_forced(&suffixed(db_path, "-shm")))
+                .map_err(|err| err.to_string())
+        });
     match moved {
         Ok(()) => Some(dead),
         Err(err) => {
@@ -448,17 +503,30 @@ fn quarantine(db_path: &Path, stamp: &str) -> Option<PathBuf> {
     }
 }
 
-/// Puts a database file in place of the live one, which must be closed.
-fn swap_in(source: &Path, db_path: &Path) -> io::Result<()> {
-    // The -wal and -shm describe the database being replaced. Left behind,
-    // SQLite would replay them onto the restored file and corrupt it
-    remove_file_forced(&suffixed(db_path, "-wal"))?;
-    remove_file_forced(&suffixed(db_path, "-shm"))?;
+/// Puts a database file in place of the live one, which must be closed. A
+/// failed copy leaves the live database and its `-wal` as they were, and
+/// takes away the part it copied.
+fn swap_in(source: &Path, db_path: &Path) -> Result<(), String> {
     // Copy then rename: a copy that fails half way must not leave a
     // truncated database where the live one was
     let incoming = suffixed(db_path, ".incoming");
-    std::fs::copy(source, &incoming)?;
-    std::fs::rename(&incoming, db_path)
+    let swapped = std::fs::copy(source, &incoming)
+        .map_err(|err| node_fs_error(&err, "copyfile", source, Some(&incoming)))
+        .and_then(|_| {
+            // The -wal and -shm describe the database being replaced. Left
+            // behind, SQLite would replay them onto the restored file
+            remove_file_forced(&suffixed(db_path, "-wal"))
+                .and_then(|()| remove_file_forced(&suffixed(db_path, "-shm")))
+                .map_err(|err| err.to_string())
+        })
+        .and_then(|()| {
+            std::fs::rename(&incoming, db_path)
+                .map_err(|err| node_fs_error(&err, "rename", &incoming, Some(db_path)))
+        });
+    if swapped.is_err() {
+        remove_if_present(&incoming);
+    }
+    swapped
 }
 
 /// Opens a finished snapshot and decides whether it can be trusted, returning
@@ -524,14 +592,49 @@ fn parse_name(file: &str) -> Option<(&str, &str)> {
 
 /// `stamp`: local time as `YYYY-MM-DDTHH-MM-SS`.
 fn stamp(ms: i64, tz: &TimeZone) -> String {
-    local(ms, tz).strftime("%Y-%m-%dT%H-%M-%S").to_string()
+    let (time, year) = local(ms, tz);
+    format!("{year}-{}", time.strftime("%m-%dT%H-%M-%S"))
 }
 
-fn local(ms: i64, tz: &TimeZone) -> DateTime {
-    Timestamp::from_millisecond(ms)
+const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+/// 400 Gregorian years, a whole number of weeks, after which the calendar and
+/// a time zone's standing DST rule repeat.
+const CYCLE_MS: i64 = 146_097 * DAY_MS;
+/// Year 9998. jiff stops at 9999, V8 at ±8.64e15 ms.
+const JIFF_SAFE_MS: i64 = 253_339_228_800_000;
+const V8_MAX_MS: i64 = 8_640_000_000_000_000;
+
+/// The 400-year cycles that bring `ms` inside the span jiff can convert.
+fn cycles_outside_jiff(ms: i64) -> i64 {
+    if ms > JIFF_SAFE_MS {
+        (ms - JIFF_SAFE_MS).div_euclid(CYCLE_MS) + 1
+    } else if ms < -JIFF_SAFE_MS {
+        -((-JIFF_SAFE_MS - ms).div_euclid(CYCLE_MS) + 1)
+    } else {
+        0
+    }
+}
+
+/// The local time at `ms`, as `new Date(ms)` reads it, and its full year.
+/// The time's own year is wrong past jiff's range; the returned year is not.
+fn local(ms: i64, tz: &TimeZone) -> (DateTime, i64) {
+    let cycles = cycles_outside_jiff(ms);
+    let time = Timestamp::from_millisecond(ms - cycles * CYCLE_MS)
         .unwrap_or(Timestamp::UNIX_EPOCH)
         .to_zoned_datetime(tz.clone())
-        .datetime()
+        .datetime();
+    (time, i64::from(time.year()) + 400 * cycles)
+}
+
+/// Days from 1970-01-01 to the first of `month` in `year`, proleptic
+/// Gregorian, for any year.
+fn days_to_month(year: i64, month: i64) -> i64 {
+    let y = if month <= 2 { year - 1 } else { year };
+    let era = y.div_euclid(400);
+    let year_of_era = y - era * 400;
+    let day_of_year = (153 * ((month + 9) % 12) + 2) / 5;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - 719_468
 }
 
 /// `parseStamp`: the local time a stamp names, in epoch ms, or 0 where
@@ -549,13 +652,23 @@ fn parse_stamp(text: &str, tz: &TimeZone) -> i64 {
     if !valid {
         return 0;
     }
-    let resolved = Date::new(year as i16, month as i8, 1)
-        .and_then(|first| first.checked_add((day - 1 + hour / 24).days()))
-        .and_then(|date| {
-            date.at((hour % 24) as i8, minute as i8, second as i8, 0)
-                .to_zoned_datetime(tz.clone())
-        });
-    resolved.map_or(0, |zoned| zoned.timestamp().as_millisecond())
+    let wall = (days_to_month(year, month) + day - 1) * DAY_MS
+        + ((hour * 60 + minute) * 60 + second) * 1000;
+    // Shifted by whole cycles into jiff's span for the offset, then back
+    let cycles = cycles_outside_jiff(wall);
+    let resolved = Timestamp::from_millisecond(wall - cycles * CYCLE_MS).and_then(|shifted| {
+        shifted
+            .to_zoned_datetime(TimeZone::UTC)
+            .datetime()
+            .to_zoned_datetime(tz.clone())
+    });
+    match resolved {
+        Ok(zoned) => {
+            let ms = zoned.timestamp().as_millisecond() + cycles * CYCLE_MS;
+            if ms.abs() <= V8_MAX_MS { ms } else { 0 }
+        }
+        Err(_) => 0,
+    }
 }
 
 /// The files the tiered retention drops, for backups sorted newest first.
@@ -565,10 +678,11 @@ fn prune_victims<'a>(backups: &'a [BackupInfo], tz: &TimeZone) -> Vec<&'a str> {
         .take(KEEP_RECENT)
         .map(|b| b.file.as_str())
         .collect();
-    let mut bucket = |key: &dyn Fn(Date) -> (i16, i8, i8), limit: usize| {
+    let mut bucket = |key: &dyn Fn(Date, i64) -> (i64, i8, i8), limit: usize| {
         let mut seen = Vec::new();
         for backup in backups {
-            let id = key(local(backup.created, tz).date());
+            let (time, year) = local(backup.created, tz);
+            let id = key(time.date(), year - i64::from(time.year()));
             if seen.contains(&id) {
                 continue;
             }
@@ -581,14 +695,21 @@ fn prune_victims<'a>(backups: &'a [BackupInfo], tz: &TimeZone) -> Vec<&'a str> {
     };
     // Week: the Sunday that starts it
     bucket(
-        &|date| {
+        &|date, shift| {
             let back = i64::from(date.weekday().to_sunday_zero_offset());
             let sunday = date.checked_sub(back.days()).unwrap_or(date);
-            (sunday.year(), sunday.month(), sunday.day())
+            (
+                i64::from(sunday.year()) + shift,
+                sunday.month(),
+                sunday.day(),
+            )
         },
         KEEP_WEEKLY,
     );
-    bucket(&|date| (date.year(), date.month(), 0), KEEP_MONTHLY);
+    bucket(
+        &|date, shift| (i64::from(date.year()) + shift, date.month(), 0),
+        KEEP_MONTHLY,
+    );
     backups
         .iter()
         .map(|b| b.file.as_str())
@@ -613,6 +734,112 @@ fn remove_file_forced(path: &Path) -> io::Result<()> {
 fn remove_if_present(path: &Path) {
     if let Err(err) = remove_file_forced(path) {
         eprintln!("Failed to remove {}: {err}", path.display());
+    }
+}
+
+/// A failed `fs` call as Node throws it, `<CODE>: <description>, <syscall>
+/// '<path>'`, with ` -> '<dest>'` for calls that take two. Settings shows it
+/// after `Error: `.
+fn node_fs_error(err: &io::Error, syscall: &str, path: &Path, dest: Option<&Path>) -> String {
+    let code = err.raw_os_error().and_then(uv_code).unwrap_or("UNKNOWN");
+    let mut text = format!(
+        "{code}: {}, {syscall} '{}'",
+        uv_message(code),
+        path.display()
+    );
+    if let Some(dest) = dest {
+        text.push_str(&format!(" -> '{}'", dest.display()));
+    }
+    text
+}
+
+/// libuv's name for an errno, as `uv_translate_sys_error` gives it.
+#[cfg(unix)]
+fn uv_code(errno: i32) -> Option<&'static str> {
+    Some(match errno {
+        1 => "EPERM",
+        2 => "ENOENT",
+        5 => "EIO",
+        12 => "ENOMEM",
+        13 => "EACCES",
+        16 => "EBUSY",
+        17 => "EEXIST",
+        18 => "EXDEV",
+        20 => "ENOTDIR",
+        21 => "EISDIR",
+        22 => "EINVAL",
+        23 => "ENFILE",
+        24 => "EMFILE",
+        26 => "ETXTBSY",
+        27 => "EFBIG",
+        28 => "ENOSPC",
+        30 => "EROFS",
+        #[cfg(target_os = "macos")]
+        45 => "ENOTSUP",
+        #[cfg(target_os = "macos")]
+        62 => "ELOOP",
+        #[cfg(target_os = "macos")]
+        63 => "ENAMETOOLONG",
+        #[cfg(target_os = "macos")]
+        66 => "ENOTEMPTY",
+        #[cfg(target_os = "linux")]
+        36 => "ENAMETOOLONG",
+        #[cfg(target_os = "linux")]
+        39 => "ENOTEMPTY",
+        #[cfg(target_os = "linux")]
+        40 => "ELOOP",
+        #[cfg(target_os = "linux")]
+        95 => "ENOTSUP",
+        _ => return None,
+    })
+}
+
+/// libuv's name for a Win32 error, from `uv_translate_sys_error` in
+/// `src/win/error.c`.
+#[cfg(windows)]
+fn uv_code(error: i32) -> Option<&'static str> {
+    Some(match error {
+        2 | 3 | 123 | 267 => "ENOENT",
+        4 => "EMFILE",
+        5 => "EPERM",
+        8 => "ENOMEM",
+        17 => "EXDEV",
+        19 => "EROFS",
+        32 | 33 => "EBUSY",
+        39 | 112 => "ENOSPC",
+        80 | 183 => "EEXIST",
+        87 => "EINVAL",
+        145 => "ENOTEMPTY",
+        206 => "ENAMETOOLONG",
+        _ => return None,
+    })
+}
+
+/// `uv_strerror`, measured with Node's `util.getSystemErrorMap()`.
+fn uv_message(code: &str) -> &'static str {
+    match code {
+        "EPERM" => "operation not permitted",
+        "ENOENT" => "no such file or directory",
+        "EIO" => "i/o error",
+        "ENOMEM" => "not enough memory",
+        "EACCES" => "permission denied",
+        "EBUSY" => "resource busy or locked",
+        "EEXIST" => "file already exists",
+        "EXDEV" => "cross-device link not permitted",
+        "ENOTDIR" => "not a directory",
+        "EISDIR" => "illegal operation on a directory",
+        "EINVAL" => "invalid argument",
+        "ENFILE" => "file table overflow",
+        "EMFILE" => "too many open files",
+        "ETXTBSY" => "text file is busy",
+        "EFBIG" => "file too large",
+        "ENOSPC" => "no space left on device",
+        "EROFS" => "read-only file system",
+        "ENOTSUP" => "operation not supported on socket",
+        "ELOOP" => "too many symbolic links encountered",
+        "ENAMETOOLONG" => "name too long",
+        "ENOTEMPTY" => "directory not empty",
+        _ => "unknown error",
     }
 }
 
@@ -803,6 +1030,7 @@ mod tests {
 
         let listed: Vec<(String, i64)> = backups
             .list()
+            .expect("a listing")
             .into_iter()
             .map(|b| (b.file, b.created))
             .collect();
@@ -869,6 +1097,7 @@ mod tests {
         launch_tick(&backups, &db);
         let listed: Vec<(String, Option<i64>)> = backups
             .list()
+            .expect("a listing")
             .into_iter()
             .map(|b| (b.file, b.games))
             .collect();
@@ -934,6 +1163,7 @@ mod tests {
         launch_tick(&backups, &db);
         let listed: Vec<(String, Option<i64>)> = backups
             .list()
+            .expect("a listing")
             .into_iter()
             .map(|b| (b.file, b.games))
             .collect();
@@ -1027,113 +1257,402 @@ mod tests {
         drop(db);
         std::fs::remove_dir_all(&root).expect("clean up");
     }
-    /// The Electron probe's scenarios (`parity/out/t17/t17-probe.ts`) run on
-    /// a copy of the T05 fixture, written as the same JSON so the two diff
-    /// directly. `BMT_T17_FIXTURE` names the fixture's `matches.db`,
-    /// `BMT_T17_OUT` the folder the runs and `rust.json` go in, with
-    /// `foreign-for-rust.db`, a backup Electron took, for `cross-restore`.
+    /// Electron's `restore-pruned`: with six backups, the pre-restore
+    /// snapshot's prune would delete the one being restored. Electron then
+    /// fails the restore with its database closed. Here the file is spared
+    /// and the next oldest goes instead.
+    #[test]
+    fn a_restore_keeps_the_backup_it_restores() {
+        let root = scratch("restore-pruned");
+        let source = database_file(&root, 3);
+        std::fs::copy(&source, root.join("data").join(DB_FILE)).expect("place the database");
+        for hour in 5..=10 {
+            let name = format!("matches-2026-11-22T{hour:02}-00-00-auto.db");
+            std::fs::copy(&source, root.join("backups").join(name)).expect("a backup");
+        }
+        let (db, backups) = open(&root);
+        assert_eq!(
+            backups.restore(&db, "matches-2026-11-22T06-00-00-auto.db", NOW),
+            Ok(3)
+        );
+        assert_eq!(
+            names(&root.join("backups")),
+            [
+                "matches-2026-11-22T06-00-00-auto.db",
+                "matches-2026-11-22T07-00-00-auto.db",
+                "matches-2026-11-22T08-00-00-auto.db",
+                "matches-2026-11-22T09-00-00-auto.db",
+                "matches-2026-11-22T10-00-00-auto.db",
+                "matches-2026-11-22T21-00-00-pre-restore.db",
+            ]
+        );
+        assert_eq!(db.with(count_games).expect("the restored database"), 3);
+        drop(db);
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// A swap that fails leaves the database it was replacing open, rather
+    /// than closed for the rest of the session as Electron leaves it.
+    #[test]
+    fn a_failed_swap_opens_the_database_again() {
+        let root = scratch("swap-fails");
+        let live = database_file(&root, 4);
+        std::fs::copy(&live, root.join("data").join(DB_FILE)).expect("place the database");
+        std::fs::copy(
+            database_file(&scratch_sibling(&root), 9),
+            root.join("backups").join(GOOD),
+        )
+        .expect("a good backup");
+        let (db, backups) = open(&root);
+        let incoming = root.join("data").join("matches.db.incoming");
+        std::fs::create_dir_all(incoming.join("in-the-way")).expect("block the copy");
+
+        let error = backups.restore(&db, GOOD, NOW).expect_err("the copy fails");
+        #[cfg(unix)]
+        assert_eq!(
+            error,
+            format!(
+                "EISDIR: illegal operation on a directory, copyfile '{}' -> '{}'",
+                root.join("backups").join(GOOD).display(),
+                incoming.display()
+            )
+        );
+        #[cfg(not(unix))]
+        let _ = error;
+        assert_eq!(db.with(count_games).expect("still open"), 4);
+        backups
+            .create(&db, Reason::Manual, NOW + 1000)
+            .expect("a backup after the failed restore");
+        std::fs::remove_dir_all(&incoming).expect("unblock the copy");
+        assert_eq!(backups.restore(&db, GOOD, NOW + 2000), Ok(9));
+        assert!(!incoming.exists());
+        drop(db);
+        std::fs::remove_dir_all(&root).expect("clean up");
+        std::fs::remove_dir_all(scratch_sibling(&root)).expect("clean up");
+    }
+
+    fn scratch_sibling(root: &Path) -> PathBuf {
+        let mut name = root.as_os_str().to_owned();
+        name.push("-other");
+        PathBuf::from(name)
+    }
+
+    /// A launch that can't use a healthy database leaves it exactly as it
+    /// was: no quarantine, no restore over it, the error is the open error.
+    fn assert_left_alone(root: &Path, expected: &str) {
+        let db_file = root.join("data").join(DB_FILE);
+        let before = std::fs::read(&db_file).expect("read the database");
+        let opened = open_with_recovery(
+            &root.join("data"),
+            Backups::new(root.join("backups"), new_york()),
+            NOW,
+        );
+        assert_eq!(opened.err().as_deref(), Some(expected));
+        assert_eq!(std::fs::read(&db_file).expect("read it again"), before);
+        assert!(
+            names(&root.join("data"))
+                .iter()
+                .all(|name| !name.starts_with("matches.db.corrupt-")),
+            "nothing was set aside"
+        );
+        assert_eq!(names(&root.join("backups")), [GOOD]);
+    }
+
+    fn healthy_with_a_backup(name: &str) -> PathBuf {
+        let root = scratch(name);
+        let source = database_file(&root, 669);
+        std::fs::copy(&source, root.join("data").join(DB_FILE)).expect("place the database");
+        std::fs::copy(&source, root.join("backups").join(GOOD)).expect("a good backup");
+        root
+    }
+
+    /// Electron's `lock`, which Electron answers by quarantining the file.
+    #[test]
+    fn a_locked_database_is_left_alone() {
+        let root = healthy_with_a_backup("locked");
+        let holder = Connection::open(root.join("data").join(DB_FILE)).expect("a second opener");
+        holder
+            .execute_batch(
+                "PRAGMA locking_mode=EXCLUSIVE; BEGIN EXCLUSIVE; SELECT count(*) FROM games;",
+            )
+            .expect("hold the lock");
+        assert_left_alone(&root, "database is locked");
+        drop(holder);
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// Electron's `rofile`, which Electron answers by quarantining the file.
+    #[cfg(unix)]
+    #[test]
+    fn a_read_only_database_is_left_alone() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = healthy_with_a_backup("read-only");
+        let db_file = root.join("data").join(DB_FILE);
+        // Stored in rollback-journal mode, so the open has to write the header
+        Connection::open(&db_file)
+            .and_then(|conn| conn.pragma_update(None, "journal_mode", "DELETE"))
+            .expect("leave WAL mode");
+        std::fs::set_permissions(&db_file, std::fs::Permissions::from_mode(0o444))
+            .expect("make it read-only");
+        assert_left_alone(&root, "attempt to write a readonly database");
+        std::fs::set_permissions(&db_file, std::fs::Permissions::from_mode(0o644))
+            .expect("make it writable");
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// `getBackupDir`'s `mkdirSync` throws into the listing, a backup, a
+    /// restore, and recovery.
+    #[cfg(unix)]
+    #[test]
+    fn a_backups_folder_that_cannot_be_made_fails_as_node_does() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = scratch("no-backups-folder");
+        let locked = root.join("locked");
+        std::fs::create_dir(&locked).expect("make locked/");
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o555)).expect("lock it");
+        let dir = locked.join("backups");
+        let expected = format!("EACCES: permission denied, mkdir '{}'", dir.display());
+
+        let (db, backups) = open_with_recovery(
+            &root.join("data"),
+            Backups::new(dir.clone(), new_york()),
+            NOW,
+        )
+        .expect("a first launch");
+        assert_eq!(backups.list(), Err(expected.clone()));
+        assert_eq!(
+            backups.create(&db, Reason::Manual, NOW).map(|b| b.file),
+            Err(expected.clone())
+        );
+        assert_eq!(backups.restore(&db, GOOD, NOW), Err(expected.clone()));
+        drop(db);
+
+        garbage(&root.join("data").join(DB_FILE), "this is not a database ");
+        let recovered = open_with_recovery(&root.join("data"), Backups::new(dir, new_york()), NOW);
+        assert_eq!(recovered.err(), Some(expected));
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755))
+            .expect("unlock it");
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    #[test]
+    fn file_system_errors_read_as_node_writes_them() {
+        let root = scratch("node-errors");
+        let (from, to) = (root.join("gone.db"), root.join("matches.db.incoming"));
+        let missing = std::fs::copy(&from, &to).expect_err("nothing to copy");
+        assert_eq!(
+            node_fs_error(&missing, "copyfile", &from, Some(&to)),
+            format!(
+                "ENOENT: no such file or directory, copyfile '{}' -> '{}'",
+                from.display(),
+                to.display()
+            )
+        );
+        #[cfg(unix)]
+        let full = io::Error::from_raw_os_error(28);
+        #[cfg(windows)]
+        let full = io::Error::from_raw_os_error(112);
+        assert_eq!(
+            node_fs_error(&full, "copyfile", &from, Some(&to)),
+            format!(
+                "ENOSPC: no space left on device, copyfile '{}' -> '{}'",
+                from.display(),
+                to.display()
+            )
+        );
+        let odd = io::Error::other("no errno");
+        assert_eq!(
+            node_fs_error(&odd, "stat", &from, None),
+            format!("UNKNOWN: unknown error, stat '{}'", from.display())
+        );
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// `new Date(iso).getTime()` in Node with `TZ=America/New_York`, for
+    /// every edge the verifier tried, the years past jiff's range included.
+    #[test]
+    fn stamps_parse_as_v8_does() {
+        let v8: [(&str, i64); 49] = [
+            ("2026-03-08T02-30-00", 1772955000000),
+            ("2026-03-08T02-00-00", 1772953200000),
+            ("2026-03-08T01-59-59", 1772953199000),
+            ("2026-03-08T03-00-00", 1772953200000),
+            ("2026-11-01T01-00-00", 1793509200000),
+            ("2026-11-01T01-59-59", 1793512799000),
+            ("2026-11-01T02-00-00", 1793516400000),
+            ("2026-11-01T00-59-59", 1793509199000),
+            ("2026-02-29T10-00-00", 1772377200000),
+            ("2028-02-29T10-00-00", 1835449200000),
+            ("2028-02-30T10-00-00", 1835535600000),
+            ("2026-04-31T10-00-00", 1777644000000),
+            ("2026-02-31T23-59-59", 1772600399000),
+            ("2026-02-32T10-00-00", 0),
+            ("2026-00-10T10-00-00", 0),
+            ("2026-12-32T10-00-00", 0),
+            ("2026-12-00T10-00-00", 0),
+            ("2026-12-31T24-00-00", 1798779600000),
+            ("2026-03-07T24-00-00", 1772946000000),
+            ("2026-02-31T24-00-00", 1772600400000),
+            ("2026-11-22T24-00-01", 0),
+            ("2026-11-22T24-01-00", 0),
+            ("2026-11-22T25-00-00", 0),
+            ("2026-11-22T23-60-00", 0),
+            ("2026-11-22T23-59-60", 0),
+            ("2026-11-22T99-99-99", 0),
+            ("0000-01-01T00-00-00", -62167201438000),
+            ("0001-01-01T00-00-00", -62135579038000),
+            ("1883-11-18T12-03-57", -2717650801000),
+            ("1883-11-18T11-59-59", -2717651039000),
+            ("1883-11-18T12-00-00", -2717651038000),
+            ("1900-01-01T00-00-00", -2208970800000),
+            ("1969-12-31T19-00-00", 0),
+            ("1970-01-01T00-00-00", 18000000),
+            ("9999-12-31T23-59-59", 253402318799000),
+            ("2038-01-19T03-14-08", 2147501648000),
+            ("2100-03-14T02-30-00", 4108692600000),
+            ("2027-01-01T00-00-00", 1798779600000),
+            ("2099-06-01T12-00-00", 4084012800000),
+            ("2026-11-22T21-00-00", 1795399200000),
+            ("2026-11-22T21-00-01", 1795399201000),
+            ("2026-11-21T21-00-00", 1795312800000),
+            ("2026-11-21T20-59-59", 1795312799000),
+            ("0099-12-31T23-59-59", -59011441439000),
+            ("0049-12-31T23-59-59", -60589278239000),
+            ("1582-10-10T00-00-00", -12219707038000),
+            ("0000-02-30T00-00-00", -62162017438000),
+            ("9999-12-31T24-00-00", 253402318800000),
+            ("9999-12-32T00-00-00", 0),
+        ];
+        for (text, ms) in v8 {
+            assert_eq!(parse_stamp(text, &new_york()), ms, "{text}");
+        }
+        assert_eq!(local(253_402_318_799_000, &new_york()).1, 9999);
+        assert_eq!(local(253_402_318_800_000, &new_york()).1, 10000);
+    }
+
+    /// The verifier's scenarios (`spec.json`, run on Electron by
+    /// `v-probe.ts`) on copies of the T05 fixture, written in the probe's JSON
+    /// so `vdiff.py` compares the two. `BMT_T17_FIXTURE` names the fixture's
+    /// `matches.db`; `BMT_T17_OUT` holds `spec.json` and `foreign-for-rust.db`,
+    /// a backup Electron took, and gets `rust-runs/` and `rust.json`. The
+    /// hostile ones hold the file with `/usr/bin/sqlite3`.
     #[test]
     #[ignore = "needs the T05 fixture; run with BMT_T17_FIXTURE and BMT_T17_OUT"]
     fn electron_scenarios_on_the_fixture() {
         use serde_json::{Value, json};
-        let fixture = PathBuf::from(std::env::var_os("BMT_T17_FIXTURE").expect("BMT_T17_FIXTURE"));
-        let out = PathBuf::from(std::env::var_os("BMT_T17_OUT").expect("BMT_T17_OUT"));
-        let prune: Vec<String> = serde_json::from_str(
-            &std::fs::read_to_string(out.join("t17-prune-names.json")).expect("the prune names"),
+        use std::process::{Child, Command, Stdio};
+        let env = |name: &str| PathBuf::from(std::env::var_os(name).expect(name));
+        let (fixture, out) = (env("BMT_T17_FIXTURE"), env("BMT_T17_OUT"));
+        let spec: Vec<Value> = serde_json::from_str(
+            &std::fs::read_to_string(out.join("spec.json")).expect("spec.json"),
         )
-        .expect("a list of names");
-        let good = |n: &str| (n.to_owned(), "good");
-        let bad = |n: &str| (n.to_owned(), "garbage");
-        let restore = |f: &str| ("restoreBackup", Some(f.to_owned()));
-        type Scenario = (
-            &'static str,
-            &'static str,
-            Vec<(String, &'static str)>,
-            bool,
-            Vec<(&'static str, Option<String>)>,
-        );
-        let scenarios: Vec<Scenario> = vec![
-            (
-                "prune",
-                "",
-                prune.iter().map(|n| (n.clone(), "empty")).collect(),
-                false,
-                vec![("createBackup", None)],
-            ),
-            (
-                "corrupt-garbage-backups",
-                "garbage",
-                vec![good(GOOD), bad(BAD)],
-                false,
-                vec![],
-            ),
-            ("corrupt-garbage-nobackup", "garbage", vec![], false, vec![]),
-            ("corrupt-pages-nobackup", "pages", vec![], false, vec![]),
-            (
-                "missing-backups",
-                "missing",
-                vec![good(GOOD)],
-                false,
-                vec![],
-            ),
-            ("missing-nobackup", "missing", vec![], false, vec![]),
-            (
-                "restore-errors",
-                "",
-                vec![bad(BAD), good(GOOD)],
-                false,
-                vec![
-                    restore(BAD),
-                    restore("matches-2026-01-01T00-00-00-auto.db"),
-                    restore("matches-2026-11-20T10-00-00-AUTO.db"),
-                    restore(GOOD),
-                ],
-            ),
-            (
-                "cross-restore",
-                "",
-                vec![(BAD.to_owned(), "foreign")],
-                false,
-                vec![restore(BAD)],
-            ),
-            (
-                "auto-off",
-                "",
-                vec![good(GOOD)],
-                true,
-                vec![restore(GOOD), ("createBackup", None)],
-            ),
-        ];
+        .expect("a list of scenarios");
+        let only: Option<Vec<String>> = std::env::var("BMT_T17_ONLY")
+            .ok()
+            .map(|s| s.split(',').map(str::to_owned).collect());
+        let chmod = |args: &[&str], path: &Path| {
+            let status = Command::new("chmod").args(args).arg(path).status();
+            assert!(status.expect("chmod runs").success());
+        };
+        let inspect = |file: &Path| -> Value {
+            let tmp = out.join(format!("inspect-{}", std::process::id()));
+            std::fs::create_dir_all(&tmp).expect("inspect/");
+            let copied = std::fs::copy(file, tmp.join("x.db")).and_then(|_| {
+                let wal = suffixed(file, "-wal");
+                if wal.exists() {
+                    std::fs::copy(&wal, tmp.join("x.db-wal"))?;
+                }
+                Ok(())
+            });
+            let result = copied.map_err(|err| err.to_string()).and_then(|()| {
+                let c = Connection::open(tmp.join("x.db")).map_err(|err| err.to_string())?;
+                let read = || -> rusqlite::Result<Value> {
+                    let games = count_games(&c)?;
+                    let marker: Option<String> = c
+                        .query_row(
+                            "SELECT value FROM settings WHERE key = 'v_marker'",
+                            [],
+                            |r| r.get(0),
+                        )
+                        .ok();
+                    let integrity: String =
+                        c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
+                    Ok(json!({ "games": games, "marker": marker, "integrity": integrity }))
+                };
+                read().map_err(|err| err.to_string())
+            });
+            std::fs::remove_dir_all(&tmp).expect("clean inspect/");
+            result.unwrap_or_else(|error| json!({ "error": error }))
+        };
+        let holder = |db: &Path, script: &str, ready: &dyn Fn() -> bool| -> Child {
+            use std::io::Write;
+            let mut child = Command::new("/usr/bin/sqlite3")
+                .arg(db)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .expect("sqlite3 starts");
+            let stdin = child.stdin.as_mut().expect("its stdin");
+            stdin.write_all(script.as_bytes()).expect("send the script");
+            let start = std::time::Instant::now();
+            while !ready() {
+                assert!(
+                    start.elapsed() < Duration::from_secs(10),
+                    "holder never ready"
+                );
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            child
+        };
         let mut results = serde_json::Map::new();
-        for (name, damage, files, auto_off, calls) in scenarios {
-            let root = out.join("rust-runs").join(name);
+        for sc in spec {
+            let name = sc["name"].as_str().expect("a name").to_owned();
+            if only.as_ref().is_some_and(|o| !o.contains(&name)) {
+                continue;
+            }
+            let root = out.join("rust-runs").join(&name);
             if root.exists() {
+                chmod(&["-R", "u+w"], &root);
                 std::fs::remove_dir_all(&root).expect("clear the run");
             }
             std::fs::create_dir_all(root.join("data")).expect("data/");
             std::fs::create_dir_all(root.join("backups")).expect("backups/");
             let db_file = root.join("data").join(DB_FILE);
             std::fs::copy(&fixture, &db_file).expect("copy the fixture");
-            if auto_off {
+            if sc["autoBackupOff"].as_bool() == Some(true) {
                 let conn = Connection::open(&db_file).expect("open the copy");
                 settings::set_setting(&conn, "auto_backup", "false").expect("turn it off");
             }
-            for (file, kind) in &files {
+            for (file, kind) in sc["backups"].as_object().into_iter().flatten() {
                 let dest = root.join("backups").join(file);
-                match *kind {
+                match kind.as_str().expect("a kind") {
                     "good" => drop(std::fs::copy(&fixture, &dest).expect("a good backup")),
-                    "garbage" => garbage(&dest, "garbage "),
                     "foreign" => drop(
                         std::fs::copy(out.join("foreign-for-rust.db"), &dest)
                             .expect("the other app's backup"),
                     ),
+                    "garbage" => garbage(&dest, "garbage "),
+                    "dir" => std::fs::create_dir(&dest).expect("a folder"),
                     _ => std::fs::write(&dest, b"").expect("an empty backup"),
                 }
             }
-            if name == "prune" {
+            if name.starts_with("prune") {
                 std::fs::write(root.join("backups/notes.txt"), b"").expect("a stray file");
             }
-            match damage {
+            let locked = || {
+                let o = Command::new("/usr/bin/sqlite3")
+                    .arg(&db_file)
+                    .arg("SELECT 1 FROM games LIMIT 1")
+                    .output()
+                    .expect("sqlite3 runs");
+                !o.status.success() && String::from_utf8_lossy(&o.stderr).contains("locked")
+            };
+            let wal_grown =
+                || std::fs::metadata(suffixed(&db_file, "-wal")).is_ok_and(|m| m.len() > 0);
+            let before = std::fs::read(&db_file).ok();
+            let mut held = None;
+            match sc["damage"].as_str().unwrap_or("") {
                 "missing" => std::fs::remove_file(&db_file).expect("delete the database"),
                 "garbage" => garbage(&db_file, "this is not a database "),
                 "pages" => {
@@ -1145,42 +1664,216 @@ mod tests {
                     f.seek(SeekFrom::Start(4096 * 700)).expect("seek");
                     f.write_all(&[0xa5; 4096 * 4]).expect("damage pages");
                 }
+                "lock" => {
+                    held = Some(holder(
+                        &db_file,
+                        "PRAGMA locking_mode=EXCLUSIVE;\nBEGIN EXCLUSIVE;\nSELECT count(*) FROM games;\n",
+                        &locked,
+                    ))
+                }
+                damage @ ("walheld" | "walorphan") => {
+                    let mut child = holder(
+                        &db_file,
+                        "PRAGMA journal_mode=WAL;\nPRAGMA wal_autocheckpoint=0;\nINSERT OR REPLACE INTO settings (key, value) VALUES ('v_marker', 'in-wal');\n",
+                        &wal_grown,
+                    );
+                    if damage == "walorphan" {
+                        child.kill().expect("kill the holder");
+                        child.wait().expect("reap the holder");
+                    } else {
+                        held = Some(child);
+                    }
+                }
+                "rodir" => chmod(&["555"], &root.join("data")),
+                "rofile" => chmod(&["444"], &db_file),
                 _ => {}
             }
-            let (db, backups) = open(&root);
-            launch_tick(&backups, &db);
-            let list = |b: &Backups| serde_json::to_value(b.list()).expect("a list");
-            let list_at_start = list(&backups);
-            let mut made = Vec::new();
-            for (method, file) in calls {
-                let result = match (method, &file) {
-                    ("restoreBackup", Some(file)) => match backups.restore(&db, file, NOW) {
-                        Ok(games) => json!({ "success": true, "games": games }),
-                        Err(error) => json!({ "success": false, "error": error }),
-                    },
-                    _ => match backups.create(&db, Reason::Manual, NOW) {
-                        Ok(backup) => json!({ "success": true, "backup": backup }),
-                        Err(error) => json!({ "success": false, "error": error }),
-                    },
-                };
-                let args: Vec<String> = file.into_iter().collect();
-                made.push(json!({ "method": method, "args": args, "result": result }));
+            let opened = open_with_recovery(
+                &root.join("data"),
+                Backups::new(root.join("backups"), new_york()),
+                NOW,
+            );
+            let mut entry = serde_json::Map::new();
+            match opened {
+                Err(error) => {
+                    entry.insert("openError".into(), json!(error));
+                }
+                Ok((db, backups)) => {
+                    launch_tick(&backups, &db);
+                    let list = |b: &Backups| serde_json::to_value(b.list().expect("a listing"));
+                    entry.insert("report".into(), report_json(&backups));
+                    entry.insert("listAtStart".into(), list(&backups).expect("JSON"));
+                    let mut calls = Vec::new();
+                    for call in sc["calls"].as_array().expect("calls") {
+                        let method = call[0].as_str().expect("a method");
+                        let result = if method == "restoreBackup" {
+                            let file = call[1].as_str().expect("a file");
+                            match backups.restore(&db, file, NOW) {
+                                Ok(games) => json!({ "success": true, "games": games }),
+                                Err(error) => json!({ "success": false, "error": error }),
+                            }
+                        } else {
+                            match backups.create(&db, Reason::Manual, NOW) {
+                                Ok(backup) => json!({ "success": true, "backup": backup }),
+                                Err(error) => json!({ "success": false, "error": error }),
+                            }
+                        };
+                        let args = call.as_array().expect("a call")[1..].to_vec();
+                        calls.push(json!({ "method": method, "args": args, "result": result }));
+                    }
+                    entry.insert("calls".into(), json!(calls));
+                    entry.insert("listAtEnd".into(), list(&backups).expect("JSON"));
+                    entry.insert("dataDir".into(), json!(names(&root.join("data"))));
+                    entry.insert("backupsDir".into(), json!(names(&root.join("backups"))));
+                }
             }
-            let entry = json!({
-                "report": report_json(&backups),
-                "listAtStart": list_at_start,
-                "calls": made,
-                "listAtEnd": list(&backups),
-                "dataDir": names(&root.join("data")),
-                "backupsDir": names(&root.join("backups")),
-            });
-            drop(db);
-            results.insert(name.into(), entry);
+            if let Some(mut child) = held {
+                child.kill().expect("kill the holder");
+                child.wait().expect("reap the holder");
+            }
+            chmod(&["-R", "u+w"], &root);
+            let after = std::fs::read(&db_file).ok();
+            entry.insert(
+                "dbFileUnchanged".into(),
+                json!(before.is_some() && before == after),
+            );
+            let mut post = serde_json::Map::new();
+            for f in names(&root.join("data")) {
+                if f == DB_FILE || f.starts_with("matches.db.corrupt-") {
+                    post.insert(format!("data/{f}"), inspect(&root.join("data").join(&f)));
+                }
+            }
+            for f in names(&root.join("backups")) {
+                let path = root.join("backups").join(&f);
+                if f.ends_with(".db")
+                    && std::fs::metadata(&path).is_ok_and(|m| m.is_file() && m.len() > 0)
+                {
+                    post.insert(format!("backups/{f}"), inspect(&path));
+                }
+            }
+            entry.insert("post".into(), Value::Object(post));
+            entry.insert("dataDirAfter".into(), json!(names(&root.join("data"))));
+            results.insert(name, Value::Object(entry));
         }
         std::fs::write(
             out.join("rust.json"),
             serde_json::to_string_pretty(&Value::Object(results)).expect("JSON") + "\n",
         )
         .expect("write rust.json");
+    }
+
+    /// The verifier's full disk, on a small volume `BMT_T17_MNT` names, with
+    /// the fixture `BMT_T17_FIXTURE` names. A backup that runs out of room
+    /// leaves nothing behind, a restore that does fails with Node's text and
+    /// keeps the database open, and a launch with 16 KB free leaves the
+    /// healthy database untouched. Steps go to `BMT_T17_OUT/rust-full.json`.
+    #[test]
+    #[ignore = "needs a small volume; run with BMT_T17_MNT, BMT_T17_FIXTURE and BMT_T17_OUT"]
+    fn on_a_full_disk() {
+        use serde_json::{Value, json};
+        use std::io::Write;
+        let env = |name: &str| PathBuf::from(std::env::var_os(name).expect(name));
+        let (fixture, out) = (env("BMT_T17_FIXTURE"), env("BMT_T17_OUT"));
+        let root = env("BMT_T17_MNT").join("rust-full");
+        let avail = |dir: &Path| -> u64 {
+            let out = std::process::Command::new("df").arg("-k").arg(dir).output();
+            let text = String::from_utf8(out.expect("df runs").stdout).expect("UTF-8");
+            let line = text.lines().nth(1).expect("a volume line");
+            let kib: u64 = line
+                .split_whitespace()
+                .nth(3)
+                .expect("avail")
+                .parse()
+                .expect("a number");
+            kib * 1024
+        };
+        let fill = |leave: u64| {
+            let mut f = std::fs::File::create(root.join("filler")).expect("the filler");
+            let chunk = vec![0u8; 64 * 1024];
+            loop {
+                let left = avail(&root);
+                if left <= leave {
+                    break;
+                }
+                let n = ((left - leave) as usize).min(chunk.len());
+                if f.write_all(&chunk[..n]).is_err() {
+                    break;
+                }
+                f.sync_all().expect("sync the filler");
+            }
+        };
+        if root.exists() {
+            std::fs::remove_dir_all(&root).expect("clear the run");
+        }
+        std::fs::create_dir_all(root.join("data")).expect("data/");
+        std::fs::create_dir_all(root.join("backups")).expect("backups/");
+        let db_file = root.join("data").join(DB_FILE);
+        std::fs::copy(&fixture, &db_file).expect("copy the fixture");
+        std::fs::copy(&fixture, root.join("backups").join(GOOD)).expect("a good backup");
+        let mut steps = Vec::new();
+        {
+            let (db, backups) = open(&root);
+            fill(1 << 20);
+            steps.push(json!({ "step": "filled", "avail": avail(&root) }));
+
+            let created = backups.create(&db, Reason::Manual, NOW).map(|b| b.file);
+            steps.push(json!({ "step": "createBackup", "result": format!("{created:?}"), "backups": names(&root.join("backups")) }));
+            assert_eq!(created, Err("database or disk is full".into()));
+            assert_eq!(
+                names(&root.join("backups")),
+                [GOOD],
+                "no .part or .part-journal"
+            );
+
+            let restored = backups.restore(&db, GOOD, NOW + 1000);
+            steps.push(json!({ "step": "restoreBackup", "result": format!("{restored:?}"), "data": names(&root.join("data")) }));
+            assert_eq!(
+                restored,
+                Err(format!(
+                    "ENOSPC: no space left on device, copyfile '{}' -> '{}'",
+                    root.join("backups").join(GOOD).display(),
+                    suffixed(&db_file, ".incoming").display()
+                ))
+            );
+            assert!(!suffixed(&db_file, ".incoming").exists(), "no partial copy");
+            assert_eq!(db.with(count_games).expect("still open"), 669);
+
+            std::fs::remove_file(root.join("filler")).expect("free the disk");
+            let again = backups.restore(&db, GOOD, NOW + 3000);
+            steps.push(json!({ "step": "restoreAfterFree", "result": format!("{again:?}"), "data": names(&root.join("data")), "backups": names(&root.join("backups")) }));
+            assert_eq!(again, Ok(669));
+            assert!(root.join("backups").join(GOOD).exists());
+        }
+        for f in names(&root.join("data")) {
+            if f != DB_FILE {
+                std::fs::remove_file(root.join("data").join(f)).expect("clear data/");
+            }
+        }
+        let before = std::fs::read(&db_file).expect("read the database");
+        fill(16 * 1024);
+        steps.push(json!({ "step": "filled-for-launch", "avail": avail(&root) }));
+        let launched = open_with_recovery(
+            &root.join("data"),
+            Backups::new(root.join("backups"), new_york()),
+            NOW + 4000,
+        )
+        .map(|_| ());
+        let unchanged = std::fs::read(&db_file).expect("read it again") == before;
+        steps.push(json!({ "step": "launch", "result": format!("{launched:?}"), "data": names(&root.join("data")), "dbFileUnchanged": unchanged }));
+        std::fs::remove_file(root.join("filler")).expect("free the disk");
+        std::fs::write(
+            out.join("rust-full.json"),
+            serde_json::to_string_pretty(&Value::Array(steps)).expect("JSON") + "\n",
+        )
+        .expect("write rust-full.json");
+        assert!(launched.is_err(), "a full disk is an open error");
+        assert!(unchanged, "the healthy database is left as it was");
+        // SQLite's own -wal and -shm from the open it tried may sit beside it
+        assert!(
+            names(&root.join("data"))
+                .iter()
+                .all(|name| name == DB_FILE || name.ends_with("-wal") || name.ends_with("-shm")),
+            "nothing set aside or half copied"
+        );
     }
 }
