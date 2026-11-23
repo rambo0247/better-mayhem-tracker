@@ -29,11 +29,13 @@ pub mod paths;
 #[cfg(feature = "parity-driver")]
 pub mod replay;
 pub mod security;
+pub mod session;
 pub mod shell;
 pub mod single_instance;
 // Card export (T25) calls it in release builds; until then only the driver does
 #[cfg_attr(not(feature = "parity-driver"), allow(dead_code))]
 mod snapshot;
+pub mod text;
 pub mod tray;
 
 use std::time::Instant;

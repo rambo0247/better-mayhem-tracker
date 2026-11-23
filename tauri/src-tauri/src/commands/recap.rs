@@ -1,6 +1,7 @@
 //! The post-game recap, the game card's data, and the season recap. Ported by
 //! T16.
 
+use jiff::tz::TimeZone;
 use serde::{Deserialize, Serialize};
 use tauri::Runtime;
 use ts_rs::TS;
@@ -9,7 +10,9 @@ use super::types::{
     AugmentStats, ChallengeLevel, ItemStats, MatchDetail, Multikills, RecordsData, ScoreBadge,
     TeammateStats,
 };
-use super::{CommandError, CommandResult, Ctx, Domain};
+use super::{CommandResult, Ctx, Domain, whole};
+use crate::db::{self, recap, season};
+use crate::intl;
 use crate::js_arg::Js;
 
 pub struct Hooks;
@@ -241,29 +244,51 @@ pub struct SeasonRecap {
     pub friends: Vec<TeammateStats>,
 }
 
+// Electron's handlers wait for champion data first, because the page scores
+// the scoreboard from it. No query here reads it, and Data Dragon is T22's.
+
 pub async fn get_game_recap<R: Runtime>(
-    _ctx: Ctx<R>,
-    _game_id: Js<Option<i64>>,
+    ctx: Ctx<R>,
+    game_id: Js<Option<i64>>,
 ) -> CommandResult<Option<GameRecap>> {
-    Err(CommandError::not_ported())
+    let game_id = game_id.typed().flatten();
+    let tz = TimeZone::system();
+    let locale = intl::system_locale();
+    db::of(&ctx)?.with(|conn| recap::get_game_recap(conn, game_id, locale.as_deref(), &tz))
 }
 
 pub async fn get_game_card<R: Runtime>(
-    _ctx: Ctx<R>,
-    _game_id: Js<i64>,
+    ctx: Ctx<R>,
+    game_id: Js<i64>,
 ) -> CommandResult<Option<GameCardData>> {
-    Err(CommandError::not_ported())
+    let game_id = whole(&game_id)?;
+    db::of(&ctx)?.with(|conn| recap::get_game_card(conn, game_id))
 }
 
 pub async fn get_season_recap<R: Runtime>(
-    _ctx: Ctx<R>,
-    _season_id: Js<Option<String>>,
-    _queue: Js<Option<i64>>,
-    _account: Js<Option<String>>,
+    ctx: Ctx<R>,
+    season_id: Js<Option<String>>,
+    queue: Js<Option<i64>>,
+    account: Js<Option<String>>,
 ) -> CommandResult<Option<SeasonRecap>> {
-    Err(CommandError::not_ported())
+    let season_id = season_id.typed().flatten();
+    let queue = queue.typed().flatten();
+    let account = account.typed().flatten();
+    let now = ctx.now_ms();
+    let tz = TimeZone::system();
+    db::of(&ctx)?.with(|conn| {
+        season::get_season_recap(
+            conn,
+            season_id.as_deref(),
+            queue,
+            account.as_deref(),
+            now,
+            &tz,
+        )
+    })
 }
 
-pub async fn get_seasons<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<Vec<SeasonSummary>> {
-    Err(CommandError::not_ported())
+pub async fn get_seasons<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Vec<SeasonSummary>> {
+    let now = ctx.now_ms();
+    db::of(&ctx)?.with(|conn| season::get_seasons(conn, now))
 }
