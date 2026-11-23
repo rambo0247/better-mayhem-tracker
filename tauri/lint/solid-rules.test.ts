@@ -3,12 +3,15 @@ import { lint } from "./lint-fixture";
 
 describe("the solid v2 recommended set", () => {
   test("every rule the plugin's v2 config enables is an error in bunfig.toml", async () => {
-    const plugin = (await import("eslint-plugin-solid")).default as {
-      configs: Record<string, { rules: Record<string, number | string> }>;
+    const plugin = (await import("eslint-plugin-solid")).default as unknown as {
+      configs: Record<string, { rules: Record<string, unknown> }>;
     };
     const ours = (await import("../bunfig.toml")).default.lint.rules as Record<string, string>;
     const enabled = Object.entries(plugin.configs["v2"].rules)
-      .filter(([name, level]) => name.startsWith("solid/") && level !== 0 && level !== "off")
+      .filter(([name, setting]) => {
+        const level = Array.isArray(setting) ? setting[0] : setting;
+        return name.startsWith("solid/") && level !== 0 && level !== "off";
+      })
       .map(([name]) => name);
     expect(enabled.length).toBeGreaterThan(20);
     const missing = enabled.filter((name) => ours[name] !== "error");

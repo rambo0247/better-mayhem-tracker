@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { isExactPin, pinnedVersion, type Ecosystem } from "./pin";
 
 const root = resolve(import.meta.dir, "..");
 
-type Ecosystem = "npm" | "crate";
 type Dep = { eco: Ecosystem; name: string; pinned: string };
 type Row = Dep & {
   latest: string | null;
@@ -40,8 +40,7 @@ function crateDeps(): Dep[] {
   for (const table of tables) {
     for (const [name, spec] of Object.entries<any>(table ?? {})) {
       const raw = typeof spec === "string" ? spec : spec.version;
-      if (typeof raw === "string")
-        out.set(name, { eco: "crate", name, pinned: raw.replace(/^[=^~]/, "") });
+      if (typeof raw === "string") out.set(name, { eco: "crate", name, pinned: raw });
     }
   }
   return [...out.values()];
@@ -85,13 +84,16 @@ async function crateVersions(name: string) {
 async function check(dep: Dep): Promise<Row> {
   try {
     const found = dep.eco === "npm" ? await npmVersions(dep.name) : await crateVersions(dep.name);
-    const matches = dep.pinned === found.expected;
+    const matches =
+      isExactPin(dep.eco, dep.pinned) && pinnedVersion(dep.eco, dep.pinned) === found.expected;
     const waiver = WAIVERS[dep.name];
     const status = matches
       ? "ok"
       : waiver
         ? `waived (${waiver})`
-        : `BREAKS RULE, expected ${found.expected}`;
+        : isExactPin(dep.eco, dep.pinned)
+          ? `BREAKS RULE, expected ${found.expected}`
+          : `BREAKS RULE, not an exact pin, expected ${found.expected}`;
     return { ...dep, ...found, status };
   } catch (error) {
     return {
