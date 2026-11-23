@@ -197,7 +197,11 @@ function CardPreview(props: { children: JSX.Element }) {
       }}
       class="overflow-hidden rounded-xl border border-lol-border bg-lol-dark shadow-[0_30px_60px_-30px_rgb(0_0_0/0.85)]"
     >
-      <div style={{ width: `${CARD_WIDTH}px`, zoom: zoom() }}>{props.children}</div>
+      {/* WebKit leaves rem lengths in flex and grid gaps unzoomed, so the card's spacing scale is
+          pinned in px, the same 0.25rem Tailwind's default resolves to at a 16px root. */}
+      <div style={{ width: `${CARD_WIDTH}px`, zoom: zoom(), "--spacing": "4px" }}>
+        {props.children}
+      </div>
     </div>
   );
 }
