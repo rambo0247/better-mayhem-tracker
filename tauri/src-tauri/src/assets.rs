@@ -35,9 +35,11 @@ use crate::lcu::{Lcu, LcuStatus};
 
 pub const ASSET_SCHEME: &str = "asset";
 /// The host WebView2 serves a custom scheme under, since it routes only
-/// `http://<scheme>.localhost`. The kind of URL ("game-data", "splash") is then
-/// the first path segment instead of the host.
+/// `http://<scheme>.localhost`. wry undoes that rewrite before the handler
+/// runs, so the handler sees `asset://localhost/...`. In both forms the kind
+/// of URL ("game-data", "splash") is the first path segment.
 pub const WEBVIEW2_HOST: &str = "asset.localhost";
+const WRY_HOST: &str = "localhost";
 
 const CDRAGON: &str = "https://raw.communitydragon.org";
 pub const USER_AGENT: &str = "BetterMayhemTracker/1.0";
@@ -264,6 +266,20 @@ pub(crate) struct Flights<V: Clone> {
     running: Mutex<HashMap<String, Shared<BoxFuture<'static, V>>>>,
 }
 
+/// Drops a flight's entry however its task ends, a panic included, so the
+/// next ask starts a new one rather than joining a task that can never answer.
+struct Landing<V: Clone>(Arc<Flights<V>>, String);
+
+impl<V: Clone> Drop for Landing<V> {
+    fn drop(&mut self) {
+        self.0
+            .running
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(&self.1);
+    }
+}
+
 impl<V: Clone + Send + Sync + 'static> Flights<V> {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
@@ -284,12 +300,10 @@ impl<V: Clone + Send + Sync + 'static> Flights<V> {
             return flight.clone();
         }
         let work = start();
-        let flights = Arc::clone(self);
-        let owned = key.to_string();
+        let landing = Landing(Arc::clone(self), key.to_string());
         let task = tokio::spawn(async move {
-            let value = work.await;
-            flights.running.lock().expect("flights lock").remove(&owned);
-            value
+            let _landing = landing;
+            work.await
         });
         let flight = async move { task.await.expect("a single-flight task panicked") }
             .boxed()
@@ -436,10 +450,11 @@ struct LoadMode {
 }
 
 /// `majorMinor` in game-assets.ts: "16.23.1" is "16.23". The trailing dot is
-/// required, unlike Data Dragon's version match in dragon.ts.
+/// required, unlike Data Dragon's version match in dragon.ts. ASCII digits
+/// only, as JavaScript's `\d` is.
 fn major_minor(version: &Value) -> Option<String> {
     static VERSION: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^(\d+)\.(\d+)\.").expect("a valid pattern"));
+        LazyLock::new(|| Regex::new(r"^([0-9]+)\.([0-9]+)\.").expect("a valid pattern"));
     let text = js_string(version);
     let captures = VERSION.captures(&text)?;
     Some(format!("{}.{}", &captures[1], &captures[2]))
@@ -529,9 +544,17 @@ impl GameAssets {
         let assets = self.clone();
         tokio::spawn(async move {
             tokio::time::sleep(PRUNE_DELAY).await;
+            assets.cache().prune(SystemTime::now()).await;
+        });
+        // setInterval counts from the start, not from the first prune
+        let assets = self.clone();
+        tokio::spawn(async move {
+            let mut daily =
+                tokio::time::interval_at(Instant::now() + PRUNE_INTERVAL, PRUNE_INTERVAL);
+            daily.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
+                daily.tick().await;
                 assets.cache().prune(SystemTime::now()).await;
-                tokio::time::sleep(PRUNE_INTERVAL).await;
             }
         });
     }
@@ -715,12 +738,15 @@ impl GameAssets {
 
     /// Where a branch's copies are read from. Until CommunityDragon says which
     /// patch "latest" holds, the newest one on disk stands in.
-    fn read_key(&self, branch: &Branch) -> Option<String> {
+    async fn read_key(&self, branch: &Branch) -> Option<String> {
         match branch {
             Branch::Patch(patch) => Some(patch.clone()),
             Branch::Latest => {
                 let known = self.0.latest.lock().expect("latest lock").known.clone();
-                known.or_else(|| self.cache().patches().into_iter().next())
+                match known {
+                    Some(known) => Some(known),
+                    None => self.cache().patches().await.into_iter().next(),
+                }
             }
             Branch::Pbe | Branch::Other(_) => None,
         }
@@ -761,7 +787,7 @@ impl GameAssets {
     }
 
     async fn resolve_file(&self, file: &GameFile, mode: LoadMode) -> Fetched {
-        let key = self.read_key(&file.branch);
+        let key = self.read_key(&file.branch).await;
         let copy = key.as_deref().map(|key| self.cache().file(key, &file.path));
         if let Some(copy) = copy.as_deref().filter(|_| !mode.network_first)
             && let Some(bytes) = self.cache().read(copy).await
@@ -818,7 +844,7 @@ impl GameAssets {
         }
 
         if mode.stale {
-            for other in self.cache().patches() {
+            for other in self.cache().patches().await {
                 if key.as_deref() == Some(other.as_str()) {
                     continue;
                 }
@@ -982,16 +1008,17 @@ fn is_unsafe_segment(segment: &str) -> bool {
 
 /// The URLs [`game_asset_url`] and [`champion_splash_url`] build, and nothing
 /// else: no segment that could climb out of /lol-game-data/assets/ on the
-/// client, or out of the cache. Takes both the WebKit form
-/// (`asset://game-data/...`) and the WebView2 one
-/// (`http://asset.localhost/game-data/...`).
+/// client, or out of the cache. Takes the WebKit form
+/// (`asset://game-data/...`), the WebView2 one
+/// (`http://asset.localhost/game-data/...`), and the WebView2 one as wry hands
+/// it over (`asset://localhost/game-data/...`).
 pub fn parse_asset_url(uri: &Uri) -> Option<GameFile> {
     static IMAGE_PATH: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^[a-z0-9_.-]+(/[a-z0-9_.-]+)*\.(png|jpe?g|webp)$").expect("a valid pattern")
     });
     let host = uri.host()?.to_ascii_lowercase();
     let mut raw = uri.path().split('/').filter(|s| !s.is_empty());
-    let kind = if host == WEBVIEW2_HOST {
+    let kind = if host == WEBVIEW2_HOST || host == WRY_HOST {
         raw.next()?.to_string()
     } else {
         host
@@ -1460,7 +1487,7 @@ pub(crate) mod tests {
             Some(png(8))
         );
         // "pbe" is never kept
-        let mut patches = rig.assets.cache().patches();
+        let mut patches = rig.assets.cache().patches().await;
         patches.sort();
         assert_eq!(patches, ["16.20", "16.23"]);
         // A second ask reads the copy
@@ -1777,6 +1804,8 @@ pub(crate) mod tests {
         }
         let first = stray("first");
         rig.assets.start();
+        // The timers start when their tasks first run
+        tokio::task::yield_now().await;
         tokio::time::advance(PRUNE_DELAY - Duration::from_millis(1)).await;
         assert!(!quiet(&first).await, "pruned before a minute");
         tokio::time::advance(Duration::from_millis(1)).await;

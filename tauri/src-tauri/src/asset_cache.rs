@@ -96,28 +96,25 @@ impl AssetCache {
         }
     }
 
-    /// Where the copy of `game_path` from `key` lives. `key` is always a patch
-    /// ([`is_patch_branch`]), and the name is a hash, so the result is always
-    /// one level below the root.
+    /// Where the copy of `game_path` from `key` lives. `key` is a patch
+    /// ([`is_patch_branch`]), and the name is a hash, so the result is one
+    /// level below the root.
     pub fn file(&self, key: &str, game_path: &str) -> PathBuf {
-        debug_assert!(is_patch_branch(key), "cache key {key:?} is not a patch");
         self.root.join(key).join(file_name(game_path))
     }
 
-    pub fn patches(&self) -> Vec<String> {
-        let mut patches = self.patches.lock().expect("patches lock");
-        patches
-            .get_or_insert_with(|| {
-                let mut found: Vec<String> = std::fs::read_dir(&self.root)
-                    .into_iter()
-                    .flatten()
-                    .flatten()
-                    .filter_map(|entry| entry.file_name().into_string().ok())
-                    .filter(|name| is_patch_branch(name))
-                    .collect();
-                found.sort_by(|a, b| by_newest_patch(a, b));
-                found
-            })
+    pub async fn patches(&self) -> Vec<String> {
+        if let Some(known) = self.patches.lock().expect("patches lock").clone() {
+            return known;
+        }
+        let root = self.root.clone();
+        let found = tokio::task::spawn_blocking(move || list_patches(&root))
+            .await
+            .unwrap_or_default();
+        self.patches
+            .lock()
+            .expect("patches lock")
+            .get_or_insert(found)
             .clone()
     }
 
@@ -134,8 +131,8 @@ impl AssetCache {
         if stale {
             let file = file.to_path_buf();
             tokio::task::spawn_blocking(move || {
-                let now = SystemTime::now();
-                let _ = touch(&file, now);
+                // utimes with a Date, which holds whole milliseconds
+                let _ = touch(&file, whole_millis(SystemTime::now()));
             });
         }
         Some(bytes)
@@ -158,11 +155,14 @@ impl AssetCache {
         .await;
         match written {
             Ok(()) => {
-                let mut patches = self.patches();
-                if !patches.iter().any(|p| p == key) {
+                self.patches().await;
+                // None when a prune forgot the list meanwhile; the next read
+                // lists the folder again
+                if let Some(patches) = self.patches.lock().expect("patches lock").as_mut()
+                    && !patches.iter().any(|p| p == key)
+                {
                     patches.push(key.to_string());
                     patches.sort_by(|a, b| by_newest_patch(a, b));
-                    *self.patches.lock().expect("patches lock") = Some(patches);
                 }
             }
             Err(err) => {
@@ -191,25 +191,65 @@ impl AssetCache {
     }
 }
 
-fn prune_dir(root: &Path, now: SystemTime) -> Option<Pruned> {
-    let dirs: Vec<PathBuf> = std::fs::read_dir(root)
-        .ok()?
+fn list_patches(root: &Path) -> Vec<String> {
+    let mut found: Vec<String> = std::fs::read_dir(root)
+        .into_iter()
         .flatten()
-        .map(|entry| entry.path())
+        .flatten()
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| is_patch_branch(name))
         .collect();
+    found.sort_by(|a, b| by_newest_patch(a, b));
+    found
+}
+
+/// `fs.promises.readdir`. On Unix libuv lists names through scandir with a
+/// strcmp comparator, so Node sees them in byte order. On Windows libuv's
+/// NtQueryDirectoryFile and std's FindFirstFileExW both return the file
+/// system's own order, unsorted, so the two already agree there.
+fn read_names(dir: &Path) -> Option<Vec<std::fs::DirEntry>> {
+    #[cfg_attr(not(unix), allow(unused_mut))]
+    let mut entries: Vec<_> = std::fs::read_dir(dir).ok()?.flatten().collect();
+    #[cfg(unix)]
+    entries.sort_by_key(std::fs::DirEntry::file_name);
+    Some(entries)
+}
+
+/// Node's `stat.mtimeMs`: `sec * 1e3 + nsec / 1e6`, in doubles.
+fn node_millis(at: SystemTime) -> f64 {
+    match at.duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(since) => since.as_secs() as f64 * 1e3 + f64::from(since.subsec_nanos()) / 1e6,
+        Err(before) => {
+            let before = before.duration();
+            -(before.as_secs() as f64 * 1e3 + f64::from(before.subsec_nanos()) / 1e6)
+        }
+    }
+}
+
+fn whole_millis(at: SystemTime) -> SystemTime {
+    match at.duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(since) => SystemTime::UNIX_EPOCH + Duration::from_millis(since.as_millis() as u64),
+        Err(_) => at,
+    }
+}
+
+fn prune_dir(root: &Path, now: SystemTime) -> Option<Pruned> {
+    let dirs: Vec<PathBuf> = read_names(root)?.iter().map(|e| e.path()).collect();
+    let now = node_millis(now);
+    let stray_ms = STRAY_TEMP.as_millis() as f64;
 
     struct Entry {
         file: PathBuf,
         size: u64,
-        used: SystemTime,
+        used: f64,
     }
     let mut files = Vec::new();
     let mut total = 0u64;
     for dir in &dirs {
-        let Ok(names) = std::fs::read_dir(dir) else {
+        let Some(names) = read_names(dir) else {
             continue;
         };
-        for entry in names.flatten() {
+        for entry in names {
             let file = entry.path();
             // fs.stat follows links, as Node's does
             let Ok(meta) = std::fs::metadata(&file) else {
@@ -218,9 +258,9 @@ fn prune_dir(root: &Path, now: SystemTime) -> Option<Pruned> {
             if !meta.is_file() {
                 continue;
             }
-            let used = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+            let used = node_millis(meta.modified().unwrap_or(SystemTime::UNIX_EPOCH));
             if entry.file_name().to_string_lossy().ends_with(".tmp") {
-                if now.duration_since(used).is_ok_and(|age| age > STRAY_TEMP) {
+                if now - used > stray_ms {
                     let _ = std::fs::remove_file(&file);
                 }
                 continue;
@@ -238,8 +278,8 @@ fn prune_dir(root: &Path, now: SystemTime) -> Option<Pruned> {
     }
 
     let before = total;
-    // Stable, as Array.prototype.sort is, so ties keep directory order
-    files.sort_by_key(|entry| entry.used);
+    // Stable, as Array.prototype.sort is, so ties keep readdir's order
+    files.sort_by(|a, b| a.used.total_cmp(&b.used));
     for entry in &files {
         if total <= TARGET_CACHE_BYTES {
             break;
@@ -332,8 +372,8 @@ pub(crate) mod tests {
         assert_eq!(extname("a.b/c.d.webp"), ".webp");
     }
 
-    #[test]
-    fn patches_are_numeric_and_newest_first() {
+    #[tokio::test]
+    async fn patches_are_numeric_and_newest_first() {
         assert!(is_patch_branch("16.4"));
         for name in ["latest", "pbe", "16", "16.", ".4", "16.4.1", "a.b", "16.4 "] {
             assert!(!is_patch_branch(name), "{name}");
@@ -343,7 +383,7 @@ pub(crate) mod tests {
             std::fs::create_dir(root.join(name)).unwrap();
         }
         let cache = AssetCache::new(root.clone());
-        assert_eq!(cache.patches(), ["16.23", "16.10", "16.4", "15.24"]);
+        assert_eq!(cache.patches().await, ["16.23", "16.10", "16.4", "15.24"]);
         std::fs::remove_dir_all(root).unwrap();
     }
 
@@ -351,10 +391,10 @@ pub(crate) mod tests {
     async fn stores_through_a_temp_file_and_learns_the_patch() {
         let root = temp_dir("store");
         let cache = AssetCache::new(root.clone());
-        assert!(cache.patches().is_empty());
+        assert!(cache.patches().await.is_empty());
         cache.store(Some("16.22"), "v1/a.png", b"png").await;
         cache.store(None, "v1/b.png", b"png").await;
-        assert_eq!(cache.patches(), ["16.22"]);
+        assert_eq!(cache.patches().await, ["16.22"]);
         assert_eq!(names(&root.join("16.22")), [file_name("v1/a.png")]);
         assert_eq!(names(&root), ["16.22"]);
         let copy = cache.file("16.22", "v1/a.png");
@@ -428,7 +468,7 @@ pub(crate) mod tests {
         std::fs::write(root.join("note.txt"), b"n").unwrap();
 
         let cache = AssetCache::new(root.clone());
-        assert_eq!(cache.patches(), ["16.23", "16.22", "16.21", "16.1"]);
+        assert_eq!(cache.patches().await, ["16.23", "16.22", "16.21", "16.1"]);
         let pruned = cache.prune(now).await.unwrap();
         assert_eq!(pruned.before, 280 * 1024 * 1024 + 1024);
         assert_eq!(pruned.after, 180 * 1024 * 1024);
@@ -439,7 +479,7 @@ pub(crate) mod tests {
             names(&root.join("16.23")),
             ["05.png", "08.png", "11.png", "y.png.cafef00d.tmp"]
         );
-        assert_eq!(cache.patches(), ["16.23", "16.22", "16.21"]);
+        assert_eq!(cache.patches().await, ["16.23", "16.22", "16.21"]);
         assert_eq!(mb(pruned.before), "280.0 MB");
         std::fs::remove_dir_all(root).unwrap();
     }
