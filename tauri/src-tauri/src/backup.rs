@@ -385,7 +385,14 @@ impl OpenFailure {
     fn of(err: &rusqlite::Error) -> Self {
         use rusqlite::ErrorCode::*;
         let message = db::sqlite_error(err).message;
-        match err.sqlite_error_code() {
+        // A statement SQLite refused to prepare, such as one naming a column
+        // the file lacks, is SQLite's own error too
+        let code = match err {
+            rusqlite::Error::SqliteFailure(error, _)
+            | rusqlite::Error::SqlInputError { error, .. } => Some(error.code),
+            _ => None,
+        };
+        match code {
             Some(
                 DatabaseBusy
                 | DatabaseLocked
@@ -399,7 +406,10 @@ impl OpenFailure {
                 | FileLockingProtocolFailed
                 | NoLargeFileSupport,
             ) => Self::Unavailable(message),
-            _ => Self::Lost(message),
+            Some(_) => Self::Lost(message),
+            // Not SQLite's, such as a value of the wrong type: it says
+            // nothing about whether the file is damaged
+            None => Self::Unavailable(message),
         }
     }
 }
@@ -1701,6 +1711,33 @@ mod tests {
         );
         drop(db);
         std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// An open that fails with anything but SQLite's own error, such as a
+    /// value of the wrong type, says nothing about the file, so the database
+    /// is left as it is rather than replaced by an older snapshot.
+    #[test]
+    fn an_error_sqlite_did_not_raise_leaves_the_database_alone() {
+        let not_sqlite = [
+            rusqlite::Error::InvalidColumnType(0, "value".into(), rusqlite::types::Type::Blob),
+            rusqlite::Error::QueryReturnedNoRows,
+            rusqlite::Error::InvalidQuery,
+        ];
+        for err in &not_sqlite {
+            assert!(
+                matches!(OpenFailure::of(err), OpenFailure::Unavailable(_)),
+                "{err} read as Lost"
+            );
+        }
+        let corrupt = rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CORRUPT),
+            None,
+        );
+        assert!(matches!(OpenFailure::of(&corrupt), OpenFailure::Lost(_)));
+        let no_column = Connection::open_in_memory()
+            .and_then(|conn| conn.prepare("SELECT puuid FROM sqlite_master").map(drop))
+            .expect_err("no such column");
+        assert!(matches!(OpenFailure::of(&no_column), OpenFailure::Lost(_)));
     }
 
     /// Node's recursive mkdir reports the stat after a failed mkdir, so a
