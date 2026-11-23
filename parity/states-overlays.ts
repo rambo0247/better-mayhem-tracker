@@ -106,6 +106,14 @@ const update: StateRow[] = [
     pre: [github("update-available")],
     steps: [...openUpdateDialog, { op: "key", key: "Escape" }, { op: "wait", ms: 400 }],
   }),
+  overlay("overlay-dialog-mouse-close", "/", `${UPDATE_BUTTON}:focus`, {
+    pre: [github("update-available")],
+    steps: [
+      ...openUpdateDialog,
+      { op: "click", selector: `${DIALOG} button`, text: "Not Now" },
+      { op: "wait", ms: 400 },
+    ],
+  }),
 ];
 
 const whatsNew: StateRow[] = [
