@@ -1,4 +1,4 @@
-import { createEffect, createSignal } from "solid-js";
+import { createSignal } from "solid-js";
 import { FilterField } from "./FilterMenu";
 
 // The fewest games a row needs to be listed, so a champion played twice can't
@@ -14,12 +14,10 @@ export default function MinGamesFilter(props: {
 }) {
   // The field follows the slider and Reset, but a number still being typed is
   // left alone while it means the same minimum: typing 15 passes through 1.
-  const [draft, setDraft] = createSignal("");
-  createEffect(
-    () => props.value,
-    (value) => {
-      if (parseMin(draft()) !== value) setDraft(value?.toString() ?? "");
-    },
+  const [draft, setDraft] = createSignal<string>((typed) =>
+    typed !== undefined && parseMin(typed) === props.value
+      ? typed
+      : (props.value?.toString() ?? ""),
   );
 
   return (

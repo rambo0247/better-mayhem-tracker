@@ -36,3 +36,11 @@ const target: Record<string, unknown> = { platform: "darwin", locale: undefined 
     };
   },
 });
+
+// Tauri's invoke (perf.ts's page_event), recorded beside the window.api calls
+(window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
+  invoke(command: string, args: unknown) {
+    fake.calls.push({ method: command, args: [args] });
+    return Promise.resolve();
+  },
+};
