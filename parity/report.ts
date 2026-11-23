@@ -1107,18 +1107,6 @@ async function runPlatform(argv: string[]) {
   }
 
   const checks: CheckResult[] = [];
-  const reactIsms = run(["bun", "scripts/react-isms.ts"], {
-    cwd: path.join(REPO_DIR, "tauri"),
-    log: path.join(out, `react-isms-${platform}.log`),
-  });
-  // Rows are a pattern, then its count in tauri/src, then in the React tree
-  const counts = [...reactIsms.text.matchAll(/^(.+?)\s+(\d+)\s+\d+$/gm)];
-  const found = counts.filter((m) => m[2] !== "0").map((m) => `${m[1]!.trim()} ${m[2]}`);
-  checks.push({
-    name: "react-isms.ts",
-    pass: reactIsms.code === 0 && found.length === 0,
-    detail: `${counts.length} patterns, ${found.length ? `found ${found.join(", ")}` : "every count in tauri/src is 0"}.`,
-  });
   const check = (name: string, cmd: string[], cwd: string, log: string) => {
     const result = run(cmd, { cwd, log: path.join(out, `${log}-${platform}.log`) });
     checks.push({
@@ -1127,7 +1115,7 @@ async function runPlatform(argv: string[]) {
       detail: `exit ${result.code}, last line: ${result.text.trim().split("\n").slice(-1)[0] ?? ""}`,
     });
   };
-  // The Rust contract must equal the committed bindings, and both must equal src/shared/api.ts
+  // The Rust contract must equal the committed bindings the pages are typed from
   check(
     "export_bindings --check",
     t.build([
@@ -1143,18 +1131,12 @@ async function runPlatform(argv: string[]) {
     path.join(REPO_DIR, "tauri", "src-tauri"),
     "export-bindings",
   );
-  check(
-    "contract-check.ts",
-    ["bun", "scripts/contract-check.ts"],
-    path.join(REPO_DIR, "tauri"),
-    "contract",
-  );
 
   const db = fs.readFileSync(path.join(dataRoot, "data", "matches.db"));
   const result: PlatformRun = {
     platform,
     head: git("rev-parse", "HEAD"),
-    trunk: git("rev-parse", opt["--trunk"] ?? "main"),
+    trunk: git("rev-parse", opt["--trunk"] ?? "v1.2.1^{commit}"),
     fixtureSha256: crypto.createHash("sha256").update(db).digest("hex"),
     startedAt,
     finishedAt: new Date().toISOString(),
@@ -1207,9 +1189,8 @@ function render(argv: string[]) {
     .map((a) => (a.startsWith("--") ? a : path.relative(REPO_DIR, path.resolve(a))))
     .join(" ")}`;
   fs.writeFileSync(out, renderReport(report, command));
-  // The root's format check covers docs/, and oxfmt pads every table cell
-  const oxfmt = path.join(REPO_DIR, "node_modules", ".bin", "oxfmt");
-  if (fs.existsSync(oxfmt)) spawnSync(oxfmt, [out], { cwd: REPO_DIR, stdio: "ignore" });
+  // The formatter pads every table cell
+  spawnSync(process.execPath, ["fmt", "--no-script", out], { cwd: REPO_DIR, stdio: "ignore" });
   const verdict = verdictOf(report);
   console.log(`report: ${verdict.pass ? "PASS" : "FAIL"}, wrote ${path.relative(REPO_DIR, out)}`);
   for (const failure of verdict.failures) console.log(`  ${failure}`);

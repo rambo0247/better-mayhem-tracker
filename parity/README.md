@@ -1,6 +1,6 @@
 # parity
 
-Tools that capture the Electron 1.2.1 baseline and compare the Tauri port against it. The same states, settle, and capture code drive both apps through one `Engine` (`drive.ts`): `PlaywrightEngine` for Electron, `TauriEngine` for the Tauri webview through its parity driver. Everything runs under bun. Nothing here edits `src/` or opens the installed app's data folder for writing.
+Tools that capture the Electron 1.2.1 baseline and compare the Tauri port against it. The same states, settle, and capture code drive both apps through one `Engine` (`drive.ts`): `PlaywrightEngine` for Electron, `TauriEngine` for the Tauri webview through its parity driver. Everything runs under bun. Nothing here edits the app or opens the installed app's data folder for writing.
 
 ## The data rule
 
@@ -12,13 +12,19 @@ Never commit anything made from real data. `out/` and `snapshots/` are gitignore
 
 ## Setup
 
+The repository holds only the Tauri app. Electron 1.2.1 runs from its own checkout of the `v1.2.1` tag, which every Electron-side tool finds through `BMT_ELECTRON_REPO`, or in `baseline-1.2.1/` at the repository root when that is unset.
+
 ```sh
-npm ci                                      # repo root: trunk Electron
+git worktree add baseline-1.2.1 v1.2.1      # or any folder, with BMT_ELECTRON_REPO pointing at it
+cd baseline-1.2.1
+npm ci
 npm run rebuild                             # better-sqlite3 for Electron's ABI
 node node_modules/electron/install.js       # npm skips Electron's download script
 npm run build                               # out/ for run-electron.ts
-cd parity && bun install --frozen-lockfile
+cd .. && bun install --frozen-lockfile      # repository root: the tauri and parity workspaces
 ```
+
+The channel and event tables of 1.2.1 are `lib/electron-contract.txt`, cut from that tag, so the parser tests need no checkout. Only the tray template test (`test/menus.test.ts`) reads the checkout's `src/main/index.ts`, and it skips without one. `score-golden.ts` scores with `tauri/src/shared/opScore.ts`. The Tauri binary is looked up in this tree, never in the Electron checkout.
 
 ## Commands
 
@@ -163,7 +169,7 @@ Windows runs the same `report.ts run` in parity.yml's `report-windows` job: `gh 
 
 ## Known limits
 
-- `bun lint --flavor eslint` is what lints parity. Without the flavor, Bun walks up to the root `.oxlintrc.json`, whose ignore patterns name `parity`, and lints nothing.
+- `bun lint --flavor eslint` is what lints parity. Without the flavor, Bun walks up to the root `.oxlintrc.json`, whose ignore patterns name `parity`, and lints nothing. At the root, `bun run lint` runs both workspaces' scripts.
 - Overlays and menus belong to T04.
 
 ## Perf probe (T06)
