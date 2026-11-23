@@ -29,7 +29,9 @@ function el(
 }
 
 function dump(body: FakeElement) {
-  return JSON.parse(vm.runInNewContext(SOURCE, { document: { body } }));
+  // The page globals geometry.js reads: no element here is SVG or clips its text
+  const page = { document: { body }, SVGElement: class {}, getComputedStyle: () => ({}) };
+  return JSON.parse(vm.runInNewContext(SOURCE, page));
 }
 
 test("a data-parity-skip wrapper is recorded as its first child, with its own box", () => {

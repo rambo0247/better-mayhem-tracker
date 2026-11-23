@@ -23,7 +23,7 @@
     const r = el.getBoundingClientRect();
     // A clipping wrapper the Tauri UI adds around one element (ChampionIcon's
     // crop) stands in for that element: Electron drew it as the element alone.
-    const stand = el.hasAttribute("data-parity-skip") ? el.firstElementChild : null;
+    const stand = el.hasAttribute("data-parity-skip") ? (el.children[0] ?? null) : null;
     if (r.width || r.height) {
       const row = [
         path,
@@ -40,8 +40,10 @@
       }
       out.push(row);
     }
+    // What a marked wrapper holds to get there has no counterpart in Electron's tree
+    if (el.hasAttribute("data-parity-skip")) return;
     const childInEllipsis = inEllipsis || (el !== document.body && truncates(el));
-    [...(stand ?? el).children].forEach((child, i) => walk(child, path + "/" + i, childInEllipsis));
+    [...el.children].forEach((child, i) => walk(child, path + "/" + i, childInEllipsis));
   };
   walk(document.body, "b", false);
   return JSON.stringify(out);
