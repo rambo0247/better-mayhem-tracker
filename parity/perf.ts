@@ -131,6 +131,7 @@ async function main() {
       process.platform === "darwin" ? "sandbox" : "none",
     ) as Isolation,
     selector: value("--selector"),
+    killRoleAfterFirstSample: value("--kill-role-after-first-sample"),
     log: console.log,
   };
 

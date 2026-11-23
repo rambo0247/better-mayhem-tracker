@@ -44,6 +44,8 @@ export interface RunOptions {
   intervalSeconds: number;
   isolation: Isolation;
   selector?: string;
+  /** Test hook for the missing-helper proof: kill this role once, after the first sample. */
+  killRoleAfterFirstSample?: string;
   log: (line: string) => void;
 }
 
@@ -266,6 +268,10 @@ export async function runElectron(
         footprintBytes,
         rssBytes,
       }));
+      if (i === 0 && options.killRoleAfterFirstSample) {
+        const victim = [...roles].find(([, role]) => role === options.killRoleAfterFirstSample);
+        if (victim) process.kill(victim[0], "SIGKILL");
+      }
     }
     finish(result);
   } catch (error) {

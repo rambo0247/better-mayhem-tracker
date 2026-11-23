@@ -48,12 +48,17 @@ export function parsePs(text: string): ProcRow[] {
 }
 
 export function listProcesses(): ProcRow[] {
-  const out = spawnSync("ps", ["-wwaxo", "pid=,ppid=,lstart=,rss=,command="], {
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  if (out.status !== 0) throw new Error(`ps failed: ${out.stderr}`);
-  return parsePs(out.stdout);
+  let failure = "";
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const out = spawnSync("ps", ["-wwaxo", "pid=,ppid=,lstart=,rss=,command="], {
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    if (out.status === 0) return parsePs(out.stdout);
+    failure = `${out.status} ${out.stderr} ${out.error ?? ""}`;
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+  }
+  throw new Error(`ps failed five times: ${failure}`);
 }
 
 /** The root and everything under it by parent pid. */
