@@ -142,6 +142,16 @@ describe.skipIf(process.platform === "win32")("launching", () => {
       /carries the production bundle identifier/,
     ],
     [
+      "a binary that names the production identifier beside the login item label",
+      (dir) =>
+        fakeBinary(
+          dir,
+          "bin",
+          `${PARITY_IDENTIFIER} com.better-mayhem-tracker.app.autostart ${PRODUCTION_IDENTIFIER}`,
+        ),
+      /carries the production bundle identifier/,
+    ],
+    [
       "a binary from before the parity identifier",
       (dir) => fakeBinary(dir, "bin", "com.example.other"),
       /does not carry the parity bundle identifier/,
@@ -188,6 +198,19 @@ describe.skipIf(process.platform === "win32")("launching", () => {
       fs.rmSync(dir, { recursive: true });
     });
   }
+
+  test("launches a parity binary that holds the login item label", async () => {
+    const dir = scratch();
+    const binary = fakeBinary(
+      dir,
+      "bin",
+      `${PARITY_IDENTIFIER} com.better-mayhem-tracker.app.autostart`,
+    );
+    await expect(
+      startTauri({ renderer: "solid", binary, runDir: path.join(dir, "run"), readyTimeoutMs: 500 }),
+    ).rejects.toThrow(/no "bmt-parity-driver-v1 listening" line/);
+    fs.rmSync(dir, { recursive: true });
+  });
 
   test("launches a parity binary inside a .app whose Info.plist names the parity identifier", async () => {
     const dir = scratch();

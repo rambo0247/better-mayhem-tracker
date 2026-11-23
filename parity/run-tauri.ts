@@ -96,6 +96,15 @@ export function tauriBinary(repo: string = REPO_DIR, options: TauriBinaryOptions
 
 export const PRODUCTION_IDENTIFIER = "com.better-mayhem-tracker.app";
 export const PARITY_IDENTIFIER = "com.better-mayhem-tracker.parity";
+/** Names that start with the production identifier and are not it: 1.2.1's login item label. */
+const PRODUCTION_PREFIXED = ["com.better-mayhem-tracker.app.autostart"];
+
+/** How often `needle` occurs in `bytes`. */
+function occurrences(bytes: Buffer, needle: string): number {
+  let count = 0;
+  for (let at = bytes.indexOf(needle); at !== -1; at = bytes.indexOf(needle, at + 1)) count++;
+  return count;
+}
 
 /**
  * WebKit keeps a webview's storage under ~/Library by bundle identifier, whatever HOME says,
@@ -110,7 +119,10 @@ export function refuseProductionIdentifier(binary: string) {
   const insideApp = path.resolve(binary, "..", "..", "..").endsWith(".app");
   const plist = insideApp && fs.existsSync(bundlePlist) ? fs.readFileSync(bundlePlist, "utf8") : "";
   const bundleId = plist.match(/<key>CFBundleIdentifier<\/key>\s*<string>([^<]*)<\/string>/)?.[1];
-  if (bytes.includes(PRODUCTION_IDENTIFIER) || bundleId === PRODUCTION_IDENTIFIER) {
+  const production =
+    occurrences(bytes, PRODUCTION_IDENTIFIER) -
+    PRODUCTION_PREFIXED.reduce((sum, name) => sum + occurrences(bytes, name), 0);
+  if (production > 0 || bundleId === PRODUCTION_IDENTIFIER) {
     throw new Error(
       `${binary} carries the production bundle identifier ${PRODUCTION_IDENTIFIER}. Rebuild it with --features parity-driver, and pass --config src-tauri/tauri.parity.conf.json to a bundled build.`,
     );
