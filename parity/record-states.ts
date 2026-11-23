@@ -11,7 +11,7 @@ import {
   type Outcome,
   type StateIndex,
 } from "./golden-format.ts";
-import { drain, parseChannels, writeJson, type SeamRecord } from "./record-ipc.ts";
+import { drain, parseChannels, redact, writeJson, type SeamRecord } from "./record-ipc.ts";
 import { PARITY_DIR, REPO_DIR } from "./lib/data.ts";
 import { gameRunning } from "./lib/no-game.ts";
 import { startElectron, type RunningElectron } from "./run-electron.ts";
@@ -22,7 +22,7 @@ const GOLDEN_DIR = path.join(PARITY_DIR, "out", "golden");
 const QUIET_MS = 400;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-interface Call {
+export interface Call {
   channel: string;
   args: Json[];
   outcome: Outcome;
@@ -30,7 +30,7 @@ interface Call {
 }
 
 /** Start and end records of the invokes that ran, in the order the main process received them. */
-function callsFrom(records: SeamRecord[]): Call[] {
+export function callsFrom(records: SeamRecord[]): Call[] {
   const ends = new Map<number, SeamRecord>();
   for (const record of records) if (record.k === "end") ends.set(record.id!, record);
   const calls: Call[] = [];
@@ -55,8 +55,8 @@ function callsFrom(records: SeamRecord[]): Call[] {
 }
 
 /** The cases already on disk for a channel, lowest `seq` first, which is the order replay tries them. */
-class CaseBook {
-  private byChannel = new Map<string, { id: string; seq: number; key: string }[]>();
+export class CaseBook {
+  private byChannel = new Map<string, { id: string; seq: number; key: string; answer: string }[]>();
   constructor(private out: string) {}
 
   private load(channel: string) {
@@ -67,7 +67,12 @@ class CaseBook {
       if (fs.existsSync(dir)) {
         for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".json"))) {
           const golden = JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) as IpcGolden;
-          list.push({ id: golden.case, seq: golden.seq, key: canonicalize(golden.args) });
+          list.push({
+            id: golden.case,
+            seq: golden.seq,
+            key: canonicalize(golden.args),
+            answer: canonicalize(golden.outcome as unknown as Json),
+          });
         }
         list.sort((a, b) => a.seq - b.seq || a.id.localeCompare(b.id));
       }
@@ -76,21 +81,29 @@ class CaseBook {
     return list;
   }
 
-  find(channel: string, args: Json[]): string | undefined {
+  /** A case with the same arguments and the same outcome. Arguments alone are not enough, because one argument list can have several recorded answers. */
+  find(channel: string, args: Json[], answer: string): string | undefined {
     const key = canonicalize(args);
-    return this.load(channel).find((c) => c.key === key)?.id;
+    return this.load(channel).find((c) => c.key === key && c.answer === answer)?.id;
   }
 
-  add(channel: string, id: string, args: Json[]) {
-    this.load(channel).push({ id, seq: 0, key: canonicalize(args) });
+  add(channel: string, id: string, args: Json[], answer: string) {
+    this.load(channel).push({ id, seq: STATE_SEQ, key: canonicalize(args), answer });
   }
 }
 
-function caseId(args: Json[]): string {
-  return `state-${crypto.createHash("sha256").update(canonicalize(args)).digest("hex").slice(0, 10)}`;
+/** Above every hand-written case, so replay by arguments alone still picks the original answer. */
+export const STATE_SEQ = 1_000_000;
+
+function caseId(args: Json[], answer: string): string {
+  return `state-${crypto
+    .createHash("sha256")
+    .update(canonicalize(args) + answer)
+    .digest("hex")
+    .slice(0, 10)}`;
 }
 
-function recordState(
+export function recordState(
   state: StateRow,
   calls: Call[],
   book: CaseBook,
@@ -107,9 +120,10 @@ function recordState(
     calls: [],
   };
   for (const call of calls) {
-    let id = book.find(call.channel, call.args);
+    const answer = canonicalize(JSON.parse(redact(JSON.stringify(call.outcome), runDir)) as Json);
+    let id = book.find(call.channel, call.args, answer);
     if (!id) {
-      id = caseId(call.args);
+      id = caseId(call.args, answer);
       const golden: IpcGolden = {
         format: GOLDEN_FORMAT,
         channel: call.channel,
@@ -118,7 +132,7 @@ function recordState(
         case: id,
         description: `the call the page made in state ${state.id}`,
         group: "state",
-        seq: 0,
+        seq: STATE_SEQ,
         args: call.args,
         outcome: call.outcome,
         events: [],
@@ -127,7 +141,7 @@ function recordState(
         nonFinite: call.nonFinite,
       };
       writeJson(path.join(out, "ipc", channelDirName(call.channel), `${id}.json`), golden, runDir);
-      book.add(call.channel, id, call.args);
+      book.add(call.channel, id, call.args, answer);
     }
     index.calls.push({
       seq: index.calls.length,

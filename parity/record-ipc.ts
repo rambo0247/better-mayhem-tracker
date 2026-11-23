@@ -198,7 +198,7 @@ async function warmItemPatches(run: RunningElectron, channels: Record<string, st
 
 // --- One case ---
 
-function redact(text: string, runDir: string): string {
+export function redact(text: string, runDir: string): string {
   let out = text;
   const forms = new Set([runDir, fs.realpathSync(runDir), runDir.replaceAll("\\", "/")]);
   for (const form of forms) out = out.replaceAll(JSON.stringify(form).slice(1, -1), RUN_TOKEN);
