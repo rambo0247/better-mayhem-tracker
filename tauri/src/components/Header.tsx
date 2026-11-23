@@ -261,15 +261,12 @@ export default function Header() {
   const hiddenLinks = useHiddenNavLinks();
   const rail = useRail();
   const [update, setUpdate] = createSignal<UpdateInfo | null>(null);
-  const [showUpdateDialog, setShowUpdateDialog] = createSignal(false);
 
   onSettled(() => {
     let lastCheck = 0;
     let inFlight = false;
     const check = () => {
-      // Skip while the dialog is up: swapping the release out from under an
-      // in-progress download would invalidate the URL being installed
-      if (inFlight || showUpdateDialog()) return;
+      if (inFlight) return;
       inFlight = true;
       lastCheck = Date.now();
       void api
@@ -398,7 +395,6 @@ export default function Header() {
         <Show when={update()?.hasUpdate ? update() : null}>
           {(info) => (
             <button
-              onClick={() => setShowUpdateDialog(true)}
               title={`Update to version ${info().latest}`}
               aria-label={`Update to version ${info().latest}`}
               class={[
