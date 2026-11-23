@@ -963,7 +963,7 @@ mod tests {
     fn fixture_copy(fixture: &Path, name: &str, sql: &str) -> (PathBuf, Database) {
         let dir = std::env::temp_dir().join(format!("bmt-t13-{name}-{}", std::process::id()));
         std::fs::remove_dir_all(&dir).ok();
-        copy_dir(&fixture.join("data"), &dir);
+        copy_dir(fixture, &dir);
         if !sql.is_empty() {
             Connection::open(dir.join("matches.db"))
                 .unwrap()
