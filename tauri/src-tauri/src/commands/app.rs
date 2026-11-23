@@ -2,11 +2,13 @@
 //! and the logs folder. Ported by T09 and T24.
 
 use serde::{Deserialize, Serialize};
-use tauri::Runtime;
+use tauri::{Manager, Runtime};
 use ts_rs::TS;
 
 use super::{CommandError, CommandResult, Ctx, Domain};
-use crate::js_arg::Js;
+use crate::js_arg::{Js, JsValue};
+use crate::paths::Paths;
+use crate::security::{self, Effects};
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -67,12 +69,19 @@ pub struct DownloadUpdateResult {
     pub error: Option<String>,
 }
 
-pub async fn open_logs_folder<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<()> {
-    Err(CommandError::not_ported())
+/// The log is what a bug report needs attached.
+pub async fn open_logs_folder<R: Runtime>(ctx: Ctx<R>) -> CommandResult<()> {
+    let dir = ctx
+        .app
+        .state::<Paths>()
+        .log_dir()
+        .map_err(|e| CommandError::thrown(e.to_string()))?;
+    ctx.app.state::<Effects>().open_path(&dir);
+    Ok(())
 }
 
 pub async fn get_version<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<String> {
-    Err(CommandError::not_ported())
+    Ok(crate::app_version().to_owned())
 }
 
 pub async fn check_for_update<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<UpdateInfo> {
@@ -94,6 +103,14 @@ pub async fn get_update_notes<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<Option<
     Err(CommandError::not_ported())
 }
 
-pub async fn open_url<R: Runtime>(_ctx: Ctx<R>, _url: Js<String>) -> CommandResult<()> {
-    Err(CommandError::not_ported())
+pub async fn open_url<R: Runtime>(ctx: Ctx<R>, url: Js<String>) -> CommandResult<()> {
+    // Electron's `new URL(url)` reads String(url), and only a string can
+    // spell a web page
+    let text = match url.value().and_then(JsValue::as_json) {
+        Some(serde_json::Value::String(text)) => text.clone(),
+        Some(other) => other.to_string(),
+        None => "undefined".to_owned(),
+    };
+    security::open_external_url(&ctx.app.state::<Effects>(), &text);
+    Ok(())
 }
