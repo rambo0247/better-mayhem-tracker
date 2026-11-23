@@ -11,7 +11,8 @@ use tauri::{DynRuntime, Manager, WebviewWindow};
 use crate::{app_menu, shell, tray};
 
 /// Stands in for the units that own these until they land: T11's settings
-/// table and T20's final fetch, which a lane sets to hang for a while.
+/// table, T20's final fetch, which a lane sets to hang for a while, and a
+/// shutdown hook that blocks, as T11's database close does.
 pub fn install_stand_ins(app: &tauri::AppHandle<DynRuntime>) {
     let shell = app.state::<shell::Shell>();
     if let Ok(value) = std::env::var("BMT_PARITY_MINIMIZE_TO_TRAY") {
@@ -27,6 +28,15 @@ pub fn install_stand_ins(app: &tauri::AppHandle<DynRuntime>) {
                 println!("[parity] stand-in final fetch finished after {ms} ms");
                 Ok(())
             }))
+        });
+    }
+    if let Some(ms) = std::env::var("BMT_PARITY_WILL_QUIT_MS")
+        .ok()
+        .and_then(|ms| ms.parse::<u64>().ok())
+    {
+        shell.on_will_quit(move || {
+            std::thread::sleep(std::time::Duration::from_millis(ms));
+            println!("[parity] stand-in shutdown hook finished after {ms} ms");
         });
     }
 }
@@ -72,7 +82,11 @@ pub fn dispatch(window: &WebviewWindow, op: &str, body: &Value) -> Option<Result
         }
         "shell-native-menu" => platform::native_menu(window).map(Reply::Json),
         "shell-terminate" => {
-            platform::terminate(window).map(|()| Reply::Json(json!({ "sent": true })))
+            let via = body
+                .get("via")
+                .and_then(Value::as_str)
+                .unwrap_or("selector");
+            platform::terminate(window, via).map(|()| Reply::Json(json!({ "sent": via })))
         }
         _ => return None,
     })
@@ -139,12 +153,15 @@ mod platform {
     use std::sync::mpsc;
     use std::time::Duration;
 
+    use block2::RcBlock;
+    use objc2::rc::Retained;
     use objc2::runtime::AnyObject;
-    use objc2::{MainThreadMarker, msg_send, sel};
+    use objc2::{ClassType, MainThreadMarker, msg_send};
     use objc2_app_kit::{
         NSApplication, NSBitmapImageFileType, NSEventModifierFlags, NSMenu, NSView, NSWindowButton,
     };
-    use objc2_foundation::NSDictionary;
+    use objc2_core_foundation::{CFRunLoop, kCFRunLoopCommonModes};
+    use objc2_foundation::{NSAppleEventDescriptor, NSAppleEventSendOptions, NSDictionary};
     use objc2_web_kit::WKWebView;
     use serde_json::{Value, json};
     use tauri::{Manager, WebviewWindow};
@@ -268,27 +285,55 @@ mod platform {
         })
     }
 
-    /// Sends AppKit's `terminate:`, as the Dock's Quit and logout do. It is
-    /// scheduled on the run loop, because `terminate:` sent inside a driver
-    /// call would wait on the event handler that is running the call.
-    pub fn terminate(window: &WebviewWindow) -> Result<(), String> {
-        window
-            .run_on_main_thread(|| {
-                let mtm =
-                    MainThreadMarker::new().expect("run_on_main_thread runs on the main thread");
-                let app = NSApplication::sharedApplication(mtm);
-                // SAFETY: NSObject's performSelector:withObject:afterDelay:, with
-                // a selector NSApplication answers and no argument
-                let _: () = unsafe {
+    /// Quits as the Dock's Quit and logout do: `terminate:` itself
+    /// (`selector`), or the quit Apple event the Dock sends, dispatched to
+    /// this process (`apple-event`). Either runs from the main run loop in its
+    /// common modes, outside the event handler running this call, so a second
+    /// one also runs while AppKit waits on `NSTerminateLater` in its modal
+    /// panel mode.
+    pub fn terminate(_window: &WebviewWindow, via: &str) -> Result<(), String> {
+        let apple_event = match via {
+            "selector" => false,
+            "apple-event" => true,
+            other => return Err(format!("no terminate via {other:?}")),
+        };
+        let main = CFRunLoop::main().ok_or("no main run loop")?;
+        let block = RcBlock::new(move || {
+            let mtm = MainThreadMarker::new().expect("the main run loop runs on the main thread");
+            if apple_event {
+                let target = NSAppleEventDescriptor::currentProcessDescriptor();
+                // SAFETY: the class method takes two FourCharCodes (kCoreEventClass,
+                // kAEQuitApplication), a descriptor, an SInt16 kAutoGenerateReturnID,
+                // and an SInt32 kAnyTransactionID, and returns an autoreleased event
+                let quit: Retained<NSAppleEventDescriptor> = unsafe {
                     msg_send![
-                        &*app,
-                        performSelector: sel!(terminate:),
-                        withObject: std::ptr::null::<AnyObject>(),
-                        afterDelay: 0.0f64
+                        NSAppleEventDescriptor::class(),
+                        appleEventWithEventClass: u32::from_be_bytes(*b"aevt"),
+                        eventID: u32::from_be_bytes(*b"quit"),
+                        targetDescriptor: &*target,
+                        returnID: -1i16,
+                        transactionID: 0i32
                     ]
                 };
-            })
-            .map_err(|e| e.to_string())
+                if let Err(error) =
+                    quit.sendEventWithOptions_timeout_error(NSAppleEventSendOptions::NoReply, 5.0)
+                {
+                    eprintln!("[parity] the quit Apple event failed: {error}");
+                }
+            } else {
+                // SAFETY: NSApplication answers terminate: with any sender
+                let _: () = unsafe {
+                    msg_send![&*NSApplication::sharedApplication(mtm), terminate: std::ptr::null::<AnyObject>()]
+                };
+            }
+        });
+        // SAFETY: CFRunLoopPerformBlock and CFRunLoopWakeUp may be called from
+        // any thread, and the common modes constant is a valid mode
+        unsafe {
+            main.perform_block(kCFRunLoopCommonModes.map(|mode| &**mode), Some(&block));
+        }
+        main.wake_up();
+        Ok(())
     }
 
     pub fn shot(window: &WebviewWindow, target: &str) -> Result<Raw, String> {
@@ -353,7 +398,7 @@ mod platform {
         Ok(Value::Null)
     }
 
-    pub fn terminate(_: &WebviewWindow) -> Result<(), String> {
+    pub fn terminate(_: &WebviewWindow, _: &str) -> Result<(), String> {
         Err("terminate: is AppKit's".into())
     }
 }

@@ -22,7 +22,7 @@ use std::time::Duration;
 
 use tauri::{AppHandle, Manager, RunEvent, Runtime, Window, WindowEvent};
 
-use crate::WINDOW_LABEL;
+use crate::{WINDOW_LABEL, single_instance};
 
 /// What the login item passes, from `autostart.ts`: come up in the tray only.
 pub const HIDDEN_FLAG: &str = "--hidden";
@@ -88,6 +88,9 @@ pub struct Shell {
     launched_hidden: bool,
     maximized: AtomicBool,
     minimized: AtomicBool,
+    /// A close with the setting off put the window away for this quit, where
+    /// Electron's window is gone.
+    closed_to_quit: AtomicBool,
     /// AppKit was told `NSTerminateLater` and waits for the quit's answer.
     #[cfg(target_os = "macos")]
     appkit_waiting: AtomicBool,
@@ -102,6 +105,7 @@ impl Shell {
             launched_hidden,
             maximized: AtomicBool::new(false),
             minimized: AtomicBool::new(false),
+            closed_to_quit: AtomicBool::new(false),
             #[cfg(target_os = "macos")]
             appkit_waiting: AtomicBool::new(false),
             log,
@@ -139,7 +143,10 @@ impl Shell {
         self.hooks().stop_polling.push(Box::new(stop));
     }
 
-    /// Runs after the `Shutting down` line, in the order registered.
+    /// Runs after the `Shutting down` line, in the order registered, on the
+    /// main thread or on a blocking thread, never on an async runtime worker.
+    /// A hook may block, as T11's database close does, and may `block_on`
+    /// async work. The process exits when the last hook returns.
     pub fn on_will_quit(&self, close: impl FnOnce() + Send + 'static) {
         self.hooks().will_quit.push(Box::new(close));
     }
@@ -161,6 +168,43 @@ impl Shell {
         for listener in &self.hooks().put_away {
             listener();
         }
+    }
+}
+
+/// What a later launch does to this instance, Electron's `second-instance`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Handover {
+    /// Restore, show, and focus the window.
+    Show,
+    /// Take the launch and leave the window alone.
+    Ignore,
+    /// Turn the launch away, so it waits for this process to exit and starts
+    /// fresh, as Chromium's singleton does once shutdown has begun.
+    ShuttingDown,
+}
+
+/// During a tray Quit, Cmd+Q, the Dock's Quit, or a signal, Electron's window
+/// still exists while the final fetch runs, so its `second-instance` shows
+/// it. A close with the setting off has already removed Electron's window,
+/// so a launch then finds none to show.
+pub fn handover_decision(phase: Phase, closed_to_quit: bool) -> Handover {
+    match phase {
+        Phase::Running => Handover::Show,
+        Phase::FinalFetch if closed_to_quit => Handover::Ignore,
+        Phase::FinalFetch => Handover::Show,
+        Phase::Exiting => Handover::ShuttingDown,
+    }
+}
+
+pub fn on_second_launch<R: Runtime>(app: &AppHandle<R>) -> single_instance::Answer {
+    let shell = app.state::<Shell>();
+    match handover_decision(shell.phase(), shell.closed_to_quit.load(Ordering::SeqCst)) {
+        Handover::Show => {
+            show_main(app, true);
+            single_instance::Answer::Taken
+        }
+        Handover::Ignore => single_instance::Answer::Taken,
+        Handover::ShuttingDown => single_instance::Answer::ShuttingDown,
     }
 }
 
@@ -192,8 +236,15 @@ fn fetch_then_exit<R: Runtime>(app: &AppHandle<R>, fetch: FinalFetch) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         app.state::<Shell>().settle_fetch(fetch).await;
-        exit(&app);
+        tauri::async_runtime::spawn_blocking(move || exit(&app));
     });
+}
+
+/// The signal listeners run on the async runtime, and a quit's shutdown hooks
+/// may block.
+fn request_quit_blocking<R: Runtime>(app: &AppHandle<R>) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || request_quit(&app));
 }
 
 fn exit<R: Runtime>(app: &AppHandle<R>) {
@@ -297,6 +348,7 @@ pub fn on_window_event<R: Runtime>(window: &Window<R>, event: &WindowEvent) {
                 CloseDecision::Quit => {
                     api.prevent_close();
                     let _ = window.hide();
+                    shell.closed_to_quit.store(true, Ordering::SeqCst);
                     request_quit(app);
                 }
                 CloseDecision::Close => {}
@@ -376,6 +428,33 @@ pub fn data_root_override() -> Option<OsString> {
     None
 }
 
+/// Electron 1.2.1's user data folder, which is the data root the two apps
+/// share, for the check that 1.2.1 is not running on it. A lane build reads
+/// only its override, so no lane looks into a player's folder; T09's guard
+/// keeps a lane build off the real folder anyway.
+#[cfg(all(
+    any(debug_assertions, feature = "parity-driver"),
+    not(bmt_release_profile)
+))]
+pub fn electron_user_data() -> Option<std::path::PathBuf> {
+    data_root_override().map(std::path::PathBuf::from)
+}
+
+/// `app.getPath("userData")` for the package name. Only macOS has the
+/// symlink lock that `single_instance::electron_holder` reads.
+#[cfg(not(all(
+    any(debug_assertions, feature = "parity-driver"),
+    not(bmt_release_profile)
+)))]
+pub fn electron_user_data() -> Option<std::path::PathBuf> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
+    std::env::var_os("HOME").map(|home| {
+        std::path::Path::new(&home).join("Library/Application Support/better-mayhem-tracker")
+    })
+}
+
 /// Electron quits through `app.quit()` on SIGTERM, SIGINT, and SIGHUP, and
 /// exits 0 once `will-quit` has run, so a stopped app closes its database
 /// the same way a Quit does.
@@ -393,7 +472,7 @@ pub fn quit_on_signals<R: Runtime>(app: &AppHandle<R>) {
                 match signal(kind) {
                     Ok(mut signals) => {
                         while signals.recv().await.is_some() {
-                            request_quit(&app);
+                            request_quit_blocking(&app);
                         }
                     }
                     Err(error) => eprintln!("Could not listen for signal {kind:?}: {error}"),
@@ -407,13 +486,13 @@ pub fn quit_on_signals<R: Runtime>(app: &AppHandle<R>) {
     {
         use tokio::signal::windows;
         macro_rules! quit_on {
-            ($($listen:ident),+) => {$(
+            ($($listen:ident),+) => {$({
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
                     match windows::$listen() {
                         Ok(mut events) => {
                             while events.recv().await.is_some() {
-                                request_quit(&app);
+                                request_quit_blocking(&app);
                             }
                         }
                         Err(error) => {
@@ -421,7 +500,7 @@ pub fn quit_on_signals<R: Runtime>(app: &AppHandle<R>) {
                         }
                     }
                 });
-            )+};
+            })+};
         }
         quit_on!(ctrl_c, ctrl_close, ctrl_logoff, ctrl_shutdown);
     }
@@ -432,40 +511,145 @@ pub fn quit_on_signals<R: Runtime>(app: &AppHandle<R>) {
 /// Electron runs `before-quit` for them, so this answers
 /// `applicationShouldTerminate:` with the same quit, waiting with
 /// `NSTerminateLater` while the final fetch runs.
+///
+/// A second `terminate:` during that wait never reaches the delegate: AppKit
+/// ends the process on it, skipping the shutdown hooks. So `terminate:` itself
+/// takes it first and runs the quit's second step, which shuts down and lets
+/// the waiting terminate go at once, as a second tray Quit does.
 #[cfg(target_os = "macos")]
 pub fn quit_on_terminate<R: Runtime>(app: &AppHandle<R>) {
     use objc2_app_kit::NSApplicationTerminateReply as Reply;
-    let app = app.clone();
-    appkit::answer_terminate(move || {
-        let shell = app.state::<Shell>();
-        match shell.begin_quit() {
-            QuitStep::Nothing => Reply::TerminateNow,
-            QuitStep::Finish => {
-                shell.finish();
-                Reply::TerminateNow
+    let answer_app = app.clone();
+    let second_app = app.clone();
+    appkit::answer_terminate(
+        move || {
+            let shell = answer_app.state::<Shell>();
+            match shell.begin_quit() {
+                QuitStep::Nothing => Reply::TerminateNow,
+                QuitStep::Finish => {
+                    shell.finish();
+                    Reply::TerminateNow
+                }
+                QuitStep::Fetch(fetch) => {
+                    shell.appkit_waiting.store(true, Ordering::SeqCst);
+                    fetch_then_exit(&answer_app, fetch);
+                    Reply::TerminateLater
+                }
             }
-            QuitStep::Fetch(fetch) => {
-                shell.appkit_waiting.store(true, Ordering::SeqCst);
-                fetch_then_exit(&app, fetch);
-                Reply::TerminateLater
+        },
+        move || {
+            if !second_app
+                .state::<Shell>()
+                .appkit_waiting
+                .load(Ordering::SeqCst)
+            {
+                return false;
             }
-        }
-    });
+            request_quit(&second_app);
+            true
+        },
+    );
 }
 
 #[cfg(target_os = "macos")]
 mod appkit {
+    use std::ffi::c_void;
     use std::sync::OnceLock;
 
     use block2::RcBlock;
     use objc2::runtime::{AnyClass, AnyObject, Imp, Sel};
-    use objc2::{MainThreadMarker, sel};
+    use objc2::{ClassType, MainThreadMarker, sel};
     use objc2_app_kit::{NSApplication, NSApplicationTerminateReply};
     use objc2_core_foundation::{CFRunLoop, kCFRunLoopCommonModes};
 
     type Answer = Box<dyn Fn() -> NSApplicationTerminateReply + Send + Sync>;
+    type Takes = Box<dyn Fn() -> bool + Send + Sync>;
+    type TerminateImp = extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject);
 
     static ANSWER: OnceLock<Answer> = OnceLock::new();
+    static TAKES_TERMINATE: OnceLock<Takes> = OnceLock::new();
+    static APPKIT_TERMINATE: OnceLock<TerminateImp> = OnceLock::new();
+    static APPKIT_QUIT_EVENT: OnceLock<(EventHandler, RefCon)> = OnceLock::new();
+
+    /// An `AEEventHandlerUPP`, which is a plain function pointer on 64-bit.
+    type EventHandler = extern "C" fn(*const c_void, *mut c_void, *mut c_void) -> i16;
+
+    #[derive(Clone, Copy)]
+    struct RefCon(*mut c_void);
+    // SAFETY: AppKit's refcon is only handed back to AppKit's handler on the main thread
+    unsafe impl Send for RefCon {}
+    unsafe impl Sync for RefCon {}
+
+    const CORE_EVENT_CLASS: u32 = u32::from_be_bytes(*b"aevt");
+    const QUIT_APPLICATION: u32 = u32::from_be_bytes(*b"quit");
+    const EVENT_NOT_HANDLED: i16 = -1708;
+
+    #[link(name = "CoreServices", kind = "framework")]
+    unsafe extern "C" {
+        fn AEGetEventHandler(
+            class: u32,
+            id: u32,
+            handler: *mut Option<EventHandler>,
+            refcon: *mut *mut c_void,
+            system: u8,
+        ) -> i16;
+        fn AEInstallEventHandler(
+            class: u32,
+            id: u32,
+            handler: EventHandler,
+            refcon: *mut c_void,
+            system: u8,
+        ) -> i16;
+    }
+
+    /// The Dock's Quit and logout arrive as the quit Apple event, which
+    /// AppKit's own handler holds back while a `NSTerminateLater` reply is
+    /// pending. This one runs first and passes every other quit on to AppKit's.
+    extern "C" fn quit_event(event: *const c_void, reply: *mut c_void, _: *mut c_void) -> i16 {
+        if TAKES_TERMINATE.get().is_some_and(|takes| takes()) {
+            return 0;
+        }
+        match APPKIT_QUIT_EVENT.get() {
+            Some((appkit, refcon)) => appkit(event, reply, refcon.0),
+            None => EVENT_NOT_HANDLED,
+        }
+    }
+
+    fn take_quit_event() {
+        let mut handler = None;
+        let mut refcon = std::ptr::null_mut();
+        // SAFETY: both out pointers are valid for writes, and the handler
+        // installed has AEEventHandlerProcPtr's signature
+        unsafe {
+            if AEGetEventHandler(
+                CORE_EVENT_CLASS,
+                QUIT_APPLICATION,
+                &mut handler,
+                &mut refcon,
+                0,
+            ) != 0
+            {
+                eprintln!(
+                    "AppKit has no quit Apple event handler, so a second Dock Quit waits on the fetch"
+                );
+                return;
+            }
+            let Some(handler) = handler else { return };
+            let _ = APPKIT_QUIT_EVENT.set((handler, RefCon(refcon)));
+            if AEInstallEventHandler(
+                CORE_EVENT_CLASS,
+                QUIT_APPLICATION,
+                quit_event,
+                std::ptr::null_mut(),
+                0,
+            ) != 0
+            {
+                eprintln!(
+                    "Could not take the quit Apple event, so a second Dock Quit waits on the fetch"
+                );
+            }
+        }
+    }
 
     extern "C-unwind" fn should_terminate(
         _delegate: *mut AnyObject,
@@ -477,16 +661,57 @@ mod appkit {
             .map_or(NSApplicationTerminateReply::TerminateNow, |answer| answer())
     }
 
+    extern "C-unwind" fn terminate(app: *mut AnyObject, cmd: Sel, sender: *mut AnyObject) {
+        if TAKES_TERMINATE.get().is_some_and(|takes| takes()) {
+            return;
+        }
+        if let Some(appkit) = APPKIT_TERMINATE.get() {
+            appkit(app, cmd, sender);
+        }
+    }
+
     /// Adds `applicationShouldTerminate:` to tao's delegate class, which has
-    /// none, through the public Objective-C runtime.
+    /// none, through the public Objective-C runtime. `takes` sees a second
+    /// quit first: `terminate:` on tao's `NSApplication` subclass, and the
+    /// quit Apple event through the Apple Event Manager, each passing a quit
+    /// it does not take on to AppKit's own.
     pub fn answer_terminate(
         answer: impl Fn() -> NSApplicationTerminateReply + Send + Sync + 'static,
+        takes: impl Fn() -> bool + Send + Sync + 'static,
     ) {
-        if ANSWER.set(Box::new(answer)).is_err() {
+        if ANSWER.set(Box::new(answer)).is_err() || TAKES_TERMINATE.set(Box::new(takes)).is_err() {
             return;
         }
         let mtm = MainThreadMarker::new().expect("setup runs on the main thread");
-        let Some(delegate) = NSApplication::sharedApplication(mtm).delegate() else {
+        let app = NSApplication::sharedApplication(mtm);
+        let app_class: *const AnyClass = AsRef::<AnyObject>::as_ref(&*app).class();
+        let Some(appkit) = NSApplication::class().instance_method(sel!(terminate:)) else {
+            eprintln!("NSApplication has no terminate:");
+            return;
+        };
+        // SAFETY: NSApplication's terminate: is `- (void)terminate:(id)sender`
+        // ("v@:@"), and the added method has the same signature on the live
+        // app's own class
+        unsafe {
+            let _ = APPKIT_TERMINATE.set(std::mem::transmute::<Imp, TerminateImp>(
+                appkit.implementation(),
+            ));
+            let imp = std::mem::transmute::<TerminateImp, Imp>(terminate);
+            if !objc2::ffi::class_addMethod(
+                app_class.cast_mut(),
+                sel!(terminate:),
+                imp,
+                c"v@:@".as_ptr(),
+            )
+            .as_bool()
+            {
+                eprintln!(
+                    "The app class already answers terminate:, so a second terminate: skips the shutdown hooks"
+                );
+            }
+        }
+        take_quit_event();
+        let Some(delegate) = app.delegate() else {
             eprintln!("No app delegate, so the Dock's Quit skips the final fetch");
             return;
         };
@@ -690,6 +915,51 @@ mod tests {
         assert_eq!(shell.phase(), Phase::FinalFetch);
         assert!(matches!(shell.begin_quit(), QuitStep::Finish));
         assert!(shell.finish());
+    }
+
+    #[test]
+    fn a_later_launch_shows_the_window_unless_the_quit_removed_it() {
+        assert_eq!(handover_decision(Phase::Running, false), Handover::Show);
+        assert_eq!(handover_decision(Phase::FinalFetch, false), Handover::Show);
+        assert_eq!(handover_decision(Phase::FinalFetch, true), Handover::Ignore);
+        for closed in [false, true] {
+            assert_eq!(
+                handover_decision(Phase::Exiting, closed),
+                Handover::ShuttingDown
+            );
+        }
+    }
+
+    /// Runs one quit on a mock app and reports whether its shutdown hook
+    /// could block on async work. The mock runtime's exit, which comes after
+    /// the hooks, panics on its own thread.
+    fn hook_can_block(client: bool, quit: fn(&AppHandle<tauri::test::MockRuntime>)) -> bool {
+        let app = tauri::test::mock_app();
+        let shell = Shell::new(false, |_| {});
+        if client {
+            shell.final_fetch(|| Some(Box::pin(async { Ok(()) })));
+        }
+        let (sender, blocked) = std::sync::mpsc::channel();
+        shell.on_will_quit(move || {
+            let ran = std::panic::catch_unwind(|| tauri::async_runtime::block_on(async {}));
+            let _ = sender.send(ran.is_ok());
+        });
+        app.manage(shell);
+        let handle = app.handle().clone();
+        tauri::async_runtime::spawn(async move { quit(&handle) });
+        blocked
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the hook ran")
+    }
+
+    #[test]
+    fn shutdown_hooks_can_block_after_a_signal() {
+        assert!(hook_can_block(false, request_quit_blocking));
+    }
+
+    #[test]
+    fn shutdown_hooks_can_block_after_the_final_fetch() {
+        assert!(hook_can_block(true, request_quit));
     }
 
     #[tokio::test(start_paused = true)]

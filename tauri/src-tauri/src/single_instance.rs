@@ -8,6 +8,7 @@
 //! kernel drops the lock when the process ends, however it ends.
 
 use std::io;
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use tauri::AppHandle;
@@ -20,7 +21,18 @@ pub const HANDOVER_TIMEOUT: Duration = Duration::from_secs(20);
 
 const RETRY: Duration = Duration::from_millis(20);
 
-pub type OnLaunch<R> = fn(&AppHandle<R>, Vec<String>, String);
+pub type OnLaunch<R> = fn(&AppHandle<R>, Vec<String>, String) -> Answer;
+
+/// The first instance's answer to a later launch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Answer {
+    /// The later launch exits 0.
+    Taken,
+    /// This process is on its way out: the later launch waits for the lock
+    /// and starts fresh. Windows has no such answer, since the plugin's
+    /// window takes every message.
+    ShuttingDown,
+}
 
 pub enum Claim {
     /// This process holds the lock for the rest of its life.
@@ -58,6 +70,47 @@ fn retry_until(timeout: Duration, mut attempt: impl FnMut(Instant) -> Option<Cla
     }
 }
 
+/// Electron 1.2.1 opens the same data folder and never sees this lock. Its
+/// own is Chromium's process singleton: a `SingletonLock` symlink in its user
+/// data folder whose target is `<hostname>-<pid>`. This returns that pid when
+/// it names this host and a live process. It only reads the link, which
+/// Electron owns.
+#[cfg(unix)]
+pub fn electron_holder(user_data: &Path) -> Option<i32> {
+    let target = std::fs::read_link(user_data.join("SingletonLock")).ok()?;
+    let pid = holder_pid(target.to_str()?, &host_name()?)?;
+    // SAFETY: signal 0 only checks that the process exists
+    let alive = unsafe { libc::kill(pid, 0) } == 0
+        || io::Error::last_os_error().raw_os_error() == Some(libc::EPERM);
+    alive.then_some(pid)
+}
+
+/// Chromium's lock on Windows is a named mutex and an open `lockfile`, not
+/// this link, so nothing is read there.
+#[cfg(not(unix))]
+pub fn electron_holder(_user_data: &Path) -> Option<i32> {
+    None
+}
+
+/// Chromium splits the target at its last `-`, since a host name may hold one.
+#[cfg(unix)]
+fn holder_pid(target: &str, host: &str) -> Option<i32> {
+    let (name, pid) = target.rsplit_once('-')?;
+    let pid: i32 = pid.parse().ok()?;
+    (name == host && pid > 0).then_some(pid)
+}
+
+#[cfg(unix)]
+fn host_name() -> Option<String> {
+    let mut buf = [0u8; 256];
+    // SAFETY: buf is writable for buf.len() bytes
+    if unsafe { libc::gethostname(buf.as_mut_ptr().cast(), buf.len()) } != 0 {
+        return None;
+    }
+    let len = buf.iter().position(|&b| b == 0)?;
+    String::from_utf8(buf[..len].to_vec()).ok()
+}
+
 #[cfg(unix)]
 mod imp {
     use std::fs::{File, OpenOptions, TryLockError};
@@ -74,8 +127,19 @@ mod imp {
 
     use super::{Claim, OnLaunch, retry_until};
 
-    /// The first instance's answer once it has run the callback.
+    use super::Answer;
+
+    /// The first instance's answers once it has run the callback. Any answer
+    /// but `taken` sends the later launch back to the lock.
     const TAKEN: &[u8] = b"taken";
+    const SHUTTING_DOWN: &[u8] = b"shutting down";
+
+    fn answer_bytes(answer: Answer) -> &'static [u8] {
+        match answer {
+            Answer::Taken => TAKEN,
+            Answer::ShuttingDown => SHUTTING_DOWN,
+        }
+    }
 
     pub struct First {
         // Never read: holding the file holds the lock
@@ -202,18 +266,18 @@ mod imp {
                         continue;
                     }
                     let (args, cwd) = read_handover(&message);
-                    on_launch(&app, args, cwd);
-                    let _ = stream.write_all(TAKEN);
+                    let answer = on_launch(&app, args, cwd);
+                    let _ = stream.write_all(answer_bytes(answer));
                 }
             });
         }
 
         #[cfg(test)]
-        pub(super) fn next_handover(&self) -> (Vec<String>, String) {
+        pub(super) fn next_handover(&self, answer: Answer) -> (Vec<String>, String) {
             let (mut stream, _) = self.listener.accept().expect("a later launch connects");
             let mut message = Vec::new();
             stream.read_to_end(&mut message).expect("the message");
-            stream.write_all(TAKEN).expect("the answer");
+            stream.write_all(answer_bytes(answer)).expect("the answer");
             read_handover(&message)
         }
     }
@@ -355,7 +419,9 @@ mod imp {
         /// The plugin makes the window later launches send to. Its own mutex
         /// is new here, since this process holds the lock.
         pub fn plugin<R: Runtime>(self, on_launch: OnLaunch<R>) -> TauriPlugin<R> {
-            tauri_plugin_single_instance::init(on_launch)
+            tauri_plugin_single_instance::init(move |app, args, cwd| {
+                on_launch(app, args, cwd);
+            })
         }
     }
 }
@@ -390,7 +456,7 @@ mod tests {
         let Claim::First(first) = claim_in(&dir, NAME, &message(&["bmt"]), HANDOVER_TIMEOUT) else {
             panic!("the first launch takes the lock");
         };
-        let server = std::thread::spawn(move || first.next_handover());
+        let server = std::thread::spawn(move || first.next_handover(Answer::Taken));
         let later = claim_in(&dir, NAME, &message(&["bmt", "--hidden"]), HANDOVER_TIMEOUT);
         assert!(matches!(later, Claim::HandedOver));
         assert_eq!(
@@ -400,6 +466,22 @@ mod tests {
                 "/work".to_owned()
             )
         );
+    }
+
+    #[test]
+    fn a_launch_turned_away_while_the_first_shuts_down_starts_fresh() {
+        let dir = scratch("shutting-down");
+        let Claim::First(first) = claim_in(&dir, NAME, &message(&["bmt"]), HANDOVER_TIMEOUT) else {
+            panic!("the first launch takes the lock");
+        };
+        let server = std::thread::spawn(move || {
+            first.next_handover(Answer::ShuttingDown);
+            std::thread::sleep(Duration::from_millis(200));
+            drop(first);
+        });
+        let later = claim_in(&dir, NAME, &message(&["bmt"]), HANDOVER_TIMEOUT);
+        server.join().unwrap();
+        assert!(matches!(later, Claim::First(_)), "the later launch runs");
     }
 
     #[test]
@@ -486,6 +568,35 @@ mod tests {
                 "/w".to_owned()
             )
         );
+    }
+
+    #[test]
+    fn electrons_lock_names_this_host_and_a_pid() {
+        let host = "mac-mini.local";
+        assert_eq!(holder_pid("mac-mini.local-4242", host), Some(4242));
+        assert_eq!(holder_pid("other-mac.local-4242", host), None);
+        assert_eq!(holder_pid("mac-mini.local-0", host), None);
+        assert_eq!(holder_pid("mac-mini.local--7", host), None);
+        assert_eq!(holder_pid("mac-mini.local", host), None);
+        assert_eq!(holder_pid("mac-mini.local-42x", host), None);
+    }
+
+    #[test]
+    fn a_live_electron_on_the_data_folder_is_found_and_a_dead_one_is_not() {
+        let dir = scratch("electron-lock");
+        let host = host_name().expect("a host name");
+        let link = dir.join("SingletonLock");
+        assert_eq!(electron_holder(&dir), None, "no lock");
+        std::os::unix::fs::symlink(format!("{host}-{}", std::process::id()), &link).unwrap();
+        assert_eq!(electron_holder(&dir), Some(std::process::id() as i32));
+        std::fs::remove_file(&link).unwrap();
+        let mut ended = std::process::Command::new("true").spawn().unwrap();
+        let pid = ended.id();
+        ended.wait().unwrap();
+        let target = format!("{host}-{pid}");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        assert_eq!(electron_holder(&dir), None, "a pid that has exited");
+        assert_eq!(std::fs::read_link(&link).unwrap(), PathBuf::from(target));
     }
 
     /// macOS limits a socket path to 103 bytes, which the widest lane name must fit.
