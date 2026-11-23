@@ -1167,9 +1167,13 @@ impl LiveTracker {
 /// by display name, both lowercased, later champions winning a clash.
 fn champion_id_lookup(champions: &ChampionData) -> HashMap<String, i64> {
     let mut by_key = HashMap::new();
-    for (id, champion) in champions {
-        by_key.insert(champion.key.to_lowercase(), *id);
-        by_key.insert(champion.name.to_lowercase(), *id);
+    // Data Dragon's keys are the champions' numeric ids
+    for (id, champion) in champions.entries() {
+        let Ok(id) = id.parse::<i64>() else {
+            continue;
+        };
+        by_key.insert(champion.key.to_lowercase(), id);
+        by_key.insert(champion.name.to_lowercase(), id);
     }
     by_key
 }
@@ -1923,11 +1927,15 @@ mod tests {
             key: key.into(),
             class: None,
         };
-        ChampionData::from([
+        let mut data = ChampionData::default();
+        for (id, info) in [
             (1, champion("Annie", "Annie")),
             (62, champion("Wukong", "MonkeyKing")),
             (86, champion("Garen", "Garen")),
-        ])
+        ] {
+            data.set(id.to_string(), info);
+        }
+        data
     }
 
     fn in_game(rig: &Rig) {
