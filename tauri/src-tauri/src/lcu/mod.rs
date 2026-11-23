@@ -311,14 +311,7 @@ fn js_number(value: Option<&Value>) -> f64 {
         Some(Value::Null) => 0.0,
         Some(Value::Bool(b)) => f64::from(u8::from(*b)),
         Some(Value::Number(n)) => n.as_f64().unwrap_or(f64::NAN),
-        Some(Value::String(s)) => {
-            let s = s.trim();
-            if s.is_empty() {
-                0.0
-            } else {
-                s.parse().unwrap_or(f64::NAN)
-            }
-        }
+        Some(Value::String(s)) => crate::db::js::string_to_number(s),
         Some(_) => f64::NAN,
     }
 }
