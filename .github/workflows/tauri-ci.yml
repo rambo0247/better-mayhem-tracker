@@ -76,6 +76,20 @@ jobs:
         working-directory: tauri/src-tauri
         run: cargo test --features parity-driver
 
+      # The message is matched so a failure for any other reason does not pass
+      - name: A release build with the parity driver does not compile
+        working-directory: tauri/src-tauri
+        run: |
+          for assertions in false true; do
+            if CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=$assertions cargo check --release --features parity-driver > refused.log 2>&1; then
+              cat refused.log
+              echo "release with debug_assertions=$assertions compiled the parity driver"
+              exit 1
+            fi
+            grep -F "the parity-driver feature is for debug builds only" refused.log
+            echo "release with debug_assertions=$assertions: refused"
+          done
+
       - name: Build
         run: bun run tauri build --debug
 

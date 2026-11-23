@@ -8,13 +8,15 @@
 //! resize, navigate, snapshot). What a state, a selector, or "settled" means
 //! stays in `parity/`, shared with the Electron side.
 
-#[cfg(not(debug_assertions))]
+// build.rs sets bmt_release_profile from the profile itself, because a release
+// profile can turn debug_assertions back on
+#[cfg(any(not(debug_assertions), bmt_release_profile))]
 compile_error!("the parity-driver feature is for debug builds only");
 
 use std::borrow::Cow;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::{Condvar, Mutex, OnceLock};
 use std::time::Duration;
@@ -159,11 +161,45 @@ pub fn install(builder: Builder<DynRuntime>) -> Builder<DynRuntime> {
 /// Runs in setup, before the window exists. A parity launch never shows in the
 /// operator's Dock and never takes focus, so it is an accessory app on macOS.
 pub fn prepare(app: &mut tauri::App<DynRuntime>) {
+    let home = match window_url() {
+        Some(WebviewUrl::CustomProtocol(url)) => vec![url],
+        _ => app_origins(app.config().build.dev_url.clone()),
+    };
+    let _ = HOME.set(home);
     #[cfg(target_os = "macos")]
     if !config().keep_dock_icon {
         app.set_activation_policy(tauri::ActivationPolicy::Accessory);
     }
-    let _ = app;
+}
+
+/// Where the app's own pages load from: Tauri's scheme in both engines' forms,
+/// and the dev server in a dev build.
+fn app_origins(dev_url: Option<Url>) -> Vec<Url> {
+    let mut origins: Vec<Url> = ["tauri://localhost/", "http://tauri.localhost/"]
+        .iter()
+        .map(|url| Url::parse(url).expect("a valid URL"))
+        .collect();
+    if tauri::is_dev() {
+        origins.extend(dev_url);
+    }
+    origins
+}
+
+/// The origins the window opened at, set before the window exists.
+static HOME: OnceLock<Vec<Url>> = OnceLock::new();
+
+/// The page may only move within the origin it opened at, hash changes
+/// included. Every other scheme and host is refused, `file:` and `https:` too.
+fn may_navigate(url: &Url, home: &[Url]) -> bool {
+    // Url::origin is opaque, so never equal, for custom schemes like parity:
+    let origin = |u: &Url| {
+        (
+            u.scheme().to_string(),
+            u.host_str().map(str::to_string),
+            u.port_or_known_default(),
+        )
+    };
+    url.as_str() == "about:blank" || home.iter().any(|h| origin(h) == origin(url))
 }
 
 /// The renderer to load, when one was given in place of the app's own pages.
@@ -193,6 +229,13 @@ pub fn configure<'a, M: Manager<DynRuntime>>(
         // An accessory app's window opens behind the active app's, and WebKit stops
         // painting a covered window. Above other windows, never focused, it stays painted.
         .always_on_top(true)
+        .on_navigation(|url| {
+            let allowed = may_navigate(url, HOME.get().map_or(&[], Vec::as_slice));
+            if !allowed {
+                eprintln!("{SENTINEL} refused a navigation to {url}");
+            }
+            allowed
+        })
         .on_page_load(|_window, payload| {
             if payload.event() == PageLoadEvent::Finished {
                 let (count, changed) = &LOADS;
@@ -299,7 +342,11 @@ impl Response {
 
 fn handle(mut stream: TcpStream, window: &WebviewWindow) {
     let response = match stream.peer_addr() {
-        Ok(peer) => match read_request(&mut stream) {
+        Ok(peer) => match stream
+            .set_read_timeout(Some(Duration::from_secs(10)))
+            .map_err(|e| e.to_string())
+            .and_then(|()| read_request(&mut stream))
+        {
             Ok(request) => respond(peer, &request, window),
             Err(error) => Response::error(400, error),
         },
@@ -332,14 +379,11 @@ fn respond(peer: SocketAddr, request: &Request, window: &WebviewWindow) -> Respo
     }
 }
 
-fn read_request(stream: &mut TcpStream) -> Result<Request, String> {
-    stream
-        .set_read_timeout(Some(Duration::from_secs(10)))
-        .map_err(|e| e.to_string())?;
+fn read_request(stream: impl Read) -> Result<Request, String> {
     let mut reader = BufReader::new(stream);
     let mut line = String::new();
     let mut head = 0;
-    let mut next_line = |reader: &mut BufReader<&mut TcpStream>, line: &mut String| {
+    let mut next_line = |reader: &mut BufReader<_>, line: &mut String| {
         line.clear();
         let read = reader.read_line(line).map_err(|e| e.to_string())?;
         head += read;
@@ -601,6 +645,9 @@ fn dispatch(window: &WebviewWindow, body: &Value) -> Result<Response, String> {
                 window.reload().map_err(|e| e.to_string())?;
             } else {
                 let url = Url::parse(text(body, "url")?).map_err(|e| e.to_string())?;
+                if !may_navigate(&url, HOME.get().map_or(&[], Vec::as_slice)) {
+                    return Err(format!("refused: {url} is outside the page's origin"));
+                }
                 window.navigate(url).map_err(|e| e.to_string())?;
             }
             wait_for_load_after(before, timeout_of(body, 20_000))?;
@@ -714,15 +761,25 @@ fn percent_decode(text: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+/// A file under `root`, or `None` for anything that could leave it: `..`, a
+/// drive or UNC prefix, a root, a backslash, or a link that resolves outside.
 fn safe_join(root: &Path, relative: &str) -> Option<PathBuf> {
     let mut path = root.to_path_buf();
     for segment in relative.split('/').filter(|s| !s.is_empty()) {
-        if segment == ".." || segment == "." || segment.contains('\\') {
+        // On macOS "C:" is an ordinary name, so ':' is refused on every platform
+        if segment.contains(['\\', ':']) {
             return None;
         }
-        path.push(segment);
+        let mut components = Path::new(segment).components();
+        match (components.next(), components.next()) {
+            (Some(Component::Normal(name)), None) => path.push(name),
+            _ => return None,
+        }
     }
-    Some(path)
+    let inside = path.canonicalize().ok()?;
+    inside
+        .starts_with(root.canonicalize().ok()?)
+        .then_some(inside)
 }
 
 fn content_type(path: &Path) -> &'static str {
@@ -1470,6 +1527,189 @@ mod tests {
         assert_eq!(scheme_path(&webkit), "game-data/16.22/v1/a%20b.png");
         assert_eq!(scheme_path(&webview2), scheme_path(&webkit));
         assert_eq!(percent_decode("a%20b%zz"), "a b%zz");
-        assert!(safe_join(Path::new("/r"), "assets/../x").is_none());
+    }
+
+    #[test]
+    fn driver_refuses_a_mapped_ipv4_peer() {
+        // The listener binds IPv4 only, so a mapped address is never a local caller
+        for peer in ["[::ffff:10.0.0.1]:50000", "[::ffff:127.0.0.1]:50000"] {
+            let peer: SocketAddr = peer.parse().unwrap();
+            assert_eq!(
+                authorize(peer, &bearer(TOKEN), TOKEN),
+                Err(Refusal::NotLoopback),
+                "{peer}"
+            );
+        }
+    }
+
+    struct Renderer(PathBuf);
+
+    impl Renderer {
+        fn new() -> Self {
+            let base = std::env::temp_dir().join(format!(
+                "bmt-renderer-{}-{:?}",
+                std::process::id(),
+                std::thread::current().id()
+            ));
+            let root = base.join("renderer");
+            std::fs::create_dir_all(root.join("assets")).unwrap();
+            std::fs::write(root.join("index.html"), "<html>").unwrap();
+            std::fs::write(root.join("assets/app.js"), "").unwrap();
+            std::fs::write(base.join("outside.txt"), "secret").unwrap();
+            Self(base)
+        }
+
+        fn root(&self) -> PathBuf {
+            self.0.join("renderer")
+        }
+    }
+
+    impl Drop for Renderer {
+        fn drop(&mut self) {
+            std::fs::remove_dir_all(&self.0).unwrap();
+        }
+    }
+
+    #[test]
+    fn driver_serves_files_inside_the_renderer() {
+        let dir = Renderer::new();
+        let root = dir.root().canonicalize().unwrap();
+        assert_eq!(
+            safe_join(&dir.root(), "index.html"),
+            Some(root.join("index.html"))
+        );
+        assert_eq!(
+            safe_join(&dir.root(), "assets//app.js"),
+            Some(root.join("assets/app.js"))
+        );
+        // A leading slash is the URL's, not the disk's root
+        assert_eq!(
+            safe_join(&dir.root(), "/index.html"),
+            Some(root.join("index.html"))
+        );
+        assert_eq!(safe_join(&dir.root(), "missing.js"), None);
+    }
+
+    #[test]
+    fn driver_refuses_paths_that_leave_the_renderer() {
+        let dir = Renderer::new();
+        let refused = [
+            "../outside.txt",
+            "assets/../../outside.txt",
+            "./index.html",
+            "C:/Windows/win.ini",
+            "C:",
+            "c:outside.txt",
+            "\\\\server\\share\\x",
+            "assets\\..\\..\\outside.txt",
+            "\\outside.txt",
+        ];
+        for path in refused {
+            assert_eq!(safe_join(&dir.root(), path), None, "{path}");
+        }
+        // The scheme handler decodes before joining, so an escaped ':' or '\\' is refused too
+        for url in [
+            "C%3A/Windows/win.ini",
+            "%5C%5Cserver%5Cshare",
+            "%2E%2E/outside.txt",
+        ] {
+            assert_eq!(safe_join(&dir.root(), &percent_decode(url)), None, "{url}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn driver_refuses_a_link_out_of_the_renderer() {
+        let dir = Renderer::new();
+        std::os::unix::fs::symlink(dir.0.join("outside.txt"), dir.root().join("link.txt")).unwrap();
+        assert_eq!(safe_join(&dir.root(), "link.txt"), None);
+    }
+
+    #[test]
+    fn driver_keeps_the_page_on_its_own_origin() {
+        let renderer = [Url::parse("parity://localhost/index.html").unwrap()];
+        let ok = |url: &str| may_navigate(&Url::parse(url).unwrap(), &renderer);
+        assert!(ok("parity://localhost/index.html#/matches"));
+        assert!(ok("parity://localhost/other.html"));
+        assert!(ok("about:blank"));
+        for refused in [
+            "file:///etc/passwd",
+            "https://example.com/",
+            "http://localhost/",
+            "parity://evil/index.html",
+            "tauri://localhost/",
+            "asset://game-data/16.22/x.png",
+            "data:text/html,hi",
+            "javascript:alert(1)",
+        ] {
+            assert!(!ok(refused), "{refused}");
+        }
+        let windows = [Url::parse("http://parity.localhost/index.html").unwrap()];
+        let win = |url: &str| may_navigate(&Url::parse(url).unwrap(), &windows);
+        assert!(win("http://parity.localhost/index.html#/x"));
+        assert!(!win("https://parity.localhost/"));
+        assert!(!win("http://parity.localhost:8080/"));
+        assert!(!win("http://asset.localhost/game-data/x.png"));
+        let app = app_origins(None);
+        assert!(may_navigate(
+            &Url::parse("tauri://localhost/index.html").unwrap(),
+            &app
+        ));
+        assert!(may_navigate(
+            &Url::parse("http://tauri.localhost/").unwrap(),
+            &app
+        ));
+        assert!(!may_navigate(
+            &Url::parse("https://tauri.localhost/").unwrap(),
+            &app
+        ));
+        assert!(!may_navigate(&Url::parse("file:///").unwrap(), &[]));
+    }
+
+    fn parse(raw: &[u8]) -> Result<Request, String> {
+        read_request(raw)
+    }
+
+    #[test]
+    fn driver_reads_a_request() {
+        let request = parse(
+            b"POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer abc\r\nContent-Length: 13\r\n\r\n{\"op\":\"info\"}",
+        )
+        .unwrap();
+        assert_eq!(request.method, "POST");
+        assert_eq!(request.path, "/");
+        assert!(
+            request
+                .headers
+                .contains(&("authorization".into(), "Bearer abc".into()))
+        );
+        assert_eq!(request.body, br#"{"op":"info"}"#);
+        let bare = parse(b"GET /x HTTP/1.1\n\n").unwrap();
+        assert_eq!((bare.method.as_str(), bare.path.as_str()), ("GET", "/x"));
+        assert!(bare.body.is_empty());
+    }
+
+    #[test]
+    fn driver_refuses_a_malformed_request() {
+        assert!(parse(b"").is_err());
+        assert!(parse(b"POST / HTTP/1.1\r\nContent-Length: 5\r\n").is_err());
+        assert!(parse(b"POST / HTTP/1.1\r\nContent-Length: x\r\n\r\n").is_err());
+        assert!(parse(b"POST / HTTP/1.1\r\nContent-Length: 10\r\n\r\nshort").is_err());
+        let too_big = format!(
+            "POST / HTTP/1.1\r\nContent-Length: {}\r\n\r\n",
+            MAX_BODY_BYTES + 1
+        );
+        assert_eq!(
+            parse(too_big.as_bytes()).err().as_deref(),
+            Some("body too large")
+        );
+        let long_head = format!(
+            "POST / HTTP/1.1\r\nX: {}\r\n\r\n",
+            "a".repeat(MAX_HEAD_BYTES)
+        );
+        assert_eq!(
+            parse(long_head.as_bytes()).err().as_deref(),
+            Some("bad request head")
+        );
     }
 }
