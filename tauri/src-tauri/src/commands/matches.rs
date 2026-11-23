@@ -7,7 +7,7 @@ use tauri::Runtime;
 use ts_rs::TS;
 
 use super::types::{MatchDetail, MatchPage, MatchScope};
-use super::{CommandResult, Ctx, Domain, whole};
+use super::{CommandError, CommandResult, Ctx, Domain, whole};
 use crate::db::{self, filters, matches, summoner, week};
 use crate::js_arg::{Js, JsValue};
 
