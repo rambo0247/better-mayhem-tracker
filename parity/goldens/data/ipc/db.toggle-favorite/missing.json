@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "db:toggle-favorite",
+  "method": "toggleFavorite",
+  "registered": true,
+  "case": "missing",
+  "description": "a game id that does not exist",
+  "group": "favorite",
+  "seq": 5,
+  "args": [
+    -1
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": false
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

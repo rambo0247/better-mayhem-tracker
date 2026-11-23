@@ -1,0 +1,168 @@
+{
+  "format": 1,
+  "channel": "dragon:summoner-spells",
+  "method": "getSummonerSpellData",
+  "registered": true,
+  "case": "warm-spells",
+  "description": "spell table before the first card",
+  "group": "export-card",
+  "seq": 3,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "1": {
+        "name": "Cleanse",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_boost.png"
+      },
+      "3": {
+        "name": "Exhaust",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_exhaust.png"
+      },
+      "4": {
+        "name": "Flash",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_flash.png"
+      },
+      "5": {
+        "name": "",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_Backtrack.png"
+      },
+      "6": {
+        "name": "Ghost",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_haste.png"
+      },
+      "7": {
+        "name": "Heal",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_heal.png"
+      },
+      "11": {
+        "name": "Smite",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_smite.png"
+      },
+      "12": {
+        "name": "Teleport",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_Teleport_New.png"
+      },
+      "13": {
+        "name": "Clarity",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/SummonerMana.png"
+      },
+      "14": {
+        "name": "Ignite",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/SummonerIgnite.png"
+      },
+      "21": {
+        "name": "Barrier",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/SummonerBarrier.png"
+      },
+      "30": {
+        "name": "To the King!",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Benevolence_Of_King_Poro_Icon.png"
+      },
+      "31": {
+        "name": "Poro Toss",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Trailblazer_Poro_Icon.png"
+      },
+      "32": {
+        "name": "Mark",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_Mark.png"
+      },
+      "39": {
+        "name": "Mark",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_Mark.png"
+      },
+      "54": {
+        "name": "Placeholder",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_Empty.png"
+      },
+      "55": {
+        "name": "Placeholder and Attack-Smite",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_EmptySmite.png"
+      },
+      "71": {
+        "name": "Cleanse",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_Boost.project_jade.png"
+      },
+      "73": {
+        "name": "Exhaust",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_Exhaust.project_jade.png"
+      },
+      "74": {
+        "name": "Flash",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_flash.project_jade.png"
+      },
+      "75": {
+        "name": "Clairvoyance",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_Clairvoyance.project_jade.png"
+      },
+      "76": {
+        "name": "Ghost",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_haste.project_jade.png"
+      },
+      "77": {
+        "name": "Heal",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_heal.project_jade.png"
+      },
+      "705": {
+        "name": "Fortify",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_fortify.project_jade_16_18.png"
+      },
+      "709": {
+        "name": "Rally",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_rally.project_jade_16_18.png"
+      },
+      "711": {
+        "name": "Smite",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_smite.project_jade.png"
+      },
+      "712": {
+        "name": "Teleport",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_teleport.project_jade.png"
+      },
+      "713": {
+        "name": "Clarity",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_SummonerMana.project_jade.png"
+      },
+      "714": {
+        "name": "Ignite",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_SummonerIgnite.project_jade.png"
+      },
+      "716": {
+        "name": "Surge",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_BattleCry.project_jade.png"
+      },
+      "720": {
+        "name": "Promote",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/38.project_jade_16_18.png"
+      },
+      "721": {
+        "name": "Barrier",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_SummonerBarrier.project_jade.png"
+      },
+      "777": {
+        "name": "Revive",
+        "iconPath": "/lol-game-data/assets/ASSETS/UX/Jade/S3Icons/SameSized/S3_Summoner_revive.project_jade.png"
+      },
+      "2201": {
+        "name": "Flee",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Icon_SummonerSpell_Flee.2v2_Mode_Fighters.png"
+      },
+      "2202": {
+        "name": "Flash",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_flash.png"
+      },
+      "2203": {
+        "name": "Flash",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/Summoner_flash.png"
+      },
+      "4294967295": {
+        "name": "Primal Smite",
+        "iconPath": "/lol-game-data/assets/DATA/Spells/Icons2D/1101_Smite.png"
+      }
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

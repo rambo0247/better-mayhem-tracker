@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "settings:get",
+  "method": "getSetting",
+  "registered": true,
+  "case": "allowed-minimize-to-tray",
+  "description": "allowed key minimize_to_tray",
+  "group": "read",
+  "seq": 94,
+  "args": [
+    "minimize_to_tray"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": null
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

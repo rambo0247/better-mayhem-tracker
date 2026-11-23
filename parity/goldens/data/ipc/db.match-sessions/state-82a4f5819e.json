@@ -1,0 +1,322 @@
+{
+  "format": 1,
+  "channel": "db:match-sessions",
+  "method": "getMatchSessions",
+  "registered": true,
+  "case": "state-82a4f5819e",
+  "description": "the call the page made in state match-history-grouped-week",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {
+      "multikills": [],
+      "favorites": false
+    }
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "key": "2026-11-22",
+        "games": 2,
+        "wins": 1,
+        "losses": 1,
+        "kills": 24,
+        "deaths": 24,
+        "assists": 49,
+        "score_sum": 12.2,
+        "scored_games": 2
+      },
+      {
+        "key": "2026-11-15",
+        "games": 61,
+        "wins": 33,
+        "losses": 28,
+        "kills": 498,
+        "deaths": 529,
+        "assists": 1795,
+        "score_sum": 380.8,
+        "scored_games": 61
+      },
+      {
+        "key": "2026-11-08",
+        "games": 81,
+        "wins": 38,
+        "losses": 40,
+        "kills": 773,
+        "deaths": 806,
+        "assists": 1971,
+        "score_sum": 458.2,
+        "scored_games": 78
+      },
+      {
+        "key": "2026-11-01",
+        "games": 19,
+        "wins": 8,
+        "losses": 11,
+        "kills": 195,
+        "deaths": 183,
+        "assists": 459,
+        "score_sum": 122.1,
+        "scored_games": 19
+      },
+      {
+        "key": "2026-09-06",
+        "games": 22,
+        "wins": 11,
+        "losses": 11,
+        "kills": 202,
+        "deaths": 196,
+        "assists": 713,
+        "score_sum": 152.8,
+        "scored_games": 22
+      },
+      {
+        "key": "2026-08-30",
+        "games": 11,
+        "wins": 6,
+        "losses": 5,
+        "kills": 155,
+        "deaths": 104,
+        "assists": 350,
+        "score_sum": 82,
+        "scored_games": 11
+      },
+      {
+        "key": "2026-08-23",
+        "games": 21,
+        "wins": 13,
+        "losses": 7,
+        "kills": 217,
+        "deaths": 176,
+        "assists": 602,
+        "score_sum": 142.4,
+        "scored_games": 20
+      },
+      {
+        "key": "2026-08-16",
+        "games": 36,
+        "wins": 19,
+        "losses": 17,
+        "kills": 434,
+        "deaths": 312,
+        "assists": 994,
+        "score_sum": 262.2,
+        "scored_games": 36
+      },
+      {
+        "key": "2026-08-09",
+        "games": 22,
+        "wins": 14,
+        "losses": 8,
+        "kills": 253,
+        "deaths": 213,
+        "assists": 511,
+        "score_sum": 150.9,
+        "scored_games": 22
+      },
+      {
+        "key": "2026-08-02",
+        "games": 73,
+        "wins": 32,
+        "losses": 40,
+        "kills": 748,
+        "deaths": 664,
+        "assists": 1847,
+        "score_sum": 474,
+        "scored_games": 72
+      },
+      {
+        "key": "2026-07-26",
+        "games": 42,
+        "wins": 21,
+        "losses": 21,
+        "kills": 279,
+        "deaths": 391,
+        "assists": 1156,
+        "score_sum": 248,
+        "scored_games": 42
+      },
+      {
+        "key": "2026-07-19",
+        "games": 30,
+        "wins": 15,
+        "losses": 15,
+        "kills": 237,
+        "deaths": 269,
+        "assists": 781,
+        "score_sum": 185.2,
+        "scored_games": 30
+      },
+      {
+        "key": "2026-07-12",
+        "games": 34,
+        "wins": 15,
+        "losses": 18,
+        "kills": 250,
+        "deaths": 268,
+        "assists": 848,
+        "score_sum": 187,
+        "scored_games": 33
+      },
+      {
+        "key": "2026-06-14",
+        "games": 6,
+        "wins": 4,
+        "losses": 2,
+        "kills": 50,
+        "deaths": 41,
+        "assists": 142,
+        "score_sum": 37.2,
+        "scored_games": 6
+      },
+      {
+        "key": "2026-06-07",
+        "games": 7,
+        "wins": 5,
+        "losses": 2,
+        "kills": 75,
+        "deaths": 51,
+        "assists": 255,
+        "score_sum": 50.9,
+        "scored_games": 7
+      },
+      {
+        "key": "2026-05-24",
+        "games": 28,
+        "wins": 15,
+        "losses": 12,
+        "kills": 226,
+        "deaths": 245,
+        "assists": 728,
+        "score_sum": 163.1,
+        "scored_games": 27
+      },
+      {
+        "key": "2026-05-17",
+        "games": 3,
+        "wins": 2,
+        "losses": 1,
+        "kills": 13,
+        "deaths": 26,
+        "assists": 76,
+        "score_sum": 18.2,
+        "scored_games": 3
+      },
+      {
+        "key": "2026-05-10",
+        "games": 11,
+        "wins": 4,
+        "losses": 7,
+        "kills": 127,
+        "deaths": 134,
+        "assists": 332,
+        "score_sum": 64.9,
+        "scored_games": 11
+      },
+      {
+        "key": "2026-03-22",
+        "games": 2,
+        "wins": 2,
+        "losses": 0,
+        "kills": 12,
+        "deaths": 16,
+        "assists": 50,
+        "score_sum": 11.1,
+        "scored_games": 2
+      },
+      {
+        "key": "2026-03-08",
+        "games": 24,
+        "wins": 12,
+        "losses": 12,
+        "kills": 182,
+        "deaths": 220,
+        "assists": 596,
+        "score_sum": 139.3,
+        "scored_games": 24
+      },
+      {
+        "key": "2026-03-01",
+        "games": 17,
+        "wins": 9,
+        "losses": 6,
+        "kills": 170,
+        "deaths": 150,
+        "assists": 423,
+        "score_sum": 100.8,
+        "scored_games": 15
+      },
+      {
+        "key": "2026-02-22",
+        "games": 36,
+        "wins": 18,
+        "losses": 18,
+        "kills": 242,
+        "deaths": 287,
+        "assists": 958,
+        "score_sum": 211.9,
+        "scored_games": 36
+      },
+      {
+        "key": "2026-02-08",
+        "games": 11,
+        "wins": 4,
+        "losses": 7,
+        "kills": 85,
+        "deaths": 102,
+        "assists": 304,
+        "score_sum": 60.1,
+        "scored_games": 11
+      },
+      {
+        "key": "2026-01-25",
+        "games": 37,
+        "wins": 22,
+        "losses": 14,
+        "kills": 234,
+        "deaths": 308,
+        "assists": 1006,
+        "score_sum": 208.9,
+        "scored_games": 36
+      },
+      {
+        "key": "2026-01-18",
+        "games": 5,
+        "wins": 3,
+        "losses": 2,
+        "kills": 44,
+        "deaths": 41,
+        "assists": 139,
+        "score_sum": 30.4,
+        "scored_games": 5
+      },
+      {
+        "key": "2026-01-11",
+        "games": 26,
+        "wins": 10,
+        "losses": 15,
+        "kills": 182,
+        "deaths": 244,
+        "assists": 629,
+        "score_sum": 142.8,
+        "scored_games": 25
+      },
+      {
+        "key": "2026-01-04",
+        "games": 2,
+        "wins": 2,
+        "losses": 0,
+        "kills": 7,
+        "deaths": 19,
+        "assists": 60,
+        "score_sum": 10.6,
+        "scored_games": 2
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

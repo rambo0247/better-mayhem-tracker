@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "db:stored-queues",
+  "method": "getStoredQueues",
+  "registered": true,
+  "case": "default",
+  "description": "every stored queue",
+  "group": "read",
+  "seq": 20,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      2400
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "backup:recovery-report",
+  "method": "getRecoveryReport",
+  "registered": true,
+  "case": "default",
+  "description": "no recovery happened at startup",
+  "group": "read",
+  "seq": 75,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": null
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "settings:set",
+  "method": "setSetting",
+  "registered": true,
+  "case": "hidden-queues",
+  "description": "a list value",
+  "group": "settings-write",
+  "seq": 7,
+  "args": [
+    "hidden_queues",
+    "2400"
+  ],
+  "outcome": {
+    "kind": "void"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

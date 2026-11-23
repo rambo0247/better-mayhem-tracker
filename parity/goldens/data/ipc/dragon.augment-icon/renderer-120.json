@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "renderer-120",
+  "description": "a call the Tauri renderer makes",
+  "group": "read",
+  "seq": 240,
+  "args": [
+    1138,
+    "16.23"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/cherry/augments/icons/goredrink_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

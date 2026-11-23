@@ -1,0 +1,45 @@
+{
+  "format": 1,
+  "channel": "export:card-image",
+  "method": "exportCardImage",
+  "registered": true,
+  "case": "cancelled",
+  "description": "the save dialog is dismissed",
+  "group": "export-card",
+  "seq": 4,
+  "args": [
+    {
+      "kind": "game",
+      "gameId": 5684865505
+    }
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "success": false
+    }
+  },
+  "events": [],
+  "effects": [
+    {
+      "seq": 0,
+      "api": "dialog.showSaveDialog",
+      "args": [
+        {
+          "title": "Export Game Image",
+          "defaultPath": "better-mayhem-Gragas-2026-11-22-5684865505.png",
+          "filters": [
+            {
+              "name": "PNG Image",
+              "extensions": [
+                "png"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "files": [],
+  "nonFinite": []
+}

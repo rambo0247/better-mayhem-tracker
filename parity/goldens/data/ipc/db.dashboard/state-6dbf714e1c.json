@@ -1,0 +1,54 @@
+{
+  "format": 1,
+  "channel": "db:dashboard",
+  "method": "getDashboard",
+  "registered": true,
+  "case": "state-6dbf714e1c",
+  "description": "the call the page made in state backfill-toast-done",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {}
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "totalGames": 3,
+      "totalDuration": 3306,
+      "wins": 0,
+      "totalKills": 24,
+      "totalDeaths": 33,
+      "totalAssists": 51,
+      "avgScore": 5.400000000000001,
+      "mvps": 0,
+      "aces": 0,
+      "scoredWins": 0,
+      "scoredLosses": 3,
+      "accounts": 1,
+      "recentForm": [
+        {
+          "win": 0,
+          "game_id": 7000000001
+        },
+        {
+          "win": 0,
+          "game_id": 7000000002
+        },
+        {
+          "win": 0,
+          "game_id": 7000000003
+        }
+      ],
+      "multikills": {
+        "doubles": 3,
+        "triples": 0,
+        "quadras": 0,
+        "pentas": 0
+      }
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "app:version",
+  "method": "getVersion",
+  "registered": true,
+  "case": "default",
+  "description": "package version",
+  "group": "read",
+  "seq": 104,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": "1.2.1"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

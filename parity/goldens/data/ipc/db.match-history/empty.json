@@ -1,0 +1,28 @@
+{
+  "format": 1,
+  "channel": "db:match-history",
+  "method": "getMatchHistory",
+  "registered": true,
+  "case": "empty",
+  "description": "a champion with no games",
+  "group": "read",
+  "seq": 12,
+  "args": [
+    50,
+    0,
+    {
+      "championId": -1
+    }
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "matches": [],
+      "total": 0
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

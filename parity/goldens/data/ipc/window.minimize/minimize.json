@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "channel": "window:minimize",
+  "method": "minimizeWindow",
+  "registered": true,
+  "case": "minimize",
+  "description": "minimize",
+  "group": "window",
+  "seq": 5,
+  "args": [],
+  "outcome": {
+    "kind": "void"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

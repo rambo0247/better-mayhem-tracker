@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "renderer-172",
+  "description": "a call the Tauri renderer makes",
+  "group": "read",
+  "seq": 294,
+  "args": [
+    1074,
+    "16.22"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/cherry/augments/icons/shrinkray_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

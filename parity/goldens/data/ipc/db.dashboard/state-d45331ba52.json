@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "channel": "db:dashboard",
+  "method": "getDashboard",
+  "registered": true,
+  "case": "state-d45331ba52",
+  "description": "the call the page made in state match-history-eog-captured",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {}
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "totalGames": 659,
+      "totalDuration": 712269,
+      "wins": 338,
+      "totalKills": 5926,
+      "totalDeaths": 6030,
+      "totalAssists": 17793,
+      "avgScore": 6.242488619119879,
+      "mvps": 56,
+      "aces": 66,
+      "scoredWins": 338,
+      "scoredLosses": 321,
+      "accounts": 1,
+      "recentForm": [
+        {
+          "win": 0,
+          "game_id": 7000000000
+        },
+        {
+          "win": 0,
+          "game_id": 5684865505
+        },
+        {
+          "win": 1,
+          "game_id": 5684562726
+        },
+        {
+          "win": 1,
+          "game_id": 5684569863
+        },
+        {
+          "win": 1,
+          "game_id": 5684556449
+        },
+        {
+          "win": 0,
+          "game_id": 5684552389
+        },
+        {
+          "win": 0,
+          "game_id": 5684541511
+        },
+        {
+          "win": 0,
+          "game_id": 5684548840
+        },
+        {
+          "win": 0,
+          "game_id": 5684527471
+        },
+        {
+          "win": 0,
+          "game_id": 5684523086
+        }
+      ],
+      "multikills": {
+        "doubles": 883,
+        "triples": 159,
+        "quadras": 32,
+        "pentas": 1
+      }
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

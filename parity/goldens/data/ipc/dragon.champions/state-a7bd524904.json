@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "dragon:champions",
+  "method": "getChampionData",
+  "registered": true,
+  "case": "state-a7bd524904",
+  "description": "the call the page made in state match-history-empty-waiting",
+  "group": "state",
+  "seq": 1000000,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {}
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

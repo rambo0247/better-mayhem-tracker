@@ -1,0 +1,219 @@
+{
+  "format": 1,
+  "state": "records-default",
+  "group": "default",
+  "route": "/records",
+  "viewport": {
+    "width": 1280,
+    "height": 820
+  },
+  "calls": [
+    {
+      "seq": 0,
+      "channel": "db:records",
+      "method": "getRecords",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 1,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "before"
+    },
+    {
+      "seq": 2,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "allowed-remember-filters"
+    },
+    {
+      "seq": 3,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 4,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 5,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 6,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_nav_links"
+      ],
+      "case": "allowed-hidden-nav-links"
+    },
+    {
+      "seq": 7,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 8,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 9,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 10,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 11,
+      "channel": "db:records",
+      "method": "getRecords",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 12,
+      "channel": "dragon:champions",
+      "method": "getChampionData",
+      "args": [],
+      "case": "warm-champions"
+    },
+    {
+      "seq": 13,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "before"
+    },
+    {
+      "seq": 14,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 15,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 16,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 17,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 18,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 19,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 20,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 21,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 22,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 23,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 24,
+      "channel": "db:records",
+      "method": "getRecords",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 25,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "before"
+    },
+    {
+      "seq": 26,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 27,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 28,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    }
+  ]
+}

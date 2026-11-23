@@ -1,0 +1,40 @@
+{
+  "format": 1,
+  "channel": "data:export",
+  "method": "exportData",
+  "registered": true,
+  "case": "cancelled",
+  "description": "the save dialog is dismissed",
+  "group": "data-transfer",
+  "seq": 0,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "success": false
+    }
+  },
+  "events": [],
+  "effects": [
+    {
+      "seq": 0,
+      "api": "dialog.showSaveDialog",
+      "args": [
+        {
+          "title": "Export Better Mayhem Tracker Data",
+          "defaultPath": "better-mayhem-backup-2026-11-23.json",
+          "filters": [
+            {
+              "name": "JSON",
+              "extensions": [
+                "json"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "files": [],
+  "nonFinite": []
+}

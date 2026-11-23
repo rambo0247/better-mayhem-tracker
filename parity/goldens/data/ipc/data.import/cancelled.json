@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "channel": "data:import",
+  "method": "importData",
+  "registered": true,
+  "case": "cancelled",
+  "description": "the open dialog is dismissed",
+  "group": "data-transfer",
+  "seq": 2,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "success": false
+    }
+  },
+  "events": [],
+  "effects": [
+    {
+      "seq": 0,
+      "api": "dialog.showOpenDialog",
+      "args": [
+        {
+          "title": "Import Better Mayhem Tracker Data",
+          "filters": [
+            {
+              "name": "JSON",
+              "extensions": [
+                "json"
+              ]
+            }
+          ],
+          "properties": [
+            "openFile"
+          ]
+        }
+      ]
+    }
+  ],
+  "files": [],
+  "nonFinite": []
+}

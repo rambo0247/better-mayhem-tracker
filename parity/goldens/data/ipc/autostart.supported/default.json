@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "autostart:supported",
+  "method": "isAutoStartSupported",
+  "registered": true,
+  "case": "default",
+  "description": "unpackaged run",
+  "group": "read",
+  "seq": 103,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": false
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

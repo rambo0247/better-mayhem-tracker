@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "channel": "db:match-filters",
+  "method": "getMatchFilterOptions",
+  "registered": true,
+  "case": "queues-hidden",
+  "description": "the filter options with a queue hidden",
+  "group": "settings-write",
+  "seq": 8,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "patches": [],
+      "champions": [],
+      "queues": [],
+      "seasons": [],
+      "accounts": [
+        {
+          "puuid": "fa4e0000-0000-4000-8000-000000000dea",
+          "name": "UpbeatGarnet4#Z1159",
+          "profileIcon": 4964
+        }
+      ],
+      "hasFavorites": true
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

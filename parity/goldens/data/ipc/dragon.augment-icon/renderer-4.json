@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "renderer-4",
+  "description": "a call the Tauri renderer makes",
+  "group": "read",
+  "seq": 116,
+  "args": [
+    1391
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": null
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

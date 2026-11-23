@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "window:is-maximized",
+  "method": "isWindowMaximized",
+  "registered": true,
+  "case": "maximized",
+  "description": "reports maximized",
+  "group": "window",
+  "seq": 2,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": true
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

@@ -1,0 +1,15 @@
+{"seq":0,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":0,"total":669,"imported":0}}
+{"seq":1,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":50,"total":669,"imported":0}}
+{"seq":2,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":100,"total":669,"imported":0}}
+{"seq":3,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":150,"total":669,"imported":0}}
+{"seq":4,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":200,"total":669,"imported":0}}
+{"seq":5,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":250,"total":669,"imported":0}}
+{"seq":6,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":301,"total":669,"imported":0}}
+{"seq":7,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":351,"total":669,"imported":0}}
+{"seq":8,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":401,"total":669,"imported":0}}
+{"seq":9,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":451,"total":669,"imported":0}}
+{"seq":10,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":501,"total":669,"imported":0}}
+{"seq":11,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":551,"total":669,"imported":0}}
+{"seq":12,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":602,"total":669,"imported":0}}
+{"seq":13,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":652,"total":669,"imported":0}}
+{"seq":14,"event":"data:import-progress","cause":{"channel":"data:import","case":"same-file"},"payload":{"current":669,"total":669,"imported":0}}

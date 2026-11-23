@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "renderer-21",
+  "description": "a call the Tauri renderer makes",
+  "group": "read",
+  "seq": 136,
+  "args": [
+    1068,
+    "16.23"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/cherry/augments/icons/recursion_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

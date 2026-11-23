@@ -1,0 +1,30 @@
+{
+  "format": 1,
+  "channel": "live:snapshot",
+  "method": "getLiveGame",
+  "registered": true,
+  "case": "default",
+  "description": "no game",
+  "group": "read",
+  "seq": 81,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "inGame": false,
+      "starting": false,
+      "gameId": null,
+      "queueId": null,
+      "mapId": null,
+      "mapName": null,
+      "mapSkin": null,
+      "gameTime": 0,
+      "players": [],
+      "events": []
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

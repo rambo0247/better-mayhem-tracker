@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "channel": "db:match-history",
+  "method": "getMatchHistory",
+  "registered": true,
+  "case": "state-b8882c8460",
+  "description": "the call the page made in state live-standby-offline-empty",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    1,
+    0
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "matches": [],
+      "total": 0
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

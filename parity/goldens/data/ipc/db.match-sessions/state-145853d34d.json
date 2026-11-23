@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "channel": "db:match-sessions",
+  "method": "getMatchSessions",
+  "registered": true,
+  "case": "state-145853d34d",
+  "description": "the call the page made in state match-history-no-matches",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {
+      "multikills": [
+        "pentas"
+      ],
+      "favorites": true
+    }
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": []
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

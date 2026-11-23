@@ -1,0 +1,217 @@
+{
+  "format": 1,
+  "channel": "db:champion-item-stats",
+  "method": "getChampionItemStats",
+  "registered": true,
+  "case": "default",
+  "description": "one champion",
+  "group": "read",
+  "seq": 44,
+  "args": [
+    79
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "item_id": 3084,
+        "picks": 6,
+        "wins": 3
+      },
+      {
+        "item_id": 6655,
+        "picks": 5,
+        "wins": 3
+      },
+      {
+        "item_id": 3121,
+        "picks": 5,
+        "wins": 3
+      },
+      {
+        "item_id": 3111,
+        "picks": 5,
+        "wins": 2
+      },
+      {
+        "item_id": 3089,
+        "picks": 5,
+        "wins": 3
+      },
+      {
+        "item_id": 3020,
+        "picks": 5,
+        "wins": 3
+      },
+      {
+        "item_id": 4629,
+        "picks": 4,
+        "wins": 2
+      },
+      {
+        "item_id": 4645,
+        "picks": 3,
+        "wins": 2
+      },
+      {
+        "item_id": 3157,
+        "picks": 3,
+        "wins": 1
+      },
+      {
+        "item_id": 1011,
+        "picks": 3,
+        "wins": 2
+      },
+      {
+        "item_id": 6657,
+        "picks": 2,
+        "wins": 0
+      },
+      {
+        "item_id": 4646,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "item_id": 3158,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "item_id": 3152,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "item_id": 3143,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "item_id": 3070,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "item_id": 3047,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "item_id": 3040,
+        "picks": 2,
+        "wins": 0
+      },
+      {
+        "item_id": 2504,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "item_id": 1028,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "item_id": 8020,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 6664,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 6660,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 4630,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 4628,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 3145,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 3137,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 3119,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 3108,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 3083,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 3082,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 3024,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 2524,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 2503,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 1058,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 1057,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 1052,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 1031,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 1029,
+        "picks": 1,
+        "wins": 1
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

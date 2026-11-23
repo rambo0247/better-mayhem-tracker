@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "state-2b8e018792",
+  "description": "the call the page made in state global-champion-detail-default",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    1150
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/kiwi/augments/icons/genericabilityaugmenticon_gold.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

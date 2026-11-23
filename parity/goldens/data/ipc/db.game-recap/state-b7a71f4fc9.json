@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "db:game-recap",
+  "method": "getGameRecap",
+  "registered": true,
+  "case": "state-b7a71f4fc9",
+  "description": "the call the page made in state live-waiting",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    7000000000
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": null
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

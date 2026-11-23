@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "renderer-43",
+  "description": "a call the Tauri renderer makes",
+  "group": "read",
+  "seq": 159,
+  "args": [
+    1136
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/cherry/augments/icons/slaparound_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "settings:get",
+  "method": "getSetting",
+  "registered": true,
+  "case": "allowed-auto-start",
+  "description": "allowed key auto_start",
+  "group": "read",
+  "seq": 91,
+  "args": [
+    "auto_start"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": null
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

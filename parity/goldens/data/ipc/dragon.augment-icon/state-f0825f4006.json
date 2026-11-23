@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "state-f0825f4006",
+  "description": "the call the page made in state global-champion-detail-default",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    1420
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/kiwi/augments/icons/sonata_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

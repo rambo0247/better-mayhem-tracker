@@ -1,0 +1,4127 @@
+{
+  "format": 1,
+  "channel": "db:global-stats",
+  "method": "getGlobalStats",
+  "registered": true,
+  "case": "queue",
+  "description": "one queue",
+  "group": "read",
+  "seq": 48,
+  "args": [
+    null,
+    2400
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "champions": [
+        {
+          "champion_id": 21,
+          "games": 86,
+          "wins": 43,
+          "kills": 920,
+          "deaths": 808,
+          "assists": 2194,
+          "avgDamage": 42055
+        },
+        {
+          "champion_id": 202,
+          "games": 80,
+          "wins": 40,
+          "kills": 1173,
+          "deaths": 768,
+          "assists": 1715,
+          "avgDamage": 45149
+        },
+        {
+          "champion_id": 81,
+          "games": 78,
+          "wins": 42,
+          "kills": 944,
+          "deaths": 681,
+          "assists": 1624,
+          "avgDamage": 48381
+        },
+        {
+          "champion_id": 145,
+          "games": 78,
+          "wins": 37,
+          "kills": 1065,
+          "deaths": 665,
+          "assists": 1685,
+          "avgDamage": 50593
+        },
+        {
+          "champion_id": 235,
+          "games": 76,
+          "wins": 41,
+          "kills": 619,
+          "deaths": 652,
+          "assists": 2478,
+          "avgDamage": 36021
+        },
+        {
+          "champion_id": 147,
+          "games": 74,
+          "wins": 41,
+          "kills": 531,
+          "deaths": 558,
+          "assists": 2773,
+          "avgDamage": 27729
+        },
+        {
+          "champion_id": 901,
+          "games": 72,
+          "wins": 37,
+          "kills": 903,
+          "deaths": 698,
+          "assists": 1727,
+          "avgDamage": 51416
+        },
+        {
+          "champion_id": 51,
+          "games": 70,
+          "wins": 47,
+          "kills": 977,
+          "deaths": 663,
+          "assists": 1378,
+          "avgDamage": 45457
+        },
+        {
+          "champion_id": 222,
+          "games": 68,
+          "wins": 37,
+          "kills": 759,
+          "deaths": 665,
+          "assists": 1590,
+          "avgDamage": 42005
+        },
+        {
+          "champion_id": 236,
+          "games": 68,
+          "wins": 31,
+          "kills": 1010,
+          "deaths": 771,
+          "assists": 1259,
+          "avgDamage": 46988
+        },
+        {
+          "champion_id": 22,
+          "games": 66,
+          "wins": 37,
+          "kills": 539,
+          "deaths": 628,
+          "assists": 1632,
+          "avgDamage": 32312
+        },
+        {
+          "champion_id": 25,
+          "games": 65,
+          "wins": 31,
+          "kills": 484,
+          "deaths": 544,
+          "assists": 2094,
+          "avgDamage": 33472
+        },
+        {
+          "champion_id": 35,
+          "games": 64,
+          "wins": 30,
+          "kills": 803,
+          "deaths": 694,
+          "assists": 1266,
+          "avgDamage": 35945
+        },
+        {
+          "champion_id": 41,
+          "games": 64,
+          "wins": 31,
+          "kills": 957,
+          "deaths": 630,
+          "assists": 1255,
+          "avgDamage": 54309
+        },
+        {
+          "champion_id": 136,
+          "games": 64,
+          "wins": 32,
+          "kills": 743,
+          "deaths": 647,
+          "assists": 1643,
+          "avgDamage": 38954
+        },
+        {
+          "champion_id": 67,
+          "games": 63,
+          "wins": 37,
+          "kills": 807,
+          "deaths": 731,
+          "assists": 1007,
+          "avgDamage": 42207
+        },
+        {
+          "champion_id": 63,
+          "games": 61,
+          "wins": 35,
+          "kills": 621,
+          "deaths": 705,
+          "assists": 1521,
+          "avgDamage": 50109
+        },
+        {
+          "champion_id": 238,
+          "games": 61,
+          "wins": 31,
+          "kills": 950,
+          "deaths": 682,
+          "assists": 1080,
+          "avgDamage": 44260
+        },
+        {
+          "champion_id": 99,
+          "games": 60,
+          "wins": 23,
+          "kills": 446,
+          "deaths": 473,
+          "assists": 1813,
+          "avgDamage": 31749
+        },
+        {
+          "champion_id": 43,
+          "games": 59,
+          "wins": 22,
+          "kills": 329,
+          "deaths": 455,
+          "assists": 1846,
+          "avgDamage": 24956
+        },
+        {
+          "champion_id": 101,
+          "games": 59,
+          "wins": 32,
+          "kills": 599,
+          "deaths": 467,
+          "assists": 1635,
+          "avgDamage": 41224
+        },
+        {
+          "champion_id": 26,
+          "games": 58,
+          "wins": 33,
+          "kills": 366,
+          "deaths": 424,
+          "assists": 2061,
+          "avgDamage": 28748
+        },
+        {
+          "champion_id": 29,
+          "games": 58,
+          "wins": 34,
+          "kills": 990,
+          "deaths": 703,
+          "assists": 1197,
+          "avgDamage": 51404
+        },
+        {
+          "champion_id": 517,
+          "games": 58,
+          "wins": 30,
+          "kills": 615,
+          "deaths": 665,
+          "assists": 1206,
+          "avgDamage": 34678
+        },
+        {
+          "champion_id": 15,
+          "games": 57,
+          "wins": 30,
+          "kills": 561,
+          "deaths": 605,
+          "assists": 1616,
+          "avgDamage": 41708
+        },
+        {
+          "champion_id": 126,
+          "games": 57,
+          "wins": 25,
+          "kills": 637,
+          "deaths": 569,
+          "assists": 1387,
+          "avgDamage": 38878
+        },
+        {
+          "champion_id": 157,
+          "games": 56,
+          "wins": 31,
+          "kills": 591,
+          "deaths": 658,
+          "assists": 973,
+          "avgDamage": 33994
+        },
+        {
+          "champion_id": 800,
+          "games": 56,
+          "wins": 29,
+          "kills": 799,
+          "deaths": 506,
+          "assists": 1202,
+          "avgDamage": 40635
+        },
+        {
+          "champion_id": 910,
+          "games": 56,
+          "wins": 30,
+          "kills": 577,
+          "deaths": 480,
+          "assists": 1800,
+          "avgDamage": 45240
+        },
+        {
+          "champion_id": 53,
+          "games": 55,
+          "wins": 24,
+          "kills": 343,
+          "deaths": 644,
+          "assists": 1469,
+          "avgDamage": 26179
+        },
+        {
+          "champion_id": 90,
+          "games": 55,
+          "wins": 29,
+          "kills": 450,
+          "deaths": 514,
+          "assists": 1391,
+          "avgDamage": 45116
+        },
+        {
+          "champion_id": 120,
+          "games": 55,
+          "wins": 35,
+          "kills": 724,
+          "deaths": 600,
+          "assists": 1167,
+          "avgDamage": 42316
+        },
+        {
+          "champion_id": 37,
+          "games": 54,
+          "wins": 30,
+          "kills": 233,
+          "deaths": 432,
+          "assists": 2065,
+          "avgDamage": 18807
+        },
+        {
+          "champion_id": 50,
+          "games": 54,
+          "wins": 16,
+          "kills": 425,
+          "deaths": 503,
+          "assists": 1469,
+          "avgDamage": 35875
+        },
+        {
+          "champion_id": 223,
+          "games": 54,
+          "wins": 28,
+          "kills": 539,
+          "deaths": 524,
+          "assists": 1216,
+          "avgDamage": 38816
+        },
+        {
+          "champion_id": 4,
+          "games": 53,
+          "wins": 26,
+          "kills": 425,
+          "deaths": 535,
+          "assists": 1306,
+          "avgDamage": 35755
+        },
+        {
+          "champion_id": 412,
+          "games": 53,
+          "wins": 17,
+          "kills": 319,
+          "deaths": 607,
+          "assists": 1630,
+          "avgDamage": 27523
+        },
+        {
+          "champion_id": 14,
+          "games": 52,
+          "wins": 27,
+          "kills": 443,
+          "deaths": 645,
+          "assists": 1220,
+          "avgDamage": 33718
+        },
+        {
+          "champion_id": 107,
+          "games": 52,
+          "wins": 25,
+          "kills": 796,
+          "deaths": 665,
+          "assists": 768,
+          "avgDamage": 43329
+        },
+        {
+          "champion_id": 110,
+          "games": 52,
+          "wins": 22,
+          "kills": 636,
+          "deaths": 487,
+          "assists": 1077,
+          "avgDamage": 39295
+        },
+        {
+          "champion_id": 777,
+          "games": 52,
+          "wins": 26,
+          "kills": 670,
+          "deaths": 658,
+          "assists": 1035,
+          "avgDamage": 47276
+        },
+        {
+          "champion_id": 48,
+          "games": 51,
+          "wins": 27,
+          "kills": 374,
+          "deaths": 482,
+          "assists": 1546,
+          "avgDamage": 33144
+        },
+        {
+          "champion_id": 96,
+          "games": 50,
+          "wins": 28,
+          "kills": 539,
+          "deaths": 508,
+          "assists": 1245,
+          "avgDamage": 42669
+        },
+        {
+          "champion_id": 111,
+          "games": 50,
+          "wins": 28,
+          "kills": 356,
+          "deaths": 504,
+          "assists": 1425,
+          "avgDamage": 31237
+        },
+        {
+          "champion_id": 30,
+          "games": 49,
+          "wins": 20,
+          "kills": 563,
+          "deaths": 796,
+          "assists": 1466,
+          "avgDamage": 56045
+        },
+        {
+          "champion_id": 54,
+          "games": 49,
+          "wins": 23,
+          "kills": 464,
+          "deaths": 556,
+          "assists": 1140,
+          "avgDamage": 35821
+        },
+        {
+          "champion_id": 350,
+          "games": 49,
+          "wins": 19,
+          "kills": 221,
+          "deaths": 245,
+          "assists": 1882,
+          "avgDamage": 19123
+        },
+        {
+          "champion_id": 18,
+          "games": 48,
+          "wins": 24,
+          "kills": 546,
+          "deaths": 548,
+          "assists": 785,
+          "avgDamage": 35329
+        },
+        {
+          "champion_id": 104,
+          "games": 48,
+          "wins": 26,
+          "kills": 820,
+          "deaths": 549,
+          "assists": 883,
+          "avgDamage": 52085
+        },
+        {
+          "champion_id": 143,
+          "games": 48,
+          "wins": 24,
+          "kills": 326,
+          "deaths": 430,
+          "assists": 1258,
+          "avgDamage": 36839
+        },
+        {
+          "champion_id": 17,
+          "games": 47,
+          "wins": 20,
+          "kills": 418,
+          "deaths": 505,
+          "assists": 1148,
+          "avgDamage": 38415
+        },
+        {
+          "champion_id": 902,
+          "games": 47,
+          "wins": 24,
+          "kills": 129,
+          "deaths": 279,
+          "assists": 1764,
+          "avgDamage": 12703
+        },
+        {
+          "champion_id": 3,
+          "games": 46,
+          "wins": 22,
+          "kills": 248,
+          "deaths": 495,
+          "assists": 1365,
+          "avgDamage": 27613
+        },
+        {
+          "champion_id": 31,
+          "games": 45,
+          "wins": 21,
+          "kills": 407,
+          "deaths": 449,
+          "assists": 1011,
+          "avgDamage": 31149
+        },
+        {
+          "champion_id": 103,
+          "games": 45,
+          "wins": 19,
+          "kills": 424,
+          "deaths": 499,
+          "assists": 1081,
+          "avgDamage": 35209
+        },
+        {
+          "champion_id": 115,
+          "games": 45,
+          "wins": 25,
+          "kills": 353,
+          "deaths": 390,
+          "assists": 1272,
+          "avgDamage": 39044
+        },
+        {
+          "champion_id": 555,
+          "games": 45,
+          "wins": 21,
+          "kills": 663,
+          "deaths": 435,
+          "assists": 875,
+          "avgDamage": 29541
+        },
+        {
+          "champion_id": 804,
+          "games": 45,
+          "wins": 23,
+          "kills": 520,
+          "deaths": 493,
+          "assists": 959,
+          "avgDamage": 39357
+        },
+        {
+          "champion_id": 45,
+          "games": 44,
+          "wins": 19,
+          "kills": 319,
+          "deaths": 389,
+          "assists": 923,
+          "avgDamage": 25539
+        },
+        {
+          "champion_id": 57,
+          "games": 44,
+          "wins": 22,
+          "kills": 335,
+          "deaths": 446,
+          "assists": 1323,
+          "avgDamage": 38863
+        },
+        {
+          "champion_id": 76,
+          "games": 44,
+          "wins": 15,
+          "kills": 429,
+          "deaths": 343,
+          "assists": 1161,
+          "avgDamage": 38167
+        },
+        {
+          "champion_id": 89,
+          "games": 44,
+          "wins": 29,
+          "kills": 294,
+          "deaths": 477,
+          "assists": 1249,
+          "avgDamage": 32747
+        },
+        {
+          "champion_id": 267,
+          "games": 44,
+          "wins": 20,
+          "kills": 152,
+          "deaths": 265,
+          "assists": 1693,
+          "avgDamage": 17735
+        },
+        {
+          "champion_id": 13,
+          "games": 42,
+          "wins": 24,
+          "kills": 500,
+          "deaths": 434,
+          "assists": 931,
+          "avgDamage": 53565
+        },
+        {
+          "champion_id": 112,
+          "games": 42,
+          "wins": 19,
+          "kills": 442,
+          "deaths": 386,
+          "assists": 1071,
+          "avgDamage": 39368
+        },
+        {
+          "champion_id": 523,
+          "games": 42,
+          "wins": 24,
+          "kills": 558,
+          "deaths": 458,
+          "assists": 812,
+          "avgDamage": 50955
+        },
+        {
+          "champion_id": 12,
+          "games": 41,
+          "wins": 20,
+          "kills": 222,
+          "deaths": 433,
+          "assists": 1265,
+          "avgDamage": 21138
+        },
+        {
+          "champion_id": 16,
+          "games": 41,
+          "wins": 18,
+          "kills": 118,
+          "deaths": 285,
+          "assists": 1512,
+          "avgDamage": 12616
+        },
+        {
+          "champion_id": 27,
+          "games": 40,
+          "wins": 25,
+          "kills": 329,
+          "deaths": 483,
+          "assists": 1276,
+          "avgDamage": 36178
+        },
+        {
+          "champion_id": 40,
+          "games": 40,
+          "wins": 31,
+          "kills": 106,
+          "deaths": 251,
+          "assists": 1553,
+          "avgDamage": 11170
+        },
+        {
+          "champion_id": 134,
+          "games": 40,
+          "wins": 18,
+          "kills": 450,
+          "deaths": 409,
+          "assists": 884,
+          "avgDamage": 43447
+        },
+        {
+          "champion_id": 10,
+          "games": 39,
+          "wins": 20,
+          "kills": 378,
+          "deaths": 405,
+          "assists": 1046,
+          "avgDamage": 34007
+        },
+        {
+          "champion_id": 64,
+          "games": 39,
+          "wins": 14,
+          "kills": 425,
+          "deaths": 388,
+          "assists": 1036,
+          "avgDamage": 27933
+        },
+        {
+          "champion_id": 142,
+          "games": 39,
+          "wins": 22,
+          "kills": 391,
+          "deaths": 337,
+          "assists": 1001,
+          "avgDamage": 37193
+        },
+        {
+          "champion_id": 7,
+          "games": 38,
+          "wins": 14,
+          "kills": 414,
+          "deaths": 423,
+          "assists": 749,
+          "avgDamage": 39386
+        },
+        {
+          "champion_id": 36,
+          "games": 38,
+          "wins": 19,
+          "kills": 372,
+          "deaths": 403,
+          "assists": 857,
+          "avgDamage": 39198
+        },
+        {
+          "champion_id": 61,
+          "games": 38,
+          "wins": 14,
+          "kills": 328,
+          "deaths": 330,
+          "assists": 1148,
+          "avgDamage": 32610
+        },
+        {
+          "champion_id": 245,
+          "games": 38,
+          "wins": 22,
+          "kills": 560,
+          "deaths": 430,
+          "assists": 791,
+          "avgDamage": 42274
+        },
+        {
+          "champion_id": 516,
+          "games": 38,
+          "wins": 16,
+          "kills": 248,
+          "deaths": 348,
+          "assists": 828,
+          "avgDamage": 24551
+        },
+        {
+          "champion_id": 893,
+          "games": 38,
+          "wins": 20,
+          "kills": 484,
+          "deaths": 375,
+          "assists": 943,
+          "avgDamage": 52193
+        },
+        {
+          "champion_id": 105,
+          "games": 37,
+          "wins": 22,
+          "kills": 477,
+          "deaths": 444,
+          "assists": 654,
+          "avgDamage": 36656
+        },
+        {
+          "champion_id": 9,
+          "games": 36,
+          "wins": 19,
+          "kills": 303,
+          "deaths": 444,
+          "assists": 870,
+          "avgDamage": 35718
+        },
+        {
+          "champion_id": 498,
+          "games": 36,
+          "wins": 19,
+          "kills": 542,
+          "deaths": 375,
+          "assists": 669,
+          "avgDamage": 46476
+        },
+        {
+          "champion_id": 68,
+          "games": 35,
+          "wins": 19,
+          "kills": 413,
+          "deaths": 429,
+          "assists": 885,
+          "avgDamage": 47611
+        },
+        {
+          "champion_id": 77,
+          "games": 35,
+          "wins": 18,
+          "kills": 373,
+          "deaths": 416,
+          "assists": 782,
+          "avgDamage": 46605
+        },
+        {
+          "champion_id": 117,
+          "games": 35,
+          "wins": 23,
+          "kills": 85,
+          "deaths": 239,
+          "assists": 1333,
+          "avgDamage": 11559
+        },
+        {
+          "champion_id": 166,
+          "games": 35,
+          "wins": 10,
+          "kills": 491,
+          "deaths": 412,
+          "assists": 594,
+          "avgDamage": 44091
+        },
+        {
+          "champion_id": 875,
+          "games": 35,
+          "wins": 17,
+          "kills": 345,
+          "deaths": 419,
+          "assists": 779,
+          "avgDamage": 46258
+        },
+        {
+          "champion_id": 79,
+          "games": 34,
+          "wins": 16,
+          "kills": 283,
+          "deaths": 336,
+          "assists": 834,
+          "avgDamage": 31544
+        },
+        {
+          "champion_id": 82,
+          "games": 34,
+          "wins": 20,
+          "kills": 357,
+          "deaths": 344,
+          "assists": 688,
+          "avgDamage": 40579
+        },
+        {
+          "champion_id": 360,
+          "games": 34,
+          "wins": 15,
+          "kills": 523,
+          "deaths": 422,
+          "assists": 574,
+          "avgDamage": 41499
+        },
+        {
+          "champion_id": 876,
+          "games": 34,
+          "wins": 21,
+          "kills": 347,
+          "deaths": 327,
+          "assists": 851,
+          "avgDamage": 50411
+        },
+        {
+          "champion_id": 8,
+          "games": 33,
+          "wins": 16,
+          "kills": 334,
+          "deaths": 352,
+          "assists": 838,
+          "avgDamage": 45561
+        },
+        {
+          "champion_id": 55,
+          "games": 33,
+          "wins": 14,
+          "kills": 430,
+          "deaths": 433,
+          "assists": 620,
+          "avgDamage": 43687
+        },
+        {
+          "champion_id": 268,
+          "games": 33,
+          "wins": 16,
+          "kills": 369,
+          "deaths": 424,
+          "assists": 779,
+          "avgDamage": 44261
+        },
+        {
+          "champion_id": 420,
+          "games": 33,
+          "wins": 13,
+          "kills": 334,
+          "deaths": 373,
+          "assists": 794,
+          "avgDamage": 48744
+        },
+        {
+          "champion_id": 518,
+          "games": 33,
+          "wins": 13,
+          "kills": 271,
+          "deaths": 355,
+          "assists": 715,
+          "avgDamage": 28933
+        },
+        {
+          "champion_id": 34,
+          "games": 32,
+          "wins": 13,
+          "kills": 218,
+          "deaths": 301,
+          "assists": 812,
+          "avgDamage": 33144
+        },
+        {
+          "champion_id": 38,
+          "games": 32,
+          "wins": 21,
+          "kills": 417,
+          "deaths": 360,
+          "assists": 682,
+          "avgDamage": 44071
+        },
+        {
+          "champion_id": 59,
+          "games": 32,
+          "wins": 12,
+          "kills": 328,
+          "deaths": 394,
+          "assists": 973,
+          "avgDamage": 34393
+        },
+        {
+          "champion_id": 84,
+          "games": 32,
+          "wins": 15,
+          "kills": 433,
+          "deaths": 380,
+          "assists": 659,
+          "avgDamage": 43045
+        },
+        {
+          "champion_id": 119,
+          "games": 32,
+          "wins": 13,
+          "kills": 442,
+          "deaths": 381,
+          "assists": 565,
+          "avgDamage": 39528
+        },
+        {
+          "champion_id": 161,
+          "games": 32,
+          "wins": 14,
+          "kills": 262,
+          "deaths": 295,
+          "assists": 822,
+          "avgDamage": 39711
+        },
+        {
+          "champion_id": 805,
+          "games": 32,
+          "wins": 16,
+          "kills": 447,
+          "deaths": 348,
+          "assists": 571,
+          "avgDamage": 29994
+        },
+        {
+          "champion_id": 102,
+          "games": 31,
+          "wins": 16,
+          "kills": 344,
+          "deaths": 360,
+          "assists": 721,
+          "avgDamage": 49741
+        },
+        {
+          "champion_id": 121,
+          "games": 31,
+          "wins": 16,
+          "kills": 415,
+          "deaths": 344,
+          "assists": 568,
+          "avgDamage": 45566
+        },
+        {
+          "champion_id": 127,
+          "games": 31,
+          "wins": 14,
+          "kills": 235,
+          "deaths": 377,
+          "assists": 816,
+          "avgDamage": 32753
+        },
+        {
+          "champion_id": 234,
+          "games": 31,
+          "wins": 17,
+          "kills": 561,
+          "deaths": 342,
+          "assists": 473,
+          "avgDamage": 44463
+        },
+        {
+          "champion_id": 246,
+          "games": 31,
+          "wins": 13,
+          "kills": 493,
+          "deaths": 391,
+          "assists": 489,
+          "avgDamage": 44256
+        },
+        {
+          "champion_id": 42,
+          "games": 30,
+          "wins": 12,
+          "kills": 474,
+          "deaths": 339,
+          "assists": 559,
+          "avgDamage": 53346
+        },
+        {
+          "champion_id": 201,
+          "games": 30,
+          "wins": 12,
+          "kills": 110,
+          "deaths": 295,
+          "assists": 1000,
+          "avgDamage": 23333
+        },
+        {
+          "champion_id": 888,
+          "games": 30,
+          "wins": 18,
+          "kills": 125,
+          "deaths": 239,
+          "assists": 1152,
+          "avgDamage": 18553
+        },
+        {
+          "champion_id": 11,
+          "games": 29,
+          "wins": 16,
+          "kills": 476,
+          "deaths": 369,
+          "assists": 488,
+          "avgDamage": 45246
+        },
+        {
+          "champion_id": 58,
+          "games": 29,
+          "wins": 15,
+          "kills": 271,
+          "deaths": 352,
+          "assists": 638,
+          "avgDamage": 38034
+        },
+        {
+          "champion_id": 86,
+          "games": 29,
+          "wins": 18,
+          "kills": 349,
+          "deaths": 312,
+          "assists": 578,
+          "avgDamage": 38193
+        },
+        {
+          "champion_id": 221,
+          "games": 29,
+          "wins": 18,
+          "kills": 431,
+          "deaths": 315,
+          "assists": 636,
+          "avgDamage": 56003
+        },
+        {
+          "champion_id": 526,
+          "games": 29,
+          "wins": 20,
+          "kills": 181,
+          "deaths": 306,
+          "assists": 985,
+          "avgDamage": 25543
+        },
+        {
+          "champion_id": 72,
+          "games": 28,
+          "wins": 10,
+          "kills": 221,
+          "deaths": 289,
+          "assists": 718,
+          "avgDamage": 33051
+        },
+        {
+          "champion_id": 75,
+          "games": 28,
+          "wins": 17,
+          "kills": 346,
+          "deaths": 280,
+          "assists": 754,
+          "avgDamage": 49112
+        },
+        {
+          "champion_id": 163,
+          "games": 28,
+          "wins": 17,
+          "kills": 207,
+          "deaths": 314,
+          "assists": 651,
+          "avgDamage": 33938
+        },
+        {
+          "champion_id": 429,
+          "games": 28,
+          "wins": 16,
+          "kills": 358,
+          "deaths": 305,
+          "assists": 517,
+          "avgDamage": 38074
+        },
+        {
+          "champion_id": 432,
+          "games": 28,
+          "wins": 15,
+          "kills": 200,
+          "deaths": 240,
+          "assists": 801,
+          "avgDamage": 27651
+        },
+        {
+          "champion_id": 5,
+          "games": 27,
+          "wins": 11,
+          "kills": 345,
+          "deaths": 326,
+          "assists": 649,
+          "avgDamage": 45317
+        },
+        {
+          "champion_id": 74,
+          "games": 27,
+          "wins": 16,
+          "kills": 204,
+          "deaths": 241,
+          "assists": 707,
+          "avgDamage": 44694
+        },
+        {
+          "champion_id": 122,
+          "games": 27,
+          "wins": 8,
+          "kills": 352,
+          "deaths": 319,
+          "assists": 496,
+          "avgDamage": 40629
+        },
+        {
+          "champion_id": 950,
+          "games": 27,
+          "wins": 11,
+          "kills": 399,
+          "deaths": 289,
+          "assists": 493,
+          "avgDamage": 39580
+        },
+        {
+          "champion_id": 91,
+          "games": 26,
+          "wins": 12,
+          "kills": 401,
+          "deaths": 346,
+          "assists": 465,
+          "avgDamage": 42516
+        },
+        {
+          "champion_id": 1,
+          "games": 25,
+          "wins": 12,
+          "kills": 224,
+          "deaths": 281,
+          "assists": 642,
+          "avgDamage": 32320
+        },
+        {
+          "champion_id": 85,
+          "games": 25,
+          "wins": 10,
+          "kills": 233,
+          "deaths": 292,
+          "assists": 530,
+          "avgDamage": 34419
+        },
+        {
+          "champion_id": 266,
+          "games": 25,
+          "wins": 14,
+          "kills": 283,
+          "deaths": 297,
+          "assists": 524,
+          "avgDamage": 44647
+        },
+        {
+          "champion_id": 24,
+          "games": 24,
+          "wins": 14,
+          "kills": 251,
+          "deaths": 311,
+          "assists": 482,
+          "avgDamage": 38001
+        },
+        {
+          "champion_id": 427,
+          "games": 24,
+          "wins": 13,
+          "kills": 46,
+          "deaths": 160,
+          "assists": 782,
+          "avgDamage": 10275
+        },
+        {
+          "champion_id": 497,
+          "games": 24,
+          "wins": 10,
+          "kills": 115,
+          "deaths": 240,
+          "assists": 759,
+          "avgDamage": 21380
+        },
+        {
+          "champion_id": 33,
+          "games": 23,
+          "wins": 10,
+          "kills": 136,
+          "deaths": 270,
+          "assists": 596,
+          "avgDamage": 24522
+        },
+        {
+          "champion_id": 56,
+          "games": 23,
+          "wins": 10,
+          "kills": 302,
+          "deaths": 301,
+          "assists": 483,
+          "avgDamage": 43017
+        },
+        {
+          "champion_id": 98,
+          "games": 23,
+          "wins": 10,
+          "kills": 176,
+          "deaths": 233,
+          "assists": 562,
+          "avgDamage": 30172
+        },
+        {
+          "champion_id": 106,
+          "games": 23,
+          "wins": 9,
+          "kills": 209,
+          "deaths": 289,
+          "assists": 542,
+          "avgDamage": 36924
+        },
+        {
+          "champion_id": 141,
+          "games": 23,
+          "wins": 11,
+          "kills": 324,
+          "deaths": 279,
+          "assists": 408,
+          "avgDamage": 44468
+        },
+        {
+          "champion_id": 23,
+          "games": 22,
+          "wins": 12,
+          "kills": 293,
+          "deaths": 266,
+          "assists": 495,
+          "avgDamage": 47930
+        },
+        {
+          "champion_id": 32,
+          "games": 22,
+          "wins": 13,
+          "kills": 162,
+          "deaths": 297,
+          "assists": 586,
+          "avgDamage": 34295
+        },
+        {
+          "champion_id": 44,
+          "games": 22,
+          "wins": 13,
+          "kills": 87,
+          "deaths": 191,
+          "assists": 780,
+          "avgDamage": 15593
+        },
+        {
+          "champion_id": 200,
+          "games": 22,
+          "wins": 11,
+          "kills": 283,
+          "deaths": 234,
+          "assists": 400,
+          "avgDamage": 35071
+        },
+        {
+          "champion_id": 203,
+          "games": 22,
+          "wins": 15,
+          "kills": 283,
+          "deaths": 214,
+          "assists": 455,
+          "avgDamage": 41872
+        },
+        {
+          "champion_id": 897,
+          "games": 22,
+          "wins": 11,
+          "kills": 171,
+          "deaths": 243,
+          "assists": 518,
+          "avgDamage": 29219
+        },
+        {
+          "champion_id": 904,
+          "games": 22,
+          "wins": 11,
+          "kills": 191,
+          "deaths": 223,
+          "assists": 403,
+          "avgDamage": 32648
+        },
+        {
+          "champion_id": 6,
+          "games": 21,
+          "wins": 7,
+          "kills": 192,
+          "deaths": 248,
+          "assists": 458,
+          "avgDamage": 38561
+        },
+        {
+          "champion_id": 60,
+          "games": 21,
+          "wins": 7,
+          "kills": 221,
+          "deaths": 222,
+          "assists": 446,
+          "avgDamage": 41052
+        },
+        {
+          "champion_id": 62,
+          "games": 21,
+          "wins": 9,
+          "kills": 211,
+          "deaths": 251,
+          "assists": 474,
+          "avgDamage": 36698
+        },
+        {
+          "champion_id": 154,
+          "games": 21,
+          "wins": 6,
+          "kills": 171,
+          "deaths": 247,
+          "assists": 513,
+          "avgDamage": 30891
+        },
+        {
+          "champion_id": 233,
+          "games": 21,
+          "wins": 11,
+          "kills": 308,
+          "deaths": 271,
+          "assists": 444,
+          "avgDamage": 42394
+        },
+        {
+          "champion_id": 92,
+          "games": 20,
+          "wins": 10,
+          "kills": 208,
+          "deaths": 227,
+          "assists": 368,
+          "avgDamage": 30344
+        },
+        {
+          "champion_id": 133,
+          "games": 20,
+          "wins": 14,
+          "kills": 269,
+          "deaths": 211,
+          "assists": 396,
+          "avgDamage": 38509
+        },
+        {
+          "champion_id": 78,
+          "games": 19,
+          "wins": 9,
+          "kills": 125,
+          "deaths": 204,
+          "assists": 519,
+          "avgDamage": 31508
+        },
+        {
+          "champion_id": 113,
+          "games": 19,
+          "wins": 10,
+          "kills": 179,
+          "deaths": 199,
+          "assists": 494,
+          "avgDamage": 35983
+        },
+        {
+          "champion_id": 711,
+          "games": 19,
+          "wins": 12,
+          "kills": 174,
+          "deaths": 186,
+          "assists": 511,
+          "avgDamage": 38479
+        },
+        {
+          "champion_id": 799,
+          "games": 19,
+          "wins": 11,
+          "kills": 224,
+          "deaths": 216,
+          "assists": 406,
+          "avgDamage": 42127
+        },
+        {
+          "champion_id": 887,
+          "games": 19,
+          "wins": 13,
+          "kills": 266,
+          "deaths": 196,
+          "assists": 361,
+          "avgDamage": 46102
+        },
+        {
+          "champion_id": 20,
+          "games": 18,
+          "wins": 7,
+          "kills": 172,
+          "deaths": 210,
+          "assists": 511,
+          "avgDamage": 32997
+        },
+        {
+          "champion_id": 80,
+          "games": 18,
+          "wins": 10,
+          "kills": 251,
+          "deaths": 203,
+          "assists": 390,
+          "avgDamage": 42489
+        },
+        {
+          "champion_id": 131,
+          "games": 17,
+          "wins": 6,
+          "kills": 201,
+          "deaths": 196,
+          "assists": 366,
+          "avgDamage": 40557
+        },
+        {
+          "champion_id": 150,
+          "games": 17,
+          "wins": 11,
+          "kills": 165,
+          "deaths": 183,
+          "assists": 399,
+          "avgDamage": 35340
+        },
+        {
+          "champion_id": 164,
+          "games": 17,
+          "wins": 8,
+          "kills": 134,
+          "deaths": 191,
+          "assists": 358,
+          "avgDamage": 29096
+        },
+        {
+          "champion_id": 2,
+          "games": 16,
+          "wins": 8,
+          "kills": 184,
+          "deaths": 199,
+          "assists": 304,
+          "avgDamage": 39075
+        },
+        {
+          "champion_id": 69,
+          "games": 16,
+          "wins": 7,
+          "kills": 166,
+          "deaths": 161,
+          "assists": 359,
+          "avgDamage": 41407
+        },
+        {
+          "champion_id": 254,
+          "games": 15,
+          "wins": 3,
+          "kills": 156,
+          "deaths": 183,
+          "assists": 282,
+          "avgDamage": 35819
+        },
+        {
+          "champion_id": 114,
+          "games": 14,
+          "wins": 9,
+          "kills": 167,
+          "deaths": 167,
+          "assists": 298,
+          "avgDamage": 47531
+        },
+        {
+          "champion_id": 39,
+          "games": 13,
+          "wins": 6,
+          "kills": 183,
+          "deaths": 163,
+          "assists": 231,
+          "avgDamage": 39733
+        },
+        {
+          "champion_id": 895,
+          "games": 13,
+          "wins": 5,
+          "kills": 155,
+          "deaths": 145,
+          "assists": 223,
+          "avgDamage": 29196
+        },
+        {
+          "champion_id": 28,
+          "games": 12,
+          "wins": 8,
+          "kills": 165,
+          "deaths": 111,
+          "assists": 223,
+          "avgDamage": 52144
+        },
+        {
+          "champion_id": 83,
+          "games": 11,
+          "wins": 5,
+          "kills": 85,
+          "deaths": 102,
+          "assists": 222,
+          "avgDamage": 24654
+        },
+        {
+          "champion_id": 19,
+          "games": 10,
+          "wins": 6,
+          "kills": 72,
+          "deaths": 101,
+          "assists": 179,
+          "avgDamage": 28160
+        },
+        {
+          "champion_id": 421,
+          "games": 8,
+          "wins": 5,
+          "kills": 65,
+          "deaths": 99,
+          "assists": 144,
+          "avgDamage": 23176
+        },
+        {
+          "champion_id": 240,
+          "games": 3,
+          "wins": 2,
+          "kills": 10,
+          "deaths": 18,
+          "assists": 50,
+          "avgDamage": 14393
+        }
+      ],
+      "augments": [
+        {
+          "augment_id": 1238,
+          "picks": 457,
+          "wins": 233
+        },
+        {
+          "augment_id": 1133,
+          "picks": 417,
+          "wins": 198
+        },
+        {
+          "augment_id": 1048,
+          "picks": 365,
+          "wins": 169
+        },
+        {
+          "augment_id": 1390,
+          "picks": 357,
+          "wins": 183
+        },
+        {
+          "augment_id": 1353,
+          "picks": 351,
+          "wins": 158
+        },
+        {
+          "augment_id": 1030,
+          "picks": 319,
+          "wins": 159
+        },
+        {
+          "augment_id": 1195,
+          "picks": 306,
+          "wins": 159
+        },
+        {
+          "augment_id": 1071,
+          "picks": 289,
+          "wins": 158
+        },
+        {
+          "augment_id": 1336,
+          "picks": 285,
+          "wins": 145
+        },
+        {
+          "augment_id": 2132,
+          "picks": 284,
+          "wins": 131
+        },
+        {
+          "augment_id": 1097,
+          "picks": 278,
+          "wins": 132
+        },
+        {
+          "augment_id": 1068,
+          "picks": 270,
+          "wins": 135
+        },
+        {
+          "augment_id": 1211,
+          "picks": 263,
+          "wins": 121
+        },
+        {
+          "augment_id": 1084,
+          "picks": 258,
+          "wins": 126
+        },
+        {
+          "augment_id": 1152,
+          "picks": 245,
+          "wins": 127
+        },
+        {
+          "augment_id": 1373,
+          "picks": 242,
+          "wins": 134
+        },
+        {
+          "augment_id": 1041,
+          "picks": 235,
+          "wins": 115
+        },
+        {
+          "augment_id": 1138,
+          "picks": 235,
+          "wins": 120
+        },
+        {
+          "augment_id": 1129,
+          "picks": 232,
+          "wins": 114
+        },
+        {
+          "augment_id": 1007,
+          "picks": 221,
+          "wins": 116
+        },
+        {
+          "augment_id": 1388,
+          "picks": 221,
+          "wins": 115
+        },
+        {
+          "augment_id": 1045,
+          "picks": 217,
+          "wins": 117
+        },
+        {
+          "augment_id": 1181,
+          "picks": 215,
+          "wins": 113
+        },
+        {
+          "augment_id": 1029,
+          "picks": 213,
+          "wins": 107
+        },
+        {
+          "augment_id": 1077,
+          "picks": 213,
+          "wins": 108
+        },
+        {
+          "augment_id": 1356,
+          "picks": 203,
+          "wins": 118
+        },
+        {
+          "augment_id": 1225,
+          "picks": 199,
+          "wins": 105
+        },
+        {
+          "augment_id": 1237,
+          "picks": 199,
+          "wins": 102
+        },
+        {
+          "augment_id": 1113,
+          "picks": 190,
+          "wins": 81
+        },
+        {
+          "augment_id": 1022,
+          "picks": 189,
+          "wins": 103
+        },
+        {
+          "augment_id": 1056,
+          "picks": 187,
+          "wins": 104
+        },
+        {
+          "augment_id": 1013,
+          "picks": 182,
+          "wins": 102
+        },
+        {
+          "augment_id": 1044,
+          "picks": 182,
+          "wins": 85
+        },
+        {
+          "augment_id": 1115,
+          "picks": 180,
+          "wins": 99
+        },
+        {
+          "augment_id": 1038,
+          "picks": 177,
+          "wins": 86
+        },
+        {
+          "augment_id": 2087,
+          "picks": 171,
+          "wins": 79
+        },
+        {
+          "augment_id": 1136,
+          "picks": 169,
+          "wins": 73
+        },
+        {
+          "augment_id": 1346,
+          "picks": 169,
+          "wins": 88
+        },
+        {
+          "augment_id": 1415,
+          "picks": 169,
+          "wins": 91
+        },
+        {
+          "augment_id": 1328,
+          "picks": 166,
+          "wins": 103
+        },
+        {
+          "augment_id": 1205,
+          "picks": 164,
+          "wins": 87
+        },
+        {
+          "augment_id": 1311,
+          "picks": 163,
+          "wins": 79
+        },
+        {
+          "augment_id": 2100,
+          "picks": 162,
+          "wins": 81
+        },
+        {
+          "augment_id": 1103,
+          "picks": 156,
+          "wins": 81
+        },
+        {
+          "augment_id": 2006,
+          "picks": 156,
+          "wins": 78
+        },
+        {
+          "augment_id": 1032,
+          "picks": 155,
+          "wins": 81
+        },
+        {
+          "augment_id": 1081,
+          "picks": 153,
+          "wins": 97
+        },
+        {
+          "augment_id": 1073,
+          "picks": 150,
+          "wins": 73
+        },
+        {
+          "augment_id": 3176,
+          "picks": 150,
+          "wins": 75
+        },
+        {
+          "augment_id": 1063,
+          "picks": 147,
+          "wins": 77
+        },
+        {
+          "augment_id": 1098,
+          "picks": 147,
+          "wins": 68
+        },
+        {
+          "augment_id": 1333,
+          "picks": 147,
+          "wins": 71
+        },
+        {
+          "augment_id": 2010,
+          "picks": 147,
+          "wins": 82
+        },
+        {
+          "augment_id": 1092,
+          "picks": 146,
+          "wins": 72
+        },
+        {
+          "augment_id": 1156,
+          "picks": 146,
+          "wins": 80
+        },
+        {
+          "augment_id": 1420,
+          "picks": 145,
+          "wins": 89
+        },
+        {
+          "augment_id": 1344,
+          "picks": 144,
+          "wins": 83
+        },
+        {
+          "augment_id": 2083,
+          "picks": 144,
+          "wins": 70
+        },
+        {
+          "augment_id": 1037,
+          "picks": 141,
+          "wins": 76
+        },
+        {
+          "augment_id": 1180,
+          "picks": 141,
+          "wins": 65
+        },
+        {
+          "augment_id": 1318,
+          "picks": 141,
+          "wins": 66
+        },
+        {
+          "augment_id": 1322,
+          "picks": 141,
+          "wins": 73
+        },
+        {
+          "augment_id": 1088,
+          "picks": 139,
+          "wins": 63
+        },
+        {
+          "augment_id": 1170,
+          "picks": 139,
+          "wins": 67
+        },
+        {
+          "augment_id": 1087,
+          "picks": 138,
+          "wins": 78
+        },
+        {
+          "augment_id": 1058,
+          "picks": 135,
+          "wins": 64
+        },
+        {
+          "augment_id": 1320,
+          "picks": 132,
+          "wins": 59
+        },
+        {
+          "augment_id": 1326,
+          "picks": 132,
+          "wins": 72
+        },
+        {
+          "augment_id": 1375,
+          "picks": 132,
+          "wins": 64
+        },
+        {
+          "augment_id": 2103,
+          "picks": 131,
+          "wins": 63
+        },
+        {
+          "augment_id": 1028,
+          "picks": 128,
+          "wins": 61
+        },
+        {
+          "augment_id": 1243,
+          "picks": 128,
+          "wins": 76
+        },
+        {
+          "augment_id": 1349,
+          "picks": 128,
+          "wins": 63
+        },
+        {
+          "augment_id": 1118,
+          "picks": 127,
+          "wins": 55
+        },
+        {
+          "augment_id": 1151,
+          "picks": 127,
+          "wins": 56
+        },
+        {
+          "augment_id": 1206,
+          "picks": 127,
+          "wins": 66
+        },
+        {
+          "augment_id": 1047,
+          "picks": 126,
+          "wins": 70
+        },
+        {
+          "augment_id": 1150,
+          "picks": 125,
+          "wins": 53
+        },
+        {
+          "augment_id": 1384,
+          "picks": 123,
+          "wins": 63
+        },
+        {
+          "augment_id": 1141,
+          "picks": 122,
+          "wins": 66
+        },
+        {
+          "augment_id": 2116,
+          "picks": 122,
+          "wins": 65
+        },
+        {
+          "augment_id": 1194,
+          "picks": 121,
+          "wins": 52
+        },
+        {
+          "augment_id": 1004,
+          "picks": 120,
+          "wins": 64
+        },
+        {
+          "augment_id": 1018,
+          "picks": 120,
+          "wins": 60
+        },
+        {
+          "augment_id": 1080,
+          "picks": 119,
+          "wins": 65
+        },
+        {
+          "augment_id": 1220,
+          "picks": 119,
+          "wins": 58
+        },
+        {
+          "augment_id": 1105,
+          "picks": 116,
+          "wins": 56
+        },
+        {
+          "augment_id": 1046,
+          "picks": 115,
+          "wins": 55
+        },
+        {
+          "augment_id": 1301,
+          "picks": 112,
+          "wins": 52
+        },
+        {
+          "augment_id": 3081,
+          "picks": 112,
+          "wins": 51
+        },
+        {
+          "augment_id": 1996,
+          "picks": 110,
+          "wins": 46
+        },
+        {
+          "augment_id": 1020,
+          "picks": 108,
+          "wins": 47
+        },
+        {
+          "augment_id": 1329,
+          "picks": 108,
+          "wins": 41
+        },
+        {
+          "augment_id": 1060,
+          "picks": 107,
+          "wins": 53
+        },
+        {
+          "augment_id": 1305,
+          "picks": 106,
+          "wins": 49
+        },
+        {
+          "augment_id": 2018,
+          "picks": 104,
+          "wins": 41
+        },
+        {
+          "augment_id": 3086,
+          "picks": 104,
+          "wins": 49
+        },
+        {
+          "augment_id": 3078,
+          "picks": 103,
+          "wins": 47
+        },
+        {
+          "augment_id": 1006,
+          "picks": 102,
+          "wins": 44
+        },
+        {
+          "augment_id": 1079,
+          "picks": 102,
+          "wins": 51
+        },
+        {
+          "augment_id": 1401,
+          "picks": 100,
+          "wins": 45
+        },
+        {
+          "augment_id": 1002,
+          "picks": 97,
+          "wins": 39
+        },
+        {
+          "augment_id": 1011,
+          "picks": 95,
+          "wins": 40
+        },
+        {
+          "augment_id": 1112,
+          "picks": 95,
+          "wins": 49
+        },
+        {
+          "augment_id": 2077,
+          "picks": 95,
+          "wins": 41
+        },
+        {
+          "augment_id": 1019,
+          "picks": 94,
+          "wins": 50
+        },
+        {
+          "augment_id": 1051,
+          "picks": 94,
+          "wins": 47
+        },
+        {
+          "augment_id": 1149,
+          "picks": 93,
+          "wins": 34
+        },
+        {
+          "augment_id": 1036,
+          "picks": 91,
+          "wins": 46
+        },
+        {
+          "augment_id": 1319,
+          "picks": 91,
+          "wins": 47
+        },
+        {
+          "augment_id": 1053,
+          "picks": 90,
+          "wins": 42
+        },
+        {
+          "augment_id": 1310,
+          "picks": 90,
+          "wins": 40
+        },
+        {
+          "augment_id": 2009,
+          "picks": 89,
+          "wins": 41
+        },
+        {
+          "augment_id": 3170,
+          "picks": 88,
+          "wins": 41
+        },
+        {
+          "augment_id": 1323,
+          "picks": 87,
+          "wins": 38
+        },
+        {
+          "augment_id": 1025,
+          "picks": 86,
+          "wins": 34
+        },
+        {
+          "augment_id": 1345,
+          "picks": 86,
+          "wins": 36
+        },
+        {
+          "augment_id": 1067,
+          "picks": 85,
+          "wins": 41
+        },
+        {
+          "augment_id": 2096,
+          "picks": 83,
+          "wins": 47
+        },
+        {
+          "augment_id": 1005,
+          "picks": 81,
+          "wins": 47
+        },
+        {
+          "augment_id": 1074,
+          "picks": 81,
+          "wins": 43
+        },
+        {
+          "augment_id": 1403,
+          "picks": 81,
+          "wins": 40
+        },
+        {
+          "augment_id": 1116,
+          "picks": 80,
+          "wins": 46
+        },
+        {
+          "augment_id": 1308,
+          "picks": 79,
+          "wins": 42
+        },
+        {
+          "augment_id": 1315,
+          "picks": 79,
+          "wins": 37
+        },
+        {
+          "augment_id": 1416,
+          "picks": 77,
+          "wins": 42
+        },
+        {
+          "augment_id": 3055,
+          "picks": 77,
+          "wins": 28
+        },
+        {
+          "augment_id": 1134,
+          "picks": 75,
+          "wins": 41
+        },
+        {
+          "augment_id": 2127,
+          "picks": 74,
+          "wins": 41
+        },
+        {
+          "augment_id": 1325,
+          "picks": 73,
+          "wins": 29
+        },
+        {
+          "augment_id": 1061,
+          "picks": 72,
+          "wins": 26
+        },
+        {
+          "augment_id": 1361,
+          "picks": 72,
+          "wins": 41
+        },
+        {
+          "augment_id": 1076,
+          "picks": 70,
+          "wins": 40
+        },
+        {
+          "augment_id": 2091,
+          "picks": 70,
+          "wins": 36
+        },
+        {
+          "augment_id": 3150,
+          "picks": 70,
+          "wins": 36
+        },
+        {
+          "augment_id": 1358,
+          "picks": 69,
+          "wins": 27
+        },
+        {
+          "augment_id": 1406,
+          "picks": 68,
+          "wins": 42
+        },
+        {
+          "augment_id": 3131,
+          "picks": 67,
+          "wins": 34
+        },
+        {
+          "augment_id": 1064,
+          "picks": 66,
+          "wins": 28
+        },
+        {
+          "augment_id": 1332,
+          "picks": 66,
+          "wins": 28
+        },
+        {
+          "augment_id": 1338,
+          "picks": 65,
+          "wins": 33
+        },
+        {
+          "augment_id": 2095,
+          "picks": 65,
+          "wins": 37
+        },
+        {
+          "augment_id": 3116,
+          "picks": 65,
+          "wins": 37
+        },
+        {
+          "augment_id": 1107,
+          "picks": 64,
+          "wins": 33
+        },
+        {
+          "augment_id": 1095,
+          "picks": 61,
+          "wins": 39
+        },
+        {
+          "augment_id": 2102,
+          "picks": 61,
+          "wins": 27
+        },
+        {
+          "augment_id": 3118,
+          "picks": 61,
+          "wins": 27
+        },
+        {
+          "augment_id": 1072,
+          "picks": 60,
+          "wins": 32
+        },
+        {
+          "augment_id": 1324,
+          "picks": 60,
+          "wins": 34
+        },
+        {
+          "augment_id": 2099,
+          "picks": 60,
+          "wins": 37
+        },
+        {
+          "augment_id": 1001,
+          "picks": 59,
+          "wins": 31
+        },
+        {
+          "augment_id": 1214,
+          "picks": 58,
+          "wins": 34
+        },
+        {
+          "augment_id": 2005,
+          "picks": 57,
+          "wins": 22
+        },
+        {
+          "augment_id": 2098,
+          "picks": 57,
+          "wins": 20
+        },
+        {
+          "augment_id": 12317,
+          "picks": 55,
+          "wins": 29
+        },
+        {
+          "augment_id": 1341,
+          "picks": 54,
+          "wins": 20
+        },
+        {
+          "augment_id": 2123,
+          "picks": 54,
+          "wins": 31
+        },
+        {
+          "augment_id": 1027,
+          "picks": 52,
+          "wins": 29
+        },
+        {
+          "augment_id": 1413,
+          "picks": 52,
+          "wins": 24
+        },
+        {
+          "augment_id": 1062,
+          "picks": 51,
+          "wins": 28
+        },
+        {
+          "augment_id": 1054,
+          "picks": 50,
+          "wins": 24
+        },
+        {
+          "augment_id": 2072,
+          "picks": 49,
+          "wins": 24
+        },
+        {
+          "augment_id": 1052,
+          "picks": 48,
+          "wins": 23
+        },
+        {
+          "augment_id": 1154,
+          "picks": 48,
+          "wins": 25
+        },
+        {
+          "augment_id": 3129,
+          "picks": 48,
+          "wins": 21
+        },
+        {
+          "augment_id": 1334,
+          "picks": 46,
+          "wins": 27
+        },
+        {
+          "augment_id": 1392,
+          "picks": 46,
+          "wins": 25
+        },
+        {
+          "augment_id": 1335,
+          "picks": 45,
+          "wins": 19
+        },
+        {
+          "augment_id": 2004,
+          "picks": 45,
+          "wins": 24
+        },
+        {
+          "augment_id": 2104,
+          "picks": 45,
+          "wins": 23
+        },
+        {
+          "augment_id": 2128,
+          "picks": 45,
+          "wins": 22
+        },
+        {
+          "augment_id": 2026,
+          "picks": 42,
+          "wins": 20
+        },
+        {
+          "augment_id": 2073,
+          "picks": 42,
+          "wins": 17
+        },
+        {
+          "augment_id": 2111,
+          "picks": 42,
+          "wins": 23
+        },
+        {
+          "augment_id": 3049,
+          "picks": 42,
+          "wins": 22
+        },
+        {
+          "augment_id": 2008,
+          "picks": 41,
+          "wins": 28
+        },
+        {
+          "augment_id": 2024,
+          "picks": 40,
+          "wins": 24
+        },
+        {
+          "augment_id": 2064,
+          "picks": 40,
+          "wins": 19
+        },
+        {
+          "augment_id": 2139,
+          "picks": 40,
+          "wins": 20
+        },
+        {
+          "augment_id": 3123,
+          "picks": 40,
+          "wins": 13
+        },
+        {
+          "augment_id": 1015,
+          "picks": 39,
+          "wins": 23
+        },
+        {
+          "augment_id": 1050,
+          "picks": 39,
+          "wins": 19
+        },
+        {
+          "augment_id": 1391,
+          "picks": 39,
+          "wins": 20
+        },
+        {
+          "augment_id": 2042,
+          "picks": 39,
+          "wins": 24
+        },
+        {
+          "augment_id": 2082,
+          "picks": 39,
+          "wins": 14
+        },
+        {
+          "augment_id": 2141,
+          "picks": 39,
+          "wins": 24
+        },
+        {
+          "augment_id": 3088,
+          "picks": 39,
+          "wins": 17
+        },
+        {
+          "augment_id": 2157,
+          "picks": 38,
+          "wins": 14
+        },
+        {
+          "augment_id": 3018,
+          "picks": 38,
+          "wins": 13
+        },
+        {
+          "augment_id": 1034,
+          "picks": 37,
+          "wins": 18
+        },
+        {
+          "augment_id": 1057,
+          "picks": 37,
+          "wins": 13
+        },
+        {
+          "augment_id": 1108,
+          "picks": 37,
+          "wins": 20
+        },
+        {
+          "augment_id": 2016,
+          "picks": 37,
+          "wins": 18
+        },
+        {
+          "augment_id": 3163,
+          "picks": 37,
+          "wins": 22
+        },
+        {
+          "augment_id": 1337,
+          "picks": 36,
+          "wins": 21
+        },
+        {
+          "augment_id": 1075,
+          "picks": 35,
+          "wins": 17
+        },
+        {
+          "augment_id": 1342,
+          "picks": 35,
+          "wins": 9
+        },
+        {
+          "augment_id": 1404,
+          "picks": 35,
+          "wins": 16
+        },
+        {
+          "augment_id": 2002,
+          "picks": 35,
+          "wins": 20
+        },
+        {
+          "augment_id": 1250,
+          "picks": 34,
+          "wins": 16
+        },
+        {
+          "augment_id": 1409,
+          "picks": 34,
+          "wins": 19
+        },
+        {
+          "augment_id": 3094,
+          "picks": 34,
+          "wins": 17
+        },
+        {
+          "augment_id": 1026,
+          "picks": 33,
+          "wins": 18
+        },
+        {
+          "augment_id": 1405,
+          "picks": 33,
+          "wins": 14
+        },
+        {
+          "augment_id": 2133,
+          "picks": 33,
+          "wins": 19
+        },
+        {
+          "augment_id": 3004,
+          "picks": 33,
+          "wins": 20
+        },
+        {
+          "augment_id": 1400,
+          "picks": 31,
+          "wins": 16
+        },
+        {
+          "augment_id": 2032,
+          "picks": 31,
+          "wins": 13
+        },
+        {
+          "augment_id": 3171,
+          "picks": 31,
+          "wins": 18
+        },
+        {
+          "augment_id": 3172,
+          "picks": 31,
+          "wins": 16
+        },
+        {
+          "augment_id": 2137,
+          "picks": 30,
+          "wins": 14
+        },
+        {
+          "augment_id": 1009,
+          "picks": 29,
+          "wins": 17
+        },
+        {
+          "augment_id": 1386,
+          "picks": 29,
+          "wins": 11
+        },
+        {
+          "augment_id": 2089,
+          "picks": 29,
+          "wins": 17
+        },
+        {
+          "augment_id": 3060,
+          "picks": 29,
+          "wins": 14
+        },
+        {
+          "augment_id": 1313,
+          "picks": 28,
+          "wins": 18
+        },
+        {
+          "augment_id": 2055,
+          "picks": 28,
+          "wins": 11
+        },
+        {
+          "augment_id": 2062,
+          "picks": 28,
+          "wins": 12
+        },
+        {
+          "augment_id": 3132,
+          "picks": 28,
+          "wins": 17
+        },
+        {
+          "augment_id": 2107,
+          "picks": 27,
+          "wins": 13
+        },
+        {
+          "augment_id": 1104,
+          "picks": 26,
+          "wins": 11
+        },
+        {
+          "augment_id": 1402,
+          "picks": 26,
+          "wins": 12
+        },
+        {
+          "augment_id": 1039,
+          "picks": 25,
+          "wins": 8
+        },
+        {
+          "augment_id": 1082,
+          "picks": 25,
+          "wins": 7
+        },
+        {
+          "augment_id": 1331,
+          "picks": 25,
+          "wins": 9
+        },
+        {
+          "augment_id": 1389,
+          "picks": 25,
+          "wins": 9
+        },
+        {
+          "augment_id": 2043,
+          "picks": 25,
+          "wins": 11
+        },
+        {
+          "augment_id": 2054,
+          "picks": 25,
+          "wins": 11
+        },
+        {
+          "augment_id": 3059,
+          "picks": 25,
+          "wins": 15
+        },
+        {
+          "augment_id": 1023,
+          "picks": 24,
+          "wins": 14
+        },
+        {
+          "augment_id": 1035,
+          "picks": 24,
+          "wins": 14
+        },
+        {
+          "augment_id": 1321,
+          "picks": 24,
+          "wins": 12
+        },
+        {
+          "augment_id": 3039,
+          "picks": 24,
+          "wins": 13
+        },
+        {
+          "augment_id": 1204,
+          "picks": 23,
+          "wins": 15
+        },
+        {
+          "augment_id": 2144,
+          "picks": 23,
+          "wins": 11
+        },
+        {
+          "augment_id": 1379,
+          "picks": 22,
+          "wins": 13
+        },
+        {
+          "augment_id": 1397,
+          "picks": 22,
+          "wins": 9
+        },
+        {
+          "augment_id": 2088,
+          "picks": 22,
+          "wins": 13
+        },
+        {
+          "augment_id": 2118,
+          "picks": 22,
+          "wins": 13
+        },
+        {
+          "augment_id": 2135,
+          "picks": 22,
+          "wins": 9
+        },
+        {
+          "augment_id": 3085,
+          "picks": 22,
+          "wins": 11
+        },
+        {
+          "augment_id": 1069,
+          "picks": 21,
+          "wins": 9
+        },
+        {
+          "augment_id": 1314,
+          "picks": 21,
+          "wins": 11
+        },
+        {
+          "augment_id": 1347,
+          "picks": 21,
+          "wins": 6
+        },
+        {
+          "augment_id": 2076,
+          "picks": 21,
+          "wins": 13
+        },
+        {
+          "augment_id": 2078,
+          "picks": 21,
+          "wins": 14
+        },
+        {
+          "augment_id": 3036,
+          "picks": 21,
+          "wins": 9
+        },
+        {
+          "augment_id": 1066,
+          "picks": 20,
+          "wins": 8
+        },
+        {
+          "augment_id": 1198,
+          "picks": 20,
+          "wins": 11
+        },
+        {
+          "augment_id": 2143,
+          "picks": 20,
+          "wins": 16
+        },
+        {
+          "augment_id": 3051,
+          "picks": 20,
+          "wins": 6
+        },
+        {
+          "augment_id": 1042,
+          "picks": 19,
+          "wins": 10
+        },
+        {
+          "augment_id": 2001,
+          "picks": 19,
+          "wins": 10
+        },
+        {
+          "augment_id": 2125,
+          "picks": 19,
+          "wins": 8
+        },
+        {
+          "augment_id": 2140,
+          "picks": 19,
+          "wins": 11
+        },
+        {
+          "augment_id": 1327,
+          "picks": 18,
+          "wins": 9
+        },
+        {
+          "augment_id": 2034,
+          "picks": 18,
+          "wins": 7
+        },
+        {
+          "augment_id": 2080,
+          "picks": 18,
+          "wins": 9
+        },
+        {
+          "augment_id": 2136,
+          "picks": 18,
+          "wins": 11
+        },
+        {
+          "augment_id": 2129,
+          "picks": 17,
+          "wins": 8
+        },
+        {
+          "augment_id": 3075,
+          "picks": 17,
+          "wins": 8
+        },
+        {
+          "augment_id": 1421,
+          "picks": 16,
+          "wins": 4
+        },
+        {
+          "augment_id": 3134,
+          "picks": 16,
+          "wins": 11
+        },
+        {
+          "augment_id": 1085,
+          "picks": 15,
+          "wins": 7
+        },
+        {
+          "augment_id": 2115,
+          "picks": 15,
+          "wins": 7
+        },
+        {
+          "augment_id": 1070,
+          "picks": 14,
+          "wins": 5
+        },
+        {
+          "augment_id": 1340,
+          "picks": 14,
+          "wins": 7
+        },
+        {
+          "augment_id": 2134,
+          "picks": 14,
+          "wins": 7
+        },
+        {
+          "augment_id": 3071,
+          "picks": 14,
+          "wins": 6
+        },
+        {
+          "augment_id": 1187,
+          "picks": 13,
+          "wins": 9
+        },
+        {
+          "augment_id": 2031,
+          "picks": 13,
+          "wins": 8
+        },
+        {
+          "augment_id": 3121,
+          "picks": 13,
+          "wins": 6
+        },
+        {
+          "augment_id": 3263,
+          "picks": 13,
+          "wins": 5
+        },
+        {
+          "augment_id": 1086,
+          "picks": 12,
+          "wins": 6
+        },
+        {
+          "augment_id": 1372,
+          "picks": 12,
+          "wins": 4
+        },
+        {
+          "augment_id": 1330,
+          "picks": 11,
+          "wins": 8
+        },
+        {
+          "augment_id": 2063,
+          "picks": 11,
+          "wins": 6
+        },
+        {
+          "augment_id": 2131,
+          "picks": 11,
+          "wins": 4
+        },
+        {
+          "augment_id": 3058,
+          "picks": 11,
+          "wins": 5
+        },
+        {
+          "augment_id": 3063,
+          "picks": 11,
+          "wins": 4
+        },
+        {
+          "augment_id": 3149,
+          "picks": 10,
+          "wins": 4
+        },
+        {
+          "augment_id": 3159,
+          "picks": 10,
+          "wins": 2
+        },
+        {
+          "augment_id": 1348,
+          "picks": 9,
+          "wins": 5
+        },
+        {
+          "augment_id": 1424,
+          "picks": 9,
+          "wins": 5
+        },
+        {
+          "augment_id": 3016,
+          "picks": 9,
+          "wins": 5
+        },
+        {
+          "augment_id": 2003,
+          "picks": 8,
+          "wins": 3
+        },
+        {
+          "augment_id": 2138,
+          "picks": 8,
+          "wins": 3
+        },
+        {
+          "augment_id": 3048,
+          "picks": 8,
+          "wins": 3
+        },
+        {
+          "augment_id": 3262,
+          "picks": 8,
+          "wins": 4
+        },
+        {
+          "augment_id": 3265,
+          "picks": 8,
+          "wins": 6
+        },
+        {
+          "augment_id": 1411,
+          "picks": 7,
+          "wins": 3
+        },
+        {
+          "augment_id": 2119,
+          "picks": 7,
+          "wins": 1
+        },
+        {
+          "augment_id": 3079,
+          "picks": 7,
+          "wins": 3
+        },
+        {
+          "augment_id": 1316,
+          "picks": 6,
+          "wins": 3
+        },
+        {
+          "augment_id": 1339,
+          "picks": 6,
+          "wins": 1
+        },
+        {
+          "augment_id": 2065,
+          "picks": 6,
+          "wins": 2
+        },
+        {
+          "augment_id": 3053,
+          "picks": 6,
+          "wins": 5
+        },
+        {
+          "augment_id": 2007,
+          "picks": 5,
+          "wins": 3
+        },
+        {
+          "augment_id": 2046,
+          "picks": 5,
+          "wins": 2
+        },
+        {
+          "augment_id": 3025,
+          "picks": 5,
+          "wins": 3
+        },
+        {
+          "augment_id": 2097,
+          "picks": 4,
+          "wins": 2
+        },
+        {
+          "augment_id": 3264,
+          "picks": 4,
+          "wins": 2
+        },
+        {
+          "augment_id": 1414,
+          "picks": 3,
+          "wins": 3
+        },
+        {
+          "augment_id": 1418,
+          "picks": 3,
+          "wins": 1
+        },
+        {
+          "augment_id": 3052,
+          "picks": 3,
+          "wins": 1
+        },
+        {
+          "augment_id": 3173,
+          "picks": 3,
+          "wins": 1
+        },
+        {
+          "augment_id": 1208,
+          "picks": 2,
+          "wins": 1
+        },
+        {
+          "augment_id": 1317,
+          "picks": 2,
+          "wins": 0
+        },
+        {
+          "augment_id": 2108,
+          "picks": 1,
+          "wins": 1
+        }
+      ],
+      "items": [
+        {
+          "item_id": 3089,
+          "picks": 1455,
+          "wins": 688
+        },
+        {
+          "item_id": 3020,
+          "picks": 1330,
+          "wins": 654
+        },
+        {
+          "item_id": 3031,
+          "picks": 1324,
+          "wins": 687
+        },
+        {
+          "item_id": 4645,
+          "picks": 1193,
+          "wins": 571
+        },
+        {
+          "item_id": 3111,
+          "picks": 1146,
+          "wins": 550
+        },
+        {
+          "item_id": 6653,
+          "picks": 1051,
+          "wins": 527
+        },
+        {
+          "item_id": 3084,
+          "picks": 956,
+          "wins": 459
+        },
+        {
+          "item_id": 3006,
+          "picks": 836,
+          "wins": 438
+        },
+        {
+          "item_id": 6655,
+          "picks": 740,
+          "wins": 344
+        },
+        {
+          "item_id": 6676,
+          "picks": 731,
+          "wins": 336
+        },
+        {
+          "item_id": 2503,
+          "picks": 721,
+          "wins": 372
+        },
+        {
+          "item_id": 3158,
+          "picks": 674,
+          "wins": 341
+        },
+        {
+          "item_id": 3036,
+          "picks": 616,
+          "wins": 309
+        },
+        {
+          "item_id": 3153,
+          "picks": 599,
+          "wins": 298
+        },
+        {
+          "item_id": 126697,
+          "picks": 586,
+          "wins": 271
+        },
+        {
+          "item_id": 3118,
+          "picks": 561,
+          "wins": 273
+        },
+        {
+          "item_id": 3135,
+          "picks": 560,
+          "wins": 254
+        },
+        {
+          "item_id": 3157,
+          "picks": 460,
+          "wins": 208
+        },
+        {
+          "item_id": 3083,
+          "picks": 459,
+          "wins": 239
+        },
+        {
+          "item_id": 3116,
+          "picks": 440,
+          "wins": 226
+        },
+        {
+          "item_id": 3040,
+          "picks": 437,
+          "wins": 227
+        },
+        {
+          "item_id": 3065,
+          "picks": 435,
+          "wins": 213
+        },
+        {
+          "item_id": 3047,
+          "picks": 429,
+          "wins": 204
+        },
+        {
+          "item_id": 6333,
+          "picks": 405,
+          "wins": 204
+        },
+        {
+          "item_id": 3072,
+          "picks": 386,
+          "wins": 196
+        },
+        {
+          "item_id": 4646,
+          "picks": 383,
+          "wins": 166
+        },
+        {
+          "item_id": 1058,
+          "picks": 382,
+          "wins": 207
+        },
+        {
+          "item_id": 3042,
+          "picks": 372,
+          "wins": 196
+        },
+        {
+          "item_id": 6617,
+          "picks": 370,
+          "wins": 200
+        },
+        {
+          "item_id": 3008,
+          "picks": 364,
+          "wins": 198
+        },
+        {
+          "item_id": 3075,
+          "picks": 360,
+          "wins": 166
+        },
+        {
+          "item_id": 2502,
+          "picks": 358,
+          "wins": 167
+        },
+        {
+          "item_id": 6665,
+          "picks": 345,
+          "wins": 176
+        },
+        {
+          "item_id": 6657,
+          "picks": 339,
+          "wins": 168
+        },
+        {
+          "item_id": 3085,
+          "picks": 325,
+          "wins": 190
+        },
+        {
+          "item_id": 2530,
+          "picks": 323,
+          "wins": 181
+        },
+        {
+          "item_id": 4633,
+          "picks": 308,
+          "wins": 150
+        },
+        {
+          "item_id": 3143,
+          "picks": 305,
+          "wins": 142
+        },
+        {
+          "item_id": 6610,
+          "picks": 285,
+          "wins": 131
+        },
+        {
+          "item_id": 1001,
+          "picks": 282,
+          "wins": 136
+        },
+        {
+          "item_id": 6696,
+          "picks": 272,
+          "wins": 140
+        },
+        {
+          "item_id": 3508,
+          "picks": 262,
+          "wins": 134
+        },
+        {
+          "item_id": 3009,
+          "picks": 258,
+          "wins": 144
+        },
+        {
+          "item_id": 3070,
+          "picks": 254,
+          "wins": 121
+        },
+        {
+          "item_id": 3032,
+          "picks": 253,
+          "wins": 138
+        },
+        {
+          "item_id": 6672,
+          "picks": 249,
+          "wins": 129
+        },
+        {
+          "item_id": 2504,
+          "picks": 240,
+          "wins": 128
+        },
+        {
+          "item_id": 6695,
+          "picks": 236,
+          "wins": 113
+        },
+        {
+          "item_id": 3121,
+          "picks": 230,
+          "wins": 115
+        },
+        {
+          "item_id": 3033,
+          "picks": 230,
+          "wins": 124
+        },
+        {
+          "item_id": 3165,
+          "picks": 213,
+          "wins": 88
+        },
+        {
+          "item_id": 3078,
+          "picks": 211,
+          "wins": 103
+        },
+        {
+          "item_id": 1036,
+          "picks": 209,
+          "wins": 101
+        },
+        {
+          "item_id": 3115,
+          "picks": 208,
+          "wins": 107
+        },
+        {
+          "item_id": 2510,
+          "picks": 207,
+          "wins": 106
+        },
+        {
+          "item_id": 6699,
+          "picks": 205,
+          "wins": 95
+        },
+        {
+          "item_id": 1052,
+          "picks": 203,
+          "wins": 122
+        },
+        {
+          "item_id": 3087,
+          "picks": 201,
+          "wins": 105
+        },
+        {
+          "item_id": 3161,
+          "picks": 195,
+          "wins": 102
+        },
+        {
+          "item_id": 3100,
+          "picks": 195,
+          "wins": 101
+        },
+        {
+          "item_id": 2517,
+          "picks": 189,
+          "wins": 107
+        },
+        {
+          "item_id": 3124,
+          "picks": 184,
+          "wins": 89
+        },
+        {
+          "item_id": 6694,
+          "picks": 181,
+          "wins": 86
+        },
+        {
+          "item_id": 8010,
+          "picks": 175,
+          "wins": 78
+        },
+        {
+          "item_id": 3094,
+          "picks": 173,
+          "wins": 92
+        },
+        {
+          "item_id": 6621,
+          "picks": 172,
+          "wins": 96
+        },
+        {
+          "item_id": 1011,
+          "picks": 166,
+          "wins": 86
+        },
+        {
+          "item_id": 3107,
+          "picks": 163,
+          "wins": 79
+        },
+        {
+          "item_id": 3071,
+          "picks": 158,
+          "wins": 82
+        },
+        {
+          "item_id": 3504,
+          "picks": 157,
+          "wins": 91
+        },
+        {
+          "item_id": 3916,
+          "picks": 152,
+          "wins": 67
+        },
+        {
+          "item_id": 3091,
+          "picks": 152,
+          "wins": 89
+        },
+        {
+          "item_id": 2501,
+          "picks": 147,
+          "wins": 75
+        },
+        {
+          "item_id": 2031,
+          "picks": 147,
+          "wins": 74
+        },
+        {
+          "item_id": 6675,
+          "picks": 145,
+          "wins": 73
+        },
+        {
+          "item_id": 1028,
+          "picks": 145,
+          "wins": 70
+        },
+        {
+          "item_id": 6692,
+          "picks": 142,
+          "wins": 64
+        },
+        {
+          "item_id": 228002,
+          "picks": 140,
+          "wins": 78
+        },
+        {
+          "item_id": 4629,
+          "picks": 135,
+          "wins": 77
+        },
+        {
+          "item_id": 2523,
+          "picks": 134,
+          "wins": 70
+        },
+        {
+          "item_id": 1037,
+          "picks": 133,
+          "wins": 64
+        },
+        {
+          "item_id": 123430,
+          "picks": 130,
+          "wins": 70
+        },
+        {
+          "item_id": 1053,
+          "picks": 130,
+          "wins": 76
+        },
+        {
+          "item_id": 124011,
+          "picks": 121,
+          "wins": 68
+        },
+        {
+          "item_id": 3046,
+          "picks": 118,
+          "wins": 69
+        },
+        {
+          "item_id": 1018,
+          "picks": 115,
+          "wins": 55
+        },
+        {
+          "item_id": 4401,
+          "picks": 114,
+          "wins": 72
+        },
+        {
+          "item_id": 3152,
+          "picks": 114,
+          "wins": 49
+        },
+        {
+          "item_id": 4630,
+          "picks": 110,
+          "wins": 57
+        },
+        {
+          "item_id": 6616,
+          "picks": 109,
+          "wins": 54
+        },
+        {
+          "item_id": 1038,
+          "picks": 109,
+          "wins": 59
+        },
+        {
+          "item_id": 3137,
+          "picks": 107,
+          "wins": 48
+        },
+        {
+          "item_id": 3110,
+          "picks": 107,
+          "wins": 38
+        },
+        {
+          "item_id": 6664,
+          "picks": 106,
+          "wins": 53
+        },
+        {
+          "item_id": 4005,
+          "picks": 104,
+          "wins": 49
+        },
+        {
+          "item_id": 6673,
+          "picks": 103,
+          "wins": 50
+        },
+        {
+          "item_id": 3302,
+          "picks": 101,
+          "wins": 58
+        },
+        {
+          "item_id": 6620,
+          "picks": 98,
+          "wins": 49
+        },
+        {
+          "item_id": 3133,
+          "picks": 98,
+          "wins": 48
+        },
+        {
+          "item_id": 3053,
+          "picks": 93,
+          "wins": 41
+        },
+        {
+          "item_id": 3145,
+          "picks": 86,
+          "wins": 39
+        },
+        {
+          "item_id": 3748,
+          "picks": 85,
+          "wins": 37
+        },
+        {
+          "item_id": 3146,
+          "picks": 85,
+          "wins": 38
+        },
+        {
+          "item_id": 1026,
+          "picks": 84,
+          "wins": 39
+        },
+        {
+          "item_id": 3067,
+          "picks": 81,
+          "wins": 35
+        },
+        {
+          "item_id": 3142,
+          "picks": 80,
+          "wins": 46
+        },
+        {
+          "item_id": 2021,
+          "picks": 80,
+          "wins": 39
+        },
+        {
+          "item_id": 4628,
+          "picks": 79,
+          "wins": 37
+        },
+        {
+          "item_id": 3108,
+          "picks": 79,
+          "wins": 39
+        },
+        {
+          "item_id": 3068,
+          "picks": 79,
+          "wins": 40
+        },
+        {
+          "item_id": 3035,
+          "picks": 79,
+          "wins": 36
+        },
+        {
+          "item_id": 3074,
+          "picks": 77,
+          "wins": 38
+        },
+        {
+          "item_id": 2512,
+          "picks": 77,
+          "wins": 36
+        },
+        {
+          "item_id": 1057,
+          "picks": 76,
+          "wins": 39
+        },
+        {
+          "item_id": 3076,
+          "picks": 75,
+          "wins": 36
+        },
+        {
+          "item_id": 3222,
+          "picks": 74,
+          "wins": 37
+        },
+        {
+          "item_id": 1043,
+          "picks": 73,
+          "wins": 36
+        },
+        {
+          "item_id": 3814,
+          "picks": 72,
+          "wins": 36
+        },
+        {
+          "item_id": 1031,
+          "picks": 71,
+          "wins": 43
+        },
+        {
+          "item_id": 3156,
+          "picks": 70,
+          "wins": 33
+        },
+        {
+          "item_id": 3102,
+          "picks": 70,
+          "wins": 30
+        },
+        {
+          "item_id": 223069,
+          "picks": 68,
+          "wins": 41
+        },
+        {
+          "item_id": 1029,
+          "picks": 63,
+          "wins": 33
+        },
+        {
+          "item_id": 3147,
+          "picks": 62,
+          "wins": 34
+        },
+        {
+          "item_id": 3134,
+          "picks": 61,
+          "wins": 35
+        },
+        {
+          "item_id": 8020,
+          "picks": 58,
+          "wins": 28
+        },
+        {
+          "item_id": 1042,
+          "picks": 57,
+          "wins": 35
+        },
+        {
+          "item_id": 3114,
+          "picks": 54,
+          "wins": 26
+        },
+        {
+          "item_id": 6631,
+          "picks": 52,
+          "wins": 31
+        },
+        {
+          "item_id": 3211,
+          "picks": 52,
+          "wins": 25
+        },
+        {
+          "item_id": 3190,
+          "picks": 52,
+          "wins": 31
+        },
+        {
+          "item_id": 3802,
+          "picks": 51,
+          "wins": 31
+        },
+        {
+          "item_id": 1033,
+          "picks": 50,
+          "wins": 28
+        },
+        {
+          "item_id": 6698,
+          "picks": 49,
+          "wins": 27
+        },
+        {
+          "item_id": 3073,
+          "picks": 48,
+          "wins": 24
+        },
+        {
+          "item_id": 6662,
+          "picks": 47,
+          "wins": 24
+        },
+        {
+          "item_id": 2065,
+          "picks": 46,
+          "wins": 26
+        },
+        {
+          "item_id": 2019,
+          "picks": 46,
+          "wins": 24
+        },
+        {
+          "item_id": 3082,
+          "picks": 42,
+          "wins": 21
+        },
+        {
+          "item_id": 994403,
+          "picks": 40,
+          "wins": 20
+        },
+        {
+          "item_id": 3050,
+          "picks": 39,
+          "wins": 22
+        },
+        {
+          "item_id": 2522,
+          "picks": 39,
+          "wins": 23
+        },
+        {
+          "item_id": 2022,
+          "picks": 38,
+          "wins": 25
+        },
+        {
+          "item_id": 226668,
+          "picks": 37,
+          "wins": 22
+        },
+        {
+          "item_id": 3123,
+          "picks": 36,
+          "wins": 21
+        },
+        {
+          "item_id": 6670,
+          "picks": 35,
+          "wins": 10
+        },
+        {
+          "item_id": 3139,
+          "picks": 34,
+          "wins": 20
+        },
+        {
+          "item_id": 3109,
+          "picks": 33,
+          "wins": 13
+        },
+        {
+          "item_id": 3086,
+          "picks": 33,
+          "wins": 18
+        },
+        {
+          "item_id": 2420,
+          "picks": 33,
+          "wins": 13
+        },
+        {
+          "item_id": 2508,
+          "picks": 32,
+          "wins": 13
+        },
+        {
+          "item_id": 2525,
+          "picks": 31,
+          "wins": 13
+        },
+        {
+          "item_id": 2524,
+          "picks": 31,
+          "wins": 14
+        },
+        {
+          "item_id": 2051,
+          "picks": 31,
+          "wins": 20
+        },
+        {
+          "item_id": 3097,
+          "picks": 30,
+          "wins": 16
+        },
+        {
+          "item_id": 3051,
+          "picks": 29,
+          "wins": 15
+        },
+        {
+          "item_id": 3742,
+          "picks": 28,
+          "wins": 11
+        },
+        {
+          "item_id": 3330,
+          "picks": 28,
+          "wins": 13
+        },
+        {
+          "item_id": 3113,
+          "picks": 28,
+          "wins": 15
+        },
+        {
+          "item_id": 3004,
+          "picks": 26,
+          "wins": 14
+        },
+        {
+          "item_id": 3144,
+          "picks": 25,
+          "wins": 14
+        },
+        {
+          "item_id": 6609,
+          "picks": 23,
+          "wins": 9
+        },
+        {
+          "item_id": 3077,
+          "picks": 22,
+          "wins": 15
+        },
+        {
+          "item_id": 3177,
+          "picks": 21,
+          "wins": 14
+        },
+        {
+          "item_id": 6660,
+          "picks": 20,
+          "wins": 14
+        },
+        {
+          "item_id": 3003,
+          "picks": 20,
+          "wins": 10
+        },
+        {
+          "item_id": 3057,
+          "picks": 18,
+          "wins": 7
+        },
+        {
+          "item_id": 3039,
+          "picks": 18,
+          "wins": 7
+        },
+        {
+          "item_id": 2020,
+          "picks": 18,
+          "wins": 8
+        },
+        {
+          "item_id": 3155,
+          "picks": 17,
+          "wins": 9
+        },
+        {
+          "item_id": 3044,
+          "picks": 17,
+          "wins": 9
+        },
+        {
+          "item_id": 3112,
+          "picks": 16,
+          "wins": 10
+        },
+        {
+          "item_id": 2421,
+          "picks": 16,
+          "wins": 8
+        },
+        {
+          "item_id": 3119,
+          "picks": 15,
+          "wins": 8
+        },
+        {
+          "item_id": 2526,
+          "picks": 15,
+          "wins": 7
+        },
+        {
+          "item_id": 3801,
+          "picks": 14,
+          "wins": 7
+        },
+        {
+          "item_id": 6701,
+          "picks": 13,
+          "wins": 5
+        },
+        {
+          "item_id": 4642,
+          "picks": 12,
+          "wins": 8
+        },
+        {
+          "item_id": 3095,
+          "picks": 12,
+          "wins": 8
+        },
+        {
+          "item_id": 2139,
+          "picks": 12,
+          "wins": 7
+        },
+        {
+          "item_id": 1004,
+          "picks": 12,
+          "wins": 9
+        },
+        {
+          "item_id": 2138,
+          "picks": 11,
+          "wins": 9
+        },
+        {
+          "item_id": 3179,
+          "picks": 10,
+          "wins": 7
+        },
+        {
+          "item_id": 3066,
+          "picks": 10,
+          "wins": 6
+        },
+        {
+          "item_id": 6690,
+          "picks": 9,
+          "wins": 4
+        },
+        {
+          "item_id": 4632,
+          "picks": 9,
+          "wins": 5
+        },
+        {
+          "item_id": 3184,
+          "picks": 9,
+          "wins": 3
+        },
+        {
+          "item_id": 3140,
+          "picks": 9,
+          "wins": 6
+        },
+        {
+          "item_id": 2140,
+          "picks": 9,
+          "wins": 5
+        },
+        {
+          "item_id": 1027,
+          "picks": 8,
+          "wins": 5
+        },
+        {
+          "item_id": 4004,
+          "picks": 7,
+          "wins": 4
+        },
+        {
+          "item_id": 1006,
+          "picks": 7,
+          "wins": 5
+        },
+        {
+          "item_id": 3803,
+          "picks": 3,
+          "wins": 3
+        },
+        {
+          "item_id": 3024,
+          "picks": 3,
+          "wins": 1
+        },
+        {
+          "item_id": 4003,
+          "picks": 2,
+          "wins": 2
+        },
+        {
+          "item_id": 3400,
+          "picks": 2,
+          "wins": 2
+        },
+        {
+          "item_id": 220008,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "item_id": 3181,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "item_id": 2003,
+          "picks": 1,
+          "wins": 0
+        }
+      ],
+      "totalParticipantSlots": 6580
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

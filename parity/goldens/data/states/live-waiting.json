@@ -1,0 +1,420 @@
+{
+  "format": 1,
+  "state": "live-waiting",
+  "group": "client",
+  "route": "/live",
+  "viewport": {
+    "width": 1280,
+    "height": 820
+  },
+  "calls": [
+    {
+      "seq": 0,
+      "channel": "db:match-history",
+      "method": "getMatchHistory",
+      "args": [
+        1,
+        0
+      ],
+      "case": "newest"
+    },
+    {
+      "seq": 1,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 2,
+      "channel": "db:teammate-stats",
+      "method": "getTeammateStats",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 3,
+      "channel": "db:teammate-groups",
+      "method": "getTeammateGroups",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 4,
+      "channel": "db:champion-stats",
+      "method": "getChampionStats",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 5,
+      "channel": "live:snapshot",
+      "method": "getLiveGame",
+      "args": [],
+      "case": "state-1ab5fc20e4"
+    },
+    {
+      "seq": 6,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-84f2079bc7"
+    },
+    {
+      "seq": 7,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "before"
+    },
+    {
+      "seq": 8,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "allowed-remember-filters"
+    },
+    {
+      "seq": 9,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 10,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-84f2079bc7"
+    },
+    {
+      "seq": 11,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 12,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_nav_links"
+      ],
+      "case": "allowed-hidden-nav-links"
+    },
+    {
+      "seq": 13,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 14,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 15,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 16,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 17,
+      "channel": "live:snapshot",
+      "method": "getLiveGame",
+      "args": [],
+      "case": "state-1ab5fc20e4"
+    },
+    {
+      "seq": 18,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-84f2079bc7"
+    },
+    {
+      "seq": 19,
+      "channel": "dragon:champions",
+      "method": "getChampionData",
+      "args": [],
+      "case": "warm-champions"
+    },
+    {
+      "seq": 20,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "before"
+    },
+    {
+      "seq": 21,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 22,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 23,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 24,
+      "channel": "dragon:items",
+      "method": "getItemData",
+      "args": [],
+      "case": "warm-items"
+    },
+    {
+      "seq": 25,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 26,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 27,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 28,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 29,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 30,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 31,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 32,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 33,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 34,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 35,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 36,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 37,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 38,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 39,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 40,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 41,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 42,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "warm-spells"
+    },
+    {
+      "seq": 43,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 44,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-84f2079bc7"
+    },
+    {
+      "seq": 45,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 46,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 47,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 48,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 49,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 50,
+      "channel": "live:snapshot",
+      "method": "getLiveGame",
+      "args": [],
+      "case": "state-1ab5fc20e4"
+    },
+    {
+      "seq": 51,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-84f2079bc7"
+    },
+    {
+      "seq": 52,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "before"
+    },
+    {
+      "seq": 53,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 54,
+      "channel": "live:snapshot",
+      "method": "getLiveGame",
+      "args": [],
+      "case": "state-1ab5fc20e4"
+    },
+    {
+      "seq": 55,
+      "channel": "live:snapshot",
+      "method": "getLiveGame",
+      "args": [],
+      "case": "state-1ab5fc20e4"
+    },
+    {
+      "seq": 56,
+      "channel": "db:game-recap",
+      "method": "getGameRecap",
+      "args": [
+        7000000000
+      ],
+      "case": "state-b7a71f4fc9"
+    }
+  ]
+}

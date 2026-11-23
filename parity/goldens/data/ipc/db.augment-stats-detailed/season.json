@@ -1,0 +1,2497 @@
+{
+  "format": 1,
+  "channel": "db:augment-stats-detailed",
+  "method": "getAugmentStatsDetailed",
+  "registered": true,
+  "case": "season",
+  "description": "one season",
+  "group": "read",
+  "seq": 39,
+  "args": [
+    null,
+    null,
+    "set-1"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "totalGames": 88,
+      "augments": [
+        {
+          "augment_id": 1133,
+          "picks": 9,
+          "wins": 5,
+          "champions": [
+            {
+              "champion_id": 800,
+              "picks": 2,
+              "wins": 2
+            },
+            {
+              "champion_id": 61,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 79,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 99,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 110,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 142,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 163,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 166,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1071,
+          "picks": 9,
+          "wins": 6,
+          "champions": [
+            {
+              "champion_id": 222,
+              "picks": 2,
+              "wins": 2
+            },
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 15,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 18,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 56,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 126,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 203,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1353,
+          "picks": 8,
+          "wins": 4,
+          "champions": [
+            {
+              "champion_id": 13,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 33,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 56,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 111,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 117,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 267,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 517,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1195,
+          "picks": 8,
+          "wins": 5,
+          "champions": [
+            {
+              "champion_id": 4,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 22,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 142,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 166,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 222,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1097,
+          "picks": 7,
+          "wins": 4,
+          "champions": [
+            {
+              "champion_id": 7,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 34,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 99,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 117,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 142,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1030,
+          "picks": 7,
+          "wins": 4,
+          "champions": [
+            {
+              "champion_id": 26,
+              "picks": 2,
+              "wins": 1
+            },
+            {
+              "champion_id": 142,
+              "picks": 2,
+              "wins": 2
+            },
+            {
+              "champion_id": 76,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 102,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 2008,
+          "picks": 6,
+          "wins": 4,
+          "champions": [
+            {
+              "champion_id": 4,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 79,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 99,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 420,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1420,
+          "picks": 6,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 412,
+              "picks": 2,
+              "wins": 0
+            },
+            {
+              "champion_id": 13,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 56,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 163,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 267,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1390,
+          "picks": 6,
+          "wins": 4,
+          "champions": [
+            {
+              "champion_id": 26,
+              "picks": 2,
+              "wins": 1
+            },
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 76,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 145,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1373,
+          "picks": 6,
+          "wins": 4,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 69,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 126,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 142,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 901,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1129,
+          "picks": 6,
+          "wins": 3,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 2,
+              "wins": 1
+            },
+            {
+              "champion_id": 61,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 84,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 147,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1084,
+          "picks": 6,
+          "wins": 3,
+          "champions": [
+            {
+              "champion_id": 96,
+              "picks": 2,
+              "wins": 1
+            },
+            {
+              "champion_id": 18,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 41,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 56,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1037,
+          "picks": 6,
+          "wins": 3,
+          "champions": [
+            {
+              "champion_id": 40,
+              "picks": 2,
+              "wins": 2
+            },
+            {
+              "champion_id": 147,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 267,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 350,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 412,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1341,
+          "picks": 5,
+          "wins": 3,
+          "champions": [
+            {
+              "champion_id": 45,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 53,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 54,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 142,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 145,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1081,
+          "picks": 5,
+          "wins": 3,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 51,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 110,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 222,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1018,
+          "picks": 5,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 4,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 57,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 79,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 111,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 412,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1416,
+          "picks": 4,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 76,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 145,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 901,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1409,
+          "picks": 4,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 26,
+              "picks": 2,
+              "wins": 0
+            },
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 166,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1406,
+          "picks": 4,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 82,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 99,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 350,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1328,
+          "picks": 4,
+          "wins": 3,
+          "champions": [
+            {
+              "champion_id": 166,
+              "picks": 2,
+              "wins": 1
+            },
+            {
+              "champion_id": 18,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 222,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1211,
+          "picks": 4,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 50,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 53,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 99,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1180,
+          "picks": 4,
+          "wins": 3,
+          "champions": [
+            {
+              "champion_id": 40,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 45,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 142,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 412,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1156,
+          "picks": 4,
+          "wins": 3,
+          "champions": [
+            {
+              "champion_id": 34,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 45,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 50,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 99,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1150,
+          "picks": 4,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 61,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 82,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 84,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 267,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1118,
+          "picks": 4,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 40,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 110,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 350,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 901,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1113,
+          "picks": 4,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 96,
+              "picks": 2,
+              "wins": 0
+            },
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1107,
+          "picks": 4,
+          "wins": 4,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 166,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 222,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1051,
+          "picks": 4,
+          "wins": 3,
+          "champions": [
+            {
+              "champion_id": 166,
+              "picks": 2,
+              "wins": 1
+            },
+            {
+              "champion_id": 222,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1041,
+          "picks": 4,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 21,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 79,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 145,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 901,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1036,
+          "picks": 4,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 61,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 166,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1032,
+          "picks": 4,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 11,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 34,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 145,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1028,
+          "picks": 4,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 15,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 50,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 57,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1401,
+          "picks": 3,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 102,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 412,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1384,
+          "picks": 3,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 12,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 84,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 147,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1372,
+          "picks": 3,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 267,
+              "picks": 2,
+              "wins": 0
+            },
+            {
+              "champion_id": 412,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1322,
+          "picks": 3,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 22,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 51,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1220,
+          "picks": 3,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 166,
+              "picks": 2,
+              "wins": 1
+            },
+            {
+              "champion_id": 901,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1205,
+          "picks": 3,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 53,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 102,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1116,
+          "picks": 3,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 27,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 111,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 142,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1095,
+          "picks": 3,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 82,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 147,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 267,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1087,
+          "picks": 3,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 21,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 51,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 110,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1075,
+          "picks": 3,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 3,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 12,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 15,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1056,
+          "picks": 3,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 34,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 147,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1045,
+          "picks": 3,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 163,
+              "picks": 2,
+              "wins": 0
+            },
+            {
+              "champion_id": 22,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1035,
+          "picks": 3,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 117,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 203,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1020,
+          "picks": 3,
+          "wins": 3,
+          "champions": [
+            {
+              "champion_id": 50,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 54,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 79,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 2001,
+          "picks": 2,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 54,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 67,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1421,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 27,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 517,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1405,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1403,
+          "picks": 2,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 51,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1400,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 79,
+              "picks": 2,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1375,
+          "picks": 2,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 111,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 412,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1361,
+          "picks": 2,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 12,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 82,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1346,
+          "picks": 2,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1335,
+          "picks": 2,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 69,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 147,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1326,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 203,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 895,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1321,
+          "picks": 2,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 11,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1311,
+          "picks": 2,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 13,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1308,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 99,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1238,
+          "picks": 2,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 13,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1181,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 54,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 57,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1170,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 15,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1151,
+          "picks": 2,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 78,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1141,
+          "picks": 2,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 40,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 147,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1136,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 78,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1103,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 163,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 517,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1086,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 4,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 99,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1082,
+          "picks": 2,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 41,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 126,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1069,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 895,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1068,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 7,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 45,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1067,
+          "picks": 2,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 27,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 163,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1063,
+          "picks": 2,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 12,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 67,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1061,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 22,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 412,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1054,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 21,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1053,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 54,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 126,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1052,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 145,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 166,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1050,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 96,
+              "picks": 2,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1044,
+          "picks": 2,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 163,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 412,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1038,
+          "picks": 2,
+          "wins": 2,
+          "champions": [
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            },
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1025,
+          "picks": 2,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 102,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 412,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1007,
+          "picks": 2,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 41,
+              "picks": 1,
+              "wins": 0
+            },
+            {
+              "champion_id": 166,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 2010,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 18,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 2009,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 2003,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 78,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 2002,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 800,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1415,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1414,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 54,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1413,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 33,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1391,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 54,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1388,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 145,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1356,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 166,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1347,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 84,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1342,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 7,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1340,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 40,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1338,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 41,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1337,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 69,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1334,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 7,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1327,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 57,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1323,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 69,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1319,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 78,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1315,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 203,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1301,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1250,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 166,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1243,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1225,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1206,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 21,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1152,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 3,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1149,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 53,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1134,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 96,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1108,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 27,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1105,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 142,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1098,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 267,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1077,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 901,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1076,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 76,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1074,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 26,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1070,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 11,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1064,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 33,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1060,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 142,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1058,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 10,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1048,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 142,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1047,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 147,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1046,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 420,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1042,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 33,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1039,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 3,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1027,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 166,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1022,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 145,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1013,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 117,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1011,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 420,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        },
+        {
+          "augment_id": 1006,
+          "picks": 1,
+          "wins": 0,
+          "champions": [
+            {
+              "champion_id": 11,
+              "picks": 1,
+              "wins": 0
+            }
+          ]
+        },
+        {
+          "augment_id": 1004,
+          "picks": 1,
+          "wins": 1,
+          "champions": [
+            {
+              "champion_id": 69,
+              "picks": 1,
+              "wins": 1
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

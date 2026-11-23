@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "state-f355ce17a2",
+  "description": "the call the page made in state match-history-sorted-score",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    1373,
+    "16.11"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/kiwi/augments/icons/shrinkengine_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

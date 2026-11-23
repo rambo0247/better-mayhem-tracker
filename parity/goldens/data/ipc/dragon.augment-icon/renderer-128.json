@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "renderer-128",
+  "description": "a call the Tauri renderer makes",
+  "group": "read",
+  "seq": 248,
+  "args": [
+    2104,
+    "16.23"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/kiwi/augments/icons/spiritbomb_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

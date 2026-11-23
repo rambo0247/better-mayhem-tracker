@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "channel": "db:match-sessions",
+  "method": "getMatchSessions",
+  "registered": true,
+  "case": "state-72b41fe880",
+  "description": "the call the page made in state match-history-grouped-none",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {
+      "multikills": [],
+      "favorites": false
+    }
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": []
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

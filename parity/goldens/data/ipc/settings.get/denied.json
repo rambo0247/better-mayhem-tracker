@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "settings:get",
+  "method": "getSetting",
+  "registered": true,
+  "case": "denied",
+  "description": "a key outside the 10-key allow list that exists in the table",
+  "group": "read",
+  "seq": 101,
+  "args": [
+    "last_run_version"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": null
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

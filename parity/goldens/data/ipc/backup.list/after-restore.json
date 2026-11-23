@@ -1,0 +1,41 @@
+{
+  "format": 1,
+  "channel": "backup:list",
+  "method": "listBackups",
+  "registered": true,
+  "case": "after-restore",
+  "description": "restore adds a pre-restore snapshot",
+  "group": "backup",
+  "seq": 5,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "file": "matches-2026-11-22T21-00-00-auto.db",
+        "created": 1795399200000,
+        "size": 6393856,
+        "games": 669,
+        "reason": "auto"
+      },
+      {
+        "file": "matches-2026-11-22T21-00-00-manual.db",
+        "created": 1795399200000,
+        "size": 6393856,
+        "games": 669,
+        "reason": "manual"
+      },
+      {
+        "file": "matches-2026-11-22T21-00-00-pre-restore.db",
+        "created": 1795399200000,
+        "size": 6393856,
+        "games": 669,
+        "reason": "pre-restore"
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

@@ -1,0 +1,236 @@
+{
+  "format": 1,
+  "state": "challenges-loaded",
+  "group": "client",
+  "route": "/challenges",
+  "viewport": {
+    "width": 1280,
+    "height": 820
+  },
+  "calls": [
+    {
+      "seq": 0,
+      "channel": "db:match-history",
+      "method": "getMatchHistory",
+      "args": [
+        1,
+        0
+      ],
+      "case": "newest"
+    },
+    {
+      "seq": 1,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 2,
+      "channel": "db:teammate-stats",
+      "method": "getTeammateStats",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 3,
+      "channel": "db:teammate-groups",
+      "method": "getTeammateGroups",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 4,
+      "channel": "db:champion-stats",
+      "method": "getChampionStats",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 5,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-c454ef0759"
+    },
+    {
+      "seq": 6,
+      "channel": "challenges:get",
+      "method": "getChallenges",
+      "args": [],
+      "case": "state-2fd96c84e7"
+    },
+    {
+      "seq": 7,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "allowed-remember-filters"
+    },
+    {
+      "seq": 8,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 9,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-c454ef0759"
+    },
+    {
+      "seq": 10,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 11,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_nav_links"
+      ],
+      "case": "allowed-hidden-nav-links"
+    },
+    {
+      "seq": 12,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 13,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 14,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 15,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 16,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-c454ef0759"
+    },
+    {
+      "seq": 17,
+      "channel": "challenges:get",
+      "method": "getChallenges",
+      "args": [],
+      "case": "state-2fd96c84e7"
+    },
+    {
+      "seq": 18,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 19,
+      "channel": "challenges:get",
+      "method": "getChallenges",
+      "args": [],
+      "case": "state-2fd96c84e7"
+    },
+    {
+      "seq": 20,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 21,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-c454ef0759"
+    },
+    {
+      "seq": 22,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 23,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 24,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 25,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 26,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 27,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-c454ef0759"
+    },
+    {
+      "seq": 28,
+      "channel": "challenges:get",
+      "method": "getChallenges",
+      "args": [],
+      "case": "state-2fd96c84e7"
+    },
+    {
+      "seq": 29,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 30,
+      "channel": "challenges:get",
+      "method": "getChallenges",
+      "args": [],
+      "case": "state-2fd96c84e7"
+    }
+  ]
+}

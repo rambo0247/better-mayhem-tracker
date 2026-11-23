@@ -5,4 +5,7 @@ out/
 snapshots/*
 !snapshots/fixture/
 !snapshots/fixture/**
+# The committed goldens (decision E2), also under the root's data/ pattern
+!goldens/data/
+!goldens/data/**
 node_modules/

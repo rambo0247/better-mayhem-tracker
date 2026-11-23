@@ -1,0 +1,84 @@
+{
+  "format": 1,
+  "channel": "db:dashboard",
+  "method": "getDashboard",
+  "registered": true,
+  "case": "season",
+  "description": "one season",
+  "group": "read",
+  "seq": 42,
+  "args": [
+    {
+      "season": "set-3"
+    }
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "totalGames": 160,
+      "totalDuration": 170726,
+      "wins": 80,
+      "totalKills": 1490,
+      "totalDeaths": 1542,
+      "totalAssists": 4274,
+      "avgScore": 6.083125,
+      "mvps": 9,
+      "aces": 16,
+      "scoredWins": 80,
+      "scoredLosses": 80,
+      "accounts": 1,
+      "recentForm": [
+        {
+          "win": 0,
+          "game_id": 5684865505
+        },
+        {
+          "win": 1,
+          "game_id": 5684562726
+        },
+        {
+          "win": 1,
+          "game_id": 5684569863
+        },
+        {
+          "win": 1,
+          "game_id": 5684556449
+        },
+        {
+          "win": 0,
+          "game_id": 5684552389
+        },
+        {
+          "win": 0,
+          "game_id": 5684541511
+        },
+        {
+          "win": 0,
+          "game_id": 5684548840
+        },
+        {
+          "win": 0,
+          "game_id": 5684527471
+        },
+        {
+          "win": 0,
+          "game_id": 5684523086
+        },
+        {
+          "win": 1,
+          "game_id": 5684514854
+        }
+      ],
+      "multikills": {
+        "doubles": 239,
+        "triples": 40,
+        "quadras": 9,
+        "pentas": 1
+      }
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

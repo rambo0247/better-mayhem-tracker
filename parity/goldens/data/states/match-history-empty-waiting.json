@@ -1,0 +1,320 @@
+{
+  "format": 1,
+  "state": "match-history-empty-waiting",
+  "group": "match-history",
+  "route": "/",
+  "viewport": {
+    "width": 1280,
+    "height": 820
+  },
+  "calls": [
+    {
+      "seq": 0,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "allowed-remember-filters"
+    },
+    {
+      "seq": 1,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "state-6da62b4a10"
+    },
+    {
+      "seq": 2,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 3,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "state-83a022ce92"
+    },
+    {
+      "seq": 4,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_nav_links"
+      ],
+      "case": "allowed-hidden-nav-links"
+    },
+    {
+      "seq": 5,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 6,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 7,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 8,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 9,
+      "channel": "db:match-history",
+      "method": "getMatchHistory",
+      "args": [
+        20,
+        0,
+        {
+          "sortDir": "desc",
+          "favorites": false,
+          "multikills": []
+        }
+      ],
+      "case": "state-8ffd730999"
+    },
+    {
+      "seq": 10,
+      "channel": "dragon:champions",
+      "method": "getChampionData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 11,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "session_grouping"
+      ],
+      "case": "allowed-session-grouping"
+    },
+    {
+      "seq": 12,
+      "channel": "db:dashboard",
+      "method": "getDashboard",
+      "args": [
+        {}
+      ],
+      "case": "state-5b0fab452e"
+    },
+    {
+      "seq": 13,
+      "channel": "db:match-sessions",
+      "method": "getMatchSessions",
+      "args": [
+        {
+          "multikills": [],
+          "favorites": false
+        }
+      ],
+      "case": "state-72b41fe880"
+    },
+    {
+      "seq": 14,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 15,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 16,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "state-341ed72deb"
+    },
+    {
+      "seq": 17,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "state-6da62b4a10"
+    },
+    {
+      "seq": 18,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [
+        {}
+      ],
+      "case": "state-7708b0b6b5"
+    },
+    {
+      "seq": 19,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 20,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "state-6da62b4a10"
+    },
+    {
+      "seq": 21,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 22,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "state-83a022ce92"
+    },
+    {
+      "seq": 23,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 24,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 25,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 26,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 27,
+      "channel": "db:match-history",
+      "method": "getMatchHistory",
+      "args": [
+        20,
+        0,
+        {
+          "sortDir": "desc",
+          "favorites": false,
+          "multikills": []
+        }
+      ],
+      "case": "state-8ffd730999"
+    },
+    {
+      "seq": 28,
+      "channel": "dragon:champions",
+      "method": "getChampionData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 29,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "session_grouping"
+      ],
+      "case": "allowed-session-grouping"
+    },
+    {
+      "seq": 30,
+      "channel": "db:dashboard",
+      "method": "getDashboard",
+      "args": [
+        {}
+      ],
+      "case": "state-5b0fab452e"
+    },
+    {
+      "seq": 31,
+      "channel": "db:match-sessions",
+      "method": "getMatchSessions",
+      "args": [
+        {
+          "multikills": [],
+          "favorites": false
+        }
+      ],
+      "case": "state-72b41fe880"
+    },
+    {
+      "seq": 32,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 33,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 34,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "state-341ed72deb"
+    },
+    {
+      "seq": 35,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "state-6da62b4a10"
+    },
+    {
+      "seq": 36,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [
+        {}
+      ],
+      "case": "state-7708b0b6b5"
+    },
+    {
+      "seq": 37,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    }
+  ]
+}

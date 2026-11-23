@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "settings:get",
+  "method": "getSetting",
+  "registered": true,
+  "case": "allowed-hidden-nav-links",
+  "description": "allowed key hidden_nav_links",
+  "group": "read",
+  "seq": 99,
+  "args": [
+    "hidden_nav_links"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": null
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

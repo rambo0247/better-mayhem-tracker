@@ -1,0 +1,311 @@
+{
+  "format": 1,
+  "state": "global-stats-augments",
+  "group": "global",
+  "route": "/global",
+  "viewport": {
+    "width": 1280,
+    "height": 820
+  },
+  "calls": [
+    {
+      "seq": 0,
+      "channel": "db:global-stats",
+      "method": "getGlobalStats",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 1,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "state-ff003a0d50"
+    },
+    {
+      "seq": 2,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 3,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 4,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 5,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_nav_links"
+      ],
+      "case": "allowed-hidden-nav-links"
+    },
+    {
+      "seq": 6,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 7,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 8,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 9,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 10,
+      "channel": "dragon:champions",
+      "method": "getChampionData",
+      "args": [],
+      "case": "warm-champions"
+    },
+    {
+      "seq": 11,
+      "channel": "dragon:augments",
+      "method": "getAugmentData",
+      "args": [],
+      "case": "warm-augments"
+    },
+    {
+      "seq": 12,
+      "channel": "db:global-stats",
+      "method": "getGlobalStats",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 13,
+      "channel": "dragon:items",
+      "method": "getItemData",
+      "args": [],
+      "case": "warm-items"
+    },
+    {
+      "seq": 14,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 15,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 16,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 17,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 18,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 19,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 20,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 21,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 22,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 23,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 24,
+      "channel": "db:global-stats",
+      "method": "getGlobalStats",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 25,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 26,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 27,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 28,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1391
+      ],
+      "case": "renderer-4"
+    },
+    {
+      "seq": 29,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1108
+      ],
+      "case": "renderer-1"
+    },
+    {
+      "seq": 30,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2002
+      ],
+      "case": "renderer-6"
+    },
+    {
+      "seq": 31,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1313
+      ],
+      "case": "renderer-55"
+    },
+    {
+      "seq": 32,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1082
+      ],
+      "case": "renderer-3"
+    },
+    {
+      "seq": 33,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1321
+      ],
+      "case": "renderer-5"
+    },
+    {
+      "seq": 34,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2001
+      ],
+      "case": "renderer-2"
+    },
+    {
+      "seq": 35,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1330
+      ],
+      "case": "renderer-56"
+    },
+    {
+      "seq": 36,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2046
+      ],
+      "case": "renderer-57"
+    },
+    {
+      "seq": 37,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1317
+      ],
+      "case": "renderer-58"
+    },
+    {
+      "seq": 38,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2108
+      ],
+      "case": "renderer-59"
+    }
+  ]
+}

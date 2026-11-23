@@ -1,0 +1,297 @@
+{
+  "format": 1,
+  "channel": "db:augment-stats",
+  "method": "getAugmentStats",
+  "registered": true,
+  "case": "renderer-1",
+  "description": "a call the Tauri renderer makes",
+  "group": "read",
+  "seq": 119,
+  "args": [
+    26
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "augment_id": 1056,
+        "picks": 11,
+        "wins": 6
+      },
+      {
+        "augment_id": 1030,
+        "picks": 10,
+        "wins": 8
+      },
+      {
+        "augment_id": 1238,
+        "picks": 8,
+        "wins": 4
+      },
+      {
+        "augment_id": 1301,
+        "picks": 7,
+        "wins": 5
+      },
+      {
+        "augment_id": 2100,
+        "picks": 6,
+        "wins": 4
+      },
+      {
+        "augment_id": 2087,
+        "picks": 6,
+        "wins": 3
+      },
+      {
+        "augment_id": 1098,
+        "picks": 6,
+        "wins": 4
+      },
+      {
+        "augment_id": 1420,
+        "picks": 5,
+        "wins": 4
+      },
+      {
+        "augment_id": 1105,
+        "picks": 5,
+        "wins": 3
+      },
+      {
+        "augment_id": 1097,
+        "picks": 5,
+        "wins": 4
+      },
+      {
+        "augment_id": 2103,
+        "picks": 4,
+        "wins": 2
+      },
+      {
+        "augment_id": 1237,
+        "picks": 4,
+        "wins": 2
+      },
+      {
+        "augment_id": 1373,
+        "picks": 3,
+        "wins": 2
+      },
+      {
+        "augment_id": 1136,
+        "picks": 3,
+        "wins": 2
+      },
+      {
+        "augment_id": 1068,
+        "picks": 3,
+        "wins": 3
+      },
+      {
+        "augment_id": 2116,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 2018,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 1409,
+        "picks": 2,
+        "wins": 0
+      },
+      {
+        "augment_id": 1401,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 1390,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 1388,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 1386,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 1333,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 1322,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "augment_id": 1150,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "augment_id": 1088,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "augment_id": 1074,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 1061,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 3086,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 2139,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 2123,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 2032,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1416,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1415,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1384,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1347,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1345,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1318,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1243,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1195,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1156,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1151,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1138,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1133,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1113,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1103,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1084,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1072,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1064,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1062,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1053,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1044,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1038,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1035,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1018,
+        "picks": 1,
+        "wins": 0
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

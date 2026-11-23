@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "channel": "backup:restore",
+  "method": "restoreBackup",
+  "registered": true,
+  "case": "missing",
+  "description": "a backup file that does not exist",
+  "group": "backup",
+  "seq": 6,
+  "args": [
+    "no-such-backup.db"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "success": false,
+      "error": "Not a backup file name"
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

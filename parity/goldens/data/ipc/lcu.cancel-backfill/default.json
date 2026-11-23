@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "channel": "lcu:cancel-backfill",
+  "method": "cancelBackfill",
+  "registered": true,
+  "case": "default",
+  "description": "nothing to cancel",
+  "group": "read",
+  "seq": 79,
+  "args": [],
+  "outcome": {
+    "kind": "void"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

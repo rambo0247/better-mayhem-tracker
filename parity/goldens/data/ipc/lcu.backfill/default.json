@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "channel": "lcu:backfill",
+  "method": "backfillHistory",
+  "registered": true,
+  "case": "default",
+  "description": "backfill with no client",
+  "group": "read",
+  "seq": 80,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "error": "League client is not running"
+    }
+  },
+  "events": [
+    {
+      "seq": 0,
+      "event": "lcu:backfill-done",
+      "payload": {
+        "error": "League client is not running"
+      }
+    }
+  ],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

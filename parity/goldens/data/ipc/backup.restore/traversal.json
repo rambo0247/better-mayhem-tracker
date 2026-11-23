@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "channel": "backup:restore",
+  "method": "restoreBackup",
+  "registered": true,
+  "case": "traversal",
+  "description": "a path outside the backups folder",
+  "group": "backup",
+  "seq": 7,
+  "args": [
+    "../matches.db"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "success": false,
+      "error": "Not a backup file name"
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

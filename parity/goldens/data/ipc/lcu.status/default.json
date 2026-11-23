@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "lcu:status",
+  "method": "getLcuStatus",
+  "registered": true,
+  "case": "default",
+  "description": "status with no client",
+  "group": "read",
+  "seq": 77,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": "disconnected"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

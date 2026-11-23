@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "db:profile",
+  "method": "getProfile",
+  "registered": true,
+  "case": "default",
+  "description": "the profile card",
+  "group": "read",
+  "seq": 29,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "name": "UpbeatGarnet4#Z1159",
+      "profileIcon": 4964
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

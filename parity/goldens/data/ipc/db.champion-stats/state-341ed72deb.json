@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "db:champion-stats",
+  "method": "getChampionStats",
+  "registered": true,
+  "case": "state-341ed72deb",
+  "description": "the call the page made in state live-standby-offline-empty",
+  "group": "state",
+  "seq": 1000000,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": []
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

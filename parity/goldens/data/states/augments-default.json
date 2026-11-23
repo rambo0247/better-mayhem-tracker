@@ -1,0 +1,280 @@
+{
+  "format": 1,
+  "state": "augments-default",
+  "group": "default",
+  "route": "/augments",
+  "viewport": {
+    "width": 1280,
+    "height": 820
+  },
+  "calls": [
+    {
+      "seq": 0,
+      "channel": "dragon:augments",
+      "method": "getAugmentData",
+      "args": [],
+      "case": "warm-augments"
+    },
+    {
+      "seq": 1,
+      "channel": "db:augment-stats-detailed",
+      "method": "getAugmentStatsDetailed",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 2,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "allowed-remember-filters"
+    },
+    {
+      "seq": 3,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 4,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 5,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 6,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_nav_links"
+      ],
+      "case": "allowed-hidden-nav-links"
+    },
+    {
+      "seq": 7,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 8,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 9,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 10,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 11,
+      "channel": "dragon:champions",
+      "method": "getChampionData",
+      "args": [],
+      "case": "warm-champions"
+    },
+    {
+      "seq": 12,
+      "channel": "dragon:augments",
+      "method": "getAugmentData",
+      "args": [],
+      "case": "warm-augments"
+    },
+    {
+      "seq": 13,
+      "channel": "db:augment-stats-detailed",
+      "method": "getAugmentStatsDetailed",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 14,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 15,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 16,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 17,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 18,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1108
+      ],
+      "case": "renderer-1"
+    },
+    {
+      "seq": 19,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2001
+      ],
+      "case": "renderer-2"
+    },
+    {
+      "seq": 20,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1082
+      ],
+      "case": "renderer-3"
+    },
+    {
+      "seq": 21,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1391
+      ],
+      "case": "renderer-4"
+    },
+    {
+      "seq": 22,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1321
+      ],
+      "case": "renderer-5"
+    },
+    {
+      "seq": 23,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2002
+      ],
+      "case": "renderer-6"
+    },
+    {
+      "seq": 24,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 25,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 26,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 27,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 28,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 29,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 30,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 31,
+      "channel": "db:augment-stats-detailed",
+      "method": "getAugmentStatsDetailed",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 32,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 33,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 34,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 35,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [],
+      "case": "default"
+    }
+  ]
+}

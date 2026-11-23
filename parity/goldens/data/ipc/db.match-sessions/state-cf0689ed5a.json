@@ -1,0 +1,58 @@
+{
+  "format": 1,
+  "channel": "db:match-sessions",
+  "method": "getMatchSessions",
+  "registered": true,
+  "case": "state-cf0689ed5a",
+  "description": "the call the page made in state backfill-toast-done",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {
+      "multikills": [],
+      "favorites": false
+    }
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "key": "2026-01-08",
+        "games": 1,
+        "wins": 0,
+        "losses": 1,
+        "kills": 8,
+        "deaths": 11,
+        "assists": 17,
+        "score_sum": 5.4,
+        "scored_games": 1
+      },
+      {
+        "key": "2026-01-07",
+        "games": 1,
+        "wins": 0,
+        "losses": 1,
+        "kills": 8,
+        "deaths": 11,
+        "assists": 17,
+        "score_sum": 5.4,
+        "scored_games": 1
+      },
+      {
+        "key": "2026-01-06",
+        "games": 1,
+        "wins": 0,
+        "losses": 1,
+        "kills": 8,
+        "deaths": 11,
+        "assists": 17,
+        "score_sum": 5.4,
+        "scored_games": 1
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

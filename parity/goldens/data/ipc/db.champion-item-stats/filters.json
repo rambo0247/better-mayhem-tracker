@@ -1,0 +1,54 @@
+{
+  "format": 1,
+  "channel": "db:champion-item-stats",
+  "method": "getChampionItemStats",
+  "registered": true,
+  "case": "filters",
+  "description": "patch and queue",
+  "group": "read",
+  "seq": 45,
+  "args": [
+    79,
+    "16.23",
+    2400
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "item_id": 4629,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 4628,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 3137,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 3040,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 3024,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 2503,
+        "picks": 1,
+        "wins": 0
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

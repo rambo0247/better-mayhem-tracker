@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "settings:set",
+  "method": "setSetting",
+  "registered": true,
+  "case": "auto-start",
+  "description": "auto_start reaches the login item code",
+  "group": "settings-write",
+  "seq": 5,
+  "args": [
+    "auto_start",
+    "true"
+  ],
+  "outcome": {
+    "kind": "void"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

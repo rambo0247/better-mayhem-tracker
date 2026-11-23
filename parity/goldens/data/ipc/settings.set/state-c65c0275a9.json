@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "settings:set",
+  "method": "setSetting",
+  "registered": true,
+  "case": "state-c65c0275a9",
+  "description": "the call the page made in state match-history-grouped-week",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    "session_grouping",
+    "week"
+  ],
+  "outcome": {
+    "kind": "void"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

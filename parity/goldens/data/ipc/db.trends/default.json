@@ -1,0 +1,1172 @@
+{
+  "format": 1,
+  "channel": "db:trends",
+  "method": "getTrends",
+  "registered": true,
+  "case": "default",
+  "description": "all queues",
+  "group": "read",
+  "seq": 51,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "daily": [
+        {
+          "day": "2026-01-10",
+          "games": 1,
+          "wins": 1,
+          "kills": 2,
+          "deaths": 11,
+          "assists": 26,
+          "score_sum": 4.8,
+          "scored_games": 1
+        },
+        {
+          "day": "2026-01-11",
+          "games": 6,
+          "wins": 3,
+          "kills": 24,
+          "deaths": 56,
+          "assists": 157,
+          "score_sum": 33,
+          "scored_games": 6
+        },
+        {
+          "day": "2026-01-12",
+          "games": 8,
+          "wins": 2,
+          "kills": 77,
+          "deaths": 84,
+          "assists": 195,
+          "score_sum": 47.2,
+          "scored_games": 8
+        },
+        {
+          "day": "2026-01-14",
+          "games": 3,
+          "wins": 2,
+          "kills": 25,
+          "deaths": 36,
+          "assists": 80,
+          "score_sum": 18.2,
+          "scored_games": 3
+        },
+        {
+          "day": "2026-01-15",
+          "games": 9,
+          "wins": 4,
+          "kills": 61,
+          "deaths": 76,
+          "assists": 231,
+          "score_sum": 50.2,
+          "scored_games": 9
+        },
+        {
+          "day": "2026-01-25",
+          "games": 8,
+          "wins": 5,
+          "kills": 56,
+          "deaths": 66,
+          "assists": 256,
+          "score_sum": 47.7,
+          "scored_games": 8
+        },
+        {
+          "day": "2026-01-26",
+          "games": 9,
+          "wins": 4,
+          "kills": 54,
+          "deaths": 74,
+          "assists": 253,
+          "score_sum": 48.6,
+          "scored_games": 9
+        },
+        {
+          "day": "2026-01-27",
+          "games": 8,
+          "wins": 6,
+          "kills": 49,
+          "deaths": 60,
+          "assists": 223,
+          "score_sum": 45.9,
+          "scored_games": 8
+        },
+        {
+          "day": "2026-01-28",
+          "games": 6,
+          "wins": 2,
+          "kills": 36,
+          "deaths": 64,
+          "assists": 130,
+          "score_sum": 35.5,
+          "scored_games": 6
+        },
+        {
+          "day": "2026-01-29",
+          "games": 3,
+          "wins": 3,
+          "kills": 27,
+          "deaths": 27,
+          "assists": 68,
+          "score_sum": 18.2,
+          "scored_games": 3
+        },
+        {
+          "day": "2026-01-30",
+          "games": 7,
+          "wins": 5,
+          "kills": 56,
+          "deaths": 58,
+          "assists": 215,
+          "score_sum": 43.4,
+          "scored_games": 7
+        },
+        {
+          "day": "2026-02-08",
+          "games": 8,
+          "wins": 2,
+          "kills": 63,
+          "deaths": 69,
+          "assists": 213,
+          "score_sum": 43.9,
+          "scored_games": 8
+        },
+        {
+          "day": "2026-02-09",
+          "games": 3,
+          "wins": 2,
+          "kills": 22,
+          "deaths": 33,
+          "assists": 91,
+          "score_sum": 16.2,
+          "scored_games": 3
+        },
+        {
+          "day": "2026-02-25",
+          "games": 5,
+          "wins": 3,
+          "kills": 26,
+          "deaths": 39,
+          "assists": 138,
+          "score_sum": 30.7,
+          "scored_games": 5
+        },
+        {
+          "day": "2026-02-26",
+          "games": 1,
+          "wins": 1,
+          "kills": 8,
+          "deaths": 15,
+          "assists": 33,
+          "score_sum": 4.4,
+          "scored_games": 1
+        },
+        {
+          "day": "2026-02-27",
+          "games": 6,
+          "wins": 4,
+          "kills": 33,
+          "deaths": 42,
+          "assists": 123,
+          "score_sum": 27.4,
+          "scored_games": 6
+        },
+        {
+          "day": "2026-02-28",
+          "games": 15,
+          "wins": 6,
+          "kills": 103,
+          "deaths": 123,
+          "assists": 381,
+          "score_sum": 88.5,
+          "scored_games": 15
+        },
+        {
+          "day": "2026-03-01",
+          "games": 15,
+          "wins": 7,
+          "kills": 141,
+          "deaths": 122,
+          "assists": 455,
+          "score_sum": 102.9,
+          "scored_games": 15
+        },
+        {
+          "day": "2026-03-02",
+          "games": 2,
+          "wins": 2,
+          "kills": 27,
+          "deaths": 28,
+          "assists": 76,
+          "score_sum": 12.7,
+          "scored_games": 2
+        },
+        {
+          "day": "2026-03-03",
+          "games": 4,
+          "wins": 3,
+          "kills": 44,
+          "deaths": 41,
+          "assists": 107,
+          "score_sum": 27.8,
+          "scored_games": 4
+        },
+        {
+          "day": "2026-03-05",
+          "games": 3,
+          "wins": 1,
+          "kills": 30,
+          "deaths": 27,
+          "assists": 68,
+          "score_sum": 18.3,
+          "scored_games": 3
+        },
+        {
+          "day": "2026-03-11",
+          "games": 9,
+          "wins": 5,
+          "kills": 76,
+          "deaths": 77,
+          "assists": 217,
+          "score_sum": 52.5,
+          "scored_games": 9
+        },
+        {
+          "day": "2026-03-14",
+          "games": 15,
+          "wins": 7,
+          "kills": 106,
+          "deaths": 143,
+          "assists": 379,
+          "score_sum": 86.8,
+          "scored_games": 15
+        },
+        {
+          "day": "2026-03-24",
+          "games": 2,
+          "wins": 2,
+          "kills": 12,
+          "deaths": 16,
+          "assists": 50,
+          "score_sum": 11.1,
+          "scored_games": 2
+        },
+        {
+          "day": "2026-05-14",
+          "games": 4,
+          "wins": 1,
+          "kills": 56,
+          "deaths": 55,
+          "assists": 113,
+          "score_sum": 21.4,
+          "scored_games": 4
+        },
+        {
+          "day": "2026-05-15",
+          "games": 5,
+          "wins": 2,
+          "kills": 60,
+          "deaths": 61,
+          "assists": 170,
+          "score_sum": 34.5,
+          "scored_games": 5
+        },
+        {
+          "day": "2026-05-16",
+          "games": 2,
+          "wins": 1,
+          "kills": 11,
+          "deaths": 18,
+          "assists": 49,
+          "score_sum": 9,
+          "scored_games": 2
+        },
+        {
+          "day": "2026-05-21",
+          "games": 3,
+          "wins": 2,
+          "kills": 13,
+          "deaths": 26,
+          "assists": 76,
+          "score_sum": 18.2,
+          "scored_games": 3
+        },
+        {
+          "day": "2026-05-27",
+          "games": 1,
+          "wins": 1,
+          "kills": 11,
+          "deaths": 9,
+          "assists": 23,
+          "score_sum": 8.3,
+          "scored_games": 1
+        },
+        {
+          "day": "2026-05-28",
+          "games": 6,
+          "wins": 1,
+          "kills": 32,
+          "deaths": 49,
+          "assists": 152,
+          "score_sum": 30.6,
+          "scored_games": 6
+        },
+        {
+          "day": "2026-05-30",
+          "games": 10,
+          "wins": 8,
+          "kills": 94,
+          "deaths": 84,
+          "assists": 296,
+          "score_sum": 66.4,
+          "scored_games": 10
+        },
+        {
+          "day": "2026-05-31",
+          "games": 10,
+          "wins": 5,
+          "kills": 89,
+          "deaths": 103,
+          "assists": 257,
+          "score_sum": 57.800000000000004,
+          "scored_games": 10
+        },
+        {
+          "day": "2026-06-10",
+          "games": 1,
+          "wins": 1,
+          "kills": 13,
+          "deaths": 8,
+          "assists": 32,
+          "score_sum": 6.3,
+          "scored_games": 1
+        },
+        {
+          "day": "2026-06-11",
+          "games": 6,
+          "wins": 4,
+          "kills": 62,
+          "deaths": 43,
+          "assists": 223,
+          "score_sum": 44.6,
+          "scored_games": 6
+        },
+        {
+          "day": "2026-06-16",
+          "games": 3,
+          "wins": 2,
+          "kills": 23,
+          "deaths": 14,
+          "assists": 84,
+          "score_sum": 21.4,
+          "scored_games": 3
+        },
+        {
+          "day": "2026-06-17",
+          "games": 3,
+          "wins": 2,
+          "kills": 27,
+          "deaths": 27,
+          "assists": 58,
+          "score_sum": 15.8,
+          "scored_games": 3
+        },
+        {
+          "day": "2026-07-13",
+          "games": 12,
+          "wins": 4,
+          "kills": 87,
+          "deaths": 99,
+          "assists": 297,
+          "score_sum": 66.4,
+          "scored_games": 12
+        },
+        {
+          "day": "2026-07-14",
+          "games": 5,
+          "wins": 2,
+          "kills": 36,
+          "deaths": 38,
+          "assists": 112,
+          "score_sum": 28.2,
+          "scored_games": 5
+        },
+        {
+          "day": "2026-07-15",
+          "games": 1,
+          "wins": 1,
+          "kills": 8,
+          "deaths": 8,
+          "assists": 23,
+          "score_sum": 6.4,
+          "scored_games": 1
+        },
+        {
+          "day": "2026-07-17",
+          "games": 10,
+          "wins": 7,
+          "kills": 70,
+          "deaths": 75,
+          "assists": 311,
+          "score_sum": 58.1,
+          "scored_games": 10
+        },
+        {
+          "day": "2026-07-18",
+          "games": 5,
+          "wins": 1,
+          "kills": 49,
+          "deaths": 48,
+          "assists": 105,
+          "score_sum": 27.9,
+          "scored_games": 5
+        },
+        {
+          "day": "2026-07-19",
+          "games": 8,
+          "wins": 3,
+          "kills": 59,
+          "deaths": 87,
+          "assists": 205,
+          "score_sum": 45.8,
+          "scored_games": 8
+        },
+        {
+          "day": "2026-07-20",
+          "games": 9,
+          "wins": 6,
+          "kills": 79,
+          "deaths": 70,
+          "assists": 210,
+          "score_sum": 60.9,
+          "scored_games": 9
+        },
+        {
+          "day": "2026-07-21",
+          "games": 5,
+          "wins": 3,
+          "kills": 53,
+          "deaths": 50,
+          "assists": 132,
+          "score_sum": 29.4,
+          "scored_games": 5
+        },
+        {
+          "day": "2026-07-22",
+          "games": 3,
+          "wins": 1,
+          "kills": 18,
+          "deaths": 27,
+          "assists": 71,
+          "score_sum": 17.1,
+          "scored_games": 3
+        },
+        {
+          "day": "2026-07-24",
+          "games": 5,
+          "wins": 2,
+          "kills": 28,
+          "deaths": 35,
+          "assists": 163,
+          "score_sum": 32,
+          "scored_games": 5
+        },
+        {
+          "day": "2026-07-29",
+          "games": 6,
+          "wins": 3,
+          "kills": 45,
+          "deaths": 56,
+          "assists": 145,
+          "score_sum": 35.9,
+          "scored_games": 6
+        },
+        {
+          "day": "2026-07-30",
+          "games": 9,
+          "wins": 4,
+          "kills": 58,
+          "deaths": 79,
+          "assists": 221,
+          "score_sum": 53.7,
+          "scored_games": 9
+        },
+        {
+          "day": "2026-07-31",
+          "games": 8,
+          "wins": 4,
+          "kills": 66,
+          "deaths": 81,
+          "assists": 179,
+          "score_sum": 47.5,
+          "scored_games": 8
+        },
+        {
+          "day": "2026-08-01",
+          "games": 11,
+          "wins": 7,
+          "kills": 55,
+          "deaths": 108,
+          "assists": 332,
+          "score_sum": 61.3,
+          "scored_games": 11
+        },
+        {
+          "day": "2026-08-02",
+          "games": 10,
+          "wins": 4,
+          "kills": 74,
+          "deaths": 92,
+          "assists": 328,
+          "score_sum": 60.3,
+          "scored_games": 10
+        },
+        {
+          "day": "2026-08-03",
+          "games": 11,
+          "wins": 4,
+          "kills": 138,
+          "deaths": 95,
+          "assists": 312,
+          "score_sum": 81.8,
+          "scored_games": 11
+        },
+        {
+          "day": "2026-08-05",
+          "games": 4,
+          "wins": 3,
+          "kills": 26,
+          "deaths": 26,
+          "assists": 102,
+          "score_sum": 27.6,
+          "scored_games": 4
+        },
+        {
+          "day": "2026-08-06",
+          "games": 16,
+          "wins": 4,
+          "kills": 180,
+          "deaths": 150,
+          "assists": 425,
+          "score_sum": 103.9,
+          "scored_games": 16
+        },
+        {
+          "day": "2026-08-07",
+          "games": 19,
+          "wins": 8,
+          "kills": 151,
+          "deaths": 165,
+          "assists": 480,
+          "score_sum": 114.5,
+          "scored_games": 19
+        },
+        {
+          "day": "2026-08-08",
+          "games": 5,
+          "wins": 3,
+          "kills": 43,
+          "deaths": 48,
+          "assists": 135,
+          "score_sum": 30.8,
+          "scored_games": 5
+        },
+        {
+          "day": "2026-08-09",
+          "games": 19,
+          "wins": 11,
+          "kills": 241,
+          "deaths": 195,
+          "assists": 435,
+          "score_sum": 131,
+          "scored_games": 19
+        },
+        {
+          "day": "2026-08-10",
+          "games": 7,
+          "wins": 3,
+          "kills": 83,
+          "deaths": 61,
+          "assists": 148,
+          "score_sum": 45.8,
+          "scored_games": 7
+        },
+        {
+          "day": "2026-08-11",
+          "games": 7,
+          "wins": 5,
+          "kills": 71,
+          "deaths": 67,
+          "assists": 171,
+          "score_sum": 50.800000000000004,
+          "scored_games": 7
+        },
+        {
+          "day": "2026-08-15",
+          "games": 3,
+          "wins": 3,
+          "kills": 40,
+          "deaths": 37,
+          "assists": 63,
+          "score_sum": 19.7,
+          "scored_games": 3
+        },
+        {
+          "day": "2026-08-16",
+          "games": 1,
+          "wins": 1,
+          "kills": 9,
+          "deaths": 8,
+          "assists": 38,
+          "score_sum": 8.3,
+          "scored_games": 1
+        },
+        {
+          "day": "2026-08-17",
+          "games": 3,
+          "wins": 2,
+          "kills": 43,
+          "deaths": 25,
+          "assists": 94,
+          "score_sum": 22.7,
+          "scored_games": 3
+        },
+        {
+          "day": "2026-08-18",
+          "games": 7,
+          "wins": 4,
+          "kills": 75,
+          "deaths": 67,
+          "assists": 185,
+          "score_sum": 51.1,
+          "scored_games": 7
+        },
+        {
+          "day": "2026-08-19",
+          "games": 8,
+          "wins": 3,
+          "kills": 92,
+          "deaths": 55,
+          "assists": 227,
+          "score_sum": 61.2,
+          "scored_games": 8
+        },
+        {
+          "day": "2026-08-20",
+          "games": 5,
+          "wins": 3,
+          "kills": 51,
+          "deaths": 54,
+          "assists": 166,
+          "score_sum": 35.8,
+          "scored_games": 5
+        },
+        {
+          "day": "2026-08-23",
+          "games": 13,
+          "wins": 7,
+          "kills": 173,
+          "deaths": 111,
+          "assists": 322,
+          "score_sum": 91.4,
+          "scored_games": 13
+        },
+        {
+          "day": "2026-08-25",
+          "games": 4,
+          "wins": 1,
+          "kills": 33,
+          "deaths": 29,
+          "assists": 120,
+          "score_sum": 25.6,
+          "scored_games": 4
+        },
+        {
+          "day": "2026-08-27",
+          "games": 5,
+          "wins": 4,
+          "kills": 75,
+          "deaths": 41,
+          "assists": 153,
+          "score_sum": 41.7,
+          "scored_games": 5
+        },
+        {
+          "day": "2026-08-28",
+          "games": 6,
+          "wins": 4,
+          "kills": 56,
+          "deaths": 49,
+          "assists": 190,
+          "score_sum": 40.699999999999996,
+          "scored_games": 6
+        },
+        {
+          "day": "2026-08-29",
+          "games": 5,
+          "wins": 4,
+          "kills": 53,
+          "deaths": 57,
+          "assists": 139,
+          "score_sum": 34.4,
+          "scored_games": 5
+        },
+        {
+          "day": "2026-08-31",
+          "games": 7,
+          "wins": 3,
+          "kills": 82,
+          "deaths": 72,
+          "assists": 232,
+          "score_sum": 49.5,
+          "scored_games": 7
+        },
+        {
+          "day": "2026-09-02",
+          "games": 4,
+          "wins": 3,
+          "kills": 73,
+          "deaths": 32,
+          "assists": 118,
+          "score_sum": 32.5,
+          "scored_games": 4
+        },
+        {
+          "day": "2026-09-10",
+          "games": 6,
+          "wins": 3,
+          "kills": 61,
+          "deaths": 68,
+          "assists": 163,
+          "score_sum": 35.7,
+          "scored_games": 6
+        },
+        {
+          "day": "2026-09-11",
+          "games": 7,
+          "wins": 4,
+          "kills": 57,
+          "deaths": 43,
+          "assists": 246,
+          "score_sum": 51.9,
+          "scored_games": 7
+        },
+        {
+          "day": "2026-09-12",
+          "games": 9,
+          "wins": 4,
+          "kills": 84,
+          "deaths": 85,
+          "assists": 304,
+          "score_sum": 65.2,
+          "scored_games": 9
+        },
+        {
+          "day": "2026-11-07",
+          "games": 6,
+          "wins": 2,
+          "kills": 63,
+          "deaths": 51,
+          "assists": 127,
+          "score_sum": 37.7,
+          "scored_games": 6
+        },
+        {
+          "day": "2026-11-08",
+          "games": 17,
+          "wins": 8,
+          "kills": 159,
+          "deaths": 180,
+          "assists": 450,
+          "score_sum": 104.9,
+          "scored_games": 17
+        },
+        {
+          "day": "2026-11-09",
+          "games": 11,
+          "wins": 3,
+          "kills": 142,
+          "deaths": 116,
+          "assists": 276,
+          "score_sum": 69.6,
+          "scored_games": 11
+        },
+        {
+          "day": "2026-11-10",
+          "games": 2,
+          "wins": 1,
+          "kills": 34,
+          "deaths": 16,
+          "assists": 58,
+          "score_sum": 14.3,
+          "scored_games": 2
+        },
+        {
+          "day": "2026-11-11",
+          "games": 11,
+          "wins": 7,
+          "kills": 100,
+          "deaths": 130,
+          "assists": 264,
+          "score_sum": 62.2,
+          "scored_games": 11
+        },
+        {
+          "day": "2026-11-12",
+          "games": 12,
+          "wins": 3,
+          "kills": 97,
+          "deaths": 115,
+          "assists": 261,
+          "score_sum": 66.2,
+          "scored_games": 12
+        },
+        {
+          "day": "2026-11-13",
+          "games": 16,
+          "wins": 7,
+          "kills": 171,
+          "deaths": 167,
+          "assists": 411,
+          "score_sum": 91.8,
+          "scored_games": 16
+        },
+        {
+          "day": "2026-11-14",
+          "games": 13,
+          "wins": 9,
+          "kills": 129,
+          "deaths": 115,
+          "assists": 353,
+          "score_sum": 80.7,
+          "scored_games": 13
+        },
+        {
+          "day": "2026-11-15",
+          "games": 18,
+          "wins": 13,
+          "kills": 150,
+          "deaths": 181,
+          "assists": 437,
+          "score_sum": 104.2,
+          "scored_games": 18
+        },
+        {
+          "day": "2026-11-16",
+          "games": 12,
+          "wins": 4,
+          "kills": 85,
+          "deaths": 111,
+          "assists": 346,
+          "score_sum": 68.6,
+          "scored_games": 12
+        },
+        {
+          "day": "2026-11-17",
+          "games": 6,
+          "wins": 4,
+          "kills": 52,
+          "deaths": 39,
+          "assists": 155,
+          "score_sum": 44.3,
+          "scored_games": 6
+        },
+        {
+          "day": "2026-11-18",
+          "games": 11,
+          "wins": 5,
+          "kills": 43,
+          "deaths": 96,
+          "assists": 350,
+          "score_sum": 63.199999999999996,
+          "scored_games": 11
+        },
+        {
+          "day": "2026-11-20",
+          "games": 2,
+          "wins": 1,
+          "kills": 10,
+          "deaths": 15,
+          "assists": 82,
+          "score_sum": 13.6,
+          "scored_games": 2
+        },
+        {
+          "day": "2026-11-21",
+          "games": 11,
+          "wins": 7,
+          "kills": 110,
+          "deaths": 99,
+          "assists": 371,
+          "score_sum": 73.4,
+          "scored_games": 11
+        },
+        {
+          "day": "2026-11-22",
+          "games": 12,
+          "wins": 6,
+          "kills": 145,
+          "deaths": 111,
+          "assists": 333,
+          "score_sum": 78.6,
+          "scored_games": 12
+        }
+      ],
+      "patches": [
+        {
+          "patch": "16.1",
+          "games": 27,
+          "wins": 12,
+          "avg_score": 5.681481481481482,
+          "first_played": 1768107527494
+        },
+        {
+          "patch": "16.2",
+          "games": 41,
+          "wins": 25,
+          "avg_score": 5.836585365853659,
+          "first_played": 1769321557219
+        },
+        {
+          "patch": "16.3",
+          "games": 11,
+          "wins": 4,
+          "avg_score": 5.463636363636364,
+          "first_played": 1770604579001
+        },
+        {
+          "patch": "16.4",
+          "games": 48,
+          "wins": 26,
+          "avg_score": 6.133333333333333,
+          "first_played": 1772076742943
+        },
+        {
+          "patch": "16.5",
+          "games": 27,
+          "wins": 13,
+          "avg_score": 5.837037037037037,
+          "first_played": 1772765206321
+        },
+        {
+          "patch": "16.6",
+          "games": 2,
+          "wins": 2,
+          "avg_score": 5.55,
+          "first_played": 1774326933114
+        },
+        {
+          "patch": "16.10",
+          "games": 21,
+          "wins": 8,
+          "avg_score": 5.809523809523809,
+          "first_played": 1778811594781
+        },
+        {
+          "patch": "16.11",
+          "games": 20,
+          "wins": 13,
+          "avg_score": 6.21,
+          "first_played": 1780119211198
+        },
+        {
+          "patch": "16.12",
+          "games": 13,
+          "wins": 9,
+          "avg_score": 6.776923076923077,
+          "first_played": 1781149546202
+        },
+        {
+          "patch": "16.13",
+          "games": 18,
+          "wins": 7,
+          "avg_score": 5.611111111111111,
+          "first_played": 1783926120102
+        },
+        {
+          "patch": "16.14",
+          "games": 45,
+          "wins": 23,
+          "avg_score": 6.026666666666666,
+          "first_played": 1784268713408
+        },
+        {
+          "patch": "16.15",
+          "games": 132,
+          "wins": 63,
+          "avg_score": 6.400757575757575,
+          "first_played": 1785377715201
+        },
+        {
+          "patch": "16.16",
+          "games": 44,
+          "wins": 24,
+          "avg_score": 7.177272727272728,
+          "first_played": 1786775737115
+        },
+        {
+          "patch": "16.17",
+          "games": 27,
+          "wins": 18,
+          "avg_score": 7.362962962962963,
+          "first_played": 1787881475819
+        },
+        {
+          "patch": "16.18",
+          "games": 22,
+          "wins": 11,
+          "avg_score": 6.945454545454546,
+          "first_played": 1789090924433
+        },
+        {
+          "patch": "16.22",
+          "games": 129,
+          "wins": 63,
+          "avg_score": 6.003875968992248,
+          "first_played": 1794104597501
+        },
+        {
+          "patch": "16.23",
+          "games": 31,
+          "wins": 17,
+          "avg_score": 6.412903225806452,
+          "first_played": 1795056972503
+        }
+      ],
+      "hours": [
+        {
+          "hour": 0,
+          "games": 113,
+          "wins": 60
+        },
+        {
+          "hour": 1,
+          "games": 112,
+          "wins": 56
+        },
+        {
+          "hour": 2,
+          "games": 87,
+          "wins": 46
+        },
+        {
+          "hour": 3,
+          "games": 50,
+          "wins": 27
+        },
+        {
+          "hour": 4,
+          "games": 27,
+          "wins": 13
+        },
+        {
+          "hour": 5,
+          "games": 9,
+          "wins": 2
+        },
+        {
+          "hour": 6,
+          "games": 2,
+          "wins": 2
+        },
+        {
+          "hour": 13,
+          "games": 2,
+          "wins": 1
+        },
+        {
+          "hour": 14,
+          "games": 7,
+          "wins": 3
+        },
+        {
+          "hour": 15,
+          "games": 5,
+          "wins": 2
+        },
+        {
+          "hour": 16,
+          "games": 9,
+          "wins": 6
+        },
+        {
+          "hour": 17,
+          "games": 9,
+          "wins": 6
+        },
+        {
+          "hour": 18,
+          "games": 13,
+          "wins": 6
+        },
+        {
+          "hour": 19,
+          "games": 18,
+          "wins": 7
+        },
+        {
+          "hour": 20,
+          "games": 15,
+          "wins": 7
+        },
+        {
+          "hour": 21,
+          "games": 25,
+          "wins": 11
+        },
+        {
+          "hour": 22,
+          "games": 61,
+          "wins": 30
+        },
+        {
+          "hour": 23,
+          "games": 94,
+          "wins": 53
+        }
+      ],
+      "weekdays": [
+        {
+          "weekday": 0,
+          "games": 145,
+          "wins": 75
+        },
+        {
+          "weekday": 1,
+          "games": 94,
+          "wins": 39
+        },
+        {
+          "weekday": 2,
+          "games": 53,
+          "wins": 33
+        },
+        {
+          "weekday": 3,
+          "games": 76,
+          "wins": 42
+        },
+        {
+          "weekday": 4,
+          "games": 88,
+          "wins": 38
+        },
+        {
+          "weekday": 5,
+          "games": 91,
+          "wins": 48
+        },
+        {
+          "weekday": 6,
+          "games": 111,
+          "wins": 63
+        }
+      ]
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

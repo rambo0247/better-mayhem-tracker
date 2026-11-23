@@ -1,0 +1,28 @@
+{
+  "format": 1,
+  "channel": "app:open-url",
+  "method": "openUrl",
+  "registered": true,
+  "case": "https",
+  "description": "an https url reaches the OS",
+  "group": "read",
+  "seq": 108,
+  "args": [
+    "https://example.com/"
+  ],
+  "outcome": {
+    "kind": "void"
+  },
+  "events": [],
+  "effects": [
+    {
+      "seq": 0,
+      "api": "shell.openExternal",
+      "args": [
+        "https://example.com/"
+      ]
+    }
+  ],
+  "files": [],
+  "nonFinite": []
+}

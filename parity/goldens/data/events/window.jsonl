@@ -1,0 +1,2 @@
+{"seq":0,"event":"window:maximized-changed","cause":{"channel":"window:toggle-maximize","case":"maximize"},"payload":true}
+{"seq":1,"event":"window:maximized-changed","cause":{"channel":"window:toggle-maximize","case":"restore"},"payload":false}

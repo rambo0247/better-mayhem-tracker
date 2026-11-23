@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "channel": "db:match-filters",
+  "method": "getMatchFilterOptions",
+  "registered": true,
+  "case": "state-5887ef1026",
+  "description": "the call the page made in state backfill-toast-done",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {}
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "patches": [
+        "16.23"
+      ],
+      "champions": [
+        79
+      ],
+      "queues": [
+        2400
+      ],
+      "seasons": [
+        "set-0"
+      ],
+      "accounts": [
+        {
+          "puuid": "fa4e0000-0000-4000-8000-000000000dea",
+          "name": "UpbeatGarnet4#Z1159",
+          "profileIcon": 4964
+        }
+      ],
+      "hasFavorites": false
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

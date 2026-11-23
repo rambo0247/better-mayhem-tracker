@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "state-f4c9be2c52",
+  "description": "the call the page made in state match-history-sorted-score",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    1084,
+    "16.12"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/cherry/augments/icons/threadtheneedle_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

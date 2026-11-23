@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "state-e19a9d3871",
+  "description": "the call the page made in state match-history-sorted-score-ascending",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    1326,
+    "16.5"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/kiwi/augments/icons/nightstalking_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

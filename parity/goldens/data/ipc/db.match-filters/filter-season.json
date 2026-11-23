@@ -1,0 +1,122 @@
+{
+  "format": 1,
+  "channel": "db:match-filters",
+  "method": "getMatchFilterOptions",
+  "registered": true,
+  "case": "filter-season",
+  "description": "options under one season",
+  "group": "read",
+  "seq": 19,
+  "args": [
+    {
+      "season": "set-3"
+    }
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "patches": [
+        "16.23",
+        "16.22"
+      ],
+      "champions": [
+        2,
+        4,
+        5,
+        7,
+        10,
+        12,
+        13,
+        15,
+        16,
+        18,
+        21,
+        22,
+        26,
+        31,
+        32,
+        33,
+        34,
+        37,
+        41,
+        42,
+        43,
+        44,
+        45,
+        48,
+        50,
+        51,
+        53,
+        54,
+        57,
+        59,
+        63,
+        64,
+        67,
+        74,
+        75,
+        76,
+        78,
+        79,
+        81,
+        83,
+        85,
+        90,
+        96,
+        104,
+        106,
+        110,
+        111,
+        117,
+        120,
+        126,
+        134,
+        136,
+        142,
+        143,
+        145,
+        147,
+        163,
+        166,
+        201,
+        221,
+        222,
+        235,
+        350,
+        412,
+        420,
+        429,
+        432,
+        498,
+        516,
+        517,
+        800,
+        804,
+        888,
+        901,
+        902
+      ],
+      "queues": [
+        2400
+      ],
+      "seasons": [
+        "set-3",
+        "set-2",
+        "set-1",
+        "set-0"
+      ],
+      "accounts": [
+        {
+          "puuid": "fa4e0000-0000-4000-8000-000000000dea",
+          "name": "UpbeatGarnet4#Z1159",
+          "profileIcon": 4964
+        }
+      ],
+      "hasFavorites": true
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

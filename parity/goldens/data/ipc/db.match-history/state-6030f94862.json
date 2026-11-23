@@ -1,0 +1,63 @@
+{
+  "format": 1,
+  "channel": "db:match-history",
+  "method": "getMatchHistory",
+  "registered": true,
+  "case": "state-6030f94862",
+  "description": "the call the page made in state live-results-late",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    1,
+    0
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "matches": [
+        {
+          "game_id": 7000000000,
+          "queue_id": 2400,
+          "game_creation": 1795397918000,
+          "game_duration": 1102,
+          "is_remake": 0,
+          "favorite": 0,
+          "puuid": "fa4e0000-0000-4000-8000-000000000dea",
+          "game_version": "16.23",
+          "champion_id": 79,
+          "win": 0,
+          "kills": 12,
+          "deaths": 11,
+          "assists": 19,
+          "double_kills": 1,
+          "triple_kills": 0,
+          "quadra_kills": 0,
+          "penta_kills": 0,
+          "total_damage_dealt": 37501,
+          "total_damage_taken": 38009,
+          "total_heal": 9058,
+          "gold_earned": 16380,
+          "score": 5.8,
+          "score_badge": null,
+          "spell1": 4,
+          "spell2": 32,
+          "item0": 3040,
+          "item1": 4629,
+          "item2": 3137,
+          "item3": 4628,
+          "item4": 2503,
+          "item5": 3024,
+          "augment_ids": "2100,1088,1211,1151",
+          "game_max_dmg": 56750,
+          "game_max_taken": 86498,
+          "game_max_heal": 39416
+        }
+      ],
+      "total": 670
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

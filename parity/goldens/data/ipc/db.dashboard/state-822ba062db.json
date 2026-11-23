@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "channel": "db:dashboard",
+  "method": "getDashboard",
+  "registered": true,
+  "case": "state-822ba062db",
+  "description": "the call the page made in state backfill-toast-error",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {}
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "totalGames": 20,
+      "totalDuration": 22507,
+      "wins": 12,
+      "totalKills": 216,
+      "totalDeaths": 184,
+      "totalAssists": 572,
+      "avgScore": 6.345000000000001,
+      "mvps": 2,
+      "aces": 1,
+      "scoredWins": 12,
+      "scoredLosses": 8,
+      "accounts": 1,
+      "recentForm": [
+        {
+          "win": 0,
+          "game_id": 5684865505
+        },
+        {
+          "win": 1,
+          "game_id": 5684562726
+        },
+        {
+          "win": 1,
+          "game_id": 5684569863
+        },
+        {
+          "win": 1,
+          "game_id": 5684556449
+        },
+        {
+          "win": 0,
+          "game_id": 5684552389
+        },
+        {
+          "win": 0,
+          "game_id": 5684541511
+        },
+        {
+          "win": 0,
+          "game_id": 5684548840
+        },
+        {
+          "win": 0,
+          "game_id": 5684527471
+        },
+        {
+          "win": 0,
+          "game_id": 5684523086
+        },
+        {
+          "win": 1,
+          "game_id": 5684514854
+        }
+      ],
+      "multikills": {
+        "doubles": 34,
+        "triples": 8,
+        "quadras": 2,
+        "pentas": 0
+      }
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

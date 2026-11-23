@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "channel": "data:import",
+  "method": "importData",
+  "registered": true,
+  "case": "not-json",
+  "description": "a file that is not JSON",
+  "group": "data-transfer",
+  "seq": 4,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "success": false,
+      "error": "Import failed: it isn't valid JSON"
+    }
+  },
+  "events": [],
+  "effects": [
+    {
+      "seq": 0,
+      "api": "dialog.showOpenDialog",
+      "args": [
+        {
+          "title": "Import Better Mayhem Tracker Data",
+          "filters": [
+            {
+              "name": "JSON",
+              "extensions": [
+                "json"
+              ]
+            }
+          ],
+          "properties": [
+            "openFile"
+          ]
+        }
+      ]
+    }
+  ],
+  "files": [],
+  "nonFinite": []
+}

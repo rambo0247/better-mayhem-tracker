@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "settings:get",
+  "method": "getSetting",
+  "registered": true,
+  "case": "state-57ade8ad02",
+  "description": "the call the page made in state match-history-grouped-none",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    "session_grouping"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "none"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

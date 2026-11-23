@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "settings:get",
+  "method": "getSetting",
+  "registered": true,
+  "case": "after-auto-start",
+  "description": "reads back auto_start",
+  "group": "settings-write",
+  "seq": 6,
+  "args": [
+    "auto_start"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "true"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

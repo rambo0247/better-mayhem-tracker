@@ -1,0 +1,30 @@
+{
+  "format": 1,
+  "channel": "db:match-history",
+  "method": "getMatchHistory",
+  "registered": true,
+  "case": "state-8ffd730999",
+  "description": "the call the page made in state match-history-empty-waiting",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    20,
+    0,
+    {
+      "sortDir": "desc",
+      "favorites": false,
+      "multikills": []
+    }
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "matches": [],
+      "total": 0
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

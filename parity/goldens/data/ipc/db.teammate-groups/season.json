@@ -1,0 +1,1435 @@
+{
+  "format": 1,
+  "channel": "db:teammate-groups",
+  "method": "getTeammateGroups",
+  "registered": true,
+  "case": "season",
+  "description": "one season",
+  "group": "read",
+  "seq": 59,
+  "args": [
+    "set-3"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000080f",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          }
+        ],
+        "games": 14,
+        "wins": 8,
+        "kills": 723,
+        "deaths": 702,
+        "assists": 1625,
+        "lastPlayed": 1794728119298
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000080f,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 11,
+        "wins": 5,
+        "kills": 608,
+        "deaths": 502,
+        "assists": 1562,
+        "lastPlayed": 1795339985921
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-00000000088e,fa4e0000-0000-4000-8000-000000000607",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          }
+        ],
+        "games": 7,
+        "wins": 6,
+        "kills": 473,
+        "deaths": 417,
+        "assists": 1054,
+        "lastPlayed": 1795248938246
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-00000000093b",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          }
+        ],
+        "games": 7,
+        "wins": 2,
+        "kills": 195,
+        "deaths": 229,
+        "assists": 551,
+        "lastPlayed": 1794887164439
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000080f,fa4e0000-0000-4000-8000-000000000607",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          }
+        ],
+        "games": 7,
+        "wins": 3,
+        "kills": 345,
+        "deaths": 394,
+        "assists": 712,
+        "lastPlayed": 1794465803818
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-00000000088e,fa4e0000-0000-4000-8000-0000000001ba,fa4e0000-0000-4000-8000-0000000001f1",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001f1",
+            "name": "ShadyDragon#Z1260",
+            "profileIcon": 3543
+          }
+        ],
+        "games": 6,
+        "wins": 2,
+        "kills": 298,
+        "deaths": 261,
+        "assists": 746,
+        "lastPlayed": 1794982872352
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000080f,fa4e0000-0000-4000-8000-00000000088e,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 6,
+        "wins": 4,
+        "kills": 380,
+        "deaths": 340,
+        "assists": 955,
+        "lastPlayed": 1794638053021
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-00000000080f,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 5,
+        "wins": 4,
+        "kills": 281,
+        "deaths": 214,
+        "assists": 726,
+        "lastPlayed": 1795342890202
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-000000000607",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          }
+        ],
+        "games": 5,
+        "wins": 2,
+        "kills": 303,
+        "deaths": 250,
+        "assists": 765,
+        "lastPlayed": 1795062714933
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000088e,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-000000000607",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          }
+        ],
+        "games": 5,
+        "wins": 3,
+        "kills": 294,
+        "deaths": 284,
+        "assists": 695,
+        "lastPlayed": 1794128869872
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000088e,fa4e0000-0000-4000-8000-000000000607",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          }
+        ],
+        "games": 5,
+        "wins": 0,
+        "kills": 235,
+        "deaths": 255,
+        "assists": 518,
+        "lastPlayed": 1794122379807
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-00000000080f,fa4e0000-0000-4000-8000-00000000093b",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          }
+        ],
+        "games": 4,
+        "wins": 2,
+        "kills": 239,
+        "deaths": 233,
+        "assists": 488,
+        "lastPlayed": 1794813962451
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000004a8",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          }
+        ],
+        "games": 4,
+        "wins": 1,
+        "kills": 91,
+        "deaths": 92,
+        "assists": 153,
+        "lastPlayed": 1794614456344
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000079b,fa4e0000-0000-4000-8000-0000000009bc",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000079b",
+            "name": "DustyQuartz#Z286",
+            "profileIcon": 7332
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009bc",
+            "name": "HazyLantern4#Z1495",
+            "profileIcon": 6026
+          }
+        ],
+        "games": 4,
+        "wins": 1,
+        "kills": 139,
+        "deaths": 151,
+        "assists": 330,
+        "lastPlayed": 1794539796245
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-000000000607",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          }
+        ],
+        "games": 4,
+        "wins": 3,
+        "kills": 204,
+        "deaths": 202,
+        "assists": 416,
+        "lastPlayed": 1794447537021
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-00000000080f,fa4e0000-0000-4000-8000-00000000093b",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          }
+        ],
+        "games": 4,
+        "wins": 1,
+        "kills": 153,
+        "deaths": 158,
+        "assists": 355,
+        "lastPlayed": 1794254284281
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000079b,fa4e0000-0000-4000-8000-000000000e2c,fa4e0000-0000-4000-8000-0000000000ee",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000079b",
+            "name": "DustyQuartz#Z286",
+            "profileIcon": 7332
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000e2c",
+            "name": "JollyPebble#Z1097",
+            "profileIcon": 5269
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000000ee",
+            "name": "PluckySummit#Z1097",
+            "profileIcon": 5076
+          }
+        ],
+        "games": 4,
+        "wins": 1,
+        "kills": 202,
+        "deaths": 238,
+        "assists": 461,
+        "lastPlayed": 1794108297334
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-000000000607",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          }
+        ],
+        "games": 3,
+        "wins": 1,
+        "kills": 161,
+        "deaths": 157,
+        "assists": 367,
+        "lastPlayed": 1795238983094
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 3,
+        "wins": 2,
+        "kills": 134,
+        "deaths": 110,
+        "assists": 350,
+        "lastPlayed": 1794893917485
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          }
+        ],
+        "games": 3,
+        "wins": 2,
+        "kills": 69,
+        "deaths": 63,
+        "assists": 164,
+        "lastPlayed": 1794883528719
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-000000000805,fa4e0000-0000-4000-8000-0000000003e5,fa4e0000-0000-4000-8000-000000000ae9",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000805",
+            "name": "TidyUmbra3#Z1449",
+            "profileIcon": 7244
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e5",
+            "name": "RustyQuartz1#Z227",
+            "profileIcon": 7244
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000ae9",
+            "name": "ShadyUmbra3#Z1057",
+            "profileIcon": 3840
+          }
+        ],
+        "games": 3,
+        "wins": 3,
+        "kills": 128,
+        "deaths": 135,
+        "assists": 347,
+        "lastPlayed": 1794790148603
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-00000000088e",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          }
+        ],
+        "games": 3,
+        "wins": 1,
+        "kills": 78,
+        "deaths": 97,
+        "assists": 197,
+        "lastPlayed": 1794785818701
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000088e,fa4e0000-0000-4000-8000-000000000607,fa4e0000-0000-4000-8000-00000000071f",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000071f",
+            "name": "FrostyMeadow2#Z471",
+            "profileIcon": 5983
+          }
+        ],
+        "games": 3,
+        "wins": 3,
+        "kills": 110,
+        "deaths": 97,
+        "assists": 299,
+        "lastPlayed": 1794116295856
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000088e,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-000000000607,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 2,
+        "wins": 1,
+        "kills": 70,
+        "deaths": 85,
+        "assists": 157,
+        "lastPlayed": 1795251713252
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-000000000607",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          }
+        ],
+        "games": 2,
+        "wins": 1,
+        "kills": 88,
+        "deaths": 50,
+        "assists": 200,
+        "lastPlayed": 1795235597885
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-0000000004a8",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          }
+        ],
+        "games": 2,
+        "wins": 1,
+        "kills": 51,
+        "deaths": 52,
+        "assists": 141,
+        "lastPlayed": 1795059138437
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-000000000d8a",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000d8a",
+            "name": "VividCobalt3#Z1097",
+            "profileIcon": 7333
+          }
+        ],
+        "games": 2,
+        "wins": 1,
+        "kills": 123,
+        "deaths": 101,
+        "assists": 345,
+        "lastPlayed": 1794811799608
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000080f",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          }
+        ],
+        "games": 2,
+        "wins": 2,
+        "kills": 72,
+        "deaths": 54,
+        "assists": 183,
+        "lastPlayed": 1794713642549
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000080f,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 2,
+        "wins": 2,
+        "kills": 101,
+        "deaths": 79,
+        "assists": 244,
+        "lastPlayed": 1794622700821
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 2,
+        "wins": 1,
+        "kills": 93,
+        "deaths": 73,
+        "assists": 216,
+        "lastPlayed": 1794617882717
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-00000000080f,fa4e0000-0000-4000-8000-000000000607",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          }
+        ],
+        "games": 2,
+        "wins": 1,
+        "kills": 81,
+        "deaths": 80,
+        "assists": 251,
+        "lastPlayed": 1794458238402
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-000000000112,fa4e0000-0000-4000-8000-000000000ac6",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000112",
+            "name": "TidyThistle#Z146",
+            "profileIcon": 5965
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000ac6",
+            "name": "CalmBadger5#Z1097",
+            "profileIcon": 5460
+          }
+        ],
+        "games": 2,
+        "wins": 1,
+        "kills": 86,
+        "deaths": 93,
+        "assists": 211,
+        "lastPlayed": 1794196086195
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-00000000088e,fa4e0000-0000-4000-8000-000000000607",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          }
+        ],
+        "games": 2,
+        "wins": 1,
+        "kills": 73,
+        "deaths": 76,
+        "assists": 193,
+        "lastPlayed": 1794113635109
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-000000000607,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 18,
+        "deaths": 31,
+        "assists": 56,
+        "lastPlayed": 1795393899248
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-00000000088e",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          }
+        ],
+        "games": 1,
+        "wins": 1,
+        "kills": 32,
+        "deaths": 27,
+        "assists": 58,
+        "lastPlayed": 1794976207164
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-00000000080f,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 1,
+        "wins": 1,
+        "kills": 48,
+        "deaths": 44,
+        "assists": 148,
+        "lastPlayed": 1794895467316
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-000000000348,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000348",
+            "name": "MellowHarbor2#Z1097",
+            "profileIcon": 7096
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 32,
+        "deaths": 42,
+        "assists": 72,
+        "lastPlayed": 1794890776269
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-0000000001ba,fa4e0000-0000-4000-8000-0000000001f1",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001f1",
+            "name": "ShadyDragon#Z1260",
+            "profileIcon": 3543
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 47,
+        "deaths": 58,
+        "assists": 119,
+        "lastPlayed": 1794889130281
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000cf5",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000cf5",
+            "name": "HazyIsland1#Z771",
+            "profileIcon": 507
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 14,
+        "deaths": 31,
+        "assists": 45,
+        "lastPlayed": 1794876882943
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-00000000093b",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          }
+        ],
+        "games": 1,
+        "wins": 1,
+        "kills": 52,
+        "deaths": 40,
+        "assists": 105,
+        "lastPlayed": 1794808919364
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000088e",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          }
+        ],
+        "games": 1,
+        "wins": 1,
+        "kills": 16,
+        "deaths": 17,
+        "assists": 27,
+        "lastPlayed": 1794783103484
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-00000000080f,fa4e0000-0000-4000-8000-00000000088e",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          }
+        ],
+        "games": 1,
+        "wins": 1,
+        "kills": 55,
+        "deaths": 61,
+        "assists": 111,
+        "lastPlayed": 1794729267053
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000080f",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 23,
+        "deaths": 12,
+        "assists": 46,
+        "lastPlayed": 1794707681225
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000080f,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000080f",
+            "name": "EagerQuartz2#Z1097",
+            "profileIcon": 6709
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 37,
+        "deaths": 48,
+        "assists": 74,
+        "lastPlayed": 1794630035459
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000004a8",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 19,
+        "deaths": 37,
+        "assists": 42,
+        "lastPlayed": 1794615182957
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-0000000004a8,fa4e0000-0000-4000-8000-000000000607,fa4e0000-0000-4000-8000-0000000001ba",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000004a8",
+            "name": "QuietDragon2#Z1466",
+            "profileIcon": 6872
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000607",
+            "name": "WildCobalt#Z1097",
+            "profileIcon": 550
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000001ba",
+            "name": "RustyNebula1#Z1197",
+            "profileIcon": 5410
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 63,
+        "deaths": 69,
+        "assists": 129,
+        "lastPlayed": 1794450327928
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-00000000088e,fa4e0000-0000-4000-8000-0000000005a4,fa4e0000-0000-4000-8000-000000000cd4",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000005a4",
+            "name": "FrostyOtter1#Z1132",
+            "profileIcon": 6072
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000cd4",
+            "name": "LuckyQuartz2#Z1097",
+            "profileIcon": 6749
+          }
+        ],
+        "games": 1,
+        "wins": 1,
+        "kills": 62,
+        "deaths": 43,
+        "assists": 156,
+        "lastPlayed": 1794361350979
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003e0,fa4e0000-0000-4000-8000-00000000090a,fa4e0000-0000-4000-8000-0000000005a4,fa4e0000-0000-4000-8000-000000000cd4",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000003e0",
+            "name": "UpbeatMeadow1#Z104",
+            "profileIcon": 588
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000090a",
+            "name": "JollyFalcon4#Z419",
+            "profileIcon": 6096
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000005a4",
+            "name": "FrostyOtter1#Z1132",
+            "profileIcon": 6072
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000cd4",
+            "name": "LuckyQuartz2#Z1097",
+            "profileIcon": 6749
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 63,
+        "deaths": 59,
+        "assists": 156,
+        "lastPlayed": 1794360040167
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000079b,fa4e0000-0000-4000-8000-000000000cd4",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000079b",
+            "name": "DustyQuartz#Z286",
+            "profileIcon": 7332
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000cd4",
+            "name": "LuckyQuartz2#Z1097",
+            "profileIcon": 6749
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 44,
+        "deaths": 34,
+        "assists": 76,
+        "lastPlayed": 1794281214909
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1,fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-000000000143",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000009d1",
+            "name": "DustyWillow#Z1097",
+            "profileIcon": 589
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000143",
+            "name": "DustyViolet2#Z1097",
+            "profileIcon": 588
+          }
+        ],
+        "games": 1,
+        "wins": 1,
+        "kills": 66,
+        "deaths": 31,
+        "assists": 159,
+        "lastPlayed": 1794255421223
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000088e,fa4e0000-0000-4000-8000-000000000e2c,fa4e0000-0000-4000-8000-0000000005a4",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000088e",
+            "name": "QuietCobalt4#Z1097",
+            "profileIcon": 4987
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000e2c",
+            "name": "JollyPebble#Z1097",
+            "profileIcon": 5269
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-0000000005a4",
+            "name": "FrostyOtter1#Z1132",
+            "profileIcon": 6072
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 42,
+        "deaths": 47,
+        "assists": 86,
+        "lastPlayed": 1794205765926
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-000000000ac6",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000ac6",
+            "name": "CalmBadger5#Z1097",
+            "profileIcon": 5460
+          }
+        ],
+        "games": 1,
+        "wins": 0,
+        "kills": 63,
+        "deaths": 41,
+        "assists": 112,
+        "lastPlayed": 1794197183503
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000093b,fa4e0000-0000-4000-8000-000000000112",
+        "members": [
+          {
+            "key": "fa4e0000-0000-4000-8000-00000000093b",
+            "name": "JollyViolet2#Z1097",
+            "profileIcon": 7336
+          },
+          {
+            "key": "fa4e0000-0000-4000-8000-000000000112",
+            "name": "TidyThistle#Z146",
+            "profileIcon": 5965
+          }
+        ],
+        "games": 1,
+        "wins": 1,
+        "kills": 40,
+        "deaths": 20,
+        "assists": 71,
+        "lastPlayed": 1794193549174
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

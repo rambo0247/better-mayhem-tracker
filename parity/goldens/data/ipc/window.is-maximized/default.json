@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "window:is-maximized",
+  "method": "isWindowMaximized",
+  "registered": true,
+  "case": "default",
+  "description": "fresh window",
+  "group": "read",
+  "seq": 112,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": false
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

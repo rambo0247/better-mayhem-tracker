@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "channel": "db:dashboard",
+  "method": "getDashboard",
+  "registered": true,
+  "case": "renderer-1",
+  "description": "a call the Tauri renderer makes",
+  "group": "read",
+  "seq": 177,
+  "args": [
+    {}
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "totalGames": 658,
+      "totalDuration": 711167,
+      "wins": 338,
+      "totalKills": 5914,
+      "totalDeaths": 6019,
+      "totalAssists": 17774,
+      "avgScore": 6.243161094224924,
+      "mvps": 56,
+      "aces": 66,
+      "scoredWins": 338,
+      "scoredLosses": 320,
+      "accounts": 1,
+      "recentForm": [
+        {
+          "win": 0,
+          "game_id": 5684865505
+        },
+        {
+          "win": 1,
+          "game_id": 5684562726
+        },
+        {
+          "win": 1,
+          "game_id": 5684569863
+        },
+        {
+          "win": 1,
+          "game_id": 5684556449
+        },
+        {
+          "win": 0,
+          "game_id": 5684552389
+        },
+        {
+          "win": 0,
+          "game_id": 5684541511
+        },
+        {
+          "win": 0,
+          "game_id": 5684548840
+        },
+        {
+          "win": 0,
+          "game_id": 5684527471
+        },
+        {
+          "win": 0,
+          "game_id": 5684523086
+        },
+        {
+          "win": 1,
+          "game_id": 5684514854
+        }
+      ],
+      "multikills": {
+        "doubles": 882,
+        "triples": 159,
+        "quadras": 32,
+        "pentas": 1
+      }
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

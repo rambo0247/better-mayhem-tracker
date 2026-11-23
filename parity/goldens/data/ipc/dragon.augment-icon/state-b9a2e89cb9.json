@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "state-b9a2e89cb9",
+  "description": "the call the page made in state match-history-sorted-score-ascending",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    1375,
+    "16.4"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/kiwi/augments/icons/souleater_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

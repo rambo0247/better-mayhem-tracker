@@ -1,0 +1,1 @@
+{"seq":0,"event":"lcu:backfill-done","cause":{"channel":"lcu:backfill","case":"default"},"payload":{"error":"League client is not running"}}

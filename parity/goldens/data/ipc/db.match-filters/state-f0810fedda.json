@@ -1,0 +1,61 @@
+{
+  "format": 1,
+  "channel": "db:match-filters",
+  "method": "getMatchFilterOptions",
+  "registered": true,
+  "case": "state-f0810fedda",
+  "description": "the call the page made in state backfill-toast-error",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {}
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "patches": [
+        "16.23"
+      ],
+      "champions": [
+        13,
+        21,
+        22,
+        26,
+        32,
+        37,
+        41,
+        43,
+        51,
+        63,
+        74,
+        75,
+        79,
+        90,
+        96,
+        120,
+        145,
+        166,
+        222,
+        235
+      ],
+      "queues": [
+        2400
+      ],
+      "seasons": [
+        "set-3"
+      ],
+      "accounts": [
+        {
+          "puuid": "fa4e0000-0000-4000-8000-000000000dea",
+          "name": "UpbeatGarnet4#Z1159",
+          "profileIcon": 4964
+        }
+      ],
+      "hasFavorites": false
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

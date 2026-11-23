@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "lcu:status",
+  "method": "getLcuStatus",
+  "registered": true,
+  "case": "state-c454ef0759",
+  "description": "the call the page made in state status-connected",
+  "group": "state",
+  "seq": 1000000,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": "connected"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

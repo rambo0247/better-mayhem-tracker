@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "app:check-update",
+  "method": "checkForUpdate",
+  "registered": true,
+  "case": "default",
+  "description": "network blocked by the seam",
+  "group": "read",
+  "seq": 105,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "hasUpdate": false,
+      "error": "Failed to check for updates"
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

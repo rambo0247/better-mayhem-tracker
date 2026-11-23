@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "state-10d547e9a5",
+  "description": "the call the page made in state match-history-oldest",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    1341,
+    "16.1"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/16.1/assets/ux/kiwi/augments/icons/hatonahat_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

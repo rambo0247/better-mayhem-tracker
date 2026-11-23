@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "channel": "app:download-update",
+  "method": "downloadUpdate",
+  "registered": true,
+  "case": "unpackaged",
+  "description": "an unpackaged run cannot install",
+  "group": "read",
+  "seq": 111,
+  "args": [
+    "https://github.com/rambo0247/better-mayhem-tracker/releases/download/v9.9.9/x.zip"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "success": false,
+      "error": "In-app update only works once the app is in your Applications folder"
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

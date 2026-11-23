@@ -1,0 +1,2376 @@
+{
+  "format": 1,
+  "channel": "db:teammate-stats",
+  "method": "getTeammateStats",
+  "registered": true,
+  "case": "season",
+  "description": "one season",
+  "group": "read",
+  "seq": 57,
+  "args": [
+    "set-3"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009d1",
+        "name": "DustyWillow#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000009d1",
+        "profileIcon": 589,
+        "games": 87,
+        "wins": 45,
+        "kills": 881,
+        "deaths": 854,
+        "assists": 2183,
+        "champions": [
+          {
+            "champion_id": 236,
+            "games": 6
+          },
+          {
+            "champion_id": 246,
+            "games": 5
+          },
+          {
+            "champion_id": 76,
+            "games": 4
+          },
+          {
+            "champion_id": 84,
+            "games": 4
+          },
+          {
+            "champion_id": 888,
+            "games": 4
+          }
+        ],
+        "lastPlayed": 1795248938246
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000004a8",
+        "name": "QuietDragon2#Z1466",
+        "puuid": "fa4e0000-0000-4000-8000-0000000004a8",
+        "profileIcon": 6872,
+        "games": 83,
+        "wins": 40,
+        "kills": 685,
+        "deaths": 957,
+        "assists": 2041,
+        "champions": [
+          {
+            "champion_id": 25,
+            "games": 4
+          },
+          {
+            "champion_id": 35,
+            "games": 4
+          },
+          {
+            "champion_id": 223,
+            "games": 4
+          },
+          {
+            "champion_id": 238,
+            "games": 4
+          },
+          {
+            "champion_id": 12,
+            "games": 3
+          }
+        ],
+        "lastPlayed": 1795339985921
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003e0",
+        "name": "UpbeatMeadow1#Z104",
+        "puuid": "fa4e0000-0000-4000-8000-0000000003e0",
+        "profileIcon": 588,
+        "games": 62,
+        "wins": 36,
+        "kills": 1208,
+        "deaths": 589,
+        "assists": 1323,
+        "champions": [
+          {
+            "champion_id": 51,
+            "games": 4
+          },
+          {
+            "champion_id": 222,
+            "games": 4
+          },
+          {
+            "champion_id": 11,
+            "games": 3
+          },
+          {
+            "champion_id": 106,
+            "games": 3
+          },
+          {
+            "champion_id": 107,
+            "games": 3
+          }
+        ],
+        "lastPlayed": 1795342890202
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000080f",
+        "name": "EagerQuartz2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000080f",
+        "profileIcon": 6709,
+        "games": 61,
+        "wins": 34,
+        "kills": 781,
+        "deaths": 616,
+        "assists": 1645,
+        "champions": [
+          {
+            "champion_id": 41,
+            "games": 6
+          },
+          {
+            "champion_id": 432,
+            "games": 4
+          },
+          {
+            "champion_id": 48,
+            "games": 3
+          },
+          {
+            "champion_id": 113,
+            "games": 3
+          },
+          {
+            "champion_id": 902,
+            "games": 3
+          }
+        ],
+        "lastPlayed": 1795342890202
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000093b",
+        "name": "JollyViolet2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000093b",
+        "profileIcon": 7336,
+        "games": 58,
+        "wins": 29,
+        "kills": 739,
+        "deaths": 623,
+        "assists": 1346,
+        "champions": [
+          {
+            "champion_id": 48,
+            "games": 6
+          },
+          {
+            "champion_id": 84,
+            "games": 3
+          },
+          {
+            "champion_id": 90,
+            "games": 3
+          },
+          {
+            "champion_id": 104,
+            "games": 3
+          },
+          {
+            "champion_id": 17,
+            "games": 2
+          }
+        ],
+        "lastPlayed": 1795393899248
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000607",
+        "name": "WildCobalt#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000607",
+        "profileIcon": 550,
+        "games": 49,
+        "wins": 25,
+        "kills": 249,
+        "deaths": 554,
+        "assists": 1332,
+        "champions": [
+          {
+            "champion_id": 44,
+            "games": 4
+          },
+          {
+            "champion_id": 29,
+            "games": 3
+          },
+          {
+            "champion_id": 14,
+            "games": 2
+          },
+          {
+            "champion_id": 53,
+            "games": 2
+          },
+          {
+            "champion_id": 54,
+            "games": 2
+          }
+        ],
+        "lastPlayed": 1795393899248
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000088e",
+        "name": "QuietCobalt4#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000088e",
+        "profileIcon": 4987,
+        "games": 44,
+        "wins": 25,
+        "kills": 612,
+        "deaths": 417,
+        "assists": 1082,
+        "champions": [
+          {
+            "champion_id": 121,
+            "games": 3
+          },
+          {
+            "champion_id": 238,
+            "games": 3
+          },
+          {
+            "champion_id": 245,
+            "games": 3
+          },
+          {
+            "champion_id": 805,
+            "games": 3
+          },
+          {
+            "champion_id": 950,
+            "games": 3
+          }
+        ],
+        "lastPlayed": 1795251713252
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000001ba",
+        "name": "RustyNebula1#Z1197",
+        "puuid": "fa4e0000-0000-4000-8000-0000000001ba",
+        "profileIcon": 5410,
+        "games": 43,
+        "wins": 22,
+        "kills": 313,
+        "deaths": 350,
+        "assists": 1248,
+        "champions": [
+          {
+            "champion_id": 910,
+            "games": 4
+          },
+          {
+            "champion_id": 45,
+            "games": 3
+          },
+          {
+            "champion_id": 50,
+            "games": 3
+          },
+          {
+            "champion_id": 110,
+            "games": 3
+          },
+          {
+            "champion_id": 40,
+            "games": 2
+          }
+        ],
+        "lastPlayed": 1795393899248
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000079b",
+        "name": "DustyQuartz#Z286",
+        "puuid": "fa4e0000-0000-4000-8000-00000000079b",
+        "profileIcon": 7332,
+        "games": 9,
+        "wins": 2,
+        "kills": 67,
+        "deaths": 82,
+        "assists": 188,
+        "champions": [
+          {
+            "champion_id": 36,
+            "games": 1
+          },
+          {
+            "champion_id": 38,
+            "games": 1
+          },
+          {
+            "champion_id": 45,
+            "games": 1
+          },
+          {
+            "champion_id": 53,
+            "games": 1
+          },
+          {
+            "champion_id": 101,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794539796245
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000001f1",
+        "name": "ShadyDragon#Z1260",
+        "puuid": "fa4e0000-0000-4000-8000-0000000001f1",
+        "profileIcon": 3543,
+        "games": 7,
+        "wins": 2,
+        "kills": 68,
+        "deaths": 76,
+        "assists": 162,
+        "champions": [
+          {
+            "champion_id": 30,
+            "games": 1
+          },
+          {
+            "champion_id": 91,
+            "games": 1
+          },
+          {
+            "champion_id": 147,
+            "games": 1
+          },
+          {
+            "champion_id": 238,
+            "games": 1
+          },
+          {
+            "champion_id": 245,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794982872352
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000e2c",
+        "name": "JollyPebble#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000e2c",
+        "profileIcon": 5269,
+        "games": 5,
+        "wins": 1,
+        "kills": 35,
+        "deaths": 67,
+        "assists": 125,
+        "champions": [
+          {
+            "champion_id": 45,
+            "games": 1
+          },
+          {
+            "champion_id": 51,
+            "games": 1
+          },
+          {
+            "champion_id": 89,
+            "games": 1
+          },
+          {
+            "champion_id": 133,
+            "games": 1
+          },
+          {
+            "champion_id": 360,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794205765926
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009bc",
+        "name": "HazyLantern4#Z1495",
+        "puuid": "fa4e0000-0000-4000-8000-0000000009bc",
+        "profileIcon": 6026,
+        "games": 4,
+        "wins": 1,
+        "kills": 36,
+        "deaths": 29,
+        "assists": 55,
+        "champions": [
+          {
+            "champion_id": 6,
+            "games": 1
+          },
+          {
+            "champion_id": 33,
+            "games": 1
+          },
+          {
+            "champion_id": 79,
+            "games": 1
+          },
+          {
+            "champion_id": 104,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794539796245
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000000ee",
+        "name": "PluckySummit#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000000ee",
+        "profileIcon": 5076,
+        "games": 4,
+        "wins": 1,
+        "kills": 38,
+        "deaths": 49,
+        "assists": 85,
+        "champions": [
+          {
+            "champion_id": 62,
+            "games": 1
+          },
+          {
+            "champion_id": 141,
+            "games": 1
+          },
+          {
+            "champion_id": 157,
+            "games": 1
+          },
+          {
+            "champion_id": 517,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794108297334
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003e5",
+        "name": "RustyQuartz1#Z227",
+        "puuid": "fa4e0000-0000-4000-8000-0000000003e5",
+        "profileIcon": 7244,
+        "games": 3,
+        "wins": 3,
+        "kills": 17,
+        "deaths": 35,
+        "assists": 59,
+        "champions": [
+          {
+            "champion_id": 55,
+            "games": 1
+          },
+          {
+            "champion_id": 107,
+            "games": 1
+          },
+          {
+            "champion_id": 126,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794790148603
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000805",
+        "name": "TidyUmbra3#Z1449",
+        "puuid": "fa4e0000-0000-4000-8000-000000000805",
+        "profileIcon": 7244,
+        "games": 3,
+        "wins": 3,
+        "kills": 15,
+        "deaths": 24,
+        "assists": 96,
+        "champions": [
+          {
+            "champion_id": 10,
+            "games": 1
+          },
+          {
+            "champion_id": 235,
+            "games": 1
+          },
+          {
+            "champion_id": 888,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794790148603
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000ae9",
+        "name": "ShadyUmbra3#Z1057",
+        "puuid": "fa4e0000-0000-4000-8000-000000000ae9",
+        "profileIcon": 3840,
+        "games": 3,
+        "wins": 3,
+        "kills": 16,
+        "deaths": 21,
+        "assists": 89,
+        "champions": [
+          {
+            "champion_id": 142,
+            "games": 1
+          },
+          {
+            "champion_id": 161,
+            "games": 1
+          },
+          {
+            "champion_id": 902,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794790148603
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000005a4",
+        "name": "FrostyOtter1#Z1132",
+        "puuid": "fa4e0000-0000-4000-8000-0000000005a4",
+        "profileIcon": 6072,
+        "games": 3,
+        "wins": 1,
+        "kills": 19,
+        "deaths": 44,
+        "assists": 82,
+        "champions": [
+          {
+            "champion_id": 33,
+            "games": 1
+          },
+          {
+            "champion_id": 36,
+            "games": 1
+          },
+          {
+            "champion_id": 45,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794361350979
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000cd4",
+        "name": "LuckyQuartz2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000cd4",
+        "profileIcon": 6749,
+        "games": 3,
+        "wins": 1,
+        "kills": 44,
+        "deaths": 26,
+        "assists": 87,
+        "champions": [
+          {
+            "champion_id": 35,
+            "games": 1
+          },
+          {
+            "champion_id": 122,
+            "games": 1
+          },
+          {
+            "champion_id": 235,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794361350979
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000ac6",
+        "name": "CalmBadger5#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000ac6",
+        "profileIcon": 5460,
+        "games": 3,
+        "wins": 1,
+        "kills": 68,
+        "deaths": 35,
+        "assists": 75,
+        "champions": [
+          {
+            "champion_id": 41,
+            "games": 1
+          },
+          {
+            "champion_id": 202,
+            "games": 1
+          },
+          {
+            "champion_id": 222,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794197183503
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000112",
+        "name": "TidyThistle#Z146",
+        "puuid": "fa4e0000-0000-4000-8000-000000000112",
+        "profileIcon": 5965,
+        "games": 3,
+        "wins": 2,
+        "kills": 18,
+        "deaths": 30,
+        "assists": 80,
+        "champions": [
+          {
+            "champion_id": 117,
+            "games": 1
+          },
+          {
+            "champion_id": 145,
+            "games": 1
+          },
+          {
+            "champion_id": 711,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794196086195
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000071f",
+        "name": "FrostyMeadow2#Z471",
+        "puuid": "fa4e0000-0000-4000-8000-00000000071f",
+        "profileIcon": 5983,
+        "games": 3,
+        "wins": 3,
+        "kills": 35,
+        "deaths": 23,
+        "assists": 45,
+        "champions": [
+          {
+            "champion_id": 42,
+            "games": 1
+          },
+          {
+            "champion_id": 86,
+            "games": 1
+          },
+          {
+            "champion_id": 133,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794116295856
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000052e",
+        "name": "JollyPebble3#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000052e",
+        "profileIcon": 7,
+        "games": 2,
+        "wins": 1,
+        "kills": 14,
+        "deaths": 21,
+        "assists": 66,
+        "champions": [
+          {
+            "champion_id": 412,
+            "games": 1
+          },
+          {
+            "champion_id": 518,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1795235597885
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000dad",
+        "name": "ShadyPebble#Z633",
+        "puuid": "fa4e0000-0000-4000-8000-000000000dad",
+        "profileIcon": 6720,
+        "games": 2,
+        "wins": 1,
+        "kills": 20,
+        "deaths": 24,
+        "assists": 60,
+        "champions": [
+          {
+            "champion_id": 17,
+            "games": 2
+          }
+        ],
+        "lastPlayed": 1795235597885
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000d8a",
+        "name": "VividCobalt3#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000d8a",
+        "profileIcon": 7333,
+        "games": 2,
+        "wins": 1,
+        "kills": 32,
+        "deaths": 19,
+        "assists": 50,
+        "champions": [
+          {
+            "champion_id": 64,
+            "games": 1
+          },
+          {
+            "champion_id": 134,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794811799608
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000078f",
+        "name": "WildJuniper1#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000078f",
+        "profileIcon": 7123,
+        "games": 2,
+        "wins": 2,
+        "kills": 33,
+        "deaths": 18,
+        "assists": 61,
+        "champions": [
+          {
+            "champion_id": 222,
+            "games": 1
+          },
+          {
+            "champion_id": 893,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794622700821
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000002d",
+        "name": "JollyEmber4#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000002d",
+        "profileIcon": 4575,
+        "games": 2,
+        "wins": 0,
+        "kills": 21,
+        "deaths": 24,
+        "assists": 32,
+        "champions": [
+          {
+            "champion_id": 105,
+            "games": 1
+          },
+          {
+            "champion_id": 134,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794614456344
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000005a2",
+        "name": "QuietZephyr2#Z1138",
+        "puuid": "fa4e0000-0000-4000-8000-0000000005a2",
+        "profileIcon": 4025,
+        "games": 2,
+        "wins": 0,
+        "kills": 11,
+        "deaths": 15,
+        "assists": 35,
+        "champions": [
+          {
+            "champion_id": 37,
+            "games": 1
+          },
+          {
+            "champion_id": 78,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794614456344
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000012f",
+        "name": "JollyYonder2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000012f",
+        "profileIcon": 4417,
+        "games": 1,
+        "wins": 0,
+        "kills": 15,
+        "deaths": 13,
+        "assists": 15,
+        "champions": [
+          {
+            "champion_id": 897,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1795393899248
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000095e",
+        "name": "NimbleUmbra5#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000095e",
+        "profileIcon": 4404,
+        "games": 1,
+        "wins": 0,
+        "kills": 8,
+        "deaths": 9,
+        "assists": 25,
+        "champions": [
+          {
+            "champion_id": 51,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1795238983094
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000e3e",
+        "name": "GentleYonder#Z695",
+        "puuid": "fa4e0000-0000-4000-8000-000000000e3e",
+        "profileIcon": 7176,
+        "games": 1,
+        "wins": 0,
+        "kills": 21,
+        "deaths": 12,
+        "assists": 28,
+        "champions": [
+          {
+            "champion_id": 119,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1795237613107
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003f7",
+        "name": "ZestyYonder1#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000003f7",
+        "profileIcon": 1111,
+        "games": 1,
+        "wins": 1,
+        "kills": 5,
+        "deaths": 2,
+        "assists": 20,
+        "champions": [
+          {
+            "champion_id": 35,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1795059138437
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000042",
+        "name": "RustyLantern2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000042",
+        "profileIcon": 715,
+        "games": 1,
+        "wins": 0,
+        "kills": 14,
+        "deaths": 9,
+        "assists": 16,
+        "champions": [
+          {
+            "champion_id": 5,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1795057932145
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000007c0",
+        "name": "ShadyViolet2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000007c0",
+        "profileIcon": 6622,
+        "games": 1,
+        "wins": 1,
+        "kills": 7,
+        "deaths": 12,
+        "assists": 36,
+        "champions": [
+          {
+            "champion_id": 59,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794976207164
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000d0a",
+        "name": "UpbeatOtter2#Z1440",
+        "puuid": "fa4e0000-0000-4000-8000-000000000d0a",
+        "profileIcon": 7145,
+        "games": 1,
+        "wins": 1,
+        "kills": 9,
+        "deaths": 12,
+        "assists": 25,
+        "champions": [
+          {
+            "champion_id": 89,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794976207164
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000348",
+        "name": "MellowHarbor2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000348",
+        "profileIcon": 7096,
+        "games": 1,
+        "wins": 0,
+        "kills": 4,
+        "deaths": 9,
+        "assists": 11,
+        "champions": [
+          {
+            "champion_id": 904,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794890776269
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000d7a",
+        "name": "EagerWillow1#Z808",
+        "puuid": "fa4e0000-0000-4000-8000-000000000d7a",
+        "profileIcon": 1301,
+        "games": 1,
+        "wins": 1,
+        "kills": 9,
+        "deaths": 10,
+        "assists": 42,
+        "champions": [
+          {
+            "champion_id": 12,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794887164439
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000774",
+        "name": "RustyQuartz3#Z1458",
+        "puuid": "fa4e0000-0000-4000-8000-000000000774",
+        "profileIcon": 4403,
+        "games": 1,
+        "wins": 1,
+        "kills": 20,
+        "deaths": 13,
+        "assists": 16,
+        "champions": [
+          {
+            "champion_id": 236,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794887164439
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000002b3",
+        "name": "NimbleCobalt6#Z006",
+        "puuid": "fa4e0000-0000-4000-8000-0000000002b3",
+        "profileIcon": 3182,
+        "games": 1,
+        "wins": 0,
+        "kills": 14,
+        "deaths": 11,
+        "assists": 18,
+        "champions": [
+          {
+            "champion_id": 64,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794885993247
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000059f",
+        "name": "NimbleThistle1#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000059f",
+        "profileIcon": 5675,
+        "games": 1,
+        "wins": 0,
+        "kills": 12,
+        "deaths": 11,
+        "assists": 29,
+        "champions": [
+          {
+            "champion_id": 50,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794885993247
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000000eb",
+        "name": "ZestyMeadow2#Z323",
+        "puuid": "fa4e0000-0000-4000-8000-0000000000eb",
+        "profileIcon": 7244,
+        "games": 1,
+        "wins": 0,
+        "kills": 14,
+        "deaths": 15,
+        "assists": 14,
+        "champions": [
+          {
+            "champion_id": 64,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794884869060
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000214",
+        "name": "WildGarnet#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000214",
+        "profileIcon": 7244,
+        "games": 1,
+        "wins": 0,
+        "kills": 6,
+        "deaths": 15,
+        "assists": 17,
+        "champions": [
+          {
+            "champion_id": 121,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794884869060
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003a4",
+        "name": "GentleRaven5#Z436",
+        "puuid": "fa4e0000-0000-4000-8000-0000000003a4",
+        "profileIcon": 29,
+        "games": 1,
+        "wins": 0,
+        "kills": 4,
+        "deaths": 12,
+        "assists": 11,
+        "champions": [
+          {
+            "champion_id": 24,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794883528719
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000406",
+        "name": "UpbeatFalcon1#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000406",
+        "profileIcon": 931,
+        "games": 1,
+        "wins": 0,
+        "kills": 9,
+        "deaths": 12,
+        "assists": 19,
+        "champions": [
+          {
+            "champion_id": 76,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794883528719
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000a7f",
+        "name": "DustyPebble4#Z322",
+        "puuid": "fa4e0000-0000-4000-8000-000000000a7f",
+        "profileIcon": 7247,
+        "games": 1,
+        "wins": 0,
+        "kills": 6,
+        "deaths": 14,
+        "assists": 13,
+        "champions": [
+          {
+            "champion_id": 103,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794883528719
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000099",
+        "name": "KeenZephyr5#Z011",
+        "puuid": "fa4e0000-0000-4000-8000-000000000099",
+        "profileIcon": 6926,
+        "games": 1,
+        "wins": 0,
+        "kills": 8,
+        "deaths": 13,
+        "assists": 20,
+        "champions": [
+          {
+            "champion_id": 223,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794876882943
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000002ed",
+        "name": "GentleRaven2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000002ed",
+        "profileIcon": 5995,
+        "games": 1,
+        "wins": 0,
+        "kills": 15,
+        "deaths": 13,
+        "assists": 13,
+        "champions": [
+          {
+            "champion_id": 166,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794876882943
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000cf5",
+        "name": "HazyIsland1#Z771",
+        "puuid": "fa4e0000-0000-4000-8000-000000000cf5",
+        "profileIcon": 507,
+        "games": 1,
+        "wins": 0,
+        "kills": 9,
+        "deaths": 20,
+        "assists": 26,
+        "champions": [
+          {
+            "champion_id": 89,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794876882943
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000e70",
+        "name": "AmberSummit3#Z686",
+        "puuid": "fa4e0000-0000-4000-8000-000000000e70",
+        "profileIcon": 7337,
+        "games": 1,
+        "wins": 0,
+        "kills": 6,
+        "deaths": 13,
+        "assists": 19,
+        "champions": [
+          {
+            "champion_id": 518,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794876882943
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000091d",
+        "name": "JollyDragon3#Z831",
+        "puuid": "fa4e0000-0000-4000-8000-00000000091d",
+        "profileIcon": 6895,
+        "games": 1,
+        "wins": 1,
+        "kills": 2,
+        "deaths": 10,
+        "assists": 34,
+        "champions": [
+          {
+            "champion_id": 497,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794808919364
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000020a",
+        "name": "OddGarnet2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000020a",
+        "profileIcon": 6273,
+        "games": 1,
+        "wins": 1,
+        "kills": 29,
+        "deaths": 17,
+        "assists": 27,
+        "champions": [
+          {
+            "champion_id": 221,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794785818701
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000956",
+        "name": "VividSummit3#Z287",
+        "puuid": "fa4e0000-0000-4000-8000-000000000956",
+        "profileIcon": 683,
+        "games": 1,
+        "wins": 1,
+        "kills": 16,
+        "deaths": 17,
+        "assists": 24,
+        "champions": [
+          {
+            "champion_id": 145,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794785818701
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000001da",
+        "name": "AmberThistle4#Z1516",
+        "puuid": "fa4e0000-0000-4000-8000-0000000001da",
+        "profileIcon": 6212,
+        "games": 1,
+        "wins": 0,
+        "kills": 4,
+        "deaths": 15,
+        "assists": 13,
+        "champions": [
+          {
+            "champion_id": 875,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794784578229
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000264",
+        "name": "AmberUmbra1#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000264",
+        "profileIcon": 7335,
+        "games": 1,
+        "wins": 0,
+        "kills": 8,
+        "deaths": 13,
+        "assists": 21,
+        "champions": [
+          {
+            "champion_id": 25,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794784578229
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000009da",
+        "name": "LuckyUmbra1#Z146",
+        "puuid": "fa4e0000-0000-4000-8000-0000000009da",
+        "profileIcon": 6096,
+        "games": 1,
+        "wins": 1,
+        "kills": 14,
+        "deaths": 8,
+        "assists": 11,
+        "champions": [
+          {
+            "champion_id": 107,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794783103484
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000c25",
+        "name": "DustyNebula3#Z785",
+        "puuid": "fa4e0000-0000-4000-8000-000000000c25",
+        "profileIcon": 7337,
+        "games": 1,
+        "wins": 1,
+        "kills": 3,
+        "deaths": 9,
+        "assists": 28,
+        "champions": [
+          {
+            "champion_id": 147,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794783103484
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000c69",
+        "name": "AmberUmbra3#Z793",
+        "puuid": "fa4e0000-0000-4000-8000-000000000c69",
+        "profileIcon": 5090,
+        "games": 1,
+        "wins": 1,
+        "kills": 10,
+        "deaths": 11,
+        "assists": 15,
+        "champions": [
+          {
+            "champion_id": 92,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794783103484
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000cbf",
+        "name": "ShadyUmbra2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000cbf",
+        "profileIcon": 5212,
+        "games": 1,
+        "wins": 0,
+        "kills": 9,
+        "deaths": 10,
+        "assists": 26,
+        "champions": [
+          {
+            "champion_id": 161,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794781478771
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000a01",
+        "name": "PluckyJuniper5#Z1211",
+        "puuid": "fa4e0000-0000-4000-8000-000000000a01",
+        "profileIcon": 6240,
+        "games": 1,
+        "wins": 0,
+        "kills": 11,
+        "deaths": 13,
+        "assists": 13,
+        "champions": [
+          {
+            "champion_id": 2,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794781478771
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000007d0",
+        "name": "EagerNebula1#Z526",
+        "puuid": "fa4e0000-0000-4000-8000-0000000007d0",
+        "profileIcon": 6923,
+        "games": 1,
+        "wins": 1,
+        "kills": 10,
+        "deaths": 15,
+        "assists": 18,
+        "champions": [
+          {
+            "champion_id": 81,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794778954403
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000014d",
+        "name": "RustyEmber5#Z1476",
+        "puuid": "fa4e0000-0000-4000-8000-00000000014d",
+        "profileIcon": 691,
+        "games": 1,
+        "wins": 1,
+        "kills": 13,
+        "deaths": 19,
+        "assists": 21,
+        "champions": [
+          {
+            "champion_id": 421,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794778954403
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000217",
+        "name": "ShadyDragon2#Z1412",
+        "puuid": "fa4e0000-0000-4000-8000-000000000217",
+        "profileIcon": 906,
+        "games": 1,
+        "wins": 1,
+        "kills": 13,
+        "deaths": 12,
+        "assists": 18,
+        "champions": [
+          {
+            "champion_id": 223,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794778954403
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000598",
+        "name": "CalmPebble3#Z1235",
+        "puuid": "fa4e0000-0000-4000-8000-000000000598",
+        "profileIcon": 663,
+        "games": 1,
+        "wins": 1,
+        "kills": 20,
+        "deaths": 16,
+        "assists": 25,
+        "champions": [
+          {
+            "champion_id": 89,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794777569199
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000bf4",
+        "name": "VividNebula2#Z457",
+        "puuid": "fa4e0000-0000-4000-8000-000000000bf4",
+        "profileIcon": 7339,
+        "games": 1,
+        "wins": 1,
+        "kills": 15,
+        "deaths": 11,
+        "assists": 18,
+        "champions": [
+          {
+            "champion_id": 4,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794777569199
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000773",
+        "name": "OddFalcon#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000773",
+        "profileIcon": 1114,
+        "games": 1,
+        "wins": 1,
+        "kills": 13,
+        "deaths": 12,
+        "assists": 31,
+        "champions": [
+          {
+            "champion_id": 101,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794777569199
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000d50",
+        "name": "JollyRaven5#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000d50",
+        "profileIcon": 4965,
+        "games": 1,
+        "wins": 1,
+        "kills": 17,
+        "deaths": 13,
+        "assists": 21,
+        "champions": [
+          {
+            "champion_id": 103,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794729267053
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000417",
+        "name": "MellowSummit3#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000417",
+        "profileIcon": 5726,
+        "games": 1,
+        "wins": 1,
+        "kills": 9,
+        "deaths": 13,
+        "assists": 25,
+        "champions": [
+          {
+            "champion_id": 27,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794713642549
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000029e",
+        "name": "OddQuartz1#Z1305",
+        "puuid": "fa4e0000-0000-4000-8000-00000000029e",
+        "profileIcon": 642,
+        "games": 1,
+        "wins": 1,
+        "kills": 9,
+        "deaths": 8,
+        "assists": 39,
+        "champions": [
+          {
+            "champion_id": 75,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794713642549
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000008d7",
+        "name": "CalmDragon4#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000008d7",
+        "profileIcon": 593,
+        "games": 1,
+        "wins": 1,
+        "kills": 14,
+        "deaths": 9,
+        "assists": 39,
+        "champions": [
+          {
+            "champion_id": 8,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794712138358
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003c8",
+        "name": "BriskViolet1#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000003c8",
+        "profileIcon": 6570,
+        "games": 1,
+        "wins": 1,
+        "kills": 21,
+        "deaths": 7,
+        "assists": 29,
+        "champions": [
+          {
+            "champion_id": 420,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794712138358
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000368",
+        "name": "NimbleBadger3#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000368",
+        "profileIcon": 588,
+        "games": 1,
+        "wins": 0,
+        "kills": 9,
+        "deaths": 11,
+        "assists": 28,
+        "champions": [
+          {
+            "champion_id": 79,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794707681225
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000579",
+        "name": "HazyRaven4#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000579",
+        "profileIcon": 539,
+        "games": 1,
+        "wins": 0,
+        "kills": 4,
+        "deaths": 12,
+        "assists": 19,
+        "champions": [
+          {
+            "champion_id": 122,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794707681225
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000c78",
+        "name": "IcyFalcon3#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000c78",
+        "profileIcon": 6751,
+        "games": 1,
+        "wins": 0,
+        "kills": 8,
+        "deaths": 10,
+        "assists": 17,
+        "champions": [
+          {
+            "champion_id": 53,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794707681225
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000cf2",
+        "name": "DustyGarnet2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000cf2",
+        "profileIcon": 6420,
+        "games": 1,
+        "wins": 0,
+        "kills": 6,
+        "deaths": 11,
+        "assists": 21,
+        "champions": [
+          {
+            "champion_id": 133,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794630035459
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000004bf",
+        "name": "EagerJuniper5#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000004bf",
+        "profileIcon": 6503,
+        "games": 1,
+        "wins": 1,
+        "kills": 9,
+        "deaths": 11,
+        "assists": 23,
+        "champions": [
+          {
+            "champion_id": 233,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794617882717
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000877",
+        "name": "KeenUmbra1#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000877",
+        "profileIcon": 4562,
+        "games": 1,
+        "wins": 0,
+        "kills": 9,
+        "deaths": 8,
+        "assists": 31,
+        "champions": [
+          {
+            "champion_id": 45,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794616637709
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003a6",
+        "name": "QuietCobalt2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000003a6",
+        "profileIcon": 1297,
+        "games": 1,
+        "wins": 0,
+        "kills": 6,
+        "deaths": 13,
+        "assists": 13,
+        "champions": [
+          {
+            "champion_id": 9,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794615182957
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000589",
+        "name": "OddRaven5#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000589",
+        "profileIcon": 5766,
+        "games": 1,
+        "wins": 0,
+        "kills": 10,
+        "deaths": 16,
+        "assists": 10,
+        "champions": [
+          {
+            "champion_id": 238,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794615182957
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000092b",
+        "name": "UpbeatKettle1#Z872",
+        "puuid": "fa4e0000-0000-4000-8000-00000000092b",
+        "profileIcon": 7345,
+        "games": 1,
+        "wins": 0,
+        "kills": 2,
+        "deaths": 8,
+        "assists": 11,
+        "champions": [
+          {
+            "champion_id": 497,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794614456344
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000b35",
+        "name": "IcyEmber3#Z1045",
+        "puuid": "fa4e0000-0000-4000-8000-000000000b35",
+        "profileIcon": 7092,
+        "games": 1,
+        "wins": 0,
+        "kills": 4,
+        "deaths": 14,
+        "assists": 34,
+        "champions": [
+          {
+            "champion_id": 163,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794612859118
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000001ef",
+        "name": "CalmGarnet1#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000001ef",
+        "profileIcon": 980,
+        "games": 1,
+        "wins": 0,
+        "kills": 5,
+        "deaths": 13,
+        "assists": 20,
+        "champions": [
+          {
+            "champion_id": 31,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794611419663
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000bb3",
+        "name": "FrostyNebula1#Z841",
+        "puuid": "fa4e0000-0000-4000-8000-000000000bb3",
+        "profileIcon": 3154,
+        "games": 1,
+        "wins": 0,
+        "kills": 4,
+        "deaths": 8,
+        "assists": 14,
+        "champions": [
+          {
+            "champion_id": 53,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794611419663
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000de9",
+        "name": "AmberKettle6#Z1109",
+        "puuid": "fa4e0000-0000-4000-8000-000000000de9",
+        "profileIcon": 3868,
+        "games": 1,
+        "wins": 0,
+        "kills": 5,
+        "deaths": 11,
+        "assists": 12,
+        "champions": [
+          {
+            "champion_id": 45,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794611419663
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000503",
+        "name": "OddBadger1#Z404",
+        "puuid": "fa4e0000-0000-4000-8000-000000000503",
+        "profileIcon": 29,
+        "games": 1,
+        "wins": 1,
+        "kills": 21,
+        "deaths": 16,
+        "assists": 21,
+        "champions": [
+          {
+            "champion_id": 523,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794609990927
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000017f",
+        "name": "JollyWillow#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000017f",
+        "profileIcon": 7332,
+        "games": 1,
+        "wins": 1,
+        "kills": 15,
+        "deaths": 18,
+        "assists": 24,
+        "champions": [
+          {
+            "champion_id": 120,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794609990927
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000b11",
+        "name": "RustyWillow1#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000b11",
+        "profileIcon": 7332,
+        "games": 1,
+        "wins": 1,
+        "kills": 1,
+        "deaths": 12,
+        "assists": 34,
+        "champions": [
+          {
+            "champion_id": 147,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794609990927
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000013d",
+        "name": "KeenEmber3#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000013d",
+        "profileIcon": 4027,
+        "games": 1,
+        "wins": 1,
+        "kills": 22,
+        "deaths": 16,
+        "assists": 29,
+        "champions": [
+          {
+            "champion_id": 412,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794448523966
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000090a",
+        "name": "JollyFalcon4#Z419",
+        "puuid": "fa4e0000-0000-4000-8000-00000000090a",
+        "profileIcon": 6096,
+        "games": 1,
+        "wins": 0,
+        "kills": 14,
+        "deaths": 16,
+        "assists": 19,
+        "champions": [
+          {
+            "champion_id": 236,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794360040167
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000037",
+        "name": "MellowKettle2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000037",
+        "profileIcon": 2076,
+        "games": 1,
+        "wins": 0,
+        "kills": 5,
+        "deaths": 11,
+        "assists": 33,
+        "champions": [
+          {
+            "champion_id": 26,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794281214909
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000c99",
+        "name": "FrostyIsland2#Z224",
+        "puuid": "fa4e0000-0000-4000-8000-000000000c99",
+        "profileIcon": 7333,
+        "games": 1,
+        "wins": 0,
+        "kills": 4,
+        "deaths": 6,
+        "assists": 7,
+        "champions": [
+          {
+            "champion_id": 120,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794281214909
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000039d",
+        "name": "UpbeatThistle3#Z409",
+        "puuid": "fa4e0000-0000-4000-8000-00000000039d",
+        "profileIcon": 7083,
+        "games": 1,
+        "wins": 1,
+        "kills": 10,
+        "deaths": 15,
+        "assists": 39,
+        "champions": [
+          {
+            "champion_id": 711,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794259278045
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003f3",
+        "name": "QuietSummit5#Z451",
+        "puuid": "fa4e0000-0000-4000-8000-0000000003f3",
+        "profileIcon": 7339,
+        "games": 1,
+        "wins": 1,
+        "kills": 11,
+        "deaths": 14,
+        "assists": 51,
+        "champions": [
+          {
+            "champion_id": 111,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794259278045
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000a6b",
+        "name": "HazyNebula4#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000a6b",
+        "profileIcon": 5389,
+        "games": 1,
+        "wins": 0,
+        "kills": 5,
+        "deaths": 11,
+        "assists": 24,
+        "champions": [
+          {
+            "champion_id": 101,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794258281910
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000065f",
+        "name": "EagerUmbra#Z1252",
+        "puuid": "fa4e0000-0000-4000-8000-00000000065f",
+        "profileIcon": 907,
+        "games": 1,
+        "wins": 0,
+        "kills": 15,
+        "deaths": 13,
+        "assists": 13,
+        "champions": [
+          {
+            "champion_id": 166,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794258281910
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000970",
+        "name": "LuckyRaven3#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000970",
+        "profileIcon": 1213,
+        "games": 1,
+        "wins": 0,
+        "kills": 8,
+        "deaths": 11,
+        "assists": 12,
+        "champions": [
+          {
+            "champion_id": 85,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794256876138
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000001bc",
+        "name": "DustyThistle4#Z745",
+        "puuid": "fa4e0000-0000-4000-8000-0000000001bc",
+        "profileIcon": 6268,
+        "games": 1,
+        "wins": 0,
+        "kills": 7,
+        "deaths": 7,
+        "assists": 19,
+        "champions": [
+          {
+            "champion_id": 516,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794256876138
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000007b8",
+        "name": "WildGarnet4#Z1052",
+        "puuid": "fa4e0000-0000-4000-8000-0000000007b8",
+        "profileIcon": 6350,
+        "games": 1,
+        "wins": 1,
+        "kills": 6,
+        "deaths": 13,
+        "assists": 44,
+        "champions": [
+          {
+            "champion_id": 17,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794255421223
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000143",
+        "name": "DustyViolet2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000143",
+        "profileIcon": 588,
+        "games": 1,
+        "wins": 1,
+        "kills": 24,
+        "deaths": 9,
+        "assists": 17,
+        "champions": [
+          {
+            "champion_id": 555,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794255421223
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003ad",
+        "name": "GentleLantern5#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000003ad",
+        "profileIcon": 7332,
+        "games": 1,
+        "wins": 1,
+        "kills": 7,
+        "deaths": 16,
+        "assists": 38,
+        "champions": [
+          {
+            "champion_id": 23,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794254284281
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000007bb",
+        "name": "TidyGarnet6#Z1239",
+        "puuid": "fa4e0000-0000-4000-8000-0000000007bb",
+        "profileIcon": 7332,
+        "games": 1,
+        "wins": 0,
+        "kills": 10,
+        "deaths": 12,
+        "assists": 26,
+        "champions": [
+          {
+            "champion_id": 233,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794253067973
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000062f",
+        "name": "JollyKettle5#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000062f",
+        "profileIcon": 654,
+        "games": 1,
+        "wins": 0,
+        "kills": 5,
+        "deaths": 9,
+        "assists": 12,
+        "champions": [
+          {
+            "champion_id": 120,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794252250547
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000006e0",
+        "name": "BriskDragon2#Z510",
+        "puuid": "fa4e0000-0000-4000-8000-0000000006e0",
+        "profileIcon": 7337,
+        "games": 1,
+        "wins": 0,
+        "kills": 9,
+        "deaths": 9,
+        "assists": 35,
+        "champions": [
+          {
+            "champion_id": 101,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794250996443
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000743",
+        "name": "JollyHarbor1#Z429",
+        "puuid": "fa4e0000-0000-4000-8000-000000000743",
+        "profileIcon": 29,
+        "games": 1,
+        "wins": 0,
+        "kills": 31,
+        "deaths": 13,
+        "assists": 16,
+        "champions": [
+          {
+            "champion_id": 119,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794249670466
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000005e1",
+        "name": "OddYonder2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000005e1",
+        "profileIcon": 7,
+        "games": 1,
+        "wins": 0,
+        "kills": 7,
+        "deaths": 10,
+        "assists": 27,
+        "champions": [
+          {
+            "champion_id": 115,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794249670466
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000008bc",
+        "name": "WildLantern1#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000008bc",
+        "profileIcon": 7244,
+        "games": 1,
+        "wins": 0,
+        "kills": 7,
+        "deaths": 12,
+        "assists": 20,
+        "champions": [
+          {
+            "champion_id": 498,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794205765926
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000099e",
+        "name": "NimbleYonder3#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-00000000099e",
+        "profileIcon": 3879,
+        "games": 1,
+        "wins": 0,
+        "kills": 17,
+        "deaths": 19,
+        "assists": 31,
+        "champions": [
+          {
+            "champion_id": 105,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794197183503
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000003c5",
+        "name": "GentleKettle1#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000003c5",
+        "profileIcon": 5799,
+        "games": 1,
+        "wins": 0,
+        "kills": 1,
+        "deaths": 12,
+        "assists": 48,
+        "champions": [
+          {
+            "champion_id": 53,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794197183503
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000002b6",
+        "name": "MellowRaven5#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-0000000002b6",
+        "profileIcon": 7337,
+        "games": 1,
+        "wins": 0,
+        "kills": 12,
+        "deaths": 12,
+        "assists": 20,
+        "champions": [
+          {
+            "champion_id": 22,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794196086195
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-0000000002c7",
+        "name": "TidyGarnet3#Z565",
+        "puuid": "fa4e0000-0000-4000-8000-0000000002c7",
+        "profileIcon": 7332,
+        "games": 1,
+        "wins": 1,
+        "kills": 14,
+        "deaths": 11,
+        "assists": 29,
+        "champions": [
+          {
+            "champion_id": 77,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794194674410
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-00000000038e",
+        "name": "WildLantern2#Z1497",
+        "puuid": "fa4e0000-0000-4000-8000-00000000038e",
+        "profileIcon": 5914,
+        "games": 1,
+        "wins": 1,
+        "kills": 13,
+        "deaths": 6,
+        "assists": 17,
+        "champions": [
+          {
+            "champion_id": 202,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794193549174
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000226",
+        "name": "BriskDragon4#Z578",
+        "puuid": "fa4e0000-0000-4000-8000-000000000226",
+        "profileIcon": 3376,
+        "games": 1,
+        "wins": 1,
+        "kills": 3,
+        "deaths": 5,
+        "assists": 36,
+        "champions": [
+          {
+            "champion_id": 20,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794193549174
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000dd6",
+        "name": "EagerGarnet1#Z1143",
+        "puuid": "fa4e0000-0000-4000-8000-000000000dd6",
+        "profileIcon": 7337,
+        "games": 1,
+        "wins": 0,
+        "kills": 19,
+        "deaths": 12,
+        "assists": 20,
+        "champions": [
+          {
+            "champion_id": 523,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794122379807
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000914",
+        "name": "WildViolet1#Z076",
+        "puuid": "fa4e0000-0000-4000-8000-000000000914",
+        "profileIcon": 7119,
+        "games": 1,
+        "wins": 0,
+        "kills": 0,
+        "deaths": 1,
+        "assists": 0,
+        "champions": [
+          {
+            "champion_id": 517,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794120612312
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000a8f",
+        "name": "BriskEmber2#Z719",
+        "puuid": "fa4e0000-0000-4000-8000-000000000a8f",
+        "profileIcon": 7339,
+        "games": 1,
+        "wins": 0,
+        "kills": 20,
+        "deaths": 16,
+        "assists": 22,
+        "champions": [
+          {
+            "champion_id": 104,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794119232309
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000156",
+        "name": "NimbleFalcon1#Z729",
+        "puuid": "fa4e0000-0000-4000-8000-000000000156",
+        "profileIcon": 7033,
+        "games": 1,
+        "wins": 0,
+        "kills": 9,
+        "deaths": 13,
+        "assists": 15,
+        "champions": [
+          {
+            "champion_id": 105,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794118235773
+      },
+      {
+        "key": "fa4e0000-0000-4000-8000-000000000983",
+        "name": "KeenFalcon2#Z1097",
+        "puuid": "fa4e0000-0000-4000-8000-000000000983",
+        "profileIcon": 4568,
+        "games": 1,
+        "wins": 0,
+        "kills": 3,
+        "deaths": 13,
+        "assists": 16,
+        "champions": [
+          {
+            "champion_id": 54,
+            "games": 1
+          }
+        ],
+        "lastPlayed": 1794117211901
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

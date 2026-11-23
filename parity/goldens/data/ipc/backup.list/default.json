@@ -1,0 +1,27 @@
+{
+  "format": 1,
+  "channel": "backup:list",
+  "method": "listBackups",
+  "registered": true,
+  "case": "default",
+  "description": "the backups folder as copied into the run",
+  "group": "read",
+  "seq": 74,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "file": "matches-2026-11-22T21-00-00-auto.db",
+        "created": 1795399200000,
+        "size": 6393856,
+        "games": 669,
+        "reason": "auto"
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

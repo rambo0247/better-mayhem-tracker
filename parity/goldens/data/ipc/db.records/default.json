@@ -1,0 +1,223 @@
+{
+  "format": 1,
+  "channel": "db:records",
+  "method": "getRecords",
+  "registered": true,
+  "case": "default",
+  "description": "all games",
+  "group": "read",
+  "seq": 53,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "totalGames": 658,
+      "bests": {
+        "kills": {
+          "value": 35,
+          "match": {
+            "game_id": 5560619247,
+            "game_creation": 1778816101678,
+            "game_duration": 2132,
+            "queue_id": 2400,
+            "champion_id": 51,
+            "win": 1,
+            "kills": 35,
+            "deaths": 16,
+            "assists": 36
+          }
+        },
+        "deaths": {
+          "value": 22,
+          "match": {
+            "game_id": 5462408523,
+            "game_creation": 1768203002290,
+            "game_duration": 1972,
+            "queue_id": 2400,
+            "champion_id": 7,
+            "win": 0,
+            "kills": 11,
+            "deaths": 22,
+            "assists": 30
+          }
+        },
+        "assists": {
+          "value": 70,
+          "match": {
+            "game_id": 5613601602,
+            "game_creation": 1785655850770,
+            "game_duration": 1843,
+            "queue_id": 2400,
+            "champion_id": 26,
+            "win": 1,
+            "kills": 3,
+            "deaths": 9,
+            "assists": 70
+          }
+        },
+        "kda": {
+          "value": 42,
+          "match": {
+            "game_id": 5583389691,
+            "game_creation": 1781668566390,
+            "game_duration": 634,
+            "queue_id": 2400,
+            "champion_id": 161,
+            "win": 1,
+            "kills": 6,
+            "deaths": 1,
+            "assists": 36
+          }
+        },
+        "score": {
+          "value": 11.752,
+          "match": {
+            "game_id": 5618065203,
+            "game_creation": 1786256203643,
+            "game_duration": 795,
+            "queue_id": 2400,
+            "champion_id": 51,
+            "win": 1,
+            "kills": 23,
+            "deaths": 5,
+            "assists": 18
+          }
+        },
+        "killingSpree": {
+          "value": 14,
+          "match": {
+            "game_id": 5676726624,
+            "game_creation": 1794255421223,
+            "game_duration": 1237,
+            "queue_id": 2400,
+            "champion_id": 221,
+            "win": 1,
+            "kills": 31,
+            "deaths": 7,
+            "assists": 35
+          }
+        },
+        "damage": {
+          "value": 201133,
+          "match": {
+            "game_id": 5626816561,
+            "game_creation": 1787468885312,
+            "game_duration": 1694,
+            "queue_id": 2400,
+            "champion_id": 21,
+            "win": 1,
+            "kills": 14,
+            "deaths": 6,
+            "assists": 57
+          }
+        },
+        "damageTaken": {
+          "value": 258989,
+          "match": {
+            "game_id": 5676439780,
+            "game_creation": 1794197183503,
+            "game_duration": 1591,
+            "queue_id": 2400,
+            "champion_id": 111,
+            "win": 0,
+            "kills": 7,
+            "deaths": 12,
+            "assists": 50
+          }
+        },
+        "healing": {
+          "value": 95389,
+          "match": {
+            "game_id": 5630012239,
+            "game_creation": 1787896062537,
+            "game_duration": 2353,
+            "queue_id": 2400,
+            "champion_id": 57,
+            "win": 1,
+            "kills": 19,
+            "deaths": 10,
+            "assists": 57
+          }
+        },
+        "gold": {
+          "value": 43824,
+          "match": {
+            "game_id": 5560619247,
+            "game_creation": 1778816101678,
+            "game_duration": 2132,
+            "queue_id": 2400,
+            "champion_id": 51,
+            "win": 1,
+            "kills": 35,
+            "deaths": 16,
+            "assists": 36
+          }
+        },
+        "fastestWin": {
+          "value": 372,
+          "match": {
+            "game_id": 5678355732,
+            "game_creation": 1794465305988,
+            "game_duration": 372,
+            "queue_id": 2400,
+            "champion_id": 18,
+            "win": 1,
+            "kills": 3,
+            "deaths": 2,
+            "assists": 2
+          }
+        },
+        "longestGame": {
+          "value": 2353,
+          "match": {
+            "game_id": 5630012239,
+            "game_creation": 1787896062537,
+            "game_duration": 2353,
+            "queue_id": 2400,
+            "champion_id": 57,
+            "win": 1,
+            "kills": 19,
+            "deaths": 10,
+            "assists": 57
+          }
+        }
+      },
+      "winStreak": {
+        "length": 6,
+        "start": 1772400846186,
+        "end": 1772516606018,
+        "match": {
+          "game_id": 5504705185,
+          "game_creation": 1772516606018,
+          "game_duration": 1294,
+          "queue_id": 2400,
+          "champion_id": 22,
+          "win": 1,
+          "kills": 3,
+          "deaths": 8,
+          "assists": 24
+        }
+      },
+      "lossStreak": {
+        "length": 7,
+        "start": 1794196086195,
+        "end": 1794253067973,
+        "match": {
+          "game_id": 5676718062,
+          "game_creation": 1794253067973,
+          "game_duration": 869,
+          "queue_id": 2400,
+          "champion_id": 31,
+          "win": 0,
+          "kills": 1,
+          "deaths": 9,
+          "assists": 33
+        }
+      }
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

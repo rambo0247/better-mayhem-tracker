@@ -1,0 +1,292 @@
+{
+  "format": 1,
+  "state": "live-standby-offline-empty",
+  "group": "client",
+  "route": "/live",
+  "viewport": {
+    "width": 1280,
+    "height": 820
+  },
+  "calls": [
+    {
+      "seq": 0,
+      "channel": "db:match-history",
+      "method": "getMatchHistory",
+      "args": [
+        1,
+        0
+      ],
+      "case": "state-b8882c8460"
+    },
+    {
+      "seq": 1,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "state-83a022ce92"
+    },
+    {
+      "seq": 2,
+      "channel": "db:teammate-stats",
+      "method": "getTeammateStats",
+      "args": [],
+      "case": "state-341ed72deb"
+    },
+    {
+      "seq": 3,
+      "channel": "db:teammate-groups",
+      "method": "getTeammateGroups",
+      "args": [],
+      "case": "state-341ed72deb"
+    },
+    {
+      "seq": 4,
+      "channel": "db:champion-stats",
+      "method": "getChampionStats",
+      "args": [],
+      "case": "state-341ed72deb"
+    },
+    {
+      "seq": 5,
+      "channel": "live:snapshot",
+      "method": "getLiveGame",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 6,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 7,
+      "channel": "dragon:champions",
+      "method": "getChampionData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 8,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "state-341ed72deb"
+    },
+    {
+      "seq": 9,
+      "channel": "db:game-recap",
+      "method": "getGameRecap",
+      "args": [],
+      "case": "state-7c039d0ad7"
+    },
+    {
+      "seq": 10,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "allowed-remember-filters"
+    },
+    {
+      "seq": 11,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "state-6da62b4a10"
+    },
+    {
+      "seq": 12,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 13,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "state-83a022ce92"
+    },
+    {
+      "seq": 14,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_nav_links"
+      ],
+      "case": "allowed-hidden-nav-links"
+    },
+    {
+      "seq": 15,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 16,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 17,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 18,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 19,
+      "channel": "live:snapshot",
+      "method": "getLiveGame",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 20,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 21,
+      "channel": "dragon:champions",
+      "method": "getChampionData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 22,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "state-341ed72deb"
+    },
+    {
+      "seq": 23,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 24,
+      "channel": "db:game-recap",
+      "method": "getGameRecap",
+      "args": [],
+      "case": "state-7c039d0ad7"
+    },
+    {
+      "seq": 25,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "state-6da62b4a10"
+    },
+    {
+      "seq": 26,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 27,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "state-83a022ce92"
+    },
+    {
+      "seq": 28,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 29,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 30,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 31,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 32,
+      "channel": "live:snapshot",
+      "method": "getLiveGame",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 33,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 34,
+      "channel": "dragon:champions",
+      "method": "getChampionData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 35,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "state-341ed72deb"
+    },
+    {
+      "seq": 36,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 37,
+      "channel": "db:game-recap",
+      "method": "getGameRecap",
+      "args": [],
+      "case": "state-7c039d0ad7"
+    },
+    {
+      "seq": 38,
+      "channel": "db:game-recap",
+      "method": "getGameRecap",
+      "args": [],
+      "case": "state-7c039d0ad7"
+    }
+  ]
+}

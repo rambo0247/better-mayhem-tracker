@@ -1,0 +1,479 @@
+{
+  "format": 1,
+  "channel": "db:augment-stats",
+  "method": "getAugmentStats",
+  "registered": true,
+  "case": "filters",
+  "description": "patch and queue",
+  "group": "read",
+  "seq": 36,
+  "args": [
+    null,
+    "16.23",
+    2400
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "augment_id": 1238,
+        "picks": 5,
+        "wins": 2
+      },
+      {
+        "augment_id": 1105,
+        "picks": 4,
+        "wins": 3
+      },
+      {
+        "augment_id": 3081,
+        "picks": 3,
+        "wins": 1
+      },
+      {
+        "augment_id": 1349,
+        "picks": 3,
+        "wins": 1
+      },
+      {
+        "augment_id": 1088,
+        "picks": 3,
+        "wins": 1
+      },
+      {
+        "augment_id": 1048,
+        "picks": 3,
+        "wins": 3
+      },
+      {
+        "augment_id": 1037,
+        "picks": 3,
+        "wins": 0
+      },
+      {
+        "augment_id": 3176,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 3163,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 3086,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "augment_id": 2139,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 2132,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "augment_id": 2125,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "augment_id": 2123,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "augment_id": 2100,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 2096,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 1390,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "augment_id": 1311,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "augment_id": 1301,
+        "picks": 2,
+        "wins": 0
+      },
+      {
+        "augment_id": 1211,
+        "picks": 2,
+        "wins": 0
+      },
+      {
+        "augment_id": 1170,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 1116,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 1113,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 1044,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "augment_id": 1030,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "augment_id": 3265,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 3263,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 3262,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 3172,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 3171,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 3150,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 3116,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 3088,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 3063,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 3059,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 3055,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 3018,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 2144,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 2141,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 2138,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 2127,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 2116,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 2111,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 2104,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 2103,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 2091,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 2073,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 2072,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 2004,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1416,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1415,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1403,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1389,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1388,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1373,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1361,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1358,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1336,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1325,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1324,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1322,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1318,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1237,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1214,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1195,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1180,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1152,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1151,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1138,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1115,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1098,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1087,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1077,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1076,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1074,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1071,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1068,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1060,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1056,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1053,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1051,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1041,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1034,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1028,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1020,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1018,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1015,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1011,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1007,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "augment_id": 1005,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "augment_id": 1004,
+        "picks": 1,
+        "wins": 0
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

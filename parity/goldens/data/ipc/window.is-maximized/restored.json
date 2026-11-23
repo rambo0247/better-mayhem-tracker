@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "window:is-maximized",
+  "method": "isWindowMaximized",
+  "registered": true,
+  "case": "restored",
+  "description": "reports restored",
+  "group": "window",
+  "seq": 4,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": false
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

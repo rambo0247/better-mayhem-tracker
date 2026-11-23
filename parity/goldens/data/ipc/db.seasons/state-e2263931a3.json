@@ -1,0 +1,55 @@
+{
+  "format": 1,
+  "channel": "db:seasons",
+  "method": "getSeasons",
+  "registered": true,
+  "case": "state-e2263931a3",
+  "description": "the call the page made in state backfill-toast-done",
+  "group": "state",
+  "seq": 1000000,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "id": "set-0",
+        "name": "Set 0",
+        "start": "2025-10-22",
+        "end": "2026-02-03",
+        "games": 71
+      },
+      {
+        "id": "set-1",
+        "name": "Set 1",
+        "start": "2026-02-04",
+        "end": "2026-04-29",
+        "games": 88
+      },
+      {
+        "id": "set-2",
+        "name": "Set 2",
+        "start": "2026-06-10",
+        "end": "2026-10-20",
+        "games": 301
+      },
+      {
+        "id": "set-3",
+        "name": "Set 3",
+        "start": "2026-10-21",
+        "end": null,
+        "games": 160
+      },
+      {
+        "id": "all",
+        "name": "All time",
+        "start": null,
+        "end": null,
+        "games": 661
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

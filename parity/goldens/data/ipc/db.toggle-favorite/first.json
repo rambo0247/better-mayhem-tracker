@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "db:toggle-favorite",
+  "method": "toggleFavorite",
+  "registered": true,
+  "case": "first",
+  "description": "first toggle sets the flag",
+  "group": "favorite",
+  "seq": 1,
+  "args": [
+    5684865505
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": true
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

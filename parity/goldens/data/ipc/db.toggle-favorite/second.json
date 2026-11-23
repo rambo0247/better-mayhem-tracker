@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "db:toggle-favorite",
+  "method": "toggleFavorite",
+  "registered": true,
+  "case": "second",
+  "description": "second toggle restores the first state",
+  "group": "favorite",
+  "seq": 3,
+  "args": [
+    5684865505
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": false
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

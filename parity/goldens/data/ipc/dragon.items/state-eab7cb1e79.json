@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "dragon:items",
+  "method": "getItemData",
+  "registered": true,
+  "case": "state-eab7cb1e79",
+  "description": "the call the page made in state backfill-toast-done",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    "16.23"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {}
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

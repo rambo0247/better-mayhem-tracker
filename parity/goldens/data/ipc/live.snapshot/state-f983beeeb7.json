@@ -1,0 +1,30 @@
+{
+  "format": 1,
+  "channel": "live:snapshot",
+  "method": "getLiveGame",
+  "registered": true,
+  "case": "state-f983beeeb7",
+  "description": "the call the page made in state live-champ-select",
+  "group": "state",
+  "seq": 1000000,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "inGame": false,
+      "starting": false,
+      "gameId": null,
+      "queueId": 2400,
+      "mapId": 12,
+      "mapName": null,
+      "mapSkin": null,
+      "gameTime": 0,
+      "players": [],
+      "events": []
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

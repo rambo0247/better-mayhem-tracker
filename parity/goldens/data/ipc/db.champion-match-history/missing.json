@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "channel": "db:champion-match-history",
+  "method": "getChampionMatchHistory",
+  "registered": true,
+  "case": "missing",
+  "description": "a champion with no games",
+  "group": "read",
+  "seq": 27,
+  "args": [
+    -1,
+    50,
+    0
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "matches": [],
+      "total": 0
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

@@ -1,0 +1,58 @@
+{
+  "format": 1,
+  "channel": "db:match-sessions",
+  "method": "getMatchSessions",
+  "registered": true,
+  "case": "state-c8c6444f2d",
+  "description": "the call the page made in state backfill-toast-error",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {
+      "multikills": [],
+      "favorites": false
+    }
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "key": "2026-11-22",
+        "games": 2,
+        "wins": 1,
+        "losses": 1,
+        "kills": 24,
+        "deaths": 24,
+        "assists": 49,
+        "score_sum": 11.9,
+        "scored_games": 2
+      },
+      {
+        "key": "2026-11-21",
+        "games": 10,
+        "wins": 5,
+        "losses": 5,
+        "kills": 121,
+        "deaths": 87,
+        "assists": 284,
+        "score_sum": 63.9,
+        "scored_games": 10
+      },
+      {
+        "key": "2026-11-20",
+        "games": 8,
+        "wins": 6,
+        "losses": 2,
+        "kills": 71,
+        "deaths": 73,
+        "assists": 239,
+        "score_sum": 51.1,
+        "scored_games": 8
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

@@ -1,0 +1,38 @@
+{
+  "format": 1,
+  "channel": "export:copy-card-image",
+  "method": "copyCardImage",
+  "registered": true,
+  "case": "game",
+  "description": "a game card to the clipboard",
+  "group": "export-card",
+  "seq": 7,
+  "args": [
+    {
+      "kind": "game",
+      "gameId": 5684865505
+    }
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "success": true
+    }
+  },
+  "events": [],
+  "effects": [
+    {
+      "seq": 0,
+      "api": "clipboard.write",
+      "args": [
+        {
+          "keys": [
+            "0"
+          ]
+        }
+      ]
+    }
+  ],
+  "files": [],
+  "nonFinite": []
+}

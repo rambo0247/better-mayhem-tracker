@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "lcu:backfill-running",
+  "method": "isBackfillRunning",
+  "registered": true,
+  "case": "default",
+  "description": "nothing running",
+  "group": "read",
+  "seq": 78,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": false
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

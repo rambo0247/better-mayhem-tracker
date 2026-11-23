@@ -1,0 +1,1372 @@
+{
+  "format": 1,
+  "state": "backfill-toast-error",
+  "group": "client",
+  "route": "/",
+  "viewport": {
+    "width": 1280,
+    "height": 820
+  },
+  "calls": [
+    {
+      "seq": 0,
+      "channel": "db:match-history",
+      "method": "getMatchHistory",
+      "args": [
+        1,
+        0
+      ],
+      "case": "state-b8882c8460"
+    },
+    {
+      "seq": 1,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "state-83a022ce92"
+    },
+    {
+      "seq": 2,
+      "channel": "db:teammate-stats",
+      "method": "getTeammateStats",
+      "args": [],
+      "case": "state-341ed72deb"
+    },
+    {
+      "seq": 3,
+      "channel": "db:teammate-groups",
+      "method": "getTeammateGroups",
+      "args": [],
+      "case": "state-341ed72deb"
+    },
+    {
+      "seq": 4,
+      "channel": "db:champion-stats",
+      "method": "getChampionStats",
+      "args": [],
+      "case": "state-341ed72deb"
+    },
+    {
+      "seq": 5,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "allowed-remember-filters"
+    },
+    {
+      "seq": 6,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 7,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-c454ef0759"
+    },
+    {
+      "seq": 8,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "state-83a022ce92"
+    },
+    {
+      "seq": 9,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_nav_links"
+      ],
+      "case": "allowed-hidden-nav-links"
+    },
+    {
+      "seq": 10,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 11,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 12,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 13,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 14,
+      "channel": "db:match-history",
+      "method": "getMatchHistory",
+      "args": [
+        20,
+        0,
+        {
+          "sortDir": "desc",
+          "favorites": false,
+          "multikills": []
+        }
+      ],
+      "case": "state-8ffd730999"
+    },
+    {
+      "seq": 15,
+      "channel": "dragon:champions",
+      "method": "getChampionData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 16,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "session_grouping"
+      ],
+      "case": "allowed-session-grouping"
+    },
+    {
+      "seq": 17,
+      "channel": "db:dashboard",
+      "method": "getDashboard",
+      "args": [
+        {}
+      ],
+      "case": "state-5b0fab452e"
+    },
+    {
+      "seq": 18,
+      "channel": "db:match-sessions",
+      "method": "getMatchSessions",
+      "args": [
+        {
+          "multikills": [],
+          "favorites": false
+        }
+      ],
+      "case": "state-72b41fe880"
+    },
+    {
+      "seq": 19,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-c454ef0759"
+    },
+    {
+      "seq": 20,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "state-0ef3152acc"
+    },
+    {
+      "seq": 21,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "before"
+    },
+    {
+      "seq": 22,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 23,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [
+        {}
+      ],
+      "case": "state-7708b0b6b5"
+    },
+    {
+      "seq": 24,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "state-0ef3152acc"
+    },
+    {
+      "seq": 25,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 26,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-c454ef0759"
+    },
+    {
+      "seq": 27,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "state-83a022ce92"
+    },
+    {
+      "seq": 28,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 29,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 30,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 31,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 32,
+      "channel": "db:match-history",
+      "method": "getMatchHistory",
+      "args": [
+        20,
+        0,
+        {
+          "sortDir": "desc",
+          "favorites": false,
+          "multikills": []
+        }
+      ],
+      "case": "state-8ffd730999"
+    },
+    {
+      "seq": 33,
+      "channel": "dragon:champions",
+      "method": "getChampionData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 34,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "session_grouping"
+      ],
+      "case": "allowed-session-grouping"
+    },
+    {
+      "seq": 35,
+      "channel": "db:dashboard",
+      "method": "getDashboard",
+      "args": [
+        {}
+      ],
+      "case": "state-5b0fab452e"
+    },
+    {
+      "seq": 36,
+      "channel": "db:match-sessions",
+      "method": "getMatchSessions",
+      "args": [
+        {
+          "multikills": [],
+          "favorites": false
+        }
+      ],
+      "case": "state-72b41fe880"
+    },
+    {
+      "seq": 37,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "state-c454ef0759"
+    },
+    {
+      "seq": 38,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "state-0ef3152acc"
+    },
+    {
+      "seq": 39,
+      "channel": "db:all-summoner-puuids",
+      "method": "getAllSummonerPuuids",
+      "args": [],
+      "case": "before"
+    },
+    {
+      "seq": 40,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 41,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [
+        {}
+      ],
+      "case": "state-7708b0b6b5"
+    },
+    {
+      "seq": 42,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "state-0ef3152acc"
+    },
+    {
+      "seq": 43,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 44,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "state-a88ac4c29f"
+    },
+    {
+      "seq": 45,
+      "channel": "db:match-history",
+      "method": "getMatchHistory",
+      "args": [
+        20,
+        0,
+        {
+          "sortDir": "desc",
+          "favorites": false,
+          "multikills": []
+        }
+      ],
+      "case": "state-3a9c4ee6d0"
+    },
+    {
+      "seq": 46,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 47,
+      "channel": "db:dashboard",
+      "method": "getDashboard",
+      "args": [
+        {}
+      ],
+      "case": "state-822ba062db"
+    },
+    {
+      "seq": 48,
+      "channel": "db:match-sessions",
+      "method": "getMatchSessions",
+      "args": [
+        {
+          "multikills": [],
+          "favorites": false
+        }
+      ],
+      "case": "state-c8c6444f2d"
+    },
+    {
+      "seq": 49,
+      "channel": "db:match-filters",
+      "method": "getMatchFilterOptions",
+      "args": [
+        {}
+      ],
+      "case": "state-f0810fedda"
+    },
+    {
+      "seq": 50,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 51,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 52,
+      "channel": "dragon:augments",
+      "method": "getAugmentData",
+      "args": [
+        "16.23"
+      ],
+      "case": "state-eab7cb1e79"
+    },
+    {
+      "seq": 53,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2100,
+        "16.23"
+      ],
+      "case": "state-048f4749a9"
+    },
+    {
+      "seq": 54,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1088,
+        "16.23"
+      ],
+      "case": "state-532f027266"
+    },
+    {
+      "seq": 55,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1211,
+        "16.23"
+      ],
+      "case": "state-e982321956"
+    },
+    {
+      "seq": 56,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1151,
+        "16.23"
+      ],
+      "case": "state-54e80e6432"
+    },
+    {
+      "seq": 57,
+      "channel": "dragon:items",
+      "method": "getItemData",
+      "args": [
+        "16.23"
+      ],
+      "case": "state-eab7cb1e79"
+    },
+    {
+      "seq": 58,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 59,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 60,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1077,
+        "16.23"
+      ],
+      "case": "state-d57f0d4bb3"
+    },
+    {
+      "seq": 61,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1170,
+        "16.23"
+      ],
+      "case": "state-ace9467abb"
+    },
+    {
+      "seq": 62,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2125,
+        "16.23"
+      ],
+      "case": "state-2547e68430"
+    },
+    {
+      "seq": 63,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2096,
+        "16.23"
+      ],
+      "case": "state-78b7efeddf"
+    },
+    {
+      "seq": 64,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 65,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 66,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        3163,
+        "16.23"
+      ],
+      "case": "state-1978e440ae"
+    },
+    {
+      "seq": 67,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1105,
+        "16.23"
+      ],
+      "case": "state-171c5e2e3b"
+    },
+    {
+      "seq": 68,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1007,
+        "16.23"
+      ],
+      "case": "state-c85fcb4426"
+    },
+    {
+      "seq": 69,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1015,
+        "16.23"
+      ],
+      "case": "state-8884bcefd3"
+    },
+    {
+      "seq": 70,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 71,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 72,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        3150,
+        "16.23"
+      ],
+      "case": "state-e72b93da52"
+    },
+    {
+      "seq": 73,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1416,
+        "16.23"
+      ],
+      "case": "state-aaa7dc9719"
+    },
+    {
+      "seq": 74,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1325,
+        "16.23"
+      ],
+      "case": "state-edaf3b6949"
+    },
+    {
+      "seq": 75,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1116,
+        "16.23"
+      ],
+      "case": "state-ef13b858a3"
+    },
+    {
+      "seq": 76,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 77,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 78,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1301,
+        "16.23"
+      ],
+      "case": "state-19e6c9e30f"
+    },
+    {
+      "seq": 79,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        3081,
+        "16.23"
+      ],
+      "case": "state-df59c01c6b"
+    },
+    {
+      "seq": 80,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1037,
+        "16.23"
+      ],
+      "case": "state-1d79f6cfc7"
+    },
+    {
+      "seq": 81,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 82,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 83,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1238,
+        "16.23"
+      ],
+      "case": "state-1bd659ed2b"
+    },
+    {
+      "seq": 84,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1214,
+        "16.23"
+      ],
+      "case": "state-59e238993a"
+    },
+    {
+      "seq": 85,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1056,
+        "16.23"
+      ],
+      "case": "state-e7ffb035d5"
+    },
+    {
+      "seq": 86,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1041,
+        "16.23"
+      ],
+      "case": "state-a3c4afeb10"
+    },
+    {
+      "seq": 87,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 88,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 89,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1349,
+        "16.23"
+      ],
+      "case": "state-833fb8def2"
+    },
+    {
+      "seq": 90,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1388,
+        "16.23"
+      ],
+      "case": "state-e638c0307d"
+    },
+    {
+      "seq": 91,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1028,
+        "16.23"
+      ],
+      "case": "state-692ce25e7b"
+    },
+    {
+      "seq": 92,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 93,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 94,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        3055,
+        "16.23"
+      ],
+      "case": "state-f4a6280750"
+    },
+    {
+      "seq": 95,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1011,
+        "16.23"
+      ],
+      "case": "state-77727fc088"
+    },
+    {
+      "seq": 96,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 97,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 98,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        3116,
+        "16.23"
+      ],
+      "case": "state-e1ee69332b"
+    },
+    {
+      "seq": 99,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1115,
+        "16.23"
+      ],
+      "case": "state-851c893d21"
+    },
+    {
+      "seq": 100,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 101,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 102,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2123,
+        "16.23"
+      ],
+      "case": "state-0574127e65"
+    },
+    {
+      "seq": 103,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1311,
+        "16.23"
+      ],
+      "case": "state-db8c26b88a"
+    },
+    {
+      "seq": 104,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2132,
+        "16.23"
+      ],
+      "case": "state-263fd76dcb"
+    },
+    {
+      "seq": 105,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 106,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 107,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        3059,
+        "16.23"
+      ],
+      "case": "state-436de06865"
+    },
+    {
+      "seq": 108,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1048,
+        "16.23"
+      ],
+      "case": "state-6059584922"
+    },
+    {
+      "seq": 109,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2127,
+        "16.23"
+      ],
+      "case": "state-12592c2c4a"
+    },
+    {
+      "seq": 110,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 111,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 112,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2072,
+        "16.23"
+      ],
+      "case": "state-17d0fc35ac"
+    },
+    {
+      "seq": 113,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1180,
+        "16.23"
+      ],
+      "case": "state-4fcc2e6c81"
+    },
+    {
+      "seq": 114,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        3086,
+        "16.23"
+      ],
+      "case": "state-6186051ea0"
+    },
+    {
+      "seq": 115,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1044,
+        "16.23"
+      ],
+      "case": "state-41bc7bfeab"
+    },
+    {
+      "seq": 116,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 117,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 118,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2111,
+        "16.23"
+      ],
+      "case": "state-8e2331c78c"
+    },
+    {
+      "seq": 119,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1053,
+        "16.23"
+      ],
+      "case": "state-5654c90f78"
+    },
+    {
+      "seq": 120,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1071,
+        "16.23"
+      ],
+      "case": "state-68919089a6"
+    },
+    {
+      "seq": 121,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2139,
+        "16.23"
+      ],
+      "case": "state-71d6053538"
+    },
+    {
+      "seq": 122,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 123,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 124,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        3018,
+        "16.23"
+      ],
+      "case": "state-332291eebe"
+    },
+    {
+      "seq": 125,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1336,
+        "16.23"
+      ],
+      "case": "state-08aef0a09c"
+    },
+    {
+      "seq": 126,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1074,
+        "16.23"
+      ],
+      "case": "state-6340d517a7"
+    },
+    {
+      "seq": 127,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1004,
+        "16.23"
+      ],
+      "case": "state-9b624a7df3"
+    },
+    {
+      "seq": 128,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 129,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 130,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1318,
+        "16.23"
+      ],
+      "case": "state-8423b0f3c8"
+    },
+    {
+      "seq": 131,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1237,
+        "16.23"
+      ],
+      "case": "state-26e2a9068e"
+    },
+    {
+      "seq": 132,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        3263,
+        "16.23"
+      ],
+      "case": "state-1bc61d8417"
+    },
+    {
+      "seq": 133,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1358,
+        "16.23"
+      ],
+      "case": "state-ab905f46da"
+    },
+    {
+      "seq": 134,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 135,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 136,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2116,
+        "16.23"
+      ],
+      "case": "state-6bef6a62e1"
+    },
+    {
+      "seq": 137,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1098,
+        "16.23"
+      ],
+      "case": "state-01e7bc5bcc"
+    },
+    {
+      "seq": 138,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 139,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 140,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1390,
+        "16.23"
+      ],
+      "case": "state-9b5d6d3bcd"
+    },
+    {
+      "seq": 141,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1060,
+        "16.23"
+      ],
+      "case": "state-7eee6e37a6"
+    },
+    {
+      "seq": 142,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 143,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 144,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1322,
+        "16.23"
+      ],
+      "case": "state-010020012b"
+    },
+    {
+      "seq": 145,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1030,
+        "16.23"
+      ],
+      "case": "state-fe430b1d13"
+    },
+    {
+      "seq": 146,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1068,
+        "16.23"
+      ],
+      "case": "state-75787d7a84"
+    },
+    {
+      "seq": 147,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 148,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 149,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1195,
+        "16.23"
+      ],
+      "case": "state-078fb2868a"
+    },
+    {
+      "seq": 150,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        2103,
+        "16.23"
+      ],
+      "case": "state-e489101e00"
+    },
+    {
+      "seq": 151,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1113,
+        "16.23"
+      ],
+      "case": "state-77a3f1008f"
+    },
+    {
+      "seq": 152,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 153,
+      "channel": "dragon:summoner-spells",
+      "method": "getSummonerSpellData",
+      "args": [],
+      "case": "state-a7bd524904"
+    },
+    {
+      "seq": 154,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        3088,
+        "16.23"
+      ],
+      "case": "state-8befb6cb29"
+    },
+    {
+      "seq": 155,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        1034,
+        "16.23"
+      ],
+      "case": "state-c758f2ad40"
+    },
+    {
+      "seq": 156,
+      "channel": "dragon:augment-icon",
+      "method": "resolveAugmentIcon",
+      "args": [
+        3063,
+        "16.23"
+      ],
+      "case": "state-30bc0b60ae"
+    }
+  ]
+}

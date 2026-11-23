@@ -1,5 +1,5 @@
 [lint]
-ignorePatterns = ["out/", "snapshots/"]
+ignorePatterns = ["out/", "snapshots/", "goldens/data/"]
 
 [lint.categories]
 correctness = "error"
@@ -11,4 +11,4 @@ correctness = "error"
 
 [fmt]
 printWidth = 100
-ignorePatterns = ["out/", "snapshots/"]
+ignorePatterns = ["out/", "snapshots/", "goldens/data/"]

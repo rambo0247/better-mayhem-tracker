@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "db:teammate-group-detail",
+  "method": "getTeammateGroupDetail",
+  "registered": true,
+  "case": "missing",
+  "description": "an unknown key",
+  "group": "read",
+  "seq": 63,
+  "args": [
+    "no-such-group"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": null
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

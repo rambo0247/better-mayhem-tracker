@@ -1,0 +1,182 @@
+{
+  "format": 1,
+  "channel": "db:champion-item-stats",
+  "method": "getChampionItemStats",
+  "registered": true,
+  "case": "renderer-1",
+  "description": "a call the Tauri renderer makes",
+  "group": "read",
+  "seq": 120,
+  "args": [
+    26
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      {
+        "item_id": 3040,
+        "picks": 36,
+        "wins": 23
+      },
+      {
+        "item_id": 3158,
+        "picks": 35,
+        "wins": 22
+      },
+      {
+        "item_id": 6655,
+        "picks": 25,
+        "wins": 17
+      },
+      {
+        "item_id": 4629,
+        "picks": 18,
+        "wins": 11
+      },
+      {
+        "item_id": 3089,
+        "picks": 14,
+        "wins": 8
+      },
+      {
+        "item_id": 6657,
+        "picks": 10,
+        "wins": 7
+      },
+      {
+        "item_id": 2503,
+        "picks": 10,
+        "wins": 6
+      },
+      {
+        "item_id": 2065,
+        "picks": 10,
+        "wins": 6
+      },
+      {
+        "item_id": 3137,
+        "picks": 9,
+        "wins": 5
+      },
+      {
+        "item_id": 4005,
+        "picks": 8,
+        "wins": 4
+      },
+      {
+        "item_id": 2526,
+        "picks": 4,
+        "wins": 2
+      },
+      {
+        "item_id": 1052,
+        "picks": 4,
+        "wins": 3
+      },
+      {
+        "item_id": 3157,
+        "picks": 3,
+        "wins": 2
+      },
+      {
+        "item_id": 3152,
+        "picks": 3,
+        "wins": 3
+      },
+      {
+        "item_id": 3108,
+        "picks": 3,
+        "wins": 3
+      },
+      {
+        "item_id": 3135,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "item_id": 3113,
+        "picks": 2,
+        "wins": 1
+      },
+      {
+        "item_id": 2530,
+        "picks": 2,
+        "wins": 2
+      },
+      {
+        "item_id": 228002,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 8010,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 4645,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 4642,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 3143,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 3119,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 3115,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 3070,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 3067,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 3020,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 2524,
+        "picks": 1,
+        "wins": 0
+      },
+      {
+        "item_id": 2138,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 1058,
+        "picks": 1,
+        "wins": 1
+      },
+      {
+        "item_id": 1026,
+        "picks": 1,
+        "wins": 0
+      }
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

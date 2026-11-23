@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "state-3f8723bc7a",
+  "description": "the call the page made in state match-history-sorted-score",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    1097,
+    "16.16"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": "asset://game-data/latest/assets/ux/cherry/augments/icons/witchfulthinking_large.png"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

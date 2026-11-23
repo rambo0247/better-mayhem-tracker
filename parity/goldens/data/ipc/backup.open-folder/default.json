@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "channel": "backup:open-folder",
+  "method": "openBackupFolder",
+  "registered": true,
+  "case": "default",
+  "description": "asks the OS to open the folder",
+  "group": "read",
+  "seq": 76,
+  "args": [],
+  "outcome": {
+    "kind": "void"
+  },
+  "events": [],
+  "effects": [
+    {
+      "seq": 0,
+      "api": "shell.openPath",
+      "args": [
+        "$RUN/backups"
+      ]
+    }
+  ],
+  "files": [],
+  "nonFinite": []
+}

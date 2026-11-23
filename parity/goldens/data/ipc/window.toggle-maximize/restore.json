@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "channel": "window:toggle-maximize",
+  "method": "toggleMaximizeWindow",
+  "registered": true,
+  "case": "restore",
+  "description": "restore",
+  "group": "window",
+  "seq": 3,
+  "args": [],
+  "outcome": {
+    "kind": "void"
+  },
+  "events": [
+    {
+      "seq": 0,
+      "event": "window:maximized-changed",
+      "payload": false
+    }
+  ],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

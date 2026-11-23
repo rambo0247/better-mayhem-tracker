@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "channel": "db:dashboard",
+  "method": "getDashboard",
+  "registered": true,
+  "case": "state-d619d7c0cf",
+  "description": "the call the page made in state backfill-toast-done",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {}
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "totalGames": 661,
+      "totalDuration": 714473,
+      "wins": 338,
+      "totalKills": 5938,
+      "totalDeaths": 6052,
+      "totalAssists": 17825,
+      "avgScore": 6.239334341906202,
+      "mvps": 56,
+      "aces": 66,
+      "scoredWins": 338,
+      "scoredLosses": 323,
+      "accounts": 1,
+      "recentForm": [
+        {
+          "win": 0,
+          "game_id": 5684865505
+        },
+        {
+          "win": 1,
+          "game_id": 5684562726
+        },
+        {
+          "win": 1,
+          "game_id": 5684569863
+        },
+        {
+          "win": 1,
+          "game_id": 5684556449
+        },
+        {
+          "win": 0,
+          "game_id": 5684552389
+        },
+        {
+          "win": 0,
+          "game_id": 5684541511
+        },
+        {
+          "win": 0,
+          "game_id": 5684548840
+        },
+        {
+          "win": 0,
+          "game_id": 5684527471
+        },
+        {
+          "win": 0,
+          "game_id": 5684523086
+        },
+        {
+          "win": 1,
+          "game_id": 5684514854
+        }
+      ],
+      "multikills": {
+        "doubles": 885,
+        "triples": 159,
+        "quadras": 32,
+        "pentas": 1
+      }
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

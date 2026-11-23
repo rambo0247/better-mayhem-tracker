@@ -1,0 +1,41 @@
+{
+  "format": 1,
+  "channel": "db:dashboard",
+  "method": "getDashboard",
+  "registered": true,
+  "case": "state-5b0fab452e",
+  "description": "the call the page made in state match-history-empty-waiting",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    {}
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "totalGames": 0,
+      "totalDuration": 0,
+      "wins": 0,
+      "totalKills": 0,
+      "totalDeaths": 0,
+      "totalAssists": 0,
+      "avgScore": null,
+      "mvps": 0,
+      "aces": 0,
+      "scoredWins": 0,
+      "scoredLosses": 0,
+      "accounts": 0,
+      "recentForm": [],
+      "multikills": {
+        "doubles": 0,
+        "triples": 0,
+        "quadras": 0,
+        "pentas": 0
+      }
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

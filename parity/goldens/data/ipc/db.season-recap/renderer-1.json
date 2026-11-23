@@ -1,0 +1,1070 @@
+{
+  "format": 1,
+  "channel": "db:season-recap",
+  "method": "getSeasonRecap",
+  "registered": true,
+  "case": "renderer-1",
+  "description": "a call the Tauri renderer makes",
+  "group": "read",
+  "seq": 315,
+  "args": [
+    "all"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "season": {
+        "id": "all",
+        "name": "All time",
+        "start": null,
+        "end": null,
+        "games": 658
+      },
+      "seasons": [
+        {
+          "id": "set-0",
+          "name": "Set 0",
+          "start": "2025-10-22",
+          "end": "2026-02-03",
+          "games": 68
+        },
+        {
+          "id": "set-1",
+          "name": "Set 1",
+          "start": "2026-02-04",
+          "end": "2026-04-29",
+          "games": 88
+        },
+        {
+          "id": "set-2",
+          "name": "Set 2",
+          "start": "2026-06-10",
+          "end": "2026-10-20",
+          "games": 301
+        },
+        {
+          "id": "set-3",
+          "name": "Set 3",
+          "start": "2026-10-21",
+          "end": null,
+          "games": 160
+        },
+        {
+          "id": "all",
+          "name": "All time",
+          "start": null,
+          "end": null,
+          "games": 658
+        }
+      ],
+      "player": {
+        "gameName": "UpbeatGarnet4",
+        "tagLine": "Z1159",
+        "profileIcon": 4964
+      },
+      "accounts": 1,
+      "patch": "16.23",
+      "firstGame": 1768107527494,
+      "lastGame": 1795393899248,
+      "games": 658,
+      "wins": 338,
+      "duration": 711167,
+      "days": [
+        {
+          "day": 1768021200000,
+          "games": 2,
+          "wins": 2
+        },
+        {
+          "day": 1768107600000,
+          "games": 13,
+          "wins": 4
+        },
+        {
+          "day": 1768366800000,
+          "games": 12,
+          "wins": 6
+        },
+        {
+          "day": 1769230800000,
+          "games": 5,
+          "wins": 3
+        },
+        {
+          "day": 1769317200000,
+          "games": 12,
+          "wins": 6
+        },
+        {
+          "day": 1769490000000,
+          "games": 11,
+          "wins": 7
+        },
+        {
+          "day": 1769576400000,
+          "games": 6,
+          "wins": 4
+        },
+        {
+          "day": 1769662800000,
+          "games": 3,
+          "wins": 1
+        },
+        {
+          "day": 1769749200000,
+          "games": 4,
+          "wins": 4
+        },
+        {
+          "day": 1770526800000,
+          "games": 11,
+          "wins": 4
+        },
+        {
+          "day": 1771995600000,
+          "games": 6,
+          "wins": 4
+        },
+        {
+          "day": 1772168400000,
+          "games": 15,
+          "wins": 8
+        },
+        {
+          "day": 1772254800000,
+          "games": 15,
+          "wins": 6
+        },
+        {
+          "day": 1772341200000,
+          "games": 6,
+          "wins": 3
+        },
+        {
+          "day": 1772427600000,
+          "games": 6,
+          "wins": 5
+        },
+        {
+          "day": 1772686800000,
+          "games": 3,
+          "wins": 1
+        },
+        {
+          "day": 1773115200000,
+          "games": 9,
+          "wins": 5
+        },
+        {
+          "day": 1773374400000,
+          "games": 10,
+          "wins": 3
+        },
+        {
+          "day": 1773460800000,
+          "games": 5,
+          "wins": 4
+        },
+        {
+          "day": 1774238400000,
+          "games": 2,
+          "wins": 2
+        },
+        {
+          "day": 1778731200000,
+          "games": 9,
+          "wins": 3
+        },
+        {
+          "day": 1778817600000,
+          "games": 2,
+          "wins": 1
+        },
+        {
+          "day": 1779336000000,
+          "games": 3,
+          "wins": 2
+        },
+        {
+          "day": 1779854400000,
+          "games": 7,
+          "wins": 2
+        },
+        {
+          "day": 1780027200000,
+          "games": 8,
+          "wins": 7
+        },
+        {
+          "day": 1780113600000,
+          "games": 12,
+          "wins": 6
+        },
+        {
+          "day": 1781064000000,
+          "games": 7,
+          "wins": 5
+        },
+        {
+          "day": 1781582400000,
+          "games": 6,
+          "wins": 4
+        },
+        {
+          "day": 1783828800000,
+          "games": 8,
+          "wins": 2
+        },
+        {
+          "day": 1783915200000,
+          "games": 9,
+          "wins": 4
+        },
+        {
+          "day": 1784001600000,
+          "games": 1,
+          "wins": 1
+        },
+        {
+          "day": 1784174400000,
+          "games": 8,
+          "wins": 5
+        },
+        {
+          "day": 1784260800000,
+          "games": 3,
+          "wins": 2
+        },
+        {
+          "day": 1784347200000,
+          "games": 4,
+          "wins": 1
+        },
+        {
+          "day": 1784433600000,
+          "games": 15,
+          "wins": 9
+        },
+        {
+          "day": 1784520000000,
+          "games": 7,
+          "wins": 3
+        },
+        {
+          "day": 1784606400000,
+          "games": 3,
+          "wins": 1
+        },
+        {
+          "day": 1784779200000,
+          "games": 2,
+          "wins": 1
+        },
+        {
+          "day": 1784865600000,
+          "games": 3,
+          "wins": 1
+        },
+        {
+          "day": 1785297600000,
+          "games": 13,
+          "wins": 7
+        },
+        {
+          "day": 1785384000000,
+          "games": 10,
+          "wins": 4
+        },
+        {
+          "day": 1785556800000,
+          "games": 19,
+          "wins": 10
+        },
+        {
+          "day": 1785643200000,
+          "games": 10,
+          "wins": 4
+        },
+        {
+          "day": 1785729600000,
+          "games": 3,
+          "wins": 1
+        },
+        {
+          "day": 1785902400000,
+          "games": 17,
+          "wins": 7
+        },
+        {
+          "day": 1785988800000,
+          "games": 11,
+          "wins": 4
+        },
+        {
+          "day": 1786075200000,
+          "games": 11,
+          "wins": 4
+        },
+        {
+          "day": 1786161600000,
+          "games": 20,
+          "wins": 12
+        },
+        {
+          "day": 1786248000000,
+          "games": 10,
+          "wins": 4
+        },
+        {
+          "day": 1786334400000,
+          "games": 8,
+          "wins": 6
+        },
+        {
+          "day": 1786680000000,
+          "games": 3,
+          "wins": 3
+        },
+        {
+          "day": 1786766400000,
+          "games": 1,
+          "wins": 1
+        },
+        {
+          "day": 1786939200000,
+          "games": 5,
+          "wins": 4
+        },
+        {
+          "day": 1787025600000,
+          "games": 13,
+          "wins": 5
+        },
+        {
+          "day": 1787112000000,
+          "games": 5,
+          "wins": 3
+        },
+        {
+          "day": 1787371200000,
+          "games": 13,
+          "wins": 7
+        },
+        {
+          "day": 1787544000000,
+          "games": 4,
+          "wins": 1
+        },
+        {
+          "day": 1787803200000,
+          "games": 11,
+          "wins": 8
+        },
+        {
+          "day": 1787889600000,
+          "games": 5,
+          "wins": 4
+        },
+        {
+          "day": 1788062400000,
+          "games": 7,
+          "wins": 3
+        },
+        {
+          "day": 1788235200000,
+          "games": 4,
+          "wins": 3
+        },
+        {
+          "day": 1789012800000,
+          "games": 12,
+          "wins": 6
+        },
+        {
+          "day": 1789099200000,
+          "games": 10,
+          "wins": 5
+        },
+        {
+          "day": 1794027600000,
+          "games": 19,
+          "wins": 8
+        },
+        {
+          "day": 1794114000000,
+          "games": 5,
+          "wins": 2
+        },
+        {
+          "day": 1794200400000,
+          "games": 10,
+          "wins": 3
+        },
+        {
+          "day": 1794286800000,
+          "games": 2,
+          "wins": 1
+        },
+        {
+          "day": 1794373200000,
+          "games": 16,
+          "wins": 8
+        },
+        {
+          "day": 1794459600000,
+          "games": 7,
+          "wins": 2
+        },
+        {
+          "day": 1794546000000,
+          "games": 21,
+          "wins": 11
+        },
+        {
+          "day": 1794632400000,
+          "games": 17,
+          "wins": 11
+        },
+        {
+          "day": 1794718800000,
+          "games": 14,
+          "wins": 10
+        },
+        {
+          "day": 1794805200000,
+          "games": 11,
+          "wins": 4
+        },
+        {
+          "day": 1794891600000,
+          "games": 7,
+          "wins": 3
+        },
+        {
+          "day": 1794978000000,
+          "games": 6,
+          "wins": 3
+        },
+        {
+          "day": 1795150800000,
+          "games": 13,
+          "wins": 8
+        },
+        {
+          "day": 1795237200000,
+          "games": 10,
+          "wins": 5
+        },
+        {
+          "day": 1795323600000,
+          "games": 2,
+          "wins": 1
+        }
+      ],
+      "busiestDay": {
+        "day": 1794546000000,
+        "games": 21,
+        "wins": 11
+      },
+      "dayStreak": {
+        "days": 12,
+        "from": 1794027600000,
+        "to": 1794978000000
+      },
+      "peakHour": 0,
+      "topWeekday": 6,
+      "kills": 5914,
+      "deaths": 6019,
+      "assists": 17774,
+      "damage": 24233706,
+      "damageTaken": 25161825,
+      "healing": 6077133,
+      "gold": 11020386,
+      "multikills": {
+        "doubles": 882,
+        "triples": 159,
+        "quadras": 32,
+        "pentas": 1
+      },
+      "killParticipation": 0.6904124099466576,
+      "damageShare": 0.19441825817930267,
+      "avgScore": 6.243161094224928,
+      "mvps": 56,
+      "aces": 66,
+      "scoredWins": 338,
+      "scoredLosses": 320,
+      "champions": [
+        {
+          "champion_id": 26,
+          "games": 37,
+          "wins": 24,
+          "kills": 212,
+          "deaths": 219,
+          "assists": 1372,
+          "avgScore": 6.816216216216216
+        },
+        {
+          "champion_id": 96,
+          "games": 23,
+          "wins": 18,
+          "kills": 276,
+          "deaths": 207,
+          "assists": 651,
+          "avgScore": 6.878260869565218
+        },
+        {
+          "champion_id": 126,
+          "games": 19,
+          "wins": 9,
+          "kills": 227,
+          "deaths": 172,
+          "assists": 508,
+          "avgScore": 6.38421052631579
+        },
+        {
+          "champion_id": 147,
+          "games": 17,
+          "wins": 11,
+          "kills": 160,
+          "deaths": 109,
+          "assists": 683,
+          "avgScore": 7.5352941176470605
+        },
+        {
+          "champion_id": 13,
+          "games": 17,
+          "wins": 10,
+          "kills": 204,
+          "deaths": 176,
+          "assists": 426,
+          "avgScore": 6.952941176470589
+        },
+        {
+          "champion_id": 21,
+          "games": 17,
+          "wins": 8,
+          "kills": 136,
+          "deaths": 138,
+          "assists": 534,
+          "avgScore": 6.382352941176471
+        }
+      ],
+      "uniqueChampions": 119,
+      "augments": [
+        {
+          "augment_id": 1030,
+          "picks": 56,
+          "wins": 29
+        },
+        {
+          "augment_id": 1238,
+          "picks": 51,
+          "wins": 26
+        },
+        {
+          "augment_id": 1056,
+          "picks": 49,
+          "wins": 20
+        },
+        {
+          "augment_id": 1133,
+          "picks": 47,
+          "wins": 25
+        },
+        {
+          "augment_id": 1097,
+          "picks": 45,
+          "wins": 26
+        },
+        {
+          "augment_id": 1353,
+          "picks": 40,
+          "wins": 17
+        }
+      ],
+      "items": [
+        {
+          "item_id": 3089,
+          "picks": 194,
+          "wins": 102
+        },
+        {
+          "item_id": 3020,
+          "picks": 184,
+          "wins": 102
+        },
+        {
+          "item_id": 3158,
+          "picks": 148,
+          "wins": 82
+        },
+        {
+          "item_id": 6653,
+          "picks": 119,
+          "wins": 56
+        },
+        {
+          "item_id": 3040,
+          "picks": 117,
+          "wins": 67
+        },
+        {
+          "item_id": 2503,
+          "picks": 114,
+          "wins": 63
+        },
+        {
+          "item_id": 4645,
+          "picks": 109,
+          "wins": 61
+        },
+        {
+          "item_id": 6655,
+          "picks": 108,
+          "wins": 63
+        },
+        {
+          "item_id": 3111,
+          "picks": 95,
+          "wins": 36
+        },
+        {
+          "item_id": 3006,
+          "picks": 88,
+          "wins": 49
+        },
+        {
+          "item_id": 3084,
+          "picks": 83,
+          "wins": 34
+        },
+        {
+          "item_id": 6657,
+          "picks": 79,
+          "wins": 39
+        },
+        {
+          "item_id": 3031,
+          "picks": 76,
+          "wins": 41
+        },
+        {
+          "item_id": 3116,
+          "picks": 67,
+          "wins": 39
+        },
+        {
+          "item_id": 3042,
+          "picks": 65,
+          "wins": 38
+        },
+        {
+          "item_id": 3143,
+          "picks": 65,
+          "wins": 26
+        },
+        {
+          "item_id": 3157,
+          "picks": 60,
+          "wins": 34
+        },
+        {
+          "item_id": 1058,
+          "picks": 58,
+          "wins": 28
+        },
+        {
+          "item_id": 4629,
+          "picks": 53,
+          "wins": 27
+        },
+        {
+          "item_id": 3047,
+          "picks": 53,
+          "wins": 18
+        }
+      ],
+      "records": {
+        "totalGames": 658,
+        "bests": {
+          "kills": {
+            "value": 35,
+            "match": {
+              "game_id": 5560619247,
+              "game_creation": 1778816101678,
+              "game_duration": 2132,
+              "queue_id": 2400,
+              "champion_id": 51,
+              "win": 1,
+              "kills": 35,
+              "deaths": 16,
+              "assists": 36
+            }
+          },
+          "deaths": {
+            "value": 22,
+            "match": {
+              "game_id": 5462408523,
+              "game_creation": 1768203002290,
+              "game_duration": 1972,
+              "queue_id": 2400,
+              "champion_id": 7,
+              "win": 0,
+              "kills": 11,
+              "deaths": 22,
+              "assists": 30
+            }
+          },
+          "assists": {
+            "value": 70,
+            "match": {
+              "game_id": 5613601602,
+              "game_creation": 1785655850770,
+              "game_duration": 1843,
+              "queue_id": 2400,
+              "champion_id": 26,
+              "win": 1,
+              "kills": 3,
+              "deaths": 9,
+              "assists": 70
+            }
+          },
+          "kda": {
+            "value": 42,
+            "match": {
+              "game_id": 5583389691,
+              "game_creation": 1781668566390,
+              "game_duration": 634,
+              "queue_id": 2400,
+              "champion_id": 161,
+              "win": 1,
+              "kills": 6,
+              "deaths": 1,
+              "assists": 36
+            }
+          },
+          "score": {
+            "value": 11.752,
+            "match": {
+              "game_id": 5618065203,
+              "game_creation": 1786256203643,
+              "game_duration": 795,
+              "queue_id": 2400,
+              "champion_id": 51,
+              "win": 1,
+              "kills": 23,
+              "deaths": 5,
+              "assists": 18
+            }
+          },
+          "killingSpree": {
+            "value": 14,
+            "match": {
+              "game_id": 5676726624,
+              "game_creation": 1794255421223,
+              "game_duration": 1237,
+              "queue_id": 2400,
+              "champion_id": 221,
+              "win": 1,
+              "kills": 31,
+              "deaths": 7,
+              "assists": 35
+            }
+          },
+          "damage": {
+            "value": 201133,
+            "match": {
+              "game_id": 5626816561,
+              "game_creation": 1787468885312,
+              "game_duration": 1694,
+              "queue_id": 2400,
+              "champion_id": 21,
+              "win": 1,
+              "kills": 14,
+              "deaths": 6,
+              "assists": 57
+            }
+          },
+          "damageTaken": {
+            "value": 258989,
+            "match": {
+              "game_id": 5676439780,
+              "game_creation": 1794197183503,
+              "game_duration": 1591,
+              "queue_id": 2400,
+              "champion_id": 111,
+              "win": 0,
+              "kills": 7,
+              "deaths": 12,
+              "assists": 50
+            }
+          },
+          "healing": {
+            "value": 95389,
+            "match": {
+              "game_id": 5630012239,
+              "game_creation": 1787896062537,
+              "game_duration": 2353,
+              "queue_id": 2400,
+              "champion_id": 57,
+              "win": 1,
+              "kills": 19,
+              "deaths": 10,
+              "assists": 57
+            }
+          },
+          "gold": {
+            "value": 43824,
+            "match": {
+              "game_id": 5560619247,
+              "game_creation": 1778816101678,
+              "game_duration": 2132,
+              "queue_id": 2400,
+              "champion_id": 51,
+              "win": 1,
+              "kills": 35,
+              "deaths": 16,
+              "assists": 36
+            }
+          },
+          "fastestWin": {
+            "value": 372,
+            "match": {
+              "game_id": 5678355732,
+              "game_creation": 1794465305988,
+              "game_duration": 372,
+              "queue_id": 2400,
+              "champion_id": 18,
+              "win": 1,
+              "kills": 3,
+              "deaths": 2,
+              "assists": 2
+            }
+          },
+          "longestGame": {
+            "value": 2353,
+            "match": {
+              "game_id": 5630012239,
+              "game_creation": 1787896062537,
+              "game_duration": 2353,
+              "queue_id": 2400,
+              "champion_id": 57,
+              "win": 1,
+              "kills": 19,
+              "deaths": 10,
+              "assists": 57
+            }
+          }
+        },
+        "winStreak": {
+          "length": 6,
+          "start": 1772400846186,
+          "end": 1772516606018,
+          "match": {
+            "game_id": 5504705185,
+            "game_creation": 1772516606018,
+            "game_duration": 1294,
+            "queue_id": 2400,
+            "champion_id": 22,
+            "win": 1,
+            "kills": 3,
+            "deaths": 8,
+            "assists": 24
+          }
+        },
+        "lossStreak": {
+          "length": 7,
+          "start": 1794196086195,
+          "end": 1794253067973,
+          "match": {
+            "game_id": 5676718062,
+            "game_creation": 1794253067973,
+            "game_duration": 869,
+            "queue_id": 2400,
+            "champion_id": 31,
+            "win": 0,
+            "kills": 1,
+            "deaths": 9,
+            "assists": 33
+          }
+        }
+      },
+      "friends": [
+        {
+          "key": "fa4e0000-0000-4000-8000-0000000009d1",
+          "name": "DustyWillow#Z1097",
+          "puuid": "fa4e0000-0000-4000-8000-0000000009d1",
+          "profileIcon": 589,
+          "games": 311,
+          "wins": 162,
+          "kills": 3691,
+          "deaths": 3170,
+          "assists": 7579,
+          "champions": [
+            {
+              "champion_id": 555,
+              "games": 11
+            },
+            {
+              "champion_id": 777,
+              "games": 10
+            },
+            {
+              "champion_id": 236,
+              "games": 9
+            },
+            {
+              "champion_id": 84,
+              "games": 8
+            },
+            {
+              "champion_id": 268,
+              "games": 8
+            }
+          ],
+          "lastPlayed": 1795248938246
+        },
+        {
+          "key": "fa4e0000-0000-4000-8000-0000000003e0",
+          "name": "UpbeatMeadow1#Z104",
+          "puuid": "fa4e0000-0000-4000-8000-0000000003e0",
+          "profileIcon": 588,
+          "games": 273,
+          "wins": 142,
+          "kills": 4754,
+          "deaths": 2640,
+          "assists": 5832,
+          "champions": [
+            {
+              "champion_id": 41,
+              "games": 12
+            },
+            {
+              "champion_id": 120,
+              "games": 11
+            },
+            {
+              "champion_id": 51,
+              "games": 10
+            },
+            {
+              "champion_id": 222,
+              "games": 10
+            },
+            {
+              "champion_id": 107,
+              "games": 9
+            }
+          ],
+          "lastPlayed": 1795342890202
+        },
+        {
+          "key": "fa4e0000-0000-4000-8000-0000000004a8",
+          "name": "QuietDragon2#Z1466",
+          "puuid": "fa4e0000-0000-4000-8000-0000000004a8",
+          "profileIcon": 6872,
+          "games": 225,
+          "wins": 111,
+          "kills": 1828,
+          "deaths": 2576,
+          "assists": 5572,
+          "champions": [
+            {
+              "champion_id": 35,
+              "games": 10
+            },
+            {
+              "champion_id": 238,
+              "games": 10
+            },
+            {
+              "champion_id": 25,
+              "games": 8
+            },
+            {
+              "champion_id": 63,
+              "games": 8
+            },
+            {
+              "champion_id": 21,
+              "games": 7
+            }
+          ],
+          "lastPlayed": 1795339985921
+        },
+        {
+          "key": "fa4e0000-0000-4000-8000-00000000080f",
+          "name": "EagerQuartz2#Z1097",
+          "puuid": "fa4e0000-0000-4000-8000-00000000080f",
+          "profileIcon": 6709,
+          "games": 223,
+          "wins": 115,
+          "kills": 2645,
+          "deaths": 2199,
+          "assists": 6002,
+          "champions": [
+            {
+              "champion_id": 41,
+              "games": 12
+            },
+            {
+              "champion_id": 910,
+              "games": 8
+            },
+            {
+              "champion_id": 902,
+              "games": 7
+            },
+            {
+              "champion_id": 432,
+              "games": 6
+            },
+            {
+              "champion_id": 21,
+              "games": 5
+            }
+          ],
+          "lastPlayed": 1795342890202
+        },
+        {
+          "key": "fa4e0000-0000-4000-8000-00000000088e",
+          "name": "QuietCobalt4#Z1097",
+          "puuid": "fa4e0000-0000-4000-8000-00000000088e",
+          "profileIcon": 4987,
+          "games": 208,
+          "wins": 103,
+          "kills": 2091,
+          "deaths": 1847,
+          "assists": 5476,
+          "champions": [
+            {
+              "champion_id": 110,
+              "games": 9
+            },
+            {
+              "champion_id": 101,
+              "games": 8
+            },
+            {
+              "champion_id": 950,
+              "games": 8
+            },
+            {
+              "champion_id": 201,
+              "games": 6
+            },
+            {
+              "champion_id": 238,
+              "games": 6
+            }
+          ],
+          "lastPlayed": 1795251713252
+        }
+      ]
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

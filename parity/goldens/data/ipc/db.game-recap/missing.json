@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "db:game-recap",
+  "method": "getGameRecap",
+  "registered": true,
+  "case": "missing",
+  "description": "a game id that does not exist",
+  "group": "read",
+  "seq": 66,
+  "args": [
+    -1
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": null
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

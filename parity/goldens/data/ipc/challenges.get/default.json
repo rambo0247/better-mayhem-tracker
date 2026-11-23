@@ -1,0 +1,972 @@
+{
+  "format": 1,
+  "channel": "challenges:get",
+  "method": "getChallenges",
+  "registered": true,
+  "case": "default",
+  "description": "with no client",
+  "group": "read",
+  "seq": 82,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "data": {
+        "player": {
+          "level": "PLATINUM",
+          "points": 11745,
+          "pointsUntilNextRank": 29680,
+          "percentile": 6.1,
+          "title": "ARAM God"
+        },
+        "capstone": {
+          "id": 101000,
+          "name": "ARAM Authority",
+          "description": "Earn progress from challenges in the ARAM Warrior, ARAM Finesse, and ARAM Champion groups",
+          "level": "MASTER",
+          "value": 2050,
+          "currentThreshold": 0,
+          "nextLevel": null,
+          "nextThreshold": null,
+          "nextRewards": [],
+          "percentile": 1.7000000000000002,
+          "pointsAwarded": 100,
+          "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101000/Tokens/MASTER.png",
+          "retired": false,
+          "completedChampionIds": null,
+          "delta": null
+        },
+        "groups": [
+          {
+            "summary": {
+              "id": 101100,
+              "name": "ARAM Warrior",
+              "description": "Earn progress from challenges in the ARAM Warrior group",
+              "level": "MASTER",
+              "value": 800,
+              "currentThreshold": 0,
+              "nextLevel": null,
+              "nextThreshold": null,
+              "nextRewards": [],
+              "percentile": 2.4,
+              "pointsAwarded": 100,
+              "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101100/Tokens/MASTER.png",
+              "retired": false,
+              "completedChampionIds": null,
+              "delta": null
+            },
+            "challenges": [
+              {
+                "id": 101108,
+                "name": "Solo Carry",
+                "description": "Deal 40% or more of your team's damage to champions in ARAM",
+                "level": "GRANDMASTER",
+                "value": 51,
+                "currentThreshold": 20,
+                "nextLevel": "CHALLENGER",
+                "nextThreshold": 56,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 0.1,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101108/Tokens/GRANDMASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101107,
+                "name": "Farm Champs Not Minions",
+                "description": "Get Takedowns in ARAM",
+                "level": "MASTER",
+                "value": 64545,
+                "currentThreshold": 30000,
+                "nextLevel": "GRANDMASTER",
+                "nextThreshold": 83788,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 3.5000000000000004,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101107/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101101,
+                "name": "DPS Threat",
+                "description": "Deal more than 1800 Damage Per Minute in ARAM games",
+                "level": "GRANDMASTER",
+                "value": 721,
+                "currentThreshold": 284,
+                "nextLevel": "CHALLENGER",
+                "nextThreshold": 966,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 3.3000000000000003,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101101/Tokens/GRANDMASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101106,
+                "name": "ARAM Eradication",
+                "description": "Get Pentakills in ARAM",
+                "level": "MASTER",
+                "value": 17,
+                "currentThreshold": 7,
+                "nextLevel": "GRANDMASTER",
+                "nextThreshold": 25,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 4.3,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101106/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101103,
+                "name": "ARAM Legend",
+                "description": "Go Legendary in ARAM games",
+                "level": "MASTER",
+                "value": 22,
+                "currentThreshold": 15,
+                "nextLevel": "GRANDMASTER",
+                "nextThreshold": 42,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 2.8000000000000003,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101103/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101104,
+                "name": "Bad Medicine",
+                "description": "Kill opponents who recently received a health pack in ARAM",
+                "level": "MASTER",
+                "value": 263,
+                "currentThreshold": 0,
+                "nextLevel": null,
+                "nextThreshold": null,
+                "nextRewards": [],
+                "percentile": 3.1,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101104/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101105,
+                "name": "No Hiding",
+                "description": "Kill enemies near one of their own turrets in ARAM",
+                "level": "MASTER",
+                "value": 3750,
+                "currentThreshold": 0,
+                "nextLevel": null,
+                "nextThreshold": null,
+                "nextRewards": [],
+                "percentile": 3.1,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101105/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101102,
+                "name": "Double Decimation",
+                "description": "Get two Pentakills in a single ARAM game",
+                "level": "MASTER",
+                "value": 1,
+                "currentThreshold": 0,
+                "nextLevel": null,
+                "nextThreshold": null,
+                "nextRewards": [],
+                "percentile": 3,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101102/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              }
+            ]
+          },
+          {
+            "summary": {
+              "id": 101200,
+              "name": "ARAM Finesse",
+              "description": "Earn progress from challenges in the ARAM Finesse group",
+              "level": "MASTER",
+              "value": 510,
+              "currentThreshold": 0,
+              "nextLevel": null,
+              "nextThreshold": null,
+              "nextRewards": [],
+              "percentile": 2.1999999999999997,
+              "pointsAwarded": 100,
+              "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101200/Tokens/MASTER.png",
+              "retired": false,
+              "completedChampionIds": null,
+              "delta": null
+            },
+            "challenges": [
+              {
+                "id": 101201,
+                "name": "Another Day, Another Bullseye",
+                "description": "Hit skillshots (ranged untargeted abilities) on champions in ARAM",
+                "level": "MASTER",
+                "value": 116380,
+                "currentThreshold": 45000,
+                "nextLevel": "GRANDMASTER",
+                "nextThreshold": 117399,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 2.9000000000000004,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101201/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101205,
+                "name": "Free Ticket to Base",
+                "description": "Successfully Execute to the outer turret before 10 minutes in ARAM",
+                "level": "MASTER",
+                "value": 42,
+                "currentThreshold": 30,
+                "nextLevel": "GRANDMASTER",
+                "nextThreshold": 54,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 0.2,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101205/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101202,
+                "name": "It was a... Near-Hit",
+                "description": "Dodge skillshots (ranged untargeted abilities) in ARAM",
+                "level": "MASTER",
+                "value": 98571,
+                "currentThreshold": 78000,
+                "nextLevel": "GRANDMASTER",
+                "nextThreshold": 177943,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 2.4,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101202/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101203,
+                "name": "Snow Day",
+                "description": "Hit snowballs on champions in ARAM",
+                "level": "MASTER",
+                "value": 3072,
+                "currentThreshold": 3000,
+                "nextLevel": "GRANDMASTER",
+                "nextThreshold": 10527,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 3.5000000000000004,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101203/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101206,
+                "name": "Pop Goes the Poro",
+                "description": "Cause a Poro to explode in ARAM",
+                "level": "BRONZE",
+                "value": 1,
+                "currentThreshold": 0,
+                "nextLevel": null,
+                "nextThreshold": null,
+                "nextRewards": [],
+                "percentile": 15.1,
+                "pointsAwarded": 10,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101206/Tokens/BRONZE.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101204,
+                "name": "Free Money",
+                "description": "Kill minions in ARAM",
+                "level": "MASTER",
+                "value": 88172,
+                "currentThreshold": 0,
+                "nextLevel": null,
+                "nextThreshold": null,
+                "nextRewards": [],
+                "percentile": 2.3,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101204/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              }
+            ]
+          },
+          {
+            "summary": {
+              "id": 101300,
+              "name": "ARAM Champion",
+              "description": "Earn progress from challenges in the ARAM Champion group",
+              "level": "DIAMOND",
+              "value": 480,
+              "currentThreshold": 340,
+              "nextLevel": "MASTER",
+              "nextThreshold": 550,
+              "nextRewards": [
+                {
+                  "category": "CHALLENGE_POINTS",
+                  "name": "",
+                  "quantity": 100
+                }
+              ],
+              "percentile": 4.3999999999999995,
+              "pointsAwarded": 60,
+              "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101300/Tokens/DIAMOND.png",
+              "retired": false,
+              "completedChampionIds": null,
+              "delta": null
+            },
+            "challenges": [
+              {
+                "id": 101305,
+                "name": "Active Participant",
+                "description": "Have over 90% Kill Participation in ARAM games",
+                "level": "PLATINUM",
+                "value": 120,
+                "currentThreshold": 50,
+                "nextLevel": "DIAMOND",
+                "nextThreshold": 125,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 60
+                  }
+                ],
+                "percentile": 1.6,
+                "pointsAwarded": 40,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101305/Tokens/PLATINUM.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101302,
+                "name": "All Random All Flawless",
+                "description": "Earn S grades or higher in ARAM",
+                "level": "MASTER",
+                "value": 219,
+                "currentThreshold": 75,
+                "nextLevel": "GRANDMASTER",
+                "nextThreshold": 265,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 4.3999999999999995,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101302/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101301,
+                "name": "All Random All Champions",
+                "description": "Earn an S- grade or higher on different champions in ARAM",
+                "level": "PLATINUM",
+                "value": 83,
+                "currentThreshold": 50,
+                "nextLevel": "DIAMOND",
+                "nextThreshold": 100,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 60
+                  }
+                ],
+                "percentile": 3.8,
+                "pointsAwarded": 40,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101301/Tokens/PLATINUM.png",
+                "retired": false,
+                "completedChampionIds": [
+                  2,
+                  516,
+                  4,
+                  517,
+                  901,
+                  5,
+                  134,
+                  6,
+                  7,
+                  136,
+                  9,
+                  777,
+                  10,
+                  11,
+                  12,
+                  268,
+                  13,
+                  142,
+                  910,
+                  15,
+                  143,
+                  16,
+                  145,
+                  18,
+                  147,
+                  21,
+                  22,
+                  26,
+                  27,
+                  30,
+                  31,
+                  800,
+                  161,
+                  34,
+                  163,
+                  420,
+                  36,
+                  37,
+                  40,
+                  41,
+                  42,
+                  43,
+                  427,
+                  45,
+                  429,
+                  48,
+                  50,
+                  51,
+                  53,
+                  54,
+                  57,
+                  61,
+                  63,
+                  67,
+                  69,
+                  201,
+                  75,
+                  203,
+                  78,
+                  79,
+                  81,
+                  82,
+                  83,
+                  84,
+                  90,
+                  221,
+                  222,
+                  350,
+                  96,
+                  99,
+                  101,
+                  103,
+                  104,
+                  876,
+                  236,
+                  111,
+                  112,
+                  498,
+                  245,
+                  117,
+                  120,
+                  126,
+                  895
+                ],
+                "delta": null
+              },
+              {
+                "id": 101303,
+                "name": "Rapid Demolition",
+                "description": "Take the first turret in ARAM before five minutes have passed",
+                "level": "DIAMOND",
+                "value": 49,
+                "currentThreshold": 30,
+                "nextLevel": "MASTER",
+                "nextThreshold": 60,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 3.2,
+                "pointsAwarded": 60,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101303/Tokens/DIAMOND.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101307,
+                "name": "NA-RAM",
+                "description": "Win ARAM Games",
+                "level": "MASTER",
+                "value": 946,
+                "currentThreshold": 500,
+                "nextLevel": "GRANDMASTER",
+                "nextThreshold": 1285,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 3.1,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101307/Tokens/MASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101304,
+                "name": "Lightning Round",
+                "description": "Win ARAM games before 13 minutes have passed",
+                "level": "GRANDMASTER",
+                "value": 50,
+                "currentThreshold": 46,
+                "nextLevel": "CHALLENGER",
+                "nextThreshold": 114,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 100
+                  }
+                ],
+                "percentile": 1.9,
+                "pointsAwarded": 100,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101304/Tokens/GRANDMASTER.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              },
+              {
+                "id": 101306,
+                "name": "Can't Touch This",
+                "description": "Win ARAM games without being killed by an enemy champion (you can still be executed)",
+                "level": "PLATINUM",
+                "value": 1,
+                "currentThreshold": 1,
+                "nextLevel": "DIAMOND",
+                "nextThreshold": 2,
+                "nextRewards": [
+                  {
+                    "category": "CHALLENGE_POINTS",
+                    "name": "",
+                    "quantity": 60
+                  }
+                ],
+                "percentile": 4.7,
+                "pointsAwarded": 40,
+                "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101306/Tokens/PLATINUM.png",
+                "retired": false,
+                "completedChampionIds": null,
+                "delta": null
+              }
+            ]
+          }
+        ],
+        "seasonal": [
+          {
+            "id": 2024302,
+            "name": "No Hiding: 2024 Split 3",
+            "description": "Kill enemies near one of their own turrets in ARAM",
+            "level": "BRONZE",
+            "value": 9,
+            "currentThreshold": 8,
+            "nextLevel": "SILVER",
+            "nextThreshold": 15,
+            "nextRewards": [
+              {
+                "category": "CHALLENGE_POINTS",
+                "name": "",
+                "quantity": 15
+              }
+            ],
+            "percentile": 8.200000000000001,
+            "pointsAwarded": 10,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/2024302/Tokens/BRONZE.png",
+            "retired": true,
+            "completedChampionIds": null,
+            "delta": null
+          },
+          {
+            "id": 2024207,
+            "name": "Sparkles & Fireworks: 2024 Split 2",
+            "description": "Participate in Fistbumps with at least 1 other player in non-AI matchmade games",
+            "level": "NONE",
+            "value": 4,
+            "currentThreshold": 0,
+            "nextLevel": "IRON",
+            "nextThreshold": 5,
+            "nextRewards": [
+              {
+                "category": "CHALLENGE_POINTS",
+                "name": "",
+                "quantity": 5
+              }
+            ],
+            "percentile": 100,
+            "pointsAwarded": 0,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/2024207/Tokens/IRON.png",
+            "retired": true,
+            "completedChampionIds": null,
+            "delta": null
+          },
+          {
+            "id": 2024205,
+            "name": "Farm Champs Not Minions: 2024 Split 2",
+            "description": "Get Takedowns in ARAM",
+            "level": "MASTER",
+            "value": 1031,
+            "currentThreshold": 0,
+            "nextLevel": null,
+            "nextThreshold": null,
+            "nextRewards": [],
+            "percentile": 4.2,
+            "pointsAwarded": 100,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/2024205/Tokens/MASTER.png",
+            "retired": true,
+            "completedChampionIds": null,
+            "delta": null
+          },
+          {
+            "id": 2024105,
+            "name": "All Random All Champs: 2024 Split 1",
+            "description": "Earn an S- grade or higher on different champions in ARAM",
+            "level": "DIAMOND",
+            "value": 22,
+            "currentThreshold": 18,
+            "nextLevel": "MASTER",
+            "nextThreshold": 25,
+            "nextRewards": [
+              {
+                "category": "CHALLENGE_POINTS",
+                "name": "",
+                "quantity": 100
+              }
+            ],
+            "percentile": 1.3,
+            "pointsAwarded": 60,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/2024105/Tokens/DIAMOND.png",
+            "retired": true,
+            "completedChampionIds": [
+              2,
+              34,
+              163,
+              420,
+              37,
+              103,
+              777,
+              43,
+              13,
+              142,
+              910,
+              79,
+              48,
+              16,
+              18,
+              83,
+              90,
+              26,
+              61,
+              350,
+              222,
+              31
+            ],
+            "delta": null
+          },
+          {
+            "id": 2023006,
+            "name": "Perfect Aim: 2023",
+            "description": "Hit snowballs on champions in ARAM",
+            "level": "MASTER",
+            "value": 581,
+            "currentThreshold": 250,
+            "nextLevel": "GRANDMASTER",
+            "nextThreshold": 1891,
+            "nextRewards": [
+              {
+                "category": "CHALLENGE_POINTS",
+                "name": "",
+                "quantity": 100
+              }
+            ],
+            "percentile": 5.1,
+            "pointsAwarded": 100,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/2023006/tokens/MASTER.png",
+            "retired": true,
+            "completedChampionIds": null,
+            "delta": null
+          },
+          {
+            "id": 2023005,
+            "name": "Can Run, Can't Hide: 2023",
+            "description": "Kill enemies near one of their own turrets in ARAM",
+            "level": "CHALLENGER",
+            "value": 808,
+            "currentThreshold": 0,
+            "nextLevel": null,
+            "nextThreshold": null,
+            "nextRewards": [],
+            "percentile": 0,
+            "pointsAwarded": 100,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/2023005/tokens/CHALLENGER.png",
+            "retired": true,
+            "completedChampionIds": null,
+            "delta": null
+          },
+          {
+            "id": 2023002,
+            "name": "It's All Me: 2023",
+            "description": "Deal 40% or more of your team's total damage to champions in ARAM",
+            "level": "GRANDMASTER",
+            "value": 8,
+            "currentThreshold": 3,
+            "nextLevel": "CHALLENGER",
+            "nextThreshold": 11,
+            "nextRewards": [
+              {
+                "category": "CHALLENGE_POINTS",
+                "name": "",
+                "quantity": 100
+              }
+            ],
+            "percentile": 0.1,
+            "pointsAwarded": 100,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/2023002/tokens/GRANDMASTER.png",
+            "retired": true,
+            "completedChampionIds": null,
+            "delta": null
+          },
+          {
+            "id": 2022002,
+            "name": "Rapid Demolition: 2022",
+            "description": "Take the first turret in ARAM before 5 minutes have passed",
+            "level": "PLATINUM",
+            "value": 14,
+            "currentThreshold": 10,
+            "nextLevel": "DIAMOND",
+            "nextThreshold": 15,
+            "nextRewards": [
+              {
+                "category": "CHALLENGE_POINTS",
+                "name": "",
+                "quantity": 60
+              }
+            ],
+            "percentile": 1.6,
+            "pointsAwarded": 40,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/2022002/Tokens/PLATINUM.png",
+            "retired": true,
+            "completedChampionIds": null,
+            "delta": null
+          },
+          {
+            "id": 2022001,
+            "name": "All Random All Champions: 2022",
+            "description": "Earn an S- grade or higher on different champions in ARAM",
+            "level": "MASTER",
+            "value": 29,
+            "currentThreshold": 20,
+            "nextLevel": "GRANDMASTER",
+            "nextThreshold": 30,
+            "nextRewards": [
+              {
+                "category": "CHALLENGE_POINTS",
+                "name": "",
+                "quantity": 100
+              }
+            ],
+            "percentile": 0.1,
+            "pointsAwarded": 100,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/2022001/Tokens/MASTER.png",
+            "retired": true,
+            "completedChampionIds": [
+              516,
+              69,
+              517,
+              134,
+              9,
+              10,
+              75,
+              13,
+              142,
+              15,
+              81,
+              145,
+              82,
+              18,
+              22,
+              26,
+              221,
+              222,
+              104,
+              40,
+              876,
+              236,
+              45,
+              429,
+              498,
+              50,
+              51,
+              245,
+              120
+            ],
+            "delta": null
+          }
+        ],
+        "equipped": [
+          {
+            "id": 2023005,
+            "name": "Can Run, Can't Hide: 2023",
+            "description": "Kill enemies near one of their own turrets in ARAM",
+            "level": "CHALLENGER",
+            "value": 808,
+            "currentThreshold": 0,
+            "nextLevel": null,
+            "nextThreshold": null,
+            "nextRewards": [],
+            "percentile": 0,
+            "pointsAwarded": 100,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/2023005/tokens/CHALLENGER.png",
+            "retired": true,
+            "completedChampionIds": null,
+            "delta": null
+          },
+          {
+            "id": 101106,
+            "name": "ARAM Eradication",
+            "description": "Get Pentakills in ARAM",
+            "level": "MASTER",
+            "value": 17,
+            "currentThreshold": 7,
+            "nextLevel": "GRANDMASTER",
+            "nextThreshold": 25,
+            "nextRewards": [
+              {
+                "category": "CHALLENGE_POINTS",
+                "name": "",
+                "quantity": 100
+              }
+            ],
+            "percentile": 4.3,
+            "pointsAwarded": 100,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/101106/Tokens/MASTER.png",
+            "retired": false,
+            "completedChampionIds": null,
+            "delta": null
+          },
+          {
+            "id": 2023002,
+            "name": "It's All Me: 2023",
+            "description": "Deal 40% or more of your team's total damage to champions in ARAM",
+            "level": "GRANDMASTER",
+            "value": 8,
+            "currentThreshold": 3,
+            "nextLevel": "CHALLENGER",
+            "nextThreshold": 11,
+            "nextRewards": [
+              {
+                "category": "CHALLENGE_POINTS",
+                "name": "",
+                "quantity": 100
+              }
+            ],
+            "percentile": 0.1,
+            "pointsAwarded": 100,
+            "iconPath": "/lol-game-data/assets/ASSETS/Challenges/Config/2023002/tokens/GRANDMASTER.png",
+            "retired": true,
+            "completedChampionIds": null,
+            "delta": null
+          }
+        ],
+        "fetchedAt": 1795395096604,
+        "since": null
+      },
+      "pending": false
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

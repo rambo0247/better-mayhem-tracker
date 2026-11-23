@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "channel": "app:open-logs-folder",
+  "method": "openLogsFolder",
+  "registered": true,
+  "case": "default",
+  "description": "asks the OS to open the folder",
+  "group": "read",
+  "seq": 110,
+  "args": [],
+  "outcome": {
+    "kind": "void"
+  },
+  "events": [],
+  "effects": [
+    {
+      "seq": 0,
+      "api": "shell.openPath",
+      "args": [
+        "$RUN/logs"
+      ]
+    }
+  ],
+  "files": [],
+  "nonFinite": []
+}

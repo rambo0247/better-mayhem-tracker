@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "channel": "window:close",
+  "method": "closeWindow",
+  "registered": true,
+  "case": "close",
+  "description": "close hides to tray or quits",
+  "group": "window-close",
+  "seq": 0,
+  "args": [],
+  "outcome": {
+    "kind": "void"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

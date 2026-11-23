@@ -1,0 +1,885 @@
+{
+  "format": 1,
+  "channel": "dragon:champions",
+  "method": "getChampionData",
+  "registered": true,
+  "case": "warm-champions",
+  "description": "champion table before the first card",
+  "group": "export-card",
+  "seq": 0,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "1": {
+        "name": "Annie",
+        "key": "Annie",
+        "class": "Mage"
+      },
+      "2": {
+        "name": "Olaf",
+        "key": "Olaf",
+        "class": "Fighter"
+      },
+      "3": {
+        "name": "Galio",
+        "key": "Galio",
+        "class": "Tank"
+      },
+      "4": {
+        "name": "Twisted Fate",
+        "key": "TwistedFate",
+        "class": "Mage"
+      },
+      "5": {
+        "name": "Xin Zhao",
+        "key": "XinZhao",
+        "class": "Fighter"
+      },
+      "6": {
+        "name": "Urgot",
+        "key": "Urgot",
+        "class": "Fighter"
+      },
+      "7": {
+        "name": "LeBlanc",
+        "key": "Leblanc",
+        "class": "Assassin"
+      },
+      "8": {
+        "name": "Vladimir",
+        "key": "Vladimir",
+        "class": "Mage"
+      },
+      "9": {
+        "name": "Fiddlesticks",
+        "key": "Fiddlesticks",
+        "class": "Mage"
+      },
+      "10": {
+        "name": "Kayle",
+        "key": "Kayle",
+        "class": "Marksman"
+      },
+      "11": {
+        "name": "Master Yi",
+        "key": "MasterYi",
+        "class": "Fighter"
+      },
+      "12": {
+        "name": "Alistar",
+        "key": "Alistar",
+        "class": "Tank"
+      },
+      "13": {
+        "name": "Ryze",
+        "key": "Ryze",
+        "class": "Mage"
+      },
+      "14": {
+        "name": "Sion",
+        "key": "Sion",
+        "class": "Tank"
+      },
+      "15": {
+        "name": "Sivir",
+        "key": "Sivir",
+        "class": "Marksman"
+      },
+      "16": {
+        "name": "Soraka",
+        "key": "Soraka",
+        "class": "Support"
+      },
+      "17": {
+        "name": "Teemo",
+        "key": "Teemo",
+        "class": "Marksman"
+      },
+      "18": {
+        "name": "Tristana",
+        "key": "Tristana",
+        "class": "Marksman"
+      },
+      "19": {
+        "name": "Warwick",
+        "key": "Warwick",
+        "class": "Fighter"
+      },
+      "20": {
+        "name": "Nunu & Willump",
+        "key": "Nunu",
+        "class": "Tank"
+      },
+      "21": {
+        "name": "Miss Fortune",
+        "key": "MissFortune",
+        "class": "Marksman"
+      },
+      "22": {
+        "name": "Ashe",
+        "key": "Ashe",
+        "class": "Marksman"
+      },
+      "23": {
+        "name": "Tryndamere",
+        "key": "Tryndamere",
+        "class": "Fighter"
+      },
+      "24": {
+        "name": "Jax",
+        "key": "Jax",
+        "class": "Fighter"
+      },
+      "25": {
+        "name": "Morgana",
+        "key": "Morgana",
+        "class": "Support"
+      },
+      "26": {
+        "name": "Zilean",
+        "key": "Zilean",
+        "class": "Support"
+      },
+      "27": {
+        "name": "Singed",
+        "key": "Singed",
+        "class": "Tank"
+      },
+      "28": {
+        "name": "Evelynn",
+        "key": "Evelynn",
+        "class": "Assassin"
+      },
+      "29": {
+        "name": "Twitch",
+        "key": "Twitch",
+        "class": "Marksman"
+      },
+      "30": {
+        "name": "Karthus",
+        "key": "Karthus",
+        "class": "Mage"
+      },
+      "31": {
+        "name": "Cho'Gath",
+        "key": "Chogath",
+        "class": "Tank"
+      },
+      "32": {
+        "name": "Amumu",
+        "key": "Amumu",
+        "class": "Tank"
+      },
+      "33": {
+        "name": "Rammus",
+        "key": "Rammus",
+        "class": "Tank"
+      },
+      "34": {
+        "name": "Anivia",
+        "key": "Anivia",
+        "class": "Mage"
+      },
+      "35": {
+        "name": "Shaco",
+        "key": "Shaco",
+        "class": "Assassin"
+      },
+      "36": {
+        "name": "Dr. Mundo",
+        "key": "DrMundo",
+        "class": "Tank"
+      },
+      "37": {
+        "name": "Sona",
+        "key": "Sona",
+        "class": "Support"
+      },
+      "38": {
+        "name": "Kassadin",
+        "key": "Kassadin",
+        "class": "Assassin"
+      },
+      "39": {
+        "name": "Irelia",
+        "key": "Irelia",
+        "class": "Fighter"
+      },
+      "40": {
+        "name": "Janna",
+        "key": "Janna",
+        "class": "Support"
+      },
+      "41": {
+        "name": "Gangplank",
+        "key": "Gangplank",
+        "class": "Fighter"
+      },
+      "42": {
+        "name": "Corki",
+        "key": "Corki",
+        "class": "Marksman"
+      },
+      "43": {
+        "name": "Karma",
+        "key": "Karma",
+        "class": "Mage"
+      },
+      "44": {
+        "name": "Taric",
+        "key": "Taric",
+        "class": "Support"
+      },
+      "45": {
+        "name": "Veigar",
+        "key": "Veigar",
+        "class": "Mage"
+      },
+      "48": {
+        "name": "Trundle",
+        "key": "Trundle",
+        "class": "Fighter"
+      },
+      "50": {
+        "name": "Swain",
+        "key": "Swain",
+        "class": "Mage"
+      },
+      "51": {
+        "name": "Caitlyn",
+        "key": "Caitlyn",
+        "class": "Marksman"
+      },
+      "53": {
+        "name": "Blitzcrank",
+        "key": "Blitzcrank",
+        "class": "Tank"
+      },
+      "54": {
+        "name": "Malphite",
+        "key": "Malphite",
+        "class": "Tank"
+      },
+      "55": {
+        "name": "Katarina",
+        "key": "Katarina",
+        "class": "Assassin"
+      },
+      "56": {
+        "name": "Nocturne",
+        "key": "Nocturne",
+        "class": "Fighter"
+      },
+      "57": {
+        "name": "Maokai",
+        "key": "Maokai",
+        "class": "Tank"
+      },
+      "58": {
+        "name": "Renekton",
+        "key": "Renekton",
+        "class": "Fighter"
+      },
+      "59": {
+        "name": "Jarvan IV",
+        "key": "JarvanIV",
+        "class": "Fighter"
+      },
+      "60": {
+        "name": "Elise",
+        "key": "Elise",
+        "class": "Assassin"
+      },
+      "61": {
+        "name": "Orianna",
+        "key": "Orianna",
+        "class": "Mage"
+      },
+      "62": {
+        "name": "Wukong",
+        "key": "MonkeyKing",
+        "class": "Fighter"
+      },
+      "63": {
+        "name": "Brand",
+        "key": "Brand",
+        "class": "Mage"
+      },
+      "64": {
+        "name": "Lee Sin",
+        "key": "LeeSin",
+        "class": "Fighter"
+      },
+      "67": {
+        "name": "Vayne",
+        "key": "Vayne",
+        "class": "Marksman"
+      },
+      "68": {
+        "name": "Rumble",
+        "key": "Rumble",
+        "class": "Fighter"
+      },
+      "69": {
+        "name": "Cassiopeia",
+        "key": "Cassiopeia",
+        "class": "Mage"
+      },
+      "72": {
+        "name": "Skarner",
+        "key": "Skarner",
+        "class": "Tank"
+      },
+      "74": {
+        "name": "Heimerdinger",
+        "key": "Heimerdinger",
+        "class": "Mage"
+      },
+      "75": {
+        "name": "Nasus",
+        "key": "Nasus",
+        "class": "Fighter"
+      },
+      "76": {
+        "name": "Nidalee",
+        "key": "Nidalee",
+        "class": "Assassin"
+      },
+      "77": {
+        "name": "Udyr",
+        "key": "Udyr",
+        "class": "Fighter"
+      },
+      "78": {
+        "name": "Poppy",
+        "key": "Poppy",
+        "class": "Tank"
+      },
+      "79": {
+        "name": "Gragas",
+        "key": "Gragas",
+        "class": "Fighter"
+      },
+      "80": {
+        "name": "Pantheon",
+        "key": "Pantheon",
+        "class": "Fighter"
+      },
+      "81": {
+        "name": "Ezreal",
+        "key": "Ezreal",
+        "class": "Marksman"
+      },
+      "82": {
+        "name": "Mordekaiser",
+        "key": "Mordekaiser",
+        "class": "Fighter"
+      },
+      "83": {
+        "name": "Yorick",
+        "key": "Yorick",
+        "class": "Fighter"
+      },
+      "84": {
+        "name": "Akali",
+        "key": "Akali",
+        "class": "Assassin"
+      },
+      "85": {
+        "name": "Kennen",
+        "key": "Kennen",
+        "class": "Mage"
+      },
+      "86": {
+        "name": "Garen",
+        "key": "Garen",
+        "class": "Fighter"
+      },
+      "89": {
+        "name": "Leona",
+        "key": "Leona",
+        "class": "Tank"
+      },
+      "90": {
+        "name": "Malzahar",
+        "key": "Malzahar",
+        "class": "Mage"
+      },
+      "91": {
+        "name": "Talon",
+        "key": "Talon",
+        "class": "Assassin"
+      },
+      "92": {
+        "name": "Riven",
+        "key": "Riven",
+        "class": "Fighter"
+      },
+      "96": {
+        "name": "Kog'Maw",
+        "key": "KogMaw",
+        "class": "Marksman"
+      },
+      "98": {
+        "name": "Shen",
+        "key": "Shen",
+        "class": "Tank"
+      },
+      "99": {
+        "name": "Lux",
+        "key": "Lux",
+        "class": "Mage"
+      },
+      "101": {
+        "name": "Xerath",
+        "key": "Xerath",
+        "class": "Mage"
+      },
+      "102": {
+        "name": "Shyvana",
+        "key": "Shyvana",
+        "class": "Fighter"
+      },
+      "103": {
+        "name": "Ahri",
+        "key": "Ahri",
+        "class": "Mage"
+      },
+      "104": {
+        "name": "Graves",
+        "key": "Graves",
+        "class": "Marksman"
+      },
+      "105": {
+        "name": "Fizz",
+        "key": "Fizz",
+        "class": "Assassin"
+      },
+      "106": {
+        "name": "Volibear",
+        "key": "Volibear",
+        "class": "Fighter"
+      },
+      "107": {
+        "name": "Rengar",
+        "key": "Rengar",
+        "class": "Assassin"
+      },
+      "110": {
+        "name": "Varus",
+        "key": "Varus",
+        "class": "Marksman"
+      },
+      "111": {
+        "name": "Nautilus",
+        "key": "Nautilus",
+        "class": "Tank"
+      },
+      "112": {
+        "name": "Viktor",
+        "key": "Viktor",
+        "class": "Mage"
+      },
+      "113": {
+        "name": "Sejuani",
+        "key": "Sejuani",
+        "class": "Tank"
+      },
+      "114": {
+        "name": "Fiora",
+        "key": "Fiora",
+        "class": "Fighter"
+      },
+      "115": {
+        "name": "Ziggs",
+        "key": "Ziggs",
+        "class": "Mage"
+      },
+      "117": {
+        "name": "Lulu",
+        "key": "Lulu",
+        "class": "Support"
+      },
+      "119": {
+        "name": "Draven",
+        "key": "Draven",
+        "class": "Marksman"
+      },
+      "120": {
+        "name": "Hecarim",
+        "key": "Hecarim",
+        "class": "Fighter"
+      },
+      "121": {
+        "name": "Kha'Zix",
+        "key": "Khazix",
+        "class": "Assassin"
+      },
+      "122": {
+        "name": "Darius",
+        "key": "Darius",
+        "class": "Fighter"
+      },
+      "126": {
+        "name": "Jayce",
+        "key": "Jayce",
+        "class": "Fighter"
+      },
+      "127": {
+        "name": "Lissandra",
+        "key": "Lissandra",
+        "class": "Mage"
+      },
+      "131": {
+        "name": "Diana",
+        "key": "Diana",
+        "class": "Fighter"
+      },
+      "133": {
+        "name": "Quinn",
+        "key": "Quinn",
+        "class": "Marksman"
+      },
+      "134": {
+        "name": "Syndra",
+        "key": "Syndra",
+        "class": "Mage"
+      },
+      "136": {
+        "name": "Aurelion Sol",
+        "key": "AurelionSol",
+        "class": "Mage"
+      },
+      "141": {
+        "name": "Kayn",
+        "key": "Kayn",
+        "class": "Fighter"
+      },
+      "142": {
+        "name": "Zoe",
+        "key": "Zoe",
+        "class": "Mage"
+      },
+      "143": {
+        "name": "Zyra",
+        "key": "Zyra",
+        "class": "Mage"
+      },
+      "145": {
+        "name": "Kai'Sa",
+        "key": "Kaisa",
+        "class": "Marksman"
+      },
+      "147": {
+        "name": "Seraphine",
+        "key": "Seraphine",
+        "class": "Support"
+      },
+      "150": {
+        "name": "Gnar",
+        "key": "Gnar",
+        "class": "Fighter"
+      },
+      "154": {
+        "name": "Zac",
+        "key": "Zac",
+        "class": "Tank"
+      },
+      "157": {
+        "name": "Yasuo",
+        "key": "Yasuo",
+        "class": "Fighter"
+      },
+      "161": {
+        "name": "Vel'Koz",
+        "key": "Velkoz",
+        "class": "Mage"
+      },
+      "163": {
+        "name": "Taliyah",
+        "key": "Taliyah",
+        "class": "Mage"
+      },
+      "164": {
+        "name": "Camille",
+        "key": "Camille",
+        "class": "Fighter"
+      },
+      "166": {
+        "name": "Akshan",
+        "key": "Akshan",
+        "class": "Marksman"
+      },
+      "200": {
+        "name": "Bel'Veth",
+        "key": "Belveth",
+        "class": "Fighter"
+      },
+      "201": {
+        "name": "Braum",
+        "key": "Braum",
+        "class": "Tank"
+      },
+      "202": {
+        "name": "Jhin",
+        "key": "Jhin",
+        "class": "Marksman"
+      },
+      "203": {
+        "name": "Kindred",
+        "key": "Kindred",
+        "class": "Marksman"
+      },
+      "221": {
+        "name": "Zeri",
+        "key": "Zeri",
+        "class": "Marksman"
+      },
+      "222": {
+        "name": "Jinx",
+        "key": "Jinx",
+        "class": "Marksman"
+      },
+      "223": {
+        "name": "Tahm Kench",
+        "key": "TahmKench",
+        "class": "Tank"
+      },
+      "233": {
+        "name": "Briar",
+        "key": "Briar",
+        "class": "Fighter"
+      },
+      "234": {
+        "name": "Viego",
+        "key": "Viego",
+        "class": "Fighter"
+      },
+      "235": {
+        "name": "Senna",
+        "key": "Senna",
+        "class": "Support"
+      },
+      "236": {
+        "name": "Lucian",
+        "key": "Lucian",
+        "class": "Marksman"
+      },
+      "238": {
+        "name": "Zed",
+        "key": "Zed",
+        "class": "Assassin"
+      },
+      "240": {
+        "name": "Kled",
+        "key": "Kled",
+        "class": "Fighter"
+      },
+      "245": {
+        "name": "Ekko",
+        "key": "Ekko",
+        "class": "Assassin"
+      },
+      "246": {
+        "name": "Qiyana",
+        "key": "Qiyana",
+        "class": "Assassin"
+      },
+      "254": {
+        "name": "Vi",
+        "key": "Vi",
+        "class": "Fighter"
+      },
+      "266": {
+        "name": "Aatrox",
+        "key": "Aatrox",
+        "class": "Fighter"
+      },
+      "267": {
+        "name": "Nami",
+        "key": "Nami",
+        "class": "Support"
+      },
+      "268": {
+        "name": "Azir",
+        "key": "Azir",
+        "class": "Mage"
+      },
+      "350": {
+        "name": "Yuumi",
+        "key": "Yuumi",
+        "class": "Support"
+      },
+      "360": {
+        "name": "Samira",
+        "key": "Samira",
+        "class": "Marksman"
+      },
+      "412": {
+        "name": "Thresh",
+        "key": "Thresh",
+        "class": "Support"
+      },
+      "420": {
+        "name": "Illaoi",
+        "key": "Illaoi",
+        "class": "Fighter"
+      },
+      "421": {
+        "name": "Rek'Sai",
+        "key": "RekSai",
+        "class": "Fighter"
+      },
+      "427": {
+        "name": "Ivern",
+        "key": "Ivern",
+        "class": "Support"
+      },
+      "429": {
+        "name": "Kalista",
+        "key": "Kalista",
+        "class": "Marksman"
+      },
+      "432": {
+        "name": "Bard",
+        "key": "Bard",
+        "class": "Support"
+      },
+      "497": {
+        "name": "Rakan",
+        "key": "Rakan",
+        "class": "Support"
+      },
+      "498": {
+        "name": "Xayah",
+        "key": "Xayah",
+        "class": "Marksman"
+      },
+      "516": {
+        "name": "Ornn",
+        "key": "Ornn",
+        "class": "Tank"
+      },
+      "517": {
+        "name": "Sylas",
+        "key": "Sylas",
+        "class": "Mage"
+      },
+      "518": {
+        "name": "Neeko",
+        "key": "Neeko",
+        "class": "Mage"
+      },
+      "523": {
+        "name": "Aphelios",
+        "key": "Aphelios",
+        "class": "Marksman"
+      },
+      "526": {
+        "name": "Rell",
+        "key": "Rell",
+        "class": "Tank"
+      },
+      "555": {
+        "name": "Pyke",
+        "key": "Pyke",
+        "class": "Support"
+      },
+      "711": {
+        "name": "Vex",
+        "key": "Vex",
+        "class": "Mage"
+      },
+      "777": {
+        "name": "Yone",
+        "key": "Yone",
+        "class": "Fighter"
+      },
+      "799": {
+        "name": "Ambessa",
+        "key": "Ambessa",
+        "class": "Fighter"
+      },
+      "800": {
+        "name": "Mel",
+        "key": "Mel",
+        "class": "Mage"
+      },
+      "804": {
+        "name": "Yunara",
+        "key": "Yunara",
+        "class": "Marksman"
+      },
+      "805": {
+        "name": "Locke",
+        "key": "Locke",
+        "class": "Assassin"
+      },
+      "875": {
+        "name": "Sett",
+        "key": "Sett",
+        "class": "Fighter"
+      },
+      "876": {
+        "name": "Lillia",
+        "key": "Lillia",
+        "class": "Fighter"
+      },
+      "887": {
+        "name": "Gwen",
+        "key": "Gwen",
+        "class": "Fighter"
+      },
+      "888": {
+        "name": "Renata Glasc",
+        "key": "Renata",
+        "class": "Support"
+      },
+      "893": {
+        "name": "Aurora",
+        "key": "Aurora",
+        "class": "Mage"
+      },
+      "895": {
+        "name": "Nilah",
+        "key": "Nilah",
+        "class": "Fighter"
+      },
+      "897": {
+        "name": "K'Sante",
+        "key": "KSante",
+        "class": "Tank"
+      },
+      "901": {
+        "name": "Smolder",
+        "key": "Smolder",
+        "class": "Marksman"
+      },
+      "902": {
+        "name": "Milio",
+        "key": "Milio",
+        "class": "Support"
+      },
+      "904": {
+        "name": "Zaahen",
+        "key": "Zaahen",
+        "class": "Fighter"
+      },
+      "910": {
+        "name": "Hwei",
+        "key": "Hwei",
+        "class": "Mage"
+      },
+      "950": {
+        "name": "Naafiri",
+        "key": "Naafiri",
+        "class": "Assassin"
+      }
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

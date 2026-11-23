@@ -1,0 +1,735 @@
+{
+  "format": 1,
+  "channel": "db:season-recap",
+  "method": "getSeasonRecap",
+  "registered": true,
+  "case": "season",
+  "description": "a named season",
+  "group": "read",
+  "seq": 70,
+  "args": [
+    "set-1"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "season": {
+        "id": "set-1",
+        "name": "Set 1",
+        "start": "2026-02-04",
+        "end": "2026-04-29",
+        "games": 88
+      },
+      "seasons": [
+        {
+          "id": "set-0",
+          "name": "Set 0",
+          "start": "2025-10-22",
+          "end": "2026-02-03",
+          "games": 68
+        },
+        {
+          "id": "set-1",
+          "name": "Set 1",
+          "start": "2026-02-04",
+          "end": "2026-04-29",
+          "games": 88
+        },
+        {
+          "id": "set-2",
+          "name": "Set 2",
+          "start": "2026-06-10",
+          "end": "2026-10-20",
+          "games": 301
+        },
+        {
+          "id": "set-3",
+          "name": "Set 3",
+          "start": "2026-10-21",
+          "end": null,
+          "games": 160
+        },
+        {
+          "id": "all",
+          "name": "All time",
+          "start": null,
+          "end": null,
+          "games": 658
+        }
+      ],
+      "player": {
+        "gameName": "UpbeatGarnet4",
+        "tagLine": "Z1159",
+        "profileIcon": 4964
+      },
+      "accounts": 1,
+      "patch": "16.6",
+      "firstGame": 1770604579001,
+      "lastGame": 1774327998284,
+      "games": 88,
+      "wins": 45,
+      "duration": 92752,
+      "days": [
+        {
+          "day": 1770526800000,
+          "games": 11,
+          "wins": 4
+        },
+        {
+          "day": 1771995600000,
+          "games": 6,
+          "wins": 4
+        },
+        {
+          "day": 1772168400000,
+          "games": 15,
+          "wins": 8
+        },
+        {
+          "day": 1772254800000,
+          "games": 15,
+          "wins": 6
+        },
+        {
+          "day": 1772341200000,
+          "games": 6,
+          "wins": 3
+        },
+        {
+          "day": 1772427600000,
+          "games": 6,
+          "wins": 5
+        },
+        {
+          "day": 1772686800000,
+          "games": 3,
+          "wins": 1
+        },
+        {
+          "day": 1773115200000,
+          "games": 9,
+          "wins": 5
+        },
+        {
+          "day": 1773374400000,
+          "games": 10,
+          "wins": 3
+        },
+        {
+          "day": 1773460800000,
+          "games": 5,
+          "wins": 4
+        },
+        {
+          "day": 1774238400000,
+          "games": 2,
+          "wins": 2
+        }
+      ],
+      "busiestDay": {
+        "day": 1772168400000,
+        "games": 15,
+        "wins": 8
+      },
+      "dayStreak": {
+        "days": 4,
+        "from": 1772168400000,
+        "to": 1772427600000
+      },
+      "peakHour": 0,
+      "topWeekday": 5,
+      "kills": 691,
+      "deaths": 775,
+      "assists": 2331,
+      "damage": 2743733,
+      "damageTaken": 2893046,
+      "healing": 695317,
+      "gold": 1411740,
+      "multikills": {
+        "doubles": 100,
+        "triples": 20,
+        "quadras": 1,
+        "pentas": 0
+      },
+      "killParticipation": 0.6905602692184316,
+      "damageShare": 0.1742831052374314,
+      "avgScore": 5.945454545454544,
+      "mvps": 4,
+      "aces": 7,
+      "scoredWins": 45,
+      "scoredLosses": 43,
+      "champions": [
+        {
+          "champion_id": 96,
+          "games": 7,
+          "wins": 4,
+          "kills": 77,
+          "deaths": 69,
+          "assists": 187,
+          "avgScore": 6.200000000000001
+        },
+        {
+          "champion_id": 26,
+          "games": 6,
+          "wins": 4,
+          "kills": 31,
+          "deaths": 35,
+          "assists": 179,
+          "avgScore": 6.316666666666667
+        },
+        {
+          "champion_id": 800,
+          "games": 4,
+          "wins": 3,
+          "kills": 38,
+          "deaths": 29,
+          "assists": 76,
+          "avgScore": 5.475
+        },
+        {
+          "champion_id": 10,
+          "games": 4,
+          "wins": 2,
+          "kills": 44,
+          "deaths": 44,
+          "assists": 99,
+          "avgScore": 6.35
+        },
+        {
+          "champion_id": 166,
+          "games": 4,
+          "wins": 2,
+          "kills": 43,
+          "deaths": 50,
+          "assists": 79,
+          "avgScore": 4.525
+        },
+        {
+          "champion_id": 142,
+          "games": 3,
+          "wins": 3,
+          "kills": 23,
+          "deaths": 14,
+          "assists": 69,
+          "avgScore": 5.633333333333334
+        }
+      ],
+      "uniqueChampions": 54,
+      "augments": [
+        {
+          "augment_id": 1071,
+          "picks": 9,
+          "wins": 6
+        },
+        {
+          "augment_id": 1133,
+          "picks": 9,
+          "wins": 5
+        },
+        {
+          "augment_id": 1195,
+          "picks": 8,
+          "wins": 5
+        },
+        {
+          "augment_id": 1353,
+          "picks": 8,
+          "wins": 4
+        },
+        {
+          "augment_id": 1030,
+          "picks": 7,
+          "wins": 4
+        },
+        {
+          "augment_id": 1097,
+          "picks": 7,
+          "wins": 4
+        }
+      ],
+      "items": [
+        {
+          "item_id": 3006,
+          "picks": 23,
+          "wins": 13
+        },
+        {
+          "item_id": 3158,
+          "picks": 21,
+          "wins": 12
+        },
+        {
+          "item_id": 3089,
+          "picks": 19,
+          "wins": 12
+        },
+        {
+          "item_id": 3040,
+          "picks": 18,
+          "wins": 12
+        },
+        {
+          "item_id": 6655,
+          "picks": 15,
+          "wins": 10
+        },
+        {
+          "item_id": 3020,
+          "picks": 15,
+          "wins": 7
+        },
+        {
+          "item_id": 4629,
+          "picks": 12,
+          "wins": 5
+        },
+        {
+          "item_id": 3124,
+          "picks": 11,
+          "wins": 7
+        },
+        {
+          "item_id": 3031,
+          "picks": 11,
+          "wins": 6
+        },
+        {
+          "item_id": 4645,
+          "picks": 11,
+          "wins": 6
+        },
+        {
+          "item_id": 3143,
+          "picks": 11,
+          "wins": 5
+        },
+        {
+          "item_id": 3111,
+          "picks": 11,
+          "wins": 4
+        },
+        {
+          "item_id": 3091,
+          "picks": 10,
+          "wins": 6
+        },
+        {
+          "item_id": 6657,
+          "picks": 10,
+          "wins": 6
+        },
+        {
+          "item_id": 2504,
+          "picks": 10,
+          "wins": 4
+        },
+        {
+          "item_id": 3084,
+          "picks": 10,
+          "wins": 3
+        },
+        {
+          "item_id": 3153,
+          "picks": 8,
+          "wins": 5
+        },
+        {
+          "item_id": 1011,
+          "picks": 8,
+          "wins": 4
+        },
+        {
+          "item_id": 6617,
+          "picks": 8,
+          "wins": 4
+        },
+        {
+          "item_id": 3085,
+          "picks": 7,
+          "wins": 4
+        }
+      ],
+      "records": {
+        "totalGames": 88,
+        "bests": {
+          "kills": {
+            "value": 26,
+            "match": {
+              "game_id": 5504671408,
+              "game_creation": 1772514126988,
+              "game_duration": 1405,
+              "queue_id": 2400,
+              "champion_id": 96,
+              "win": 1,
+              "kills": 26,
+              "deaths": 16,
+              "assists": 27
+            }
+          },
+          "deaths": {
+            "value": 16,
+            "match": {
+              "game_id": 5487622075,
+              "game_creation": 1770616396021,
+              "game_duration": 1597,
+              "queue_id": 2400,
+              "champion_id": 420,
+              "win": 1,
+              "kills": 9,
+              "deaths": 16,
+              "assists": 32
+            }
+          },
+          "assists": {
+            "value": 56,
+            "match": {
+              "game_id": 5503612370,
+              "game_creation": 1772400846186,
+              "game_duration": 1511,
+              "queue_id": 2400,
+              "champion_id": 147,
+              "win": 1,
+              "kills": 13,
+              "deaths": 7,
+              "assists": 56
+            }
+          },
+          "kda": {
+            "value": 13.25,
+            "match": {
+              "game_id": 5503212877,
+              "game_creation": 1772343220094,
+              "game_duration": 1058,
+              "queue_id": 2400,
+              "champion_id": 267,
+              "win": 0,
+              "kills": 0,
+              "deaths": 4,
+              "assists": 53
+            }
+          },
+          "score": {
+            "value": 9.241588732421878,
+            "match": {
+              "game_id": 5503501962,
+              "game_creation": 1772389960870,
+              "game_duration": 1377,
+              "queue_id": 2400,
+              "champion_id": 99,
+              "win": 1,
+              "kills": 18,
+              "deaths": 6,
+              "assists": 34
+            }
+          },
+          "killingSpree": {
+            "value": 8,
+            "match": {
+              "game_id": 5503501962,
+              "game_creation": 1772389960870,
+              "game_duration": 1377,
+              "queue_id": 2400,
+              "champion_id": 99,
+              "win": 1,
+              "kills": 18,
+              "deaths": 6,
+              "assists": 34
+            }
+          },
+          "damage": {
+            "value": 88868,
+            "match": {
+              "game_id": 5504643724,
+              "game_creation": 1772512323308,
+              "game_duration": 1485,
+              "queue_id": 2400,
+              "champion_id": 56,
+              "win": 1,
+              "kills": 18,
+              "deaths": 15,
+              "assists": 43
+            }
+          },
+          "damageTaken": {
+            "value": 134530,
+            "match": {
+              "game_id": 5504643724,
+              "game_creation": 1772512323308,
+              "game_duration": 1485,
+              "queue_id": 2400,
+              "champion_id": 56,
+              "win": 1,
+              "kills": 18,
+              "deaths": 15,
+              "assists": 43
+            }
+          },
+          "healing": {
+            "value": 64241,
+            "match": {
+              "game_id": 5503612370,
+              "game_creation": 1772400846186,
+              "game_duration": 1511,
+              "queue_id": 2400,
+              "champion_id": 147,
+              "win": 1,
+              "kills": 13,
+              "deaths": 7,
+              "assists": 56
+            }
+          },
+          "gold": {
+            "value": 24967,
+            "match": {
+              "game_id": 5504671408,
+              "game_creation": 1772514126988,
+              "game_duration": 1405,
+              "queue_id": 2400,
+              "champion_id": 96,
+              "win": 1,
+              "kills": 26,
+              "deaths": 16,
+              "assists": 27
+            }
+          },
+          "fastestWin": {
+            "value": 492,
+            "match": {
+              "game_id": 5510215456,
+              "game_creation": 1773209344646,
+              "game_duration": 492,
+              "queue_id": 2400,
+              "champion_id": 40,
+              "win": 1,
+              "kills": 1,
+              "deaths": 2,
+              "assists": 22
+            }
+          },
+          "longestGame": {
+            "value": 1597,
+            "match": {
+              "game_id": 5487622075,
+              "game_creation": 1770616396021,
+              "game_duration": 1597,
+              "queue_id": 2400,
+              "champion_id": 420,
+              "win": 1,
+              "kills": 9,
+              "deaths": 16,
+              "assists": 32
+            }
+          }
+        },
+        "winStreak": {
+          "length": 6,
+          "start": 1772400846186,
+          "end": 1772516606018,
+          "match": {
+            "game_id": 5504705185,
+            "game_creation": 1772516606018,
+            "game_duration": 1294,
+            "queue_id": 2400,
+            "champion_id": 22,
+            "win": 1,
+            "kills": 3,
+            "deaths": 8,
+            "assists": 24
+          }
+        },
+        "lossStreak": {
+          "length": 4,
+          "start": 1770610088432,
+          "end": 1770614143471,
+          "match": {
+            "game_id": 5487586247,
+            "game_creation": 1770614143471,
+            "game_duration": 1071,
+            "queue_id": 2400,
+            "champion_id": 78,
+            "win": 0,
+            "kills": 4,
+            "deaths": 13,
+            "assists": 35
+          }
+        }
+      },
+      "friends": [
+        {
+          "key": "fa4e0000-0000-4000-8000-00000000080f",
+          "name": "EagerQuartz2#Z1097",
+          "puuid": "fa4e0000-0000-4000-8000-00000000080f",
+          "profileIcon": 7026,
+          "games": 49,
+          "wins": 23,
+          "kills": 625,
+          "deaths": 462,
+          "assists": 1290,
+          "champions": [
+            {
+              "champion_id": 910,
+              "games": 3
+            },
+            {
+              "champion_id": 9,
+              "games": 2
+            },
+            {
+              "champion_id": 3,
+              "games": 1
+            },
+            {
+              "champion_id": 5,
+              "games": 1
+            },
+            {
+              "champion_id": 21,
+              "games": 1
+            }
+          ],
+          "lastPlayed": 1774327998284
+        },
+        {
+          "key": "fa4e0000-0000-4000-8000-0000000009d1",
+          "name": "DustyWillow#Z1097",
+          "puuid": "fa4e0000-0000-4000-8000-0000000009d1",
+          "profileIcon": 654,
+          "games": 39,
+          "wins": 20,
+          "kills": 585,
+          "deaths": 424,
+          "assists": 906,
+          "champions": [
+            {
+              "champion_id": 105,
+              "games": 3
+            },
+            {
+              "champion_id": 777,
+              "games": 3
+            },
+            {
+              "champion_id": 29,
+              "games": 2
+            },
+            {
+              "champion_id": 68,
+              "games": 2
+            },
+            {
+              "champion_id": 222,
+              "games": 2
+            }
+          ],
+          "lastPlayed": 1774327998284
+        },
+        {
+          "key": "fa4e0000-0000-4000-8000-0000000004a8",
+          "name": "QuietDragon2#Z1466",
+          "puuid": "fa4e0000-0000-4000-8000-0000000004a8",
+          "profileIcon": 6271,
+          "games": 38,
+          "wins": 21,
+          "kills": 337,
+          "deaths": 420,
+          "assists": 979,
+          "champions": [
+            {
+              "champion_id": 35,
+              "games": 3
+            },
+            {
+              "champion_id": 67,
+              "games": 3
+            },
+            {
+              "champion_id": 21,
+              "games": 2
+            },
+            {
+              "champion_id": 99,
+              "games": 2
+            },
+            {
+              "champion_id": 238,
+              "games": 2
+            }
+          ],
+          "lastPlayed": 1773544457126
+        },
+        {
+          "key": "fa4e0000-0000-4000-8000-0000000003e0",
+          "name": "UpbeatMeadow1#Z104",
+          "puuid": "fa4e0000-0000-4000-8000-0000000003e0",
+          "profileIcon": 588,
+          "games": 33,
+          "wins": 14,
+          "kills": 491,
+          "deaths": 281,
+          "assists": 626,
+          "champions": [
+            {
+              "champion_id": 11,
+              "games": 2
+            },
+            {
+              "champion_id": 38,
+              "games": 2
+            },
+            {
+              "champion_id": 81,
+              "games": 2
+            },
+            {
+              "champion_id": 120,
+              "games": 2
+            },
+            {
+              "champion_id": 142,
+              "games": 2
+            }
+          ],
+          "lastPlayed": 1773544457126
+        },
+        {
+          "key": "fa4e0000-0000-4000-8000-00000000088e",
+          "name": "QuietCobalt4#Z1097",
+          "puuid": "fa4e0000-0000-4000-8000-00000000088e",
+          "profileIcon": 4987,
+          "games": 30,
+          "wins": 15,
+          "kills": 230,
+          "deaths": 251,
+          "assists": 795,
+          "champions": [
+            {
+              "champion_id": 101,
+              "games": 2
+            },
+            {
+              "champion_id": 110,
+              "games": 2
+            },
+            {
+              "champion_id": 902,
+              "games": 2
+            },
+            {
+              "champion_id": 15,
+              "games": 1
+            },
+            {
+              "champion_id": 27,
+              "games": 1
+            }
+          ],
+          "lastPlayed": 1774327998284
+        }
+      ]
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

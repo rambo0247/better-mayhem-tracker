@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "channel": "bmt:unregistered-channel",
+  "method": null,
+  "registered": false,
+  "case": "unregistered",
+  "description": "a channel no handler registered",
+  "group": "read",
+  "seq": 316,
+  "args": [
+    "probe"
+  ],
+  "outcome": {
+    "kind": "error",
+    "name": "Error",
+    "message": "No handler registered for 'bmt:unregistered-channel'",
+    "invokeMessage": "Error invoking remote method 'bmt:unregistered-channel': Error: No handler registered for 'bmt:unregistered-channel'"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

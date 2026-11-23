@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "channel": "window:is-maximized",
+  "method": "isWindowMaximized",
+  "registered": true,
+  "case": "before",
+  "description": "window starts unmaximized",
+  "group": "window",
+  "seq": 0,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": false
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

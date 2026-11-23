@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "settings:set",
+  "method": "setSetting",
+  "registered": true,
+  "case": "denied",
+  "description": "a key outside the allow list is refused",
+  "group": "settings-write",
+  "seq": 0,
+  "args": [
+    "score_formula_version",
+    "999"
+  ],
+  "outcome": {
+    "kind": "void"
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

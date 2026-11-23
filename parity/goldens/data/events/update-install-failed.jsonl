@@ -1,0 +1,6 @@
+{"seq":0,"event":"update:installing","cause":"scenario","payload":{"hasUpdate":true,"latest":"9.9.9","current":"1.2.1","url":"https://github.com/rambo0247/better-mayhem-tracker/releases/tag/v9.9.9","assetUrl":"https://github.com/rambo0247/better-mayhem-tracker/releases/download/v9.9.9/BetterMayhemTracker-mac-arm64.zip","assetSize":400,"releases":[{"version":"9.9.9","publishedAt":"2026-11-01T00:00:00Z","body":"A release the recording offers.","url":"https://github.com/rambo0247/better-mayhem-tracker/releases/tag/v9.9.9"}],"moreVersions":false}}
+{"seq":1,"event":"update:progress","cause":"scenario","payload":25}
+{"seq":2,"event":"update:progress","cause":"scenario","payload":50}
+{"seq":3,"event":"update:progress","cause":"scenario","payload":75}
+{"seq":4,"event":"update:progress","cause":"scenario","payload":100}
+{"seq":5,"event":"update:install-failed","cause":"scenario","payload":"Downloaded file failed its integrity check"}

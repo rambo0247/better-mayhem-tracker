@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "channel": "dragon:augment-icon",
+  "method": "resolveAugmentIcon",
+  "registered": true,
+  "case": "state-1978e440ae",
+  "description": "the call the page made in state backfill-toast-error",
+  "group": "state",
+  "seq": 1000000,
+  "args": [
+    3163,
+    "16.23"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": null
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

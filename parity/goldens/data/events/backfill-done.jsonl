@@ -1,0 +1,9 @@
+{"seq":0,"event":"lcu:status-changed","cause":"scenario","payload":"connecting"}
+{"seq":1,"event":"lcu:status-changed","cause":"scenario","payload":"connected"}
+{"seq":2,"event":"lcu:status-changed","cause":"scenario","payload":"connected"}
+{"seq":3,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":0,"total":3,"added":0}}
+{"seq":4,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":1,"total":3,"added":1}}
+{"seq":5,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":2,"total":3,"added":2}}
+{"seq":6,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":3,"total":3,"added":3}}
+{"seq":7,"event":"lcu:games-updated","cause":"scenario"}
+{"seq":8,"event":"lcu:backfill-done","cause":"scenario","payload":{"added":3,"scanned":3,"checked":3,"totalGames":661,"limit":{"kind":"service","historyStart":1767733127494},"cancelled":false}}

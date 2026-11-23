@@ -1,0 +1,16 @@
+{"seq":0,"event":"lcu:status-changed","cause":"scenario","payload":"connecting"}
+{"seq":1,"event":"lcu:status-changed","cause":"scenario","payload":"connected"}
+{"seq":2,"event":"lcu:status-changed","cause":"scenario","payload":"connected"}
+{"seq":3,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":0,"total":40,"added":0}}
+{"seq":4,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":1,"total":40,"added":1}}
+{"seq":5,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":2,"total":40,"added":2}}
+{"seq":6,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":3,"total":40,"added":3}}
+{"seq":7,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":4,"total":40,"added":4}}
+{"seq":8,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":5,"total":40,"added":5}}
+{"seq":9,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":6,"total":40,"added":6}}
+{"seq":10,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":7,"total":40,"added":7}}
+{"seq":11,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":8,"total":40,"added":8}}
+{"seq":12,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":9,"total":40,"added":9}}
+{"seq":13,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":10,"total":40,"added":10}}
+{"seq":14,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":11,"total":40,"added":11}}
+{"seq":15,"event":"lcu:backfill-progress","cause":"scenario","payload":{"current":12,"total":40,"added":12}}

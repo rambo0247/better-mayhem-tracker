@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "db:season-recap",
+  "method": "getSeasonRecap",
+  "registered": true,
+  "case": "unknown-season",
+  "description": "a season that is not on offer",
+  "group": "read",
+  "seq": 72,
+  "args": [
+    "no-such-season"
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": null
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

@@ -1,0 +1,490 @@
+{
+  "format": 1,
+  "state": "settings-default",
+  "group": "default",
+  "route": "/settings",
+  "viewport": {
+    "width": 1280,
+    "height": 820
+  },
+  "calls": [
+    {
+      "seq": 0,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 1,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "auto_start"
+      ],
+      "case": "allowed-auto-start"
+    },
+    {
+      "seq": 2,
+      "channel": "autostart:supported",
+      "method": "isAutoStartSupported",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 3,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "minimize_to_tray"
+      ],
+      "case": "allowed-minimize-to-tray"
+    },
+    {
+      "seq": 4,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_queues"
+      ],
+      "case": "allowed-hidden-queues"
+    },
+    {
+      "seq": 5,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hide_remakes"
+      ],
+      "case": "allowed-hide-remakes"
+    },
+    {
+      "seq": 6,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "auto_backup"
+      ],
+      "case": "allowed-auto-backup"
+    },
+    {
+      "seq": 7,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "allowed-remember-filters"
+    },
+    {
+      "seq": 8,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "session_grouping"
+      ],
+      "case": "allowed-session-grouping"
+    },
+    {
+      "seq": 9,
+      "channel": "app:version",
+      "method": "getVersion",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 10,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "auto_update"
+      ],
+      "case": "allowed-auto-update"
+    },
+    {
+      "seq": 11,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "show_release_notes"
+      ],
+      "case": "allowed-show-release-notes"
+    },
+    {
+      "seq": 12,
+      "channel": "db:stored-queues",
+      "method": "getStoredQueues",
+      "args": [],
+      "case": "queues-stored"
+    },
+    {
+      "seq": 13,
+      "channel": "backup:list",
+      "method": "listBackups",
+      "args": [],
+      "case": "before"
+    },
+    {
+      "seq": 14,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "allowed-remember-filters"
+    },
+    {
+      "seq": 15,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 16,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 17,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 18,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_nav_links"
+      ],
+      "case": "allowed-hidden-nav-links"
+    },
+    {
+      "seq": 19,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 20,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 21,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 22,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 23,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 24,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "auto_start"
+      ],
+      "case": "allowed-auto-start"
+    },
+    {
+      "seq": 25,
+      "channel": "autostart:supported",
+      "method": "isAutoStartSupported",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 26,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "minimize_to_tray"
+      ],
+      "case": "allowed-minimize-to-tray"
+    },
+    {
+      "seq": 27,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_queues"
+      ],
+      "case": "allowed-hidden-queues"
+    },
+    {
+      "seq": 28,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hide_remakes"
+      ],
+      "case": "allowed-hide-remakes"
+    },
+    {
+      "seq": 29,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "auto_backup"
+      ],
+      "case": "allowed-auto-backup"
+    },
+    {
+      "seq": 30,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "allowed-remember-filters"
+    },
+    {
+      "seq": 31,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "session_grouping"
+      ],
+      "case": "allowed-session-grouping"
+    },
+    {
+      "seq": 32,
+      "channel": "app:version",
+      "method": "getVersion",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 33,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "auto_update"
+      ],
+      "case": "allowed-auto-update"
+    },
+    {
+      "seq": 34,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "show_release_notes"
+      ],
+      "case": "allowed-show-release-notes"
+    },
+    {
+      "seq": 35,
+      "channel": "db:stored-queues",
+      "method": "getStoredQueues",
+      "args": [],
+      "case": "queues-stored"
+    },
+    {
+      "seq": 36,
+      "channel": "backup:list",
+      "method": "listBackups",
+      "args": [],
+      "case": "before"
+    },
+    {
+      "seq": 37,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 38,
+      "channel": "db:profile",
+      "method": "getProfile",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 39,
+      "channel": "lcu:status",
+      "method": "getLcuStatus",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 40,
+      "channel": "db:seasons",
+      "method": "getSeasons",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 41,
+      "channel": "app:check-update",
+      "method": "checkForUpdate",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 42,
+      "channel": "app:launch-install",
+      "method": "getLaunchInstall",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 43,
+      "channel": "app:update-notes",
+      "method": "getUpdateNotes",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 44,
+      "channel": "backup:recovery-report",
+      "method": "getRecoveryReport",
+      "args": [],
+      "case": "after"
+    },
+    {
+      "seq": 45,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 46,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "auto_start"
+      ],
+      "case": "allowed-auto-start"
+    },
+    {
+      "seq": 47,
+      "channel": "autostart:supported",
+      "method": "isAutoStartSupported",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 48,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "minimize_to_tray"
+      ],
+      "case": "allowed-minimize-to-tray"
+    },
+    {
+      "seq": 49,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hidden_queues"
+      ],
+      "case": "allowed-hidden-queues"
+    },
+    {
+      "seq": 50,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "hide_remakes"
+      ],
+      "case": "allowed-hide-remakes"
+    },
+    {
+      "seq": 51,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "auto_backup"
+      ],
+      "case": "allowed-auto-backup"
+    },
+    {
+      "seq": 52,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "remember_filters"
+      ],
+      "case": "allowed-remember-filters"
+    },
+    {
+      "seq": 53,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "session_grouping"
+      ],
+      "case": "allowed-session-grouping"
+    },
+    {
+      "seq": 54,
+      "channel": "app:version",
+      "method": "getVersion",
+      "args": [],
+      "case": "default"
+    },
+    {
+      "seq": 55,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "auto_update"
+      ],
+      "case": "allowed-auto-update"
+    },
+    {
+      "seq": 56,
+      "channel": "settings:get",
+      "method": "getSetting",
+      "args": [
+        "show_release_notes"
+      ],
+      "case": "allowed-show-release-notes"
+    },
+    {
+      "seq": 57,
+      "channel": "db:stored-queues",
+      "method": "getStoredQueues",
+      "args": [],
+      "case": "queues-stored"
+    },
+    {
+      "seq": 58,
+      "channel": "backup:list",
+      "method": "listBackups",
+      "args": [],
+      "case": "before"
+    },
+    {
+      "seq": 59,
+      "channel": "lcu:backfill-running",
+      "method": "isBackfillRunning",
+      "args": [],
+      "case": "default"
+    }
+  ]
+}

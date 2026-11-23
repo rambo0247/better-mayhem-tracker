@@ -1,0 +1,220 @@
+{
+  "format": 1,
+  "channel": "db:global-champion-detail",
+  "method": "getGlobalChampionDetail",
+  "registered": true,
+  "case": "filters",
+  "description": "patch and queue",
+  "group": "read",
+  "seq": 50,
+  "args": [
+    96,
+    "16.23",
+    2400
+  ],
+  "outcome": {
+    "kind": "value",
+    "result": {
+      "champion_id": 96,
+      "games": 4,
+      "wins": 2,
+      "kills": 50,
+      "deaths": 46,
+      "assists": 114,
+      "avgDamage": 48346,
+      "avgDamageTaken": 35195,
+      "avgGold": 18360,
+      "avgHeal": 7077,
+      "damageShare": 0.2038927111646719,
+      "killParticipation": 0.666746323386903,
+      "doubleKills": 7,
+      "tripleKills": 1,
+      "quadraKills": 0,
+      "pentaKills": 0,
+      "totalParticipantSlots": 310,
+      "items": [
+        {
+          "item_id": 3040,
+          "picks": 2,
+          "wins": 1
+        },
+        {
+          "item_id": 3006,
+          "picks": 2,
+          "wins": 1
+        },
+        {
+          "item_id": 1058,
+          "picks": 2,
+          "wins": 0
+        },
+        {
+          "item_id": 124011,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "item_id": 6665,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "item_id": 6653,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "item_id": 4645,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "item_id": 3508,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "item_id": 3153,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "item_id": 3124,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "item_id": 3118,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "item_id": 3116,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "item_id": 3087,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "item_id": 3085,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "item_id": 3051,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "item_id": 3042,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "item_id": 3031,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "item_id": 3020,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "item_id": 2504,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "item_id": 2503,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "item_id": 1001,
+          "picks": 1,
+          "wins": 0
+        }
+      ],
+      "augments": [
+        {
+          "augment_id": 1113,
+          "picks": 2,
+          "wins": 1
+        },
+        {
+          "augment_id": 2125,
+          "picks": 2,
+          "wins": 2
+        },
+        {
+          "augment_id": 1004,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "augment_id": 1062,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "augment_id": 1074,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "augment_id": 1077,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "augment_id": 1079,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "augment_id": 1170,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "augment_id": 1211,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "augment_id": 1373,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "augment_id": 2016,
+          "picks": 1,
+          "wins": 0
+        },
+        {
+          "augment_id": 2096,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "augment_id": 2123,
+          "picks": 1,
+          "wins": 1
+        },
+        {
+          "augment_id": 3048,
+          "picks": 1,
+          "wins": 0
+        }
+      ]
+    }
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}

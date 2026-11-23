@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "channel": "db:all-summoner-puuids",
+  "method": "getAllSummonerPuuids",
+  "registered": true,
+  "case": "default",
+  "description": "every tracked account",
+  "group": "read",
+  "seq": 28,
+  "args": [],
+  "outcome": {
+    "kind": "value",
+    "result": [
+      "fa4e0000-0000-4000-8000-000000000dea"
+    ]
+  },
+  "events": [],
+  "effects": [],
+  "files": [],
+  "nonFinite": []
+}
