@@ -12,6 +12,8 @@ use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_json::Value;
 use ts_rs::TS;
 
+use crate::js_arg::JsValue;
+
 /// The `TypeError` reading a property of `null` or `undefined` throws.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeError(pub String);
@@ -281,6 +283,23 @@ pub fn bind(v: Option<&Value>) -> rusqlite::Result<Sql> {
         Some(_) => Err(thrown(TypeError(
             "SQLite3 can only bind numbers, strings, bigints, buffers, and null".into(),
         ))),
+    }
+}
+
+/// [`bind`] for a value the page sent. NaN and the infinities, which JSON
+/// cannot carry, bind as the doubles they are.
+pub fn bind_js(v: Option<&JsValue>) -> rusqlite::Result<Sql> {
+    match v {
+        Some(JsValue::NonFinite(n)) => Ok(Sql::Real(*n)),
+        other => bind(other.and_then(JsValue::as_json)),
+    }
+}
+
+/// [`truthy`] for a value the page sent: NaN is falsy, an infinity truthy.
+pub fn truthy_js(v: Option<&JsValue>) -> bool {
+    match v {
+        Some(JsValue::NonFinite(n)) => !n.is_nan(),
+        other => truthy(other.and_then(JsValue::as_json)),
     }
 }
 
