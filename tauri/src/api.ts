@@ -21,11 +21,15 @@ declare global {
   }
 }
 
+/** `Error.prototype.toString`, which Electron's invoke message is built from. */
+const errorText = (name: string, message: string) =>
+  name === "" ? message : message === "" ? name : `${name}: ${message}`;
+
 /** The error Electron's `ipcRenderer.invoke` rejects with, with `code` set for an unported command. */
 export class InvokeError extends Error {
   readonly code: string | undefined;
   constructor(channel: string, name: string, message: string, code?: string) {
-    super(`Error invoking remote method '${channel}': ${name}: ${message}`);
+    super(`Error invoking remote method '${channel}': ${errorText(name, message)}`);
     this.code = code;
   }
 }
@@ -44,14 +48,19 @@ const isCommandError = (value: unknown): value is CommandError =>
 
 /**
  * Rebuilds Electron's rejection. A command rejects with its `CommandError`; Tauri itself
- * rejects with a string, for a bad argument or for a command that does not exist, which
- * Electron reports as an unregistered handler.
+ * rejects with a string, for a bad argument, or for a command that does not exist or that
+ * the ACL refuses (`<channel> not allowed ...` in debug builds), both of which Electron
+ * reports as an unregistered handler. tests/golden.rs's `renderer_message` mirrors this.
  */
 export function invokeError(channel: string, reason: unknown): InvokeError {
   if (isCommandError(reason))
     return new InvokeError(channel, reason.name, reason.message, reason.code);
   const text = String(reason);
-  if (text === `Command ${channel} not found`) {
+  const unregistered =
+    text === `Command ${channel} not found` ||
+    text === `Command ${channel} not allowed by ACL` ||
+    text.startsWith(`${channel} not allowed`);
+  if (unregistered) {
     return new InvokeError(channel, "Error", `No handler registered for '${channel}'`);
   }
   return new InvokeError(channel, "Error", text);
@@ -62,41 +71,51 @@ export const tauriTransport: Transport = <T>(channel: string, args: Record<strin
     throw invokeError(channel, reason);
   });
 
-/** Calls any channel by name, registered or not, as `ipcRenderer.invoke` can. */
-export const invokeChannel = <T>(channel: string, args: Record<string, unknown> = {}) =>
-  tauriTransport<T>(channel, args, []);
-
 type Unsubscribe = () => void;
+
+/** Registers a listener for one event of the main window, resolving to its unlisten. */
+export type Listen = <T>(event: string, handler: (payload: T) => void) => Promise<Unsubscribe>;
+
+export const windowListen: Listen = (event, handler) =>
+  getCurrentWebviewWindow().listen(event, (e) => handler(e.payload as never));
 
 /**
  * Electron's `on*` hands back its unsubscribe at once; Tauri's `listen` resolves to one.
- * Unsubscribing before it resolves still removes the listener when it does.
+ * Unsubscribing before it resolves still removes the listener when it does. Electron's
+ * `on*` never rejects, so a failed `listen` is logged, not left unhandled.
  */
-function subscribe<E extends keyof RendererEvents>(event: E) {
-  return (callback: (payload: RendererEvents[E]) => void): Unsubscribe => {
-    let cancelled = false;
-    let unlisten: Unsubscribe | undefined;
-    void getCurrentWebviewWindow()
-      .listen<RendererEvents[E]>(event, (e) => callback(e.payload))
-      .then((stop) => {
-        if (cancelled) stop();
-        else unlisten = stop;
-      });
-    return () => {
-      cancelled = true;
-      unlisten?.();
-      unlisten = undefined;
+function subscriber(listen: Listen) {
+  return <E extends keyof RendererEvents>(event: E) =>
+    (callback: (payload: RendererEvents[E]) => void): Unsubscribe => {
+      let cancelled = false;
+      let unlisten: Unsubscribe | undefined;
+      listen<RendererEvents[E]>(event, callback)
+        .then((stop) => {
+          if (cancelled) stop();
+          else unlisten = stop;
+        })
+        .catch((error: unknown) => console.error(`listening for ${event} failed`, error));
+      return () => {
+        cancelled = true;
+        unlisten?.();
+        unlisten = undefined;
+      };
     };
-  };
 }
 
-export function createApi(transport: Transport = tauriTransport): ElectronAPI {
+export function createApi(
+  transport: Transport = tauriTransport,
+  listen: Listen = windowListen,
+): ElectronAPI {
   const boot = window.__BMT_BOOT__;
+  // lib.rs sets it before any page script; without it platform would read as ""
+  if (!boot) throw new Error("window.__BMT_BOOT__ is not set; lib.rs's boot script did not run");
   const commands = createCommands(transport);
+  const subscribe = subscriber(listen);
   const onGamesUpdated = subscribe("lcu:games-updated");
   return {
-    platform: boot?.platform ?? "",
-    locale: boot?.locale ?? undefined,
+    platform: boot.platform,
+    locale: boot.locale ?? undefined,
     ...commands,
     onBackfillDone: subscribe("lcu:backfill-done"),
     onBackfillProgress: subscribe("lcu:backfill-progress"),
@@ -113,8 +132,8 @@ export function createApi(transport: Transport = tauriTransport): ElectronAPI {
 }
 
 /** Sets `window.api`, for a page that reads it as Electron's renderer does. */
-export function install(transport?: Transport): ElectronAPI {
-  const api = createApi(transport);
+export function install(transport?: Transport, listen?: Listen): ElectronAPI {
+  const api = createApi(transport, listen);
   window.api = api;
   return api;
 }
