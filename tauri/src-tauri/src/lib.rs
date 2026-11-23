@@ -21,7 +21,6 @@ pub mod import;
 pub mod install_location;
 pub mod intl;
 pub mod js_arg;
-// Its entry points carry allow(dead_code) until T08's commands and T20 call them
 mod lcu;
 pub mod locale;
 pub mod log;
@@ -31,6 +30,7 @@ mod parity_driver;
 #[cfg(feature = "parity-driver")]
 mod parity_shell;
 pub mod paths;
+mod quit;
 #[cfg(feature = "parity-driver")]
 pub mod replay;
 pub mod security;
@@ -126,6 +126,7 @@ pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
         .manage(paths)
         .manage(host.effects)
         .plugin(backup::schedule(clock))
+        .plugin(lcu::sync::plugin())
         .invoke_handler(commands::handler())
 }
 
@@ -244,6 +245,13 @@ pub fn run() {
             shell::quit_on_signals(app.handle());
             #[cfg(target_os = "macos")]
             shell::quit_on_terminate(app.handle());
+            let shell = app.state::<shell::Shell>();
+            let handle = app.handle().clone();
+            shell.final_fetch(move || quit::final_fetch(&handle));
+            let handle = app.handle().clone();
+            shell.on_stop_polling(move || quit::stop_polling(&handle));
+            let handle = app.handle().clone();
+            shell.on_will_quit(move || quit::will_quit(&handle));
             #[cfg(feature = "parity-driver")]
             parity_driver::prepare(app);
             #[cfg(feature = "parity-driver")]
@@ -308,6 +316,8 @@ pub fn run() {
             app_menu::install(app.handle())?;
             #[cfg(feature = "parity-driver")]
             parity_driver::start(&window)?;
+            // After the window, as Electron's startPolling(win) follows createWindow
+            app.state::<lcu::sync::LcuSync>().start_polling();
             Ok(())
         })
         .build(context)

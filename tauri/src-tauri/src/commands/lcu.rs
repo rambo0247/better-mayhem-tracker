@@ -2,10 +2,11 @@
 //! T20.
 
 use serde::{Deserialize, Serialize};
-use tauri::Runtime;
+use tauri::{Manager, Runtime, State};
 use ts_rs::TS;
 
 use super::{CommandError, CommandResult, Ctx, Domain};
+use crate::lcu::sync::LcuSync;
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -57,18 +58,27 @@ pub enum BackfillOutcome {
     Failed { error: String },
 }
 
-pub async fn backfill_history<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<BackfillOutcome> {
-    Err(CommandError::not_ported())
+fn lcu<R: Runtime>(ctx: &Ctx<R>) -> CommandResult<State<'_, LcuSync>> {
+    ctx.app
+        .try_state::<LcuSync>()
+        .ok_or_else(|| CommandError::thrown("The League client sync is not running"))
 }
 
-pub async fn cancel_backfill<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<()> {
-    Err(CommandError::not_ported())
+/// Asked for by hand, so it checks everything Riot still has rather than
+/// stopping at the newest page it recognises.
+pub async fn backfill_history<R: Runtime>(ctx: Ctx<R>) -> CommandResult<BackfillOutcome> {
+    Ok(lcu(&ctx)?.backfill_from_settings().await)
 }
 
-pub async fn is_backfill_running<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<bool> {
-    Err(CommandError::not_ported())
+pub async fn cancel_backfill<R: Runtime>(ctx: Ctx<R>) -> CommandResult<()> {
+    lcu(&ctx)?.sync.cancel_backfill();
+    Ok(())
 }
 
-pub async fn get_lcu_status<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<LcuStatus> {
-    Err(CommandError::not_ported())
+pub async fn is_backfill_running<R: Runtime>(ctx: Ctx<R>) -> CommandResult<bool> {
+    Ok(lcu(&ctx)?.sync.is_backfill_running())
+}
+
+pub async fn get_lcu_status<R: Runtime>(ctx: Ctx<R>) -> CommandResult<LcuStatus> {
+    Ok(lcu(&ctx)?.lcu.status().into())
 }

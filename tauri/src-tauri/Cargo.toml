@@ -87,6 +87,9 @@ rustls = { version = "=0.23.46", default-features = false, features = [
   "logging",
 ] }
 tokio-tungstenite = { version = "=0.30.0", features = ["__rustls-tls"] }
+# Mozilla's roots, which Node's fetch trusts, for Riot's match history service
+webpki-root-certs = "=1.0.12"
+# zlib-rs, because miniz_oxide writes different deflate streams than zlib does
 
 [dev-dependencies]
 tauri = { version = "=3.0.0-alpha.6", features = ["test"] }

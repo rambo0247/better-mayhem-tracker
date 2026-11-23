@@ -91,6 +91,23 @@ pub fn config_with_anchors(
     Ok(config)
 }
 
+/// Riot's match history service (T20) is not the League client: it serves a
+/// public certificate, which Node's `fetch` checks against Mozilla's roots.
+/// This is that set, never mixed with Riot's root.
+pub fn public_config() -> Result<ClientConfig, rustls::Error> {
+    let mut roots = RootCertStore::empty();
+    roots.add_parsable_certificates(webpki_root_certs::TLS_SERVER_ROOT_CERTS.iter().cloned());
+    let verifier = WebPkiServerVerifier::builder_with_provider(Arc::new(roots), provider())
+        .build()
+        .map_err(|err| rustls::Error::General(err.to_string()))?;
+    let mut config = ClientConfig::builder_with_provider(provider())
+        .with_safe_default_protocol_versions()?
+        .with_webpki_verifier(verifier)
+        .with_no_client_auth();
+    config.alpn_protocols = vec![b"http/1.1".to_vec()];
+    Ok(config)
+}
+
 /// What a League client connection trusts: Riot's root, and in parity builds
 /// the fake client's CA as well. Read again for every new set of credentials,
 /// because each run of the fake client makes a new CA.

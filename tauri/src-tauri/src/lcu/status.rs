@@ -31,6 +31,17 @@ impl LcuStatus {
     }
 }
 
+impl From<LcuStatus> for crate::commands::lcu::LcuStatus {
+    fn from(status: LcuStatus) -> Self {
+        match status {
+            LcuStatus::Disconnected => Self::Disconnected,
+            LcuStatus::Connecting => Self::Connecting,
+            LcuStatus::Connected => Self::Connected,
+            LcuStatus::Ingame => Self::Ingame,
+        }
+    }
+}
+
 pub type Emit = Box<dyn Fn(LcuStatus) + Send + Sync>;
 
 pub struct StatusCell {

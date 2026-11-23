@@ -4,11 +4,14 @@
 //! renderer shows, and the 5 s connect loop with its 60 s poll. The sync work
 //! (T20) plugs in through [`Hooks`].
 
+pub mod backfill;
+pub mod eog;
 pub mod http;
 pub mod lockfile;
 pub mod process_lookup;
 pub mod socket;
 pub mod status;
+pub mod sync;
 pub mod tls;
 
 #[cfg(test)]
@@ -98,7 +101,6 @@ impl LcuError {
     }
 
     /// `friendlyErrorMessage` in `lcu.ts`, for errors the UI shows.
-    #[allow(dead_code)]
     pub fn friendly_message(&self) -> String {
         match self {
             Self::NotFound => "League client is not running".into(),
@@ -169,7 +171,6 @@ impl Discovery {
     /// A parity build never looks at a real install or a real process: only
     /// the folder and the stand-in process list its environment names.
     #[cfg(feature = "parity-ca")]
-    #[allow(dead_code)]
     pub fn from_env() -> Self {
         let path = |name| std::env::var_os(name).map(PathBuf::from);
         let discovery = Self {
@@ -186,13 +187,11 @@ impl Discovery {
     /// A debug build runs on a machine where someone may be playing, so it
     /// leaves the real client alone unless told otherwise.
     #[cfg(all(debug_assertions, not(feature = "parity-ca")))]
-    #[allow(dead_code)]
     pub fn from_env() -> Self {
         Self::debug(std::env::var_os(ALLOW_REAL_LEAGUE_ENV).as_deref())
     }
 
     #[cfg(all(not(debug_assertions), not(feature = "parity-ca")))]
-    #[allow(dead_code)]
     pub fn from_env() -> Self {
         Self::system()
     }
@@ -404,7 +403,6 @@ pub struct LcuOptions {
 }
 
 impl Lcu {
-    #[allow(dead_code)]
     pub fn new(options: LcuOptions) -> Self {
         Self::with_anchors(options, Box::new(tls::lcu_anchors))
     }
@@ -431,12 +429,10 @@ impl Lcu {
         }))
     }
 
-    #[allow(dead_code)]
     pub fn status(&self) -> LcuStatus {
         self.0.status.get()
     }
 
-    #[allow(dead_code)]
     pub fn is_client_connected(&self) -> bool {
         self.status().is_client_connected()
     }
@@ -447,7 +443,6 @@ impl Lcu {
         self.0.status.subscribe()
     }
 
-    #[allow(dead_code)]
     pub fn live_game_ref(&self) -> Option<LiveGameRef> {
         *self.0.live_game.lock().expect("live game lock")
     }
@@ -515,7 +510,6 @@ impl Lcu {
     }
 
     /// `lcuRequest`: finds the client first when there are no credentials.
-    #[allow(dead_code)]
     pub async fn request_json(&self, path: &str) -> Result<Value, LcuError> {
         let session = match self.session() {
             Some(session) => session,
@@ -525,7 +519,6 @@ impl Lcu {
     }
 
     /// `lcuJson`: an unreachable client is no answer rather than a failure.
-    #[allow(dead_code)]
     pub async fn json_or_none(&self, path: &str) -> Option<Value> {
         self.request_json(path).await.ok()
     }
@@ -753,7 +746,6 @@ impl Lcu {
     /// `startPolling`: "connecting" only on the very first attempt after
     /// launch, "disconnected" on every restart. The first attempt lands one
     /// interval in, not at once.
-    #[allow(dead_code)]
     pub fn start_polling(&self, first_attempt: bool) {
         let mut loops = self.0.loops.lock().expect("loops lock");
         self.start_locked(&mut loops, first_attempt);
@@ -823,7 +815,6 @@ impl Lcu {
     }
 
     /// `stopPolling`, for quit.
-    #[allow(dead_code)]
     pub fn stop_polling(&self) {
         {
             let mut loops = self.0.loops.lock().expect("loops lock");
@@ -837,14 +828,8 @@ impl Lcu {
 }
 
 /// Sends every status to the main window only, as `sendToRenderer` does.
-#[allow(dead_code)]
 pub fn emit_to_main<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> status::Emit {
-    use tauri::Emitter;
-    Box::new(move |status| {
-        if let Err(err) = app.emit_to(crate::WINDOW_LABEL, "lcu:status-changed", status.as_str()) {
-            log(format!("Status event failed: {err}"));
-        }
-    })
+    Box::new(move |status| crate::events::status_changed(&app, &status.into()))
 }
 
 #[cfg(test)]
