@@ -12,7 +12,7 @@ use std::time::Duration;
 use futures_util::future::BoxFuture;
 use serde_json::Value;
 use tokio::runtime::Handle;
-use tokio::sync::broadcast;
+use tokio::sync::{Notify, broadcast};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
@@ -752,18 +752,22 @@ pub struct LiveTracker {
     env: Arc<dyn TrackingEnv>,
     runtime: Handle,
     refreshing: AtomicBool,
+    /// Wakes the callers waiting on the refresh in flight
+    refreshed: Notify,
     /// Whether events reach the window: `win` is set by `startLiveTracking`
     emitting: AtomicBool,
     state: Mutex<LiveState>,
     spells: Mutex<SpellIds>,
 }
 
-/// Clears the one-at-a-time flag however the refresh ends.
-struct Refreshing<'a>(&'a AtomicBool);
+/// Clears the one-at-a-time flag however the refresh ends, and wakes the
+/// callers waiting on it.
+struct Refreshing<'a>(&'a AtomicBool, &'a Notify);
 
 impl Drop for Refreshing<'_> {
     fn drop(&mut self) {
         self.0.store(false, Ordering::SeqCst);
+        self.1.notify_waiters();
     }
 }
 
@@ -798,6 +802,7 @@ impl LiveTracker {
             env,
             runtime,
             refreshing: AtomicBool::new(false),
+            refreshed: Notify::new(),
             emitting: AtomicBool::new(false),
             state: Mutex::new(LiveState {
                 latest,
@@ -830,8 +835,18 @@ impl LiveTracker {
     /// `refreshLiveGame`: one refresh at a time, so two ticks never ask the
     /// same question twice and publish out of order. A failure publishes an
     /// empty snapshot rather than stale players.
+    ///
+    /// A call made while a refresh runs answers what that refresh publishes,
+    /// not the snapshot from before it. Electron's stale answer reaches the
+    /// page ahead of the publish on one ordered channel; Tauri can deliver a
+    /// command's answer after an event, and the page would end on the stale
+    /// snapshot, a finished game shown as still running.
     pub async fn refresh(&self) -> LiveGameSnapshot {
+        let refreshed = self.refreshed.notified();
+        tokio::pin!(refreshed);
+        refreshed.as_mut().enable();
         if self.refreshing.swap(true, Ordering::SeqCst) {
+            refreshed.await;
             return self.latest();
         }
         self.refresh_claimed().await
@@ -839,7 +854,7 @@ impl LiveTracker {
 
     /// The refresh once the one-at-a-time flag is taken.
     async fn refresh_claimed(&self) -> LiveGameSnapshot {
-        let _refreshing = Refreshing(&self.refreshing);
+        let _refreshing = Refreshing(&self.refreshing, &self.refreshed);
         match self.build_snapshot().await {
             Ok(snapshot) => {
                 self.publish(snapshot.clone());
@@ -2057,6 +2072,31 @@ mod tests {
             })
         );
         assert_eq!(rig.env.events("live:changed").len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_refresh_asked_for_during_another_answers_what_that_one_publishes() {
+        let rig = rig("overlap");
+        rig.client
+            .route(SESSION_PATH, vec![Reply::Json(session("InProgress"))]);
+        *rig.game.answer.lock().unwrap() =
+            Err(GameApiError::Failed("In-game API returned 503".into()));
+        let gate = Arc::new(Notify::new());
+        *rig.game.gate.lock().unwrap() = Some(gate.clone());
+        let live = rig.live.clone();
+        let first = tokio::spawn(async move { live.refresh().await });
+        while rig.game.times().is_empty() {
+            tokio::task::yield_now().await;
+        }
+        let live = rig.live.clone();
+        let second = tokio::spawn(async move { live.refresh().await });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!second.is_finished(), "the second call waits for the first");
+        gate.notify_one();
+        let (first, second) = (first.await.unwrap(), second.await.unwrap());
+        assert!(second.starting, "not the empty snapshot from before");
+        assert_eq!(first, second);
+        assert_eq!(rig.game.times().len(), 1);
     }
 
     #[tokio::test]
