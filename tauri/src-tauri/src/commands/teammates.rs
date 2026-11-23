@@ -1,14 +1,15 @@
 //! Friends, groups, and their shared games. Ported by T15.
 
 use serde::{Deserialize, Serialize};
-use tauri::Runtime;
+use tauri::{Manager, Runtime};
 use ts_rs::TS;
 
 use super::types::{MatchListItem, ScoreBadge, TeammateStats};
 use super::{CommandResult, Ctx, Domain};
+use crate::db;
 use crate::db::filters::season_window;
 use crate::db::teammates::{self, CareerFilter};
-use crate::db::{self, Database};
+use crate::dragon::Dragon;
 use crate::js_arg::Js;
 use crate::op_score::ChampionClassMap;
 
@@ -133,8 +134,8 @@ pub async fn get_teammate_group_detail<R: Runtime>(
     let Some(key) = key.typed() else {
         return Ok(None);
     };
+    let classes = champion_classes(&ctx).await;
     let db = db::of(&ctx)?;
-    let classes = champion_classes(&db);
     db.with(|conn| teammates::get_teammate_group_detail(conn, &key, &classes))
 }
 
@@ -146,8 +147,8 @@ pub async fn get_teammate_detail<R: Runtime>(
     let Some(key) = key.typed() else {
         return Ok(None);
     };
+    let classes = champion_classes(&ctx).await;
     let db = db::of(&ctx)?;
-    let classes = champion_classes(&db);
     db.with(|conn| teammates::get_teammate_detail(conn, &key, &classes))
 }
 
@@ -161,11 +162,14 @@ fn season_filter(season: Option<&str>) -> CareerFilter {
     }
 }
 
-/// Teammate scores need champion classes, read from the cache beside the
-/// database until Data Dragon is ported.
-fn champion_classes(db: &Database) -> ChampionClassMap {
-    db.path()
-        .parent()
-        .map(teammates::cached_champion_classes)
-        .unwrap_or_default()
+/// Teammate scores are computed on the fly and need champion classes, so
+/// Electron's handlers `await waitForChampionData()` before
+/// `getChampionClasses()`. An app without Dragon has what Electron holds
+/// before any load.
+async fn champion_classes<R: Runtime>(ctx: &Ctx<R>) -> ChampionClassMap {
+    let Some(dragon) = ctx.app.try_state::<Dragon>() else {
+        return ChampionClassMap::new();
+    };
+    dragon.wait_for_champion_data().await;
+    dragon.champion_classes().classes
 }

@@ -8,11 +8,9 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::path::Path;
 
 use rusqlite::Connection;
 use rusqlite::types::Value as Sql;
-use serde_json::Value;
 
 use super::filters::{Where, apply_queue_filter};
 use super::scoring::{GameScoreRow, ScoreRow, group_by_game};
@@ -825,36 +823,6 @@ pub fn get_teammate_detail(
     Ok(Some(TeammateDetail { player, matches }))
 }
 
-/// `getChampionClasses()` over the champion cache Electron hydrates from
-/// disk at startup, `champion-cache.json` beside `matches.db`. Data Dragon
-/// is not ported yet, so the last data Electron or this build fetched is
-/// what scores a teammate.
-pub fn cached_champion_classes(data_dir: &Path) -> ChampionClassMap {
-    let mut classes = ChampionClassMap::new();
-    let Ok(text) = std::fs::read_to_string(data_dir.join("champion-cache.json")) else {
-        return classes;
-    };
-    let Ok(cached) = serde_json::from_str::<Value>(&text) else {
-        return classes;
-    };
-    let truthy = |v: Option<&Value>| super::js::truthy(v);
-    if !truthy(cached.get("champions")) || !truthy(cached.get("version")) {
-        return classes;
-    }
-    if let Some(Value::Object(champions)) = cached.get("champions") {
-        for (id, champ) in champions {
-            let (Ok(id), Some(Value::String(class))) = (id.parse::<i64>(), champ.get("class"))
-            else {
-                continue;
-            };
-            if !class.is_empty() {
-                classes.insert(id, class.clone());
-            }
-        }
-    }
-    classes
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -990,21 +958,5 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
-    }
-
-    #[test]
-    fn champion_classes_come_from_the_cache_file() {
-        let dir = std::env::temp_dir().join(format!("bmt-t15-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(
-            dir.join("champion-cache.json"),
-            r#"{"version":"16.1.1","champions":{"1":{"name":"Annie","class":"Mage"},"2":{"name":"X"}}}"#,
-        )
-        .unwrap();
-        let classes = cached_champion_classes(&dir);
-        assert_eq!(classes.len(), 1);
-        assert_eq!(classes.get(&1).map(String::as_str), Some("Mage"));
-        std::fs::remove_dir_all(&dir).unwrap();
-        assert!(cached_champion_classes(&dir).is_empty());
     }
 }
