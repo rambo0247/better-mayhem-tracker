@@ -112,6 +112,16 @@ app.on("web-contents-created", (_event, contents) => {
     });
     return send(channel, ...args);
   };
+  // A card photographs itself once its lookups land or a 3 s grace runs out, so on a loaded
+  // machine it can draw ids where names belong. The recorder retries a card that did. The
+  // pattern is states.ts's PLACEHOLDER.
+  const capture = contents.capturePage.bind(contents);
+  contents.capturePage = async (...args) => {
+    const text = await contents.executeJavaScript("document.body.innerText");
+    const placeholders = String(text).match(/Unknown augment \d+|\bItem \d+\b/g) ?? [];
+    records.push({ k: "card", t: since(), call: activeCall(), placeholders });
+    return capture(...args);
+  };
 });
 
 dialog.showSaveDialog = async (...args) => {

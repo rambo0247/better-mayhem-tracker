@@ -91,7 +91,7 @@ export function coverageLine(coverage: Coverage): string {
 // --- Talking to the seam ---
 
 export interface SeamRecord {
-  k: "start" | "end" | "send" | "effect";
+  k: "start" | "end" | "send" | "effect" | "card";
   t: number;
   id?: number;
   call?: number | null;
@@ -106,6 +106,8 @@ export interface SeamRecord {
   hasPayload?: boolean;
   payload?: Json;
   api?: string;
+  /** For `card`: the ids the card drew where a name belongs. */
+  placeholders?: string[];
 }
 
 interface RawResult {
@@ -139,6 +141,26 @@ async function launch(data: string, repo: string, runDir?: string): Promise<Runn
   const ready = await run.page.evaluate(() => typeof (window as any).__bmtRawInvoke);
   if (ready !== "function") throw new Error("the raw invoke preload did not load");
   return run;
+}
+
+const FIRST_TICK_TIMEOUT_MS = 45_000;
+
+/**
+ * Everything main records from launch until the connect loop's first tick, about 5 s in, moves
+ * the status off "connecting". That tick sends `lcu:status-changed` on a timer, so a case it
+ * landed in would hold the event on one run and not the next.
+ */
+async function untilFirstTick(run: RunningElectron, statusChannel: string): Promise<SeamRecord[]> {
+  const records: SeamRecord[] = [];
+  const deadline = Date.now() + FIRST_TICK_TIMEOUT_MS;
+  for (;;) {
+    await invokeRaw(run, statusChannel, []);
+    const batch = await drain(run);
+    records.push(...batch);
+    if (batch.find((r) => r.k === "end" && r.ok)?.result !== "connecting") return records;
+    if (Date.now() > deadline) throw new Error('the status stayed "connecting"');
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
 }
 
 async function resolveVars(run: RunningElectron): Promise<Vars> {
@@ -227,6 +249,8 @@ function readFileRecord(file: string, runDir: string): FileRecord | null {
 interface Recorded {
   golden: IpcGolden;
   sends: { record: SeamRecord; callId: number | null }[];
+  /** Ids a card this call photographed drew in place of names. */
+  placeholders: string[];
 }
 
 async function runCase(
@@ -285,7 +309,11 @@ async function runCase(
   const events: EventRecord[] = [];
   const effects: EffectRecord[] = [];
   const sends: Recorded["sends"] = [];
+  const placeholders: string[] = [];
   for (const record of records) {
+    if (record.k === "card" && callId !== null && record.call === callId) {
+      placeholders.push(...(record.placeholders ?? []));
+    }
     if (record.k === "send") {
       sends.push({ record, callId: record.call ?? null });
       if (callId !== null && record.call === callId) {
@@ -320,7 +348,7 @@ async function runCase(
     files,
     nonFinite,
   };
-  return { golden, sends };
+  return { golden, sends, placeholders };
 }
 
 export const UNREGISTERED_CASE: IpcCase = {
@@ -332,6 +360,8 @@ export const UNREGISTERED_CASE: IpcCase = {
 };
 
 // --- A group: one launch ---
+
+const CARD_ATTEMPTS = 5;
 
 interface GroupResult {
   goldens: IpcGolden[];
@@ -355,7 +385,7 @@ async function runGroup(
 ): Promise<GroupResult> {
   const run = await launch(data, repo);
   try {
-    const startupRecords = await drain(run);
+    const startupRecords = await untilFirstTick(run, channels.getLcuStatus!);
     const startup = startupRecords
       .filter((r) => r.k === "send")
       .map((r, i) => sendLine(r, i, "scenario"));
@@ -368,7 +398,18 @@ async function runGroup(
     for (const testCase of cases) {
       const channel = testCase.method === "(none)" ? null : channels[testCase.method];
       if (channel === undefined) throw new Error(`no channel for ${testCase.method}`);
-      const { golden, sends } = await runCase(run, testCase, channel, seq++, vars, prior);
+      let recorded = await runCase(run, testCase, channel, seq, vars, prior);
+      for (let attempt = 1; recorded.placeholders.length && attempt < CARD_ATTEMPTS; attempt++) {
+        console.log(`case ${testCase.id}: card drew ${recorded.placeholders.join(", ")}, again`);
+        recorded = await runCase(run, testCase, channel, seq, vars, prior);
+      }
+      if (recorded.placeholders.length) {
+        throw new Error(
+          `case ${testCase.id}: card still draws ${recorded.placeholders.join(", ")}`,
+        );
+      }
+      seq++;
+      const { golden, sends } = recorded;
       goldens.push(golden);
       prior[testCase.id] = golden.outcome;
       for (const { record, callId } of sends) {
