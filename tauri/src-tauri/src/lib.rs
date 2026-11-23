@@ -39,15 +39,18 @@ pub fn run() {
                 .min_inner_size(min_width, min_height)
                 .background_color(tauri::window::Color(r, g, b, 255))
                 .build()?;
-            let size = window.inner_size()?.to_logical::<f64>(window.scale_factor()?);
+            let scale = window.scale_factor()?;
+            let size = window.inner_size()?.to_logical::<f64>(scale);
             log(format!(
-                "window {} title={:?} requested={}x{} size={}x{} min={}x{} background=#{:02x}{:02x}{:02x} built {} ms after process start",
+                "window {} title={:?} size={}x{} scale={} visible={} requested_size={}x{} requested_min={}x{} requested_background=#{:02x}{:02x}{:02x} built {} ms after process start",
                 window.label(),
                 window.title()?,
-                width,
-                height,
                 size.width,
                 size.height,
+                scale,
+                window.is_visible()?,
+                width,
+                height,
                 min_width,
                 min_height,
                 r,
