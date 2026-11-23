@@ -56,6 +56,8 @@ const MUTATORS = [
   ["lutimes", [0]],
   ["chmod", [0]],
   ["chown", [0]],
+  ["lchown", [0]],
+  ["lchmod", [0]],
   ["rename", [0, 1]],
   ["copyFile", [1]],
   ["cp", [1]],
@@ -109,16 +111,46 @@ fs.createWriteStream = function (p, ...rest) {
   return realCreateWriteStream.call(this, p, ...rest);
 };
 
+const RealWriteStream = fs.WriteStream;
+fs.WriteStream = class extends RealWriteStream {
+  constructor(p, ...rest) {
+    guard("WriteStream", p);
+    super(p, ...rest);
+  }
+};
+
 const realLoad = Module._load;
 Module._load = function (request, parent, isMain) {
   const loaded = realLoad.call(this, request, parent, isMain);
   if (request !== "better-sqlite3" || loaded.__seamGuarded) return loaded;
+  // SQL can name another file: VACUUM INTO writes one, ATTACH opens one for writing.
+  const SQL_FILE = /(?:VACUUM\s+(?:\w+\s+)?INTO|ATTACH(?:\s+DATABASE)?)\s+(['"])(.+?)\1/gi;
+  const guardSql = (sql) => {
+    if (typeof sql !== "string") return;
+    for (const match of sql.matchAll(SQL_FILE)) guard("sqlite-sql", match[2]);
+  };
   class GuardedDatabase extends loaded {
     constructor(filename, options) {
       if (typeof filename === "string" && filename !== ":memory:" && !options?.readonly) {
         guard("sqlite-open", filename);
       }
       super(filename, options);
+    }
+    backup(dest, ...rest) {
+      guard("sqlite-backup", dest);
+      return super.backup(dest, ...rest);
+    }
+    exec(sql) {
+      guardSql(sql);
+      return super.exec(sql);
+    }
+    prepare(sql) {
+      guardSql(sql);
+      return super.prepare(sql);
+    }
+    pragma(sql, ...rest) {
+      guardSql(sql);
+      return super.pragma(sql, ...rest);
     }
   }
   GuardedDatabase.__seamGuarded = true;
@@ -163,6 +195,41 @@ for (const name of ["readFile", "readdir", "stat", "lstat", "access"]) {
     return orig.call(this, p, ...rest);
   };
 }
+
+const EVAL_FLAGS = new Set(["-e", "--eval", "-p", "--print", "-pe"]);
+const requiresSeam = (argv) =>
+  argv.some(
+    (arg, i) =>
+      ((arg === "-r" || arg === "--require") && path.resolve(argv[i + 1] ?? "") === __filename) ||
+      arg === `--require=${__filename}`,
+  );
+// Node drops `-e <code>` from an inherited execArgv only when it is process.execArgv itself. A
+// copy keeps it, the child runs the parent's eval code instead of its module, and forks again.
+function childExecArgv(given) {
+  const argv = [];
+  const source = given ?? process.execArgv;
+  for (let i = 0; i < source.length; i++) {
+    if (given === undefined && EVAL_FLAGS.has(source[i])) i++;
+    else if (given === undefined && /^--(eval|print)=/.test(source[i])) continue;
+    else argv.push(source[i]);
+  }
+  return requiresSeam(argv) ? argv : ["-r", __filename, ...argv];
+}
+const MAX_FORK_DEPTH = 4;
+const cp = require("child_process");
+const realFork = cp.fork;
+cp.fork = function (modulePath, args, options) {
+  const argList = Array.isArray(args) ? args : [];
+  const opts = { ...(Array.isArray(args) || args === undefined ? options : args) };
+  const depth = Number(process.env.SEAM_FORK_DEPTH ?? 0);
+  if (depth >= MAX_FORK_DEPTH) {
+    log("blocked-fork depth", depth);
+    throw new Error(`seam refused fork: already ${depth} forks deep`);
+  }
+  opts.execArgv = childExecArgv(opts.execArgv);
+  opts.env = { ...(opts.env ?? process.env), SEAM_FORK_DEPTH: String(depth + 1) };
+  return realFork.call(this, modulePath, argList, opts);
+};
 
 const LOOPBACK = /^(127\.0\.0\.1|localhost|\[::1\])$/;
 const realFetch = globalThis.fetch;
@@ -235,7 +302,12 @@ process.on("uncaughtException", (error) => fault("uncaughtException", error));
 process.on("unhandledRejection", (reason) => fault("unhandledRejection", reason));
 
 try {
-  const { app: electronApp, dialog, BrowserWindow } = require("electron");
+  const { app: electronApp, dialog, BrowserWindow, shell } = require("electron");
+  const realTrash = shell.trashItem.bind(shell);
+  shell.trashItem = async (target) => {
+    guard("trashItem", target);
+    return realTrash(target);
+  };
   // No Dock icon, app switcher entry or activation on macOS. The window is still created and shown.
   if (process.platform === "darwin") {
     electronApp.setActivationPolicy("accessory");
@@ -257,14 +329,12 @@ try {
 
 try {
   const { app } = require("electron");
-  app.whenReady().then(() => {
-    const userData = app.getPath("userData");
-    log("userData", userData);
-    if (isReal(userData)) {
-      log("userData-is-real", userData);
-      app.exit(3);
-    }
-  });
+  const userData = app.getPath("userData");
+  log("userData", userData);
+  if (isReal(userData)) {
+    log("userData-is-real", userData);
+    app.exit(3);
+  }
 } catch {
   // outside Electron there is no app to check
 }
