@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { anonymizeDatabase, type AnonymizeSummary } from "./anonymize.ts";
+import { auditFailed, auditFixture, type AuditResult } from "./audit.ts";
 import { SNAPSHOT_DIRS } from "./lib/data.ts";
 import { realDataRoots, refuseRealFolder } from "./lib/real-folder.ts";
 import { SNAPSHOT_MARKER } from "./snapshot.ts";
@@ -17,7 +18,13 @@ export interface FixtureOptions {
   realRoots?: string[];
 }
 
-export function buildFixture(options: FixtureOptions): AnonymizeSummary {
+export interface FixtureResult {
+  summary: AnonymizeSummary;
+  audit: AuditResult;
+}
+
+/** Builds the fixture, then audits it against its source and deletes it if anything real is left. */
+export function buildFixture(options: FixtureOptions): FixtureResult {
   const realRoots = options.realRoots ?? realDataRoots();
   const from = path.resolve(options.from);
   const out = path.resolve(options.out);
@@ -47,7 +54,14 @@ export function buildFixture(options: FixtureOptions): AnonymizeSummary {
     const assets = path.join(from, "asset-cache");
     if (fs.existsSync(assets)) execFileSync("cp", ["-R", assets, path.join(out, "asset-cache")]);
   }
-  return summary;
+  const audit = auditFixture(out, from, realRoots);
+  if (auditFailed(audit)) {
+    fs.rmSync(out, { recursive: true, force: true });
+    throw new Error(
+      `the fixture failed its audit and was deleted: ${JSON.stringify(audit.hits)}\n${audit.locations.join("\n")}`,
+    );
+  }
+  return { summary, audit };
 }
 
 if (import.meta.main) {
@@ -60,11 +74,18 @@ if (import.meta.main) {
     );
     process.exit(2);
   }
-  const summary = buildFixture({
+  const { summary, audit } = buildFixture({
     from: value("--from") ?? SNAPSHOT_DIRS.snapshot,
     out,
     withAssets: !args.includes("--no-assets"),
   });
   console.log(`fixture ${path.resolve(out)}`);
   console.log(JSON.stringify(summary, null, 2));
+  if (summary.corruptPayloads > 0) {
+    console.error(`WARNING: ${summary.corruptPayloads} payloads would not decode and were emptied`);
+  }
+  const s = audit.searched;
+  console.log(
+    `audit PASS: ${s.files} files and ${s.strings} strings hold none of ${s.names} names, ${s.tags} tag lines, ${s.puuids} PUUIDs, ${s.numericIds} account and summoner ids`,
+  );
 }
