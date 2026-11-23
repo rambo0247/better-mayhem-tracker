@@ -1356,6 +1356,50 @@ fn owners_that_are_not_strings_bind_as_better_sqlite3_binds_them() {
     .unwrap();
 }
 
+/// Participant names that are numbers reach better-sqlite3 as doubles, and
+/// SQLite stores each in the TEXT column as its REAL text, `42` as `42.0`.
+/// A falsy number falls through the name's `||` chain. The cells must equal
+/// Electron's migration of the same file (`electron-numeric-names-v0.json`).
+#[test]
+fn numeric_names_store_as_better_sqlite3_binds_them() {
+    let lcu = |id: i64, players: &str| {
+        let participants: Vec<String> = (1..=players.matches("puuid").count())
+            .map(|n| format!(r#"{{"participantId":{n},"championId":103,"teamId":100,"stats":{{"win":true,"kills":7,"deaths":2,"assists":9}}}}"#))
+            .collect();
+        format!(
+            r#"{{"gameId":{id},"gameVersion":"16.23.1.2","participants":[{}],"participantIdentities":[{players}]}}"#,
+            participants.join(",")
+        )
+        .into_bytes()
+    };
+    let games = [
+        (
+            31,
+            lcu(
+                31,
+                r#"{"player":{"puuid":"owner-31","gameName":42,"tagLine":7.5}}"#,
+            ),
+        ),
+        (
+            32,
+            lcu(
+                32,
+                r#"{"player":{"puuid":"owner-32","summonerName":1e21,"tagLine":-2}},{"player":{"puuid":"p2-32","gameName":0,"summonerName":"S","tagLine":0}},{"player":{"puuid":"p3-32","gameName":123456789012345680000,"tagLine":1e-7}},{"player":{"puuid":"p4-32","gameName":0.1,"tagLine":9007199254740993}},{"player":{"puuid":"p5-32","gameName":-0,"tagLine":-0.5}}"#,
+            ),
+        ),
+        (
+            33,
+            br#"{"gameId":33,"gameVersion":"16.23.1.2","participants":[{"participantId":1,"championId":103,"teamId":100,"puuid":"owner-33","riotIdGameName":5,"riotIdTagline":2.5,"win":true,"kills":7,"deaths":2,"assists":9}]}"#.to_vec(),
+        ),
+    ];
+    let (_dir, db) = migrate_v0("numeric-names-v0", &games);
+    db.with(|conn| {
+        same_cells_as_electron(conn, "electron-numeric-names-v0.json");
+        Ok(())
+    })
+    .unwrap();
+}
+
 /// Number formatting, `JSON.stringify(JSON.parse(text))` and `Number(text)`
 /// against Node's
 /// answers, which `docs/tauri-port/units/T11/js-fuzz.mjs` writes into the
