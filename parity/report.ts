@@ -2,7 +2,7 @@
  * T40's end-to-end parity report.
  *
  *   bun parity/report.ts run [--data fixture] [--out parity/out/report] [--binary <driver build>]
- *     [--electron-baseline <dir>] [--golden-dir <dir>] [--skip-golden] [--tools <dir>]
+ *     [--electron-baseline <dir>] [--tauri-capture <dir>] [--golden-dir <dir>] [--skip-golden] [--tools <dir>]
  *   bun parity/report.ts render --run <report-mac.json> [--run <report-win.json>]
  *     [--perf <perf.json> ...] [--out docs/tauri-port/parity-report.md]
  *
@@ -652,6 +652,7 @@ async function runPlatform(argv: string[]) {
     "--out",
     "--binary",
     "--electron-baseline",
+    "--tauri-capture",
     "--golden-dir",
     "--tools",
     "--trunk",
@@ -688,29 +689,32 @@ async function runPlatform(argv: string[]) {
       path.join(out, `electron-${platform}.log`),
     );
   }
-  const tauriDir = path.join(out, `tauri-${platform}`);
+  // A Tauri capture already compared with this Electron baseline, for a rerun of the later steps
+  const tauriDir = path.resolve(opt["--tauri-capture"] ?? path.join(out, `tauri-${platform}`));
   const build = tauriBuild(opt["--binary"]);
-  launchApp(
-    t,
-    [
-      "bun",
-      "parity/capture.ts",
-      "--app",
-      "tauri",
-      "--renderer",
-      "solid",
-      "--data",
-      data,
-      ...all,
-      "--out",
-      tauriDir,
-      "--compare",
-      electronDir,
-      ...build.args,
-    ],
-    path.join(out, `tauri-${platform}.log`),
-    build.env,
-  );
+  if (!opt["--tauri-capture"]) {
+    launchApp(
+      t,
+      [
+        "bun",
+        "parity/capture.ts",
+        "--app",
+        "tauri",
+        "--renderer",
+        "solid",
+        "--data",
+        data,
+        ...all,
+        "--out",
+        tauriDir,
+        "--compare",
+        electronDir,
+        ...build.args,
+      ],
+      path.join(out, `tauri-${platform}.log`),
+      build.env,
+    );
+  }
   const { states, blur } = stateLines(expected, { electron: electronDir, tauri: tauriDir });
   const reasons = maskReasons();
 
@@ -854,7 +858,7 @@ function flags(argv: string[], known: string[]) {
 }
 
 const USAGE = `usage:
-  bun parity/report.ts run [--data fixture] [--out <dir>] [--binary <driver build>] [--electron-baseline <dir>] [--golden-dir <dir>] [--skip-golden] [--tools <dir>] [--trunk <rev>]
+  bun parity/report.ts run [--data fixture] [--out <dir>] [--binary <driver build>] [--electron-baseline <dir>] [--tauri-capture <dir>] [--golden-dir <dir>] [--skip-golden] [--tools <dir>] [--trunk <rev>]
   bun parity/report.ts render --run <report-<platform>.json> ... [--perf <perf.json> ...] [--out <file.md>]`;
 
 if (import.meta.main) {
