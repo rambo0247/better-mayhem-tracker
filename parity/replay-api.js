@@ -43,60 +43,57 @@
   /**
    * @param bundle { platform, locale, methods: {method: channel}, events: {method: event},
    *   goldens: {channel: [{case, group, seq, args, outcome}]}, emit?: [{event, payload}] }
-   * @param storage Where settings written and write-group cursors live, so they survive the
-   *   reload every state does. sessionStorage in the webview.
+   * @param storage Where settings written, write-group cursors, calls and misses live, so they
+   *   survive the reload every state does. sessionStorage in the webview, which applyState
+   *   clears before each state's first step.
    */
   function createReplayApi(bundle, storage) {
     const saved = storage?.getItem(STORE_KEY);
-    const state = saved ? JSON.parse(saved) : { settings: {}, cursors: {} };
+    const state = saved ? JSON.parse(saved) : { settings: {}, cursors: {}, misses: [], calls: [] };
     const save = () => storage?.setItem(STORE_KEY, JSON.stringify(state));
-    const misses = [];
-    const calls = [];
 
-    // Exact arguments first, the read group before write groups, then the case named default
+    const bySeq = (a, b) => a.seq - b.seq;
+
+    // FORMAT.md version 1, "Matching a call to a golden": equal canonical arguments, the
+    // lowest seq on a tie, and a write group's cases in seq order behind one cursor per
+    // channel. Otherwise the case named default.
     function find(channel, args) {
       const cases = bundle.goldens[channel] ?? [];
       const key = canonical(args);
-      const exact = cases
-        .filter((c) => canonical(c.args) === key)
-        .sort(
-          (a, b) => (a.group === "read" ? 0 : 1) - (b.group === "read" ? 0 : 1) || a.seq - b.seq,
-        );
-      if (exact.length > 0 && exact[0].group === "read") return exact[0];
-      if (exact.length > 0) {
-        const cursorKey = `${channel}|${key}`;
-        const at = Math.min(state.cursors[cursorKey] ?? 0, exact.length - 1);
-        state.cursors[cursorKey] = at + 1;
-        save();
-        return exact[at];
+      const exact = cases.filter((c) => canonical(c.args) === key).sort(bySeq);
+      if (exact.length === 0) {
+        const fallback = cases.find((c) => c.case === "default");
+        return fallback && { golden: fallback, exact: false };
       }
-      return cases.find((c) => c.case === "default");
+      if (exact[0].group === "read") return { golden: exact[0], exact: true };
+      const writes = cases.filter((c) => c.group !== "read").sort(bySeq);
+      const cursor = state.cursors[channel] ?? 0;
+      const next = writes.findIndex((c, i) => i >= cursor && exact.includes(c));
+      if (next < 0) return { golden: exact[0], exact: true };
+      state.cursors[channel] = next + 1;
+      return { golden: writes[next], exact: true };
     }
 
     function request(method, channel) {
       return async (...called) => {
         const args = recordedArgs(called);
+        const call = `${method}(${JSON.stringify(args)})`;
         if (method === "getSetting" && Object.hasOwn(state.settings, args[0])) {
+          state.calls.push(`${call} -> written earlier`);
+          save();
           return state.settings[args[0]];
         }
-        let golden = find(channel, args);
-        if (!golden && method === "setSetting") {
-          golden = (bundle.goldens[channel] ?? []).find(
-            (c) => c.args[0] === args[0] && c.outcome.kind !== "error",
-          );
-        }
-        calls.push(`${method}(${JSON.stringify(args)}) -> ${golden ? golden.case : "miss"}`);
-        if (!golden) {
-          const miss = new ReplayMiss(method, args);
-          misses.push(miss.message);
-          throw miss;
-        }
-        const result = answer(golden.outcome);
-        if (method === "setSetting") {
+        const found = find(channel, args);
+        state.calls.push(`${call} -> ${found ? found.golden.case : "miss"}`);
+        // A default answer is data recorded for other arguments, so it counts as a miss
+        if (!found || !found.exact)
+          state.misses.push(`${found ? "default" : "ReplayMiss"}: ${call}`);
+        if (found && method === "setSetting" && found.golden.outcome.kind !== "error") {
           state.settings[args[0]] = args[1];
-          save();
         }
-        return result;
+        save();
+        if (!found) throw new ReplayMiss(method, args);
+        return answer(found.golden.outcome);
       };
     }
 
@@ -125,8 +122,8 @@
       api[method] = request(method, channel);
     }
     for (const [method, event] of Object.entries(bundle.events)) api[method] = subscribe(event);
-    Object.defineProperty(api, "__misses", { value: misses });
-    Object.defineProperty(api, "__calls", { value: calls });
+    Object.defineProperty(api, "__misses", { get: () => [...state.misses] });
+    Object.defineProperty(api, "__calls", { get: () => [...state.calls] });
     return api;
   }
 

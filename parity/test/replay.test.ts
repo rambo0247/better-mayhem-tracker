@@ -88,6 +88,27 @@ function writeGoldens(dir: string) {
       },
     }),
   );
+  put(
+    "settings:get",
+    golden({
+      ...get,
+      case: "allowed-session-grouping",
+      seq: 9,
+      args: ["session_grouping"],
+      outcome: { kind: "value", result: "none" },
+    }),
+  );
+  put(
+    "settings:get",
+    golden({
+      ...get,
+      case: "after-grouping",
+      group: "settings-write",
+      seq: 2,
+      args: ["session_grouping"],
+      outcome: { kind: "value", result: "week" },
+    }),
+  );
   const toggle = { channel: "db:toggle-favorite", method: "toggleFavorite", group: "favorites" };
   put(
     "db:toggle-favorite",
@@ -97,8 +118,18 @@ function writeGoldens(dir: string) {
     "db:toggle-favorite",
     golden({
       ...toggle,
-      case: "second",
+      case: "other-game",
       seq: 1,
+      args: [8],
+      outcome: { kind: "value", result: true },
+    }),
+  );
+  put(
+    "db:toggle-favorite",
+    golden({
+      ...toggle,
+      case: "second",
+      seq: 2,
       args: [7],
       outcome: { kind: "value", result: false },
     }),
@@ -161,8 +192,15 @@ describe("replay api", () => {
     expect(await api.getMatchHistory!(1, 0, undefined)).toEqual(HISTORY);
   });
 
-  test("unmatched arguments fall back to the default case", async () => {
-    expect(await create(bundle).getMatchHistory!(1, 50)).toEqual(HISTORY);
+  test("unmatched arguments fall back to the default case, counted as a miss", async () => {
+    const api = create(bundle);
+    expect(await api.getMatchHistory!(1, 50)).toEqual(HISTORY);
+    expect(await api.getMatchHistory!(1, 0)).toEqual(HISTORY);
+    expect((api as any).__misses).toEqual(["default: getMatchHistory([1,50])"]);
+  });
+
+  test("the lowest seq wins, whatever its group", async () => {
+    expect(await create(bundle).getSetting!("session_grouping")).toBe("week");
   });
 
   test("an unknown call throws a named error", async () => {
@@ -172,6 +210,7 @@ describe("replay api", () => {
     expect((await miss).name).toBe("ReplayMiss");
     expect((await miss).message).toBe('ReplayMiss: getSeasons(["x"])');
     expect((api as any).__misses).toEqual(['ReplayMiss: getSeasons(["x"])']);
+    expect((api as any).__calls).toEqual(['getSeasons(["x"]) -> miss']);
   });
 
   test("a recorded error rejects with the message the renderer saw", async () => {
@@ -195,6 +234,29 @@ describe("replay api", () => {
     const api = create(bundle, new MemoryStorage() as unknown as Storage);
     expect(await api.toggleFavorite!(7)).toBe(true);
     expect(await api.toggleFavorite!(7)).toBe(false);
+  });
+
+  test("a write group keeps one cursor per channel, not per arguments", async () => {
+    const api = create(bundle, new MemoryStorage() as unknown as Storage);
+    expect(await api.toggleFavorite!(8)).toBe(true);
+    // The cursor is past "first", so the next [7] is "second"
+    expect(await api.toggleFavorite!(7)).toBe(false);
+  });
+
+  test("a setting with no golden for its value is a miss and is not written", async () => {
+    const api = create(bundle, new MemoryStorage() as unknown as Storage);
+    await expect(api.setSetting!("hide_remakes", "maybe")).rejects.toThrow(
+      'ReplayMiss: setSetting(["hide_remakes","maybe"])',
+    );
+    expect(await api.getSetting!("hide_remakes")).toBe("false");
+  });
+
+  test("misses and calls survive the reload a state does", async () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    await create(bundle, storage).getMatchHistory!(1, 50);
+    const reloaded = create(bundle, storage);
+    expect((reloaded as any).__misses).toEqual(["default: getMatchHistory([1,50])"]);
+    expect((reloaded as any).__calls).toEqual(["getMatchHistory([1,50]) -> default"]);
   });
 
   test("subscriptions get the scenario's events in order and can stop", async () => {
