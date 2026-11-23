@@ -38,6 +38,8 @@ const ASSET_DIR_ENV: &str = "BMT_PARITY_ASSETS";
 const INIT_SCRIPT_ENV: &str = "BMT_PARITY_INIT";
 const BROWSER_ARGS_ENV: &str = "BMT_PARITY_BROWSER_ARGS";
 const WEBVIEW_DATA_ENV: &str = "BMT_PARITY_WEBVIEW_DATA";
+/// Set to `regular` to keep the Dock icon, only to show captures match with and without it.
+const ACTIVATION_ENV: &str = "BMT_PARITY_ACTIVATION";
 const MIN_TOKEN_LEN: usize = 16;
 const MAX_HEAD_BYTES: usize = 64 * 1024;
 const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
@@ -54,6 +56,7 @@ struct Config {
     init_script: Option<String>,
     browser_args: Option<String>,
     webview_data: Option<PathBuf>,
+    keep_dock_icon: bool,
 }
 
 impl Config {
@@ -73,6 +76,7 @@ impl Config {
             init_script,
             browser_args: std::env::var(BROWSER_ARGS_ENV).ok(),
             webview_data: path(WEBVIEW_DATA_ENV),
+            keep_dock_icon: std::env::var(ACTIVATION_ENV).is_ok_and(|v| v == "regular"),
         })
     }
 }
@@ -144,6 +148,16 @@ pub fn install(builder: Builder<DynRuntime>) -> Builder<DynRuntime> {
     #[cfg(target_os = "macos")]
     let builder = builder.activate_ignoring_other_apps(false);
     builder
+}
+
+/// Runs in setup, before the window exists. A parity launch never shows in the
+/// operator's Dock and never takes focus, so it is an accessory app on macOS.
+pub fn prepare(app: &mut tauri::App<DynRuntime>) {
+    #[cfg(target_os = "macos")]
+    if !config().keep_dock_icon {
+        app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+    }
+    let _ = app;
 }
 
 /// The renderer to load, when one was given in place of the app's own pages.
@@ -558,8 +572,12 @@ fn dispatch(window: &WebviewWindow, body: &Value) -> Result<Response, String> {
         }
         "snapshot" => {
             let scale = body["scale"].as_f64().unwrap_or(2.0);
+            let size = match (body["width"].as_f64(), body["height"].as_f64()) {
+                (Some(width), Some(height)) => Some((width, height)),
+                _ => None,
+            };
             let (tx, rx) = mpsc::channel();
-            snapshot::snapshot(window, SnapshotOptions { scale }, move |result| {
+            snapshot::snapshot(window, SnapshotOptions { scale, size }, move |result| {
                 let _ = tx.send(result);
             })
             .map_err(|e| e.to_string())?;

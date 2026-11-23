@@ -212,6 +212,9 @@ function resolveInPage(target: { selector: string; nth?: number; text?: string; 
 export class TauriEngine implements Engine {
   readonly name = "tauri" as const;
   private mouse = { x: 0, y: 0 };
+  /** Window content size minus page viewport, learned on the first resize. */
+  private frameExtra = { width: 0, height: 0 };
+  private viewport = { width: 0, height: 0 };
   /** How the last hover reached the page, for lanes that check native `:hover`. */
   lastHover?: { path: string; hoverMatches: boolean };
 
@@ -321,7 +324,7 @@ export class TauriEngine implements Engine {
   lastSnapshot?: { width: number; height: number; sourceColorSpace: string; backingScale: number };
 
   async screenshot(file: string) {
-    const response = await this.driver.call("snapshot", { scale: 2 });
+    const response = await this.driver.call("snapshot", { scale: 2, ...this.viewport });
     this.lastSnapshot = JSON.parse(response.headers.get("x-bmt-snapshot") ?? "{}");
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, Buffer.from(await response.arrayBuffer()));
@@ -336,17 +339,34 @@ export class TauriEngine implements Engine {
     await this.waitForFunction(() => document.readyState === "complete", 15_000);
   }
 
+  /**
+   * The window's content size can differ from the area the page lays out in (on macOS 26 the
+   * webview loses 32 px to the title bar), so this corrects by what the page reports.
+   */
   async resizeWindow(width: number, height: number) {
-    await this.driver.call("resize", { width, height });
-    const deadline = Date.now() + 5000;
-    for (;;) {
-      const seen = await this.evaluate(() => [innerWidth, innerHeight]);
-      if (seen[0] === width && seen[1] === height) return;
-      if (Date.now() > deadline) {
-        throw new Error(`asked for ${width}x${height}, the page sees ${seen[0]}x${seen[1]}`);
+    const seen = () => this.evaluate(() => [innerWidth, innerHeight] as [number, number]);
+    let ask = { width, height };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await this.driver.call("resize", ask);
+      const deadline = Date.now() + 2000;
+      let now = await seen();
+      while (
+        (now[0] !== ask.width - this.frameExtra.width ||
+          now[1] !== ask.height - this.frameExtra.height) &&
+        Date.now() < deadline
+      ) {
+        await Bun.sleep(50);
+        now = await seen();
       }
-      await Bun.sleep(50);
+      if (now[0] === width && now[1] === height) {
+        this.viewport = { width, height };
+        return;
+      }
+      this.frameExtra = { width: ask.width - now[0], height: ask.height - now[1] };
+      ask = { width: width + this.frameExtra.width, height: height + this.frameExtra.height };
     }
+    const now = await seen();
+    throw new Error(`asked for ${width}x${height}, the page sees ${now[0]}x${now[1]}`);
   }
 }
 

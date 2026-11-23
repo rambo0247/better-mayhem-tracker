@@ -13,6 +13,9 @@ use tauri::WebviewWindow;
 pub struct SnapshotOptions {
     /// Device pixels per CSS pixel in the PNG, whatever the display's own scale.
     pub scale: f64,
+    /// The CSS px width and height to take from the viewport's top left, when the
+    /// webview's frame is larger than the area the page lays out in.
+    pub size: Option<(f64, f64)>,
 }
 
 #[derive(Debug)]

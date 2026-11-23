@@ -27,16 +27,17 @@ pub fn snapshot(
         let web: &WKWebView = unsafe { &*webview.inner().cast::<WKWebView>() };
         let backing = web.window().map_or(1.0, |w| w.backingScaleFactor());
         let bounds = web.bounds();
+        let (width, height) = options
+            .size
+            .unwrap_or((bounds.size.width, bounds.size.height));
         let config = unsafe { WKSnapshotConfiguration::new(mtm) };
         unsafe {
             config.setRect(CGRect::new(
                 CGPoint::new(0.0, 0.0),
-                CGSize::new(bounds.size.width, bounds.size.height),
+                CGSize::new(width, height),
             ));
             // The width is in points; WebKit multiplies it by the backing scale
-            config.setSnapshotWidth(Some(&NSNumber::new_f64(
-                bounds.size.width * options.scale / backing,
-            )));
+            config.setSnapshotWidth(Some(&NSNumber::new_f64(width * options.scale / backing)));
             config.setAfterScreenUpdates(true);
         }
         let done = Cell::new(Some(done));

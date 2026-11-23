@@ -39,6 +39,8 @@ pub fn run() {
     let builder = parity_driver::install(builder);
     builder
         .setup(move |app| {
+            #[cfg(feature = "parity-driver")]
+            parity_driver::prepare(app);
             let (width, height) = WINDOW_SIZE;
             let (min_width, min_height) = WINDOW_MIN_SIZE;
             let (r, g, b) = WINDOW_BACKGROUND;
