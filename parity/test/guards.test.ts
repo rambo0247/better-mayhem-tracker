@@ -382,6 +382,71 @@ describe("seam", () => {
       "https://example.com/": "blocked",
     });
   });
+  test("a socket to a host that is not loopback is refused, whatever opens it, and loopback still connects", () => {
+    const script = `
+      const http = require("http"), https = require("https"), net = require("net"), tls = require("tls");
+      let hits = 0;
+      const server = net.createServer((socket) => { hits++; socket.destroy(); });
+      const blocked = (error) => /seam blocked network/.test(String(error?.message ?? error));
+      const settle = (make) => new Promise((resolve) => {
+        try {
+          const target = make();
+          target.on("error", (error) => resolve(blocked(error) ? "blocked" : "failed " + error.message));
+          target.on("connect", () => resolve("connected"));
+          target.on("response", () => resolve("response"));
+          if (target instanceof http.ClientRequest) target.end();
+          setTimeout(() => resolve("open"), 2000);
+        } catch (error) { resolve(blocked(error) ? "blocked" : "threw " + error.message); }
+      });
+      const away = "nonexistent.invalid";
+      const lookupTo = (address) => (host, options, callback) =>
+        options.all ? callback(null, [{ address, family: 4 }]) : callback(null, address, 4);
+      server.listen(0, "127.0.0.1", async () => {
+        const port = server.address().port;
+        const forms = {
+          urlStringPlusHostname: () => http.request("http://127.0.0.1:" + port + "/", { hostname: away }),
+          urlObjectPlusHostname: () => https.request(new URL("https://127.0.0.1:" + port + "/"), { hostname: away }),
+          clientRequest: () => new http.ClientRequest("http://" + away + "/"),
+          lookupAway: () => http.request({ hostname: "localhost", port, lookup: lookupTo("192.0.2.1") }),
+          lookupLoopback: () => net.connect({ host: "localhost", port, lookup: lookupTo("127.0.0.1") }),
+          netOptions: () => net.connect({ host: away, port: 80 }),
+          netPortHost: () => net.connect(80, away),
+          netAddress: () => net.connect(80, "192.0.2.1"),
+          socketHexPort: () => new net.Socket().connect("0x50", away),
+          tlsOptions: () => tls.connect({ host: away, port: 443 }),
+          tlsPortHost: () => tls.connect(443, away),
+        };
+        const refused = {};
+        for (const [name, make] of Object.entries(forms)) refused[name] = await settle(make);
+        const reached = {
+          net: await settle(() => net.connect(port, "127.0.0.1")),
+          socket: await settle(() => new net.Socket().connect(String(port))),
+        };
+        await settle(() => http.request("http://localhost:" + port + "/"));
+        console.log(JSON.stringify({ refused, reached, hits }));
+        process.exit(0);
+      });
+    `;
+    const { result, log } = run(script);
+    const { refused, reached, hits } = JSON.parse(result.stdout);
+    const forms = [
+      "urlStringPlusHostname",
+      "urlObjectPlusHostname",
+      "clientRequest",
+      "lookupAway",
+      "lookupLoopback",
+      "netOptions",
+      "netPortHost",
+      "netAddress",
+      "socketHexPort",
+      "tlsOptions",
+      "tlsPortHost",
+    ];
+    expect(refused).toEqual(Object.fromEntries(forms.map((name) => [name, "blocked"])));
+    expect(reached).toEqual({ net: "connected", socket: "connected" });
+    expect(hits).toBe(3);
+    expect(log).toContain("socket-blocked nonexistent.invalid");
+  });
   test("every way of connecting to the live client's port is refused, and another port still connects", () => {
     const script = `
       const http = require("http"), https = require("https"), net = require("net"), tls = require("tls");
@@ -445,6 +510,45 @@ describe("seam", () => {
     expect(hitsWhileGuarded).toBe(0);
     expect(hitsAfter).toBeGreaterThan(0);
     expect(log).toContain("blocked-live-port");
+  });
+  test("a SEAM_LIVE_PORT that is not a port refuses every socket instead of switching the guard off", () => {
+    const script = `
+      const net = require("net");
+      let hits = 0;
+      const server = net.createServer((socket) => { hits++; socket.destroy(); });
+      const attempt = () => new Promise((resolve) => {
+        const socket = net.connect(server.address().port, "127.0.0.1");
+        socket.on("error", (error) => resolve(/seam refused/.test(error.message) ? "refused" : "failed " + error.message));
+        socket.on("connect", () => resolve("reached"));
+        setTimeout(() => resolve("open"), 2000);
+      });
+      server.listen(0, "127.0.0.1", async () => {
+        const out = {};
+        for (const value of ["not-a-port", "", " ", "0", "70000", "29.99", "-1"]) {
+          process.env.SEAM_LIVE_PORT = value;
+          out[JSON.stringify(value)] = await attempt();
+        }
+        delete process.env.SEAM_LIVE_PORT;
+        out.unset = await attempt();
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        console.log(JSON.stringify({ out, hits }));
+        process.exit(0);
+      });
+    `;
+    const { result } = run(script);
+    expect(JSON.parse(result.stdout)).toEqual({
+      out: {
+        '"not-a-port"': "refused",
+        '""': "refused",
+        '" "': "refused",
+        '"0"': "refused",
+        '"70000"': "refused",
+        '"29.99"': "refused",
+        '"-1"': "refused",
+        unset: "reached",
+      },
+      hits: 1,
+    });
   });
   async function runAsync(script: string, env: Record<string, string>) {
     const dir = scratch();

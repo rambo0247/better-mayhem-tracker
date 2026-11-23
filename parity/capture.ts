@@ -37,7 +37,12 @@ interface Timing {
   error?: string;
   /** Client states: fake client start to the app reading "Connected" or "In Game". */
   connectMs?: number;
+  /** Electron card states: how many times the card was drawn again for a missing lookup. */
+  retries?: number;
 }
+
+/** Tries for an Electron reference card, as T05's recording allowed. */
+const CARD_ATTEMPTS = 5;
 
 type App = "electron" | "tauri";
 
@@ -445,7 +450,21 @@ async function main() {
           sessionVars = driven.vars;
           if (driven.connectMs != null) record.connectMs = driven.connectMs;
         } else {
-          outcome = await applyState(session.ctx, state as StateRow, sessionVars);
+          const reference = { warmEveryPatch: args.app === "electron" };
+          outcome = await applyState(session.ctx, state as StateRow, sessionVars, reference);
+          // Electron 1.2.1's card draws ids for a lookup that misses its 3 s grace, as T05 found
+          // recording. Only the Electron reference retries, so a Tauri card that does it fails
+          for (
+            let attempt = 1;
+            args.app === "electron" && outcome.placeholders.length > 0 && attempt < CARD_ATTEMPTS;
+            attempt++
+          ) {
+            console.log(
+              `retry ${state.id} ${attempt}: the card drew ids for missing lookups: ${outcome.placeholders.join(", ")}`,
+            );
+            record.retries = attempt;
+            outcome = await applyState(session.ctx, state as StateRow, sessionVars, reference);
+          }
         }
         record.settleMs = outcome.settle.ms;
         record.settleTimedOut = outcome.settle.timedOut;

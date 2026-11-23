@@ -250,21 +250,26 @@ export const LOOKUP_TIMEOUT_MS = 20_000;
  * for the same data first fills the main process's caches, so the card's own requests return
  * at once.
  */
-async function warmLookups(engine: Engine): Promise<boolean> {
-  return engine.evaluate(async (timeout) => {
-    const api = window.api as unknown as Record<string, () => Promise<object | null>>;
-    const deadline = Date.now() + timeout;
-    for (;;) {
-      const data = await Promise.all([
-        api.getChampionData!(),
-        api.getAugmentData!(),
-        api.getItemData!(),
-      ]);
-      if (data.every((d) => d !== null && Object.keys(d).length > 0)) return true;
-      if (Date.now() > deadline) return false;
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-  }, LOOKUP_TIMEOUT_MS);
+async function warmLookups(engine: Engine, everyPatch: boolean): Promise<boolean> {
+  return engine.evaluate(
+    async ([timeout, everyPatch]) => {
+      const api = window.api as unknown as Record<string, (arg?: unknown) => Promise<any>>;
+      const deadline = Date.now() + timeout;
+      // A card's games span patches, and each patch's item and augment tables load on first ask
+      const patches: (string | undefined)[] = [undefined];
+      if (everyPatch) patches.push(...((await api.getMatchFilterOptions!()).patches as string[]));
+      for (;;) {
+        const data = await Promise.all([
+          api.getChampionData!(),
+          ...patches.flatMap((patch) => [api.getAugmentData!(patch), api.getItemData!(patch)]),
+        ]);
+        if (data.every((d) => d !== null && Object.keys(d).length > 0)) return true;
+        if (Date.now() > deadline) return false;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    },
+    [LOOKUP_TIMEOUT_MS, everyPatch] as const,
+  );
 }
 
 /**
@@ -293,6 +298,8 @@ export async function applyState(
   ctx: DriveContext,
   state: StateRow,
   vars: Record<string, string>,
+  /** Electron's reference cards load every patch's tables first, as T05 recorded them. */
+  options: { warmEveryPatch?: boolean } = {},
 ): Promise<StateOutcome> {
   const { engine } = ctx;
   const laps: string[] = [];
@@ -318,7 +325,9 @@ export async function applyState(
   for (const step of pre) await runStep(ctx, step, vars);
   lap("pre steps");
 
-  const lookupsReady = state.card ? await warmLookups(engine) : undefined;
+  const lookupsReady = state.card
+    ? await warmLookups(engine, options.warmEveryPatch === true)
+    : undefined;
   ctx.viewport = { ...state.viewport };
   await engine.resizeWindow(state.viewport.width, state.viewport.height);
   await engine.evaluate((hash) => (location.hash = hash), "#" + expand(state.route, vars));

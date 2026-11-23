@@ -4,6 +4,7 @@
     "docs/tauri-port/expand.mjs",
     "docs/tauri-port/plan.md",
     "docs/tauri-port/src/90-appendix.md",
+    "parity/snapshots/fixture/**",
     "tauri/src/bindings.ts"
   ]
 }

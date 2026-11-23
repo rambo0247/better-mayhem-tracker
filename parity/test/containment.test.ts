@@ -531,7 +531,7 @@ describe("forks under the seam", () => {
     for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
     const result = spawnSync("node", ["-r", seam, "-e", parent], {
       cwd: dir,
-      env: { ...process.env, SEAM_LOG: path.join(dir, "seam.log"), SEAM_FORK_DEPTH: "" },
+      env: { ...process.env, SEAM_LOG: path.join(dir, "seam.log"), SEAM_FORK_DEPTH: undefined },
       encoding: "utf8",
       timeout: 20_000,
     });
@@ -573,7 +573,7 @@ describe("forks under the seam", () => {
   test("a depth that is not a whole number at or above zero refuses the fork instead of switching the cap off", () => {
     const dir = scratch();
     fs.writeFileSync(path.join(dir, "child.js"), "process.exit(0)");
-    for (const depth of ["abc", "NaN", "-1", "1.5", "Infinity"]) {
+    for (const depth of ["abc", "NaN", "-1", "1.5", "Infinity", "", " ", "\t"]) {
       const result = spawnSync(
         "node",
         [

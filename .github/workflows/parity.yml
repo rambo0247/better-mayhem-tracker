@@ -1,8 +1,6 @@
 name: Parity
 
-# Baseline capture on Windows. The anonymized fixture is not committed yet
-# (decision E2), so the job takes it from an earlier run's artifact and skips
-# with a notice when none is named.
+# Baseline capture on Windows, on the committed anonymized fixture (decision E2).
 on:
   workflow_dispatch:
     inputs:

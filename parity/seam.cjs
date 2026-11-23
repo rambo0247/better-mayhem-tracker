@@ -330,7 +330,9 @@ const realFork = cp.fork;
 cp.fork = function (modulePath, args, options) {
   const argList = Array.isArray(args) ? args : [];
   const opts = { ...(Array.isArray(args) || args === undefined ? options : args) };
-  const depth = Number(process.env.SEAM_FORK_DEPTH ?? 0);
+  // Unset is the top process. Number() reads a blank as 0, which would restart the count.
+  const given = process.env.SEAM_FORK_DEPTH;
+  const depth = given === undefined ? 0 : /^\d+$/.test(given) ? Number(given) : NaN;
   // NaN fails every comparison, so a non-numeric value would turn the cap off
   if (!Number.isInteger(depth) || depth < 0 || depth >= MAX_FORK_DEPTH) {
     log("blocked-fork depth", depth);
@@ -373,20 +375,45 @@ function isLoopback(given) {
     octets.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)
   );
 }
-// A running game serves its API on 2999 with no login, so no socket, whatever called it, may
-// connect to that port. http, https, fetch, net and tls all end in Socket.connect. The port is
-// SEAM_LIVE_PORT so a test can stand a listener in for it, and run-electron pins it to 2999.
+// Node's own reading of connect's arguments: options, a pipe path, or a port then a host. A string
+// names a pipe only when it is not a number at or above zero, so "0x50" is port 80.
+function connectTarget(args) {
+  const first = Array.isArray(args[0]) ? args[0][0] : args[0];
+  if (first !== null && typeof first === "object") {
+    if (first.path) return null;
+    return { host: first.host || "localhost", port: Number(first.port), lookup: first.lookup };
+  }
+  if (typeof first === "string" && !(Number(first) >= 0)) return null;
+  return { host: typeof args[1] === "string" ? args[1] : "localhost", port: Number(first) };
+}
+const refuse = (socket, message) => {
+  const error = Object.assign(new Error(message), { code: "ECONNREFUSED" });
+  process.nextTick(() => socket.destroy(error));
+  return socket;
+};
+// http, https, fetch, net and tls all end in Socket.connect, so it alone decides what a socket
+// may reach: loopback only. A custom lookup could answer a loopback name with any address, so a
+// socket that brings one is refused. A running game serves its API on 2999 with no login, so no
+// socket may connect to that port either. The port is SEAM_LIVE_PORT so a test can stand a
+// listener in for it, and run-electron pins it to 2999. A value that is not a port refuses
+// every socket, since a port nothing can equal would switch the guard off.
 const realSocketConnect = net.Socket.prototype.connect;
 net.Socket.prototype.connect = function (...args) {
-  const first = Array.isArray(args[0]) ? args[0][0] : args[0];
-  const options = first !== null && typeof first === "object" ? first : { port: first };
-  const guarded = Number(process.env.SEAM_LIVE_PORT || 2999);
-  if (Number(options.port) === guarded) {
-    log("blocked-live-port", String(options.host ?? "localhost"), String(options.port));
-    const error = new Error(`seam refused the live client port ${options.port}`);
-    error.code = "ECONNREFUSED";
-    process.nextTick(() => this.destroy(error));
-    return this;
+  const target = connectTarget(args);
+  if (!target) return realSocketConnect.apply(this, args);
+  if (!isLoopback(target.host) || typeof target.lookup === "function") {
+    log("socket-blocked", String(target.host), String(target.port));
+    return refuse(this, `seam blocked network: ${target.host}`);
+  }
+  const given = process.env.SEAM_LIVE_PORT ?? "2999";
+  const live = /^\d+$/.test(given) ? Number(given) : NaN;
+  if (!(live >= 1 && live <= 65535)) {
+    log("blocked-bad-live-port", JSON.stringify(given));
+    return refuse(this, `seam refused a socket: SEAM_LIVE_PORT=${given} is not a port`);
+  }
+  if (target.port === live) {
+    log("blocked-live-port", String(target.host), String(target.port));
+    return refuse(this, `seam refused the live client port ${target.port}`);
   }
   return realSocketConnect.apply(this, args);
 };
@@ -482,17 +509,6 @@ tls.createSecureContext = function (options, ...rest) {
 };
 
 // With a fake client, loopback connections go only to its ports. The log names every one.
-function connectTarget(args) {
-  let first = args[0];
-  if (Array.isArray(first)) first = first[0];
-  if (first && typeof first === "object") {
-    return first.path ? null : { host: first.host || "localhost", port: Number(first.port) };
-  }
-  if (typeof first === "number" || /^\d+$/.test(String(first))) {
-    return { host: typeof args[1] === "string" ? args[1] : "localhost", port: Number(first) };
-  }
-  return null;
-}
 if (FAKE_DIR) {
   const realConnect = net.Socket.prototype.connect;
   net.Socket.prototype.connect = function (...args) {
@@ -500,12 +516,7 @@ if (FAKE_DIR) {
     if (target && isLoopback(target.host)) {
       if (!(fake()?.ports ?? []).includes(target.port)) {
         log("blocked-connect", `${target.host}:${target.port}`);
-        const refused = Object.assign(
-          new Error(`connect ECONNREFUSED ${target.host}:${target.port}`),
-          { code: "ECONNREFUSED" },
-        );
-        process.nextTick(() => this.destroy(refused));
-        return this;
+        return refuse(this, `connect ECONNREFUSED ${target.host}:${target.port}`);
       }
       log("connect", `${target.host}:${target.port}`);
     }
