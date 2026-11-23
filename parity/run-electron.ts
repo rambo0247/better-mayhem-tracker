@@ -229,6 +229,13 @@ function electronBinary(repo: string): string {
   return binary;
 }
 
+/** A window behind others still paints and runs its timers, so a screenshot always gets a frame. */
+export const KEEP_PAINTING = [
+  "--disable-backgrounding-occluded-windows",
+  "--disable-renderer-backgrounding",
+  "--disable-background-timer-throttling",
+];
+
 /** GPU compositing is off unless PARITY_GPU=on: GPU frames repeat less between runs (waiver W1). */
 export function gpuSwitch(value = process.env.PARITY_GPU): "on" | "off" {
   if (value === undefined || value === "" || value === "off") return "off";
@@ -296,6 +303,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
       "--force-device-scale-factor=2",
       "--force-color-profile=srgb",
       ...(gpuSwitch() === "on" ? [] : ["--disable-gpu"]),
+      ...(process.env.PARITY_BACKGROUNDING === "on" ? [] : KEEP_PAINTING),
       "--lang=en-US",
       ...(process.env.PARITY_ELECTRON_ARGS?.split(" ").filter(Boolean) ?? []),
       `--user-data-dir=${userData}`,

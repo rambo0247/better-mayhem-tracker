@@ -159,12 +159,27 @@ let inactiveElectron;
 function guardElectron(electron) {
   if (inactiveElectron) return inactiveElectron;
   const RealWindow = electron.BrowserWindow;
-  class InactiveWindow extends RealWindow {
-    constructor(options = {}) {
-      super({ ...options, show: false });
-      if (options.show !== false) this.showInactive();
-    }
-  }
+  // Not a subclass: BrowserWindow.getAllWindows() leaves out instances of one.
+  const InactiveWindow = new Proxy(RealWindow, {
+    construct(target, [options = {}, ...rest]) {
+      const window = Reflect.construct(
+        target,
+        [
+          {
+            ...options,
+            show: false,
+            webPreferences: { ...options.webPreferences, backgroundThrottling: false },
+          },
+          ...rest,
+        ],
+        target,
+      );
+      // An accessory app's window can open behind others. A covered window stops painting.
+      window.setAlwaysOnTop(true, "floating");
+      if (options.show !== false) window.showInactive();
+      return window;
+    },
+  });
   RealWindow.prototype.show = function () {
     this.showInactive();
   };
@@ -360,6 +375,22 @@ if (process.type === "browser") {
     electronApp.dock?.hide();
   }
   dialog.showErrorBox = (title, content) => fault("showErrorBox", `${title}: ${content}`);
+  if (process.env.SEAM_COVER === "1") {
+    electronApp.once("browser-window-created", () => {
+      setTimeout(() => {
+        const { BaseWindow, screen } = require("electron");
+        const cover = new BaseWindow({
+          ...screen.getPrimaryDisplay().bounds,
+          show: false,
+          focusable: false,
+          backgroundColor: "#ff00ff",
+        });
+        cover.setAlwaysOnTop(true, "screen-saver");
+        cover.showInactive();
+        log("cover shown over the app window");
+      }, 500);
+    });
+  }
 }
 
 log("seam loaded pid", process.pid);
