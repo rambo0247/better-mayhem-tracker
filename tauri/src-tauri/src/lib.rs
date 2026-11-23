@@ -10,13 +10,20 @@ compile_error!(
 
 #[deny(clippy::disallowed_methods)]
 pub mod commands;
+#[cfg(any(not(bmt_release_profile), debug_assertions))]
+pub mod data_guard;
 pub mod events;
 pub mod js_arg;
+pub mod install_location;
+pub mod locale;
+pub mod log;
 #[cfg(feature = "parity-driver")]
 mod parity_driver;
 #[cfg(feature = "parity-driver")]
 pub mod replay;
 // Card export (T25) calls it in release builds; until then only the driver does
+pub mod paths;
+pub mod security;
 #[cfg_attr(not(feature = "parity-driver"), allow(dead_code))]
 mod snapshot;
 
@@ -24,6 +31,10 @@ use std::time::Instant;
 
 use tauri::{Builder, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_runtime_wry::Wry;
+
+use crate::commands::Clock;
+use crate::paths::Paths;
+use crate::security::Effects;
 
 pub const PRODUCT_NAME: &str = "Better Mayhem Tracker";
 pub const WINDOW_LABEL: &str = "main";
@@ -45,17 +56,19 @@ fn page_event(started: tauri::State<'_, StartedAt>, name: String) {
     ));
 }
 
-/// What the app runs against, which golden replay and parity lanes swap for
-/// a frozen clock. Later units add fields here, T09 its OS effects.
+/// What the app runs against besides its data root, which golden replay and
+/// parity lanes swap for a frozen clock and a recorder.
 pub struct Host {
-    pub clock: commands::Clock,
+    pub clock: Clock,
+    pub effects: Effects,
 }
 
 impl Host {
-    /// The release app's host: the system clock.
+    /// The release app's host: the system clock and the real OS effects.
     pub fn system() -> Self {
         Self {
-            clock: commands::Clock::System,
+            clock: Clock::System,
+            effects: Effects::System,
         }
     }
 
@@ -64,18 +77,31 @@ impl Host {
     /// OS seam gets its recording form here, never its real one, so a replayed
     /// `app:open-url` records the URL instead of opening it.
     #[cfg(feature = "parity-driver")]
-    pub fn replay(clock: commands::Clock) -> Self {
-        Self { clock }
+    pub fn replay(clock: Clock) -> Self {
+        Self {
+            clock,
+            effects: Effects::recorded(),
+        }
     }
+}
+
+/// Electron's `app.getVersion()`: the root package.json's version, the one
+/// the Electron release carries, so both builds of a release agree. build.rs
+/// reads it.
+pub fn app_version() -> &'static str {
+    env!("BMT_APP_VERSION")
 }
 
 /// The state and commands every build of the app has, the golden replay's
 /// mock app included. Each domain adds its own state through
-/// `commands::Domain::register`.
+/// `commands::Domain::register`. The data root is resolved here, each time an
+/// app is built, so a lane process can build apps over several roots.
 pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
     commands::register(builder, &host)
         .manage(StartedAt(Instant::now()))
         .manage(host.clock)
+        .manage(Paths::resolve())
+        .manage(host.effects)
         .invoke_handler(commands::handler())
 }
 
@@ -97,12 +123,19 @@ pub fn boot_script(locale: Option<&str>) -> String {
 
 pub fn run() {
     let started = Instant::now();
+    // First, so a debug build that would open the real data folder exits
+    // before anything is created or opened
+    // T10 moves this behind the single-instance check: only the instance
+    // that runs writes the log
+    log::start(Paths::resolve(), app_version());
+    let locale = locale::system_locale();
     #[cfg(not(feature = "parity-driver"))]
     let host = Host::system();
     // Lanes freeze the Rust clock as Electron's seam freezes Date
     #[cfg(feature = "parity-driver")]
     let host = Host {
-        clock: commands::Clock::from_env().expect("a valid BMT_FIXED_TIME"),
+        clock: Clock::from_env().expect("a valid BMT_FIXED_TIME"),
+        effects: Effects::System,
     };
     let builder = app_builder(tauri::Builder::default().runtime(Wry::default()), host);
     #[cfg(feature = "parity-driver")]
@@ -122,7 +155,8 @@ pub fn run() {
                 .inner_size(width, height)
                 .min_inner_size(min_width, min_height)
                 .background_color(tauri::window::Color(r, g, b, 255))
-                .initialization_script(boot_script(None));
+                .initialization_script(boot_script(locale.as_deref()));
+            let window = security::harden(window, app.handle());
             #[cfg(feature = "parity-driver")]
             let window = parity_driver::configure(window);
             let window = window.build()?;

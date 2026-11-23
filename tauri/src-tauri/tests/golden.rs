@@ -33,6 +33,7 @@ use bmt_lib::Host;
 use bmt_lib::commands::{self, Clock, CommandError, CommandSpec, EffectRecorder, GoldenCase};
 use bmt_lib::js_arg::{Js, JsValue, NON_FINITE_KEY};
 use bmt_lib::replay::{Recording, require_recording_env};
+use bmt_lib::security::{Effect, Effects};
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 use tauri::test::{INVOKE_KEY, MockRuntime, mock_builder, mock_context, noop_assets};
@@ -526,6 +527,25 @@ fn effect_differences(golden: &Golden, recorded: Vec<Value>, root: &Path) -> Opt
     })
 }
 
+/// The OS shell calls `security::Effects` recorded since the last drain, in
+/// the seam's `{ api, args }` shape. A mock app built on something other than
+/// `Host::replay` has none.
+fn os_effects(app: &MockApp) -> Vec<Value> {
+    let Some(effects) = app.try_state::<Effects>() else {
+        return Vec::new();
+    };
+    effects
+        .take()
+        .into_iter()
+        .map(|effect| match effect {
+            Effect::OpenExternal(url) => serde_json::json!({ "api": "shell.openExternal", "args": [url] }),
+            Effect::OpenPath(path) => {
+                serde_json::json!({ "api": "shell.openPath", "args": [path.to_string_lossy()] })
+            }
+        })
+        .collect()
+}
+
 /// Replays one case: its outcome, and once that passes, its events, files
 /// and effects. Returns the verdict and every difference found.
 fn replay_case(
@@ -547,10 +567,12 @@ fn replay_case(
     );
     replay.events.take();
     replay.app.state::<EffectRecorder>().take();
+    os_effects(&replay.app);
     let before = listing(root);
     let answer = call(&replay.window, spec.channel, spec.named_args(&golden.args));
     let pushed = replay.events.take();
-    let effects = replay.app.state::<EffectRecorder>().take();
+    let mut effects = replay.app.state::<EffectRecorder>().take();
+    effects.extend(os_effects(&replay.app));
     let verdict = classify(spec.channel, &golden.outcome, &answer);
     let label = format!("{} {}", golden.channel, golden.case);
     let mut problems = Vec::new();
@@ -1029,6 +1051,10 @@ fn check_harness(root: &Path) -> Result<(), String> {
     let version = Golden::parse(serde_json::json!({
         "channel": "app:version", "case": "hand-made", "group": "read", "seq": 0, "args": [],
         "outcome": { "kind": "value", "result": "1.2.1" }
+    }))?;
+    let update = Golden::parse(serde_json::json!({
+        "channel": "app:check-update", "case": "hand-made", "group": "read", "seq": 0, "args": [],
+        "outcome": { "kind": "value", "result": { "hasUpdate": false } }
     }))?;
     let registry = commands::registry();
     let spec = registry
@@ -1670,6 +1696,12 @@ fn replay_states(
                     failures.push(format!(
                         "{label}: the page sent {:?}, but {} {} holds {:?}",
                         call.args, call.channel, call.case, golden.args
+                    ));
+                } else if verdict == Verdict::Pass && !same_effects(&golden.effects, &effects) {
+                    verdict = Verdict::Fail;
+                    failures.push(format!(
+                        "{} {}: expected effects {}, got {effects}",
+                        golden.channel, golden.case, golden.effects
                     ));
                 }
                 let (verdict, problems) = replay_case(&replay, spec, golden, &root);
