@@ -21,6 +21,25 @@ export interface ClientDrive {
   connectMs: number | null;
 }
 
+/** The pieces a test replaces to fail one of them. */
+export interface ClientDeps {
+  startElectron: typeof startElectron;
+  startFakeLcu: typeof startFakeLcu;
+  loadContext: typeof loadContext;
+  resolveVars: typeof resolveVars;
+  applyState: typeof applyState;
+  settle: typeof settle;
+}
+
+const REAL_DEPS: ClientDeps = {
+  startElectron,
+  startFakeLcu,
+  loadContext,
+  resolveVars,
+  applyState,
+  settle,
+};
+
 export interface ClientCapture {
   running: RunningElectron;
   /** Brings the app into the state. Throws when the client never gets there. */
@@ -83,8 +102,9 @@ async function waitForNewestGame(page: Page, gameId: number) {
  */
 export async function openClientState(
   state: StateRow,
-  options: { data: string; repo?: string; dir: string },
+  options: { data: string; repo?: string; dir: string; deps?: Partial<ClientDeps> },
 ): Promise<ClientCapture> {
+  const deps = { ...REAL_DEPS, ...options.deps };
   const spec = state.client!;
   const sourceRoot = resolveDataRoot(options.data);
   const work = path.join(options.dir, "..", ".run", `${state.id}-${process.pid}`);
@@ -94,7 +114,7 @@ export async function openClientState(
   fs.mkdirSync(fakeDir, { recursive: true });
 
   const data = spec.empty ? emptyDataRoot(sourceRoot, `${work}-empty`) : options.data;
-  const running = await startElectron({
+  const running = await deps.startElectron({
     data,
     repo: options.repo,
     runDir: work,
@@ -102,43 +122,77 @@ export async function openClientState(
     seamEnv: { SEAM_FAKE_DIR: fakeDir, ...(spec.hold ? { SEAM_HOLD_CONNECT: "1" } : {}) },
   });
   const { page } = running;
-  if (spec.hold) {
-    await page.context().addInitScript(() => {
-      (window as any).__paritySkipConnecting = true;
-    });
-  }
+
+  const cleanUp = () => {
+    fs.rmSync(fakeDir, { recursive: true, force: true });
+    if (spec.empty) fs.rmSync(`${work}-empty`, { recursive: true, force: true });
+  };
 
   let fake: FakeLcu | null = null;
   const startedAt = Date.now();
-  if (spec.scenario) {
-    const context = loadContext(sourceRoot, spec.options ?? {}, FIXED_TIME.getTime());
-    fake = await startFakeLcu({ scenario: spec.scenario, context, dir: fakeDir });
+  try {
+    if (spec.hold) {
+      await page.context().addInitScript(() => {
+        (window as any).__paritySkipConnecting = true;
+      });
+    }
+    if (spec.scenario) {
+      const context = deps.loadContext(sourceRoot, spec.options ?? {}, FIXED_TIME.getTime());
+      fake = await deps.startFakeLcu({ scenario: spec.scenario, context, dir: fakeDir });
+    }
+  } catch (error) {
+    try {
+      await running.close();
+    } catch (closeError) {
+      throw new AggregateError([error, closeError], "the fake client and the app both failed", {
+        cause: closeError,
+      });
+    } finally {
+      cleanUp();
+    }
+    throw error;
   }
 
+  let stopping: Promise<void> | null = null;
+  const stopFake = () => (stopping ??= fake ? fake.stop() : Promise.resolve());
+
   const finish = async (dir: string) => {
-    await fake?.stop();
-    const report = await running.close();
+    const errors: unknown[] = [];
+    const attempt = async <T>(step: () => Promise<T> | T): Promise<T | undefined> => {
+      try {
+        return await step();
+      } catch (error) {
+        errors.push(error);
+        return undefined;
+      }
+    };
+    await attempt(stopFake);
+    const report = await attempt(() => running.close());
     if (fake) {
-      fs.writeFileSync(
-        path.join(dir, `${state.id}.fake-requests.json`),
-        JSON.stringify(
-          { scenario: fake.scenario.name, requests: fake.requests, sent: fake.sent },
-          null,
-          1,
+      const stopped = fake;
+      await attempt(() =>
+        fs.writeFileSync(
+          path.join(dir, `${state.id}.fake-requests.json`),
+          JSON.stringify(
+            { scenario: stopped.scenario.name, requests: stopped.requests, sent: stopped.sent },
+            null,
+            1,
+          ),
         ),
       );
     }
-    fs.rmSync(fakeDir, { recursive: true, force: true });
-    if (spec.empty) fs.rmSync(`${work}-empty`, { recursive: true, force: true });
-    return report;
+    await attempt(cleanUp);
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) throw new AggregateError(errors, "closing the client state failed");
+    return report!;
   };
 
   const drive = async (): Promise<ClientDrive> => {
     await waitForLabel(page, spec.ready);
     const connectMs = spec.scenario ? Date.now() - startedAt : null;
-    const vars = await resolveVars(page);
+    const vars = await deps.resolveVars(page);
 
-    await applyState(running.ctx, { ...state, steps: undefined }, vars);
+    await deps.applyState(running.ctx, { ...state, steps: undefined }, vars);
 
     if (fake && spec.play) {
       await fake.subscribed;
@@ -149,13 +203,13 @@ export async function openClientState(
     }
     if (fake && spec.releaseImport) fake.releaseSgp();
     if (fake && spec.stopClient) {
-      await fake.stop();
+      await stopFake();
       await waitForLabel(page, "Disconnected");
     }
 
     await page.locator(state.expect).first().waitFor({ state: "attached", timeout: 30_000 });
     for (const step of state.steps ?? []) await runStep(running.ctx, step, vars);
-    const report = await settle(page, running.ctx.viewport);
+    const report = await deps.settle(page, running.ctx.viewport);
     const expectFound = (await page.locator(state.expect).count()) > 0;
     return {
       outcome: { settle: report, expectFound, placeholders: [] },
