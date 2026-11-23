@@ -2615,11 +2615,16 @@ mod parity_run {
     struct PrintingEnv {
         started: WallInstant,
         db: Database,
-        dragon: Dragon,
+        /// Built on the client the sync owns, so set once the sync exists
+        dragon: std::sync::OnceLock<Dragon>,
         out: Mutex<()>,
     }
 
     impl PrintingEnv {
+        fn dragon(&self) -> &Dragon {
+            self.dragon.get().expect("game data before polling")
+        }
+
         fn print(&self, kind: &str, event: &str, payload: Value) {
             let _line = self.out.lock().unwrap();
             let line = json!({"t": self.started.elapsed().as_millis() as u64, "event": event, "payload": payload});
@@ -2632,7 +2637,7 @@ mod parity_run {
             Some(&self.db)
         }
         fn champions(&self) -> Option<Arc<dyn Champions>> {
-            Some(Arc::new(self.dragon.clone()))
+            Some(Arc::new(self.dragon().clone()))
         }
         fn now_ms(&self) -> i64 {
             NOW_MS
@@ -2669,13 +2674,13 @@ mod parity_run {
                     * 86_400_000
         }
         fn champion_data(&self) -> ChampionData {
-            self.dragon.loaded_champion_data()
+            self.dragon().loaded_champion_data()
         }
         fn spell_keys(&self) -> BoxFuture<'_, Option<Arc<HashMap<String, i64>>>> {
-            Box::pin(async move { self.dragon.summoner_spell_keys().await.ok() })
+            Box::pin(async move { self.dragon().summoner_spell_keys().await.ok() })
         }
         fn spell_data(&self) -> BoxFuture<'_, Option<Arc<SummonerSpellData>>> {
-            Box::pin(async move { self.dragon.summoner_spells().await.ok() })
+            Box::pin(async move { self.dragon().summoner_spells().await.ok() })
         }
         fn live_changed(&self, snapshot: &LiveGameSnapshot) {
             self.print(
@@ -2709,20 +2714,10 @@ mod parity_run {
             .filter_map(|v| v.parse().ok())
             .collect();
         let started = WallInstant::now();
-        let web = crate::assets::app_web().expect("the parity web");
-        let assets = crate::assets::GameAssets::new(
-            root.join("asset-cache"),
-            web.clone(),
-            Arc::new(crate::assets::NoClient),
-        );
-        let dragon = Dragon::new(web, assets.clone(), root.join("data"));
-        drop(dragon.load_champion_data());
-        assets.start();
-        dragon.start();
         let env = Arc::new(PrintingEnv {
             started,
             db: Database::open(&root.join("data"), NOW_MS).expect("open the fixture copy"),
-            dragon,
+            dragon: std::sync::OnceLock::new(),
             out: Mutex::default(),
         });
         let printer = env.clone();
@@ -2733,6 +2728,18 @@ mod parity_run {
                 printer.print("EVENT", "lcu:status-changed", Value::from(status.as_str()))
             }),
         );
+        let web = crate::assets::app_web().expect("the parity web");
+        let assets = crate::assets::GameAssets::new(
+            root.join("asset-cache"),
+            web.clone(),
+            Arc::new(sync.lcu.clone()),
+        );
+        assets.follow_client(sync.lcu.subscribe());
+        let dragon = Dragon::new(web, assets.clone(), root.join("data"));
+        drop(dragon.load_champion_data());
+        assets.start();
+        dragon.start();
+        assert!(env.dragon.set(dragon).is_ok(), "one game data source");
         let client: Arc<dyn Client> = Arc::new(sync.lcu.clone());
         let game: Arc<dyn GameApi> = Arc::new(HttpGameApi::new(GameApiTarget::from_env()));
         let tracking = Tracking::new(
