@@ -4,7 +4,7 @@ import { gameRunning, waitForNoGame } from "./lib/no-game.ts";
 import { dumpGeometry } from "./drive.ts";
 import { isDataSource, PARITY_DIR } from "./lib/data.ts";
 import { refuseRealFolder } from "./lib/real-folder.ts";
-import { startElectron, type RunningElectron } from "./run-electron.ts";
+import { gpuSwitch, startElectron, type RunningElectron } from "./run-electron.ts";
 import { applyState, resolveVars, selectStates, stateGroups, type StateRow } from "./states.ts";
 
 export const baselineDir = (app: string, platform: NodeJS.Platform = process.platform) =>
@@ -60,9 +60,10 @@ async function main() {
   const startedAt = Date.now();
 
   let launches = 0;
+  let data = args.data;
   const launch = () =>
     startElectron({
-      data: args.data,
+      data,
       repo: args.repo,
       runDir: path.join(dir, "..", ".run", `${path.basename(dir)}-${process.pid}-${launches++}`),
     });
@@ -108,6 +109,10 @@ async function main() {
         console.log("a League game started, closing the window and waiting");
         await relaunch();
       }
+      if ((state.data ?? args.data) !== data) {
+        data = state.data ?? args.data;
+        await relaunch();
+      }
       const session = running!;
       const t0 = Date.now();
       const record: Timing = { id: state.id, ms: 0, settleMs: 0, settleTimedOut: false, ok: true };
@@ -125,6 +130,14 @@ async function main() {
         if (!outcome.expectFound) throw new Error(`expected ${state.expect} on the page`);
         if (state.card && outcome.card?.state !== "ready") {
           throw new Error(`card status ${JSON.stringify(outcome.card)}`);
+        }
+        if (outcome.lookupsReady === false) {
+          throw new Error("champion, augment or item data never loaded");
+        }
+        if (outcome.placeholders.length > 0) {
+          throw new Error(
+            `the card drew ids for missing lookups: ${outcome.placeholders.join(", ")}`,
+          );
         }
         if (outcome.settle.decodeFailures) {
           console.log(`warn ${state.id}: ${outcome.settle.decodeFailures} images did not decode`);
@@ -155,7 +168,7 @@ async function main() {
               route: state.route,
               vars,
               viewport: state.viewport,
-              data: dataLabel,
+              data: state.data ?? dataLabel,
               card: outcome.card,
               settle: outcome.settle,
             },
@@ -191,6 +204,7 @@ async function main() {
   }
   const max = timings.reduce((a, b) => (b.ms > a.ms ? b : a), timings[0]!);
   const summary = {
+    gpu: gpuSwitch(),
     wallMs,
     states: timings.length,
     failures,

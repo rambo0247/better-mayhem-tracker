@@ -11,6 +11,7 @@ import {
   assertNoEscapingLinks,
   assertRunFolderPinned,
   checkoutStamp,
+  gpuSwitch,
   prepareRun,
   readFaults,
   stampDiff,
@@ -19,6 +20,13 @@ import {
 
 const seam = path.resolve(import.meta.dir, "../seam.cjs");
 const scratch = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "bmt-contain-")));
+
+test("PARITY_GPU is off by default, on when asked, and an error otherwise", () => {
+  expect(gpuSwitch(undefined)).toBe("off");
+  expect(gpuSwitch("off")).toBe("off");
+  expect(gpuSwitch("on")).toBe("on");
+  expect(() => gpuSwitch("true")).toThrow(/use on or off/);
+});
 
 describe("run folder containment", () => {
   test("a run folder that is a symlink to elsewhere is refused", () => {

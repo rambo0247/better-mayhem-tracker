@@ -143,12 +143,13 @@ export function stampDiff(before: Map<string, string>, after: Map<string, string
   return changed;
 }
 
-/** Builds the run folder: the built app, the data, and a stub package.json that renames the app. */
 export function prepareRun(options: { data: string; runDir: string; repo: string }) {
   const { runDir, repo } = options;
   refuseRealFolder(runDir, "run folder");
-  const dataRoot = resolveDataRoot(options.data);
-  if (isInside(fs.realpathSync(dataRoot), resolveThroughSymlinks(runDir))) {
+  // The app creates its own database in an empty data folder, as on a fresh install.
+  const empty = options.data === "empty";
+  const dataRoot = empty ? undefined : resolveDataRoot(options.data);
+  if (dataRoot && isInside(fs.realpathSync(dataRoot), resolveThroughSymlinks(runDir))) {
     throw new Error(`run folder ${runDir} contains the data folder ${dataRoot}`);
   }
   const marker = path.join(runDir, RUN_MARKER);
@@ -183,11 +184,16 @@ export function prepareRun(options: { data: string; runDir: string; repo: string
     JSON.stringify({ name: "bmt-parity-electron", version: pkg.version, main: pkg.main }),
   );
 
+  fs.mkdirSync(path.join(runDir, "userdata"));
+  fs.mkdirSync(path.join(runDir, "logs"), { recursive: true });
+  if (!dataRoot) {
+    fs.mkdirSync(path.join(runDir, "data"));
+    assertNoEscapingLinks(runDir);
+    return { dataRoot, version: pkg.version };
+  }
   copyTree(path.join(dataRoot, "data"), path.join(runDir, "data"));
   copyTree(path.join(dataRoot, "asset-cache"), path.join(runDir, "asset-cache"));
   copyTree(path.join(dataRoot, "backups"), path.join(runDir, "backups"));
-  fs.mkdirSync(path.join(runDir, "userdata"));
-  fs.mkdirSync(path.join(runDir, "logs"), { recursive: true });
 
   const db = path.join(runDir, "data", "matches.db");
   const database = new Database(db);
@@ -217,6 +223,13 @@ function electronBinary(repo: string): string {
     );
   }
   return binary;
+}
+
+/** GPU compositing is off unless PARITY_GPU=on: GPU frames repeat less between runs (waiver W1). */
+export function gpuSwitch(value = process.env.PARITY_GPU): "on" | "off" {
+  if (value === undefined || value === "" || value === "off") return "off";
+  if (value === "on") return "on";
+  throw new Error(`PARITY_GPU is "${value}"; use on or off`);
 }
 
 /** Teardown steps may fail because the app is already gone, which is worth a line and not a crash. */
@@ -278,7 +291,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     args: [
       "--force-device-scale-factor=2",
       "--force-color-profile=srgb",
-      ...(process.env.PARITY_GPU === "on" ? [] : ["--disable-gpu"]),
+      ...(gpuSwitch() === "on" ? [] : ["--disable-gpu"]),
       "--lang=en-US",
       ...(process.env.PARITY_ELECTRON_ARGS?.split(" ").filter(Boolean) ?? []),
       `--user-data-dir=${userData}`,
@@ -356,7 +369,7 @@ if (import.meta.main) {
   const data = value("--data");
   if (!data) {
     console.error(
-      "usage: bun parity/run-electron.ts --data <fixture|snapshot|folder> [--state <id>] [--out <run folder>] [--repo <checkout>]",
+      "usage: bun parity/run-electron.ts --data <fixture|snapshot|empty|folder> [--state <id>] [--out <run folder>] [--repo <checkout>]",
     );
     process.exit(2);
   }

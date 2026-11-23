@@ -7,7 +7,6 @@ import { realDataRoots, refuseRealFolder } from "./lib/real-folder.ts";
 export const SNAPSHOT_MARKER = ".bmt-snapshot";
 
 export interface SnapshotOptions {
-  /** The app's data folder. Defaults to the installed app's real folder. */
   source?: string;
   out: string;
   /** Folders the output may never land in. Tests add a temp folder here. */

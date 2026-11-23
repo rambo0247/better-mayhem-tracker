@@ -6,9 +6,7 @@ export type Viewport = { width: number; height: number };
 
 export interface StateRow {
   id: string;
-  /** Selector for a group of states, as in `capture.ts --states <group>`. */
   group: "default" | "rail" | "match-history" | "champions" | "global" | "card" | "trends";
-  /** Hash route, with {vars} resolved from the data before the state runs. */
   route: string;
   viewport: Viewport;
   /** Run before the page loads: localStorage seeds and settings. */
@@ -19,6 +17,8 @@ export interface StateRow {
   expect: string;
   /** Card routes publish a status the capture waits on. */
   card?: boolean;
+  /** A data source this state needs instead of the run's, such as an empty database. */
+  data?: "empty";
 }
 
 const FULL: Viewport = { width: 1280, height: 820 };
@@ -42,24 +42,33 @@ const FIRST_MATCH_ROW = "button.group.relative.flex.w-full";
 
 export const STATES: StateRow[] = [
   row("match-history-default", "default", "/", FIRST_MATCH_ROW),
-  row("live-game-default", "default", "/live", "main"),
+  row("live-game-default", "default", "/live", 'h1.page-title:has-text("Live Game")'),
   row("champions-default", "default", "/champions", "table tbody tr"),
   row("augments-default", "default", "/augments", "table tbody tr"),
   row("trends-default", "default", "/trends", "svg"),
   row("global-stats-default", "default", "/global", "table tbody tr"),
   row("global-champion-detail-default", "default", "/global/champion/{championId}", "table"),
   row("friends-default", "default", "/friends", "table tbody tr"),
-  row("friend-detail-default", "default", "/friends/{friendKey}", "main"),
-  row("group-detail-default", "default", "/friends/groups/{groupKey}", "main"),
-  row("records-default", "default", "/records", "main"),
-  row("season-recap-default", "default", "/season", "main"),
-  row("challenges-default", "default", "/challenges", "main"),
-  row("settings-default", "default", "/settings", "main"),
+  row("friend-detail-default", "default", "/friends/{friendKey}", "h1.page-title .normal-case"),
+  row(
+    "group-detail-default",
+    "default",
+    "/friends/groups/{groupKey}",
+    "h1.page-title .normal-case",
+  ),
+  row("records-default", "default", "/records", "h2.section-title"),
+  row("season-recap-default", "default", "/season", 'h1.page-title:has-text("Season Recap")'),
+  row("challenges-default", "default", "/challenges", "h2.section-title"),
+  row("settings-default", "default", "/settings", 'h1.page-title:has-text("Settings")'),
   row("game-card-default", "card", "/card/{gameId}", "body.card-window", {
     viewport: CARD,
     card: true,
   }),
   row("season-card-default", "card", "/season-card/{seasonId}", "body.card-window", {
+    viewport: CARD,
+    card: true,
+  }),
+  row("season-card-numbered", "card", "/season-card/{numberedSeasonId}", "body.card-window", {
     viewport: CARD,
     card: true,
   }),
@@ -83,8 +92,29 @@ export const STATES: StateRow[] = [
   row("match-history-favorites", "match-history", "/", FIRST_MATCH_ROW, {
     pre: [{ op: "local", key: "view:matches.favorites", value: "true" }],
   }),
-  row("match-history-no-matches", "match-history", "/", "main", {
+  row("match-history-no-matches", "match-history", "/", "text=No games match the current filters", {
     pre: [{ op: "local", key: "view:matches.queue", value: "999" }],
+  }),
+  row("match-history-grouped-week", "match-history", "/", FIRST_MATCH_ROW, {
+    pre: [{ op: "setting", key: "session_grouping", value: "week" }],
+  }),
+  row("match-history-grouped-none", "match-history", "/", FIRST_MATCH_ROW, {
+    pre: [{ op: "setting", key: "session_grouping", value: "none" }],
+  }),
+  row("match-history-oldest", "match-history", "/", FIRST_MATCH_ROW, {
+    pre: [{ op: "local", key: "view:matches.sortDir", value: '"asc"' }],
+  }),
+  row("match-history-sorted-score-ascending", "match-history", "/", FIRST_MATCH_ROW, {
+    pre: [
+      { op: "local", key: "view:matches.sort", value: '"score"' },
+      { op: "local", key: "view:matches.sortDir", value: '"asc"' },
+    ],
+  }),
+  row("match-history-multikills-pressed", "match-history", "/", FIRST_MATCH_ROW, {
+    pre: [{ op: "local", key: "view:matches.multikills", value: '["doubles"]' }],
+  }),
+  row("match-history-hide-remakes", "match-history", "/", FIRST_MATCH_ROW, {
+    pre: [{ op: "setting", key: "hide_remakes", value: "true" }],
   }),
 
   row("champions-expanded", "champions", "/champions", "table tbody tr", {
@@ -105,6 +135,9 @@ export const STATES: StateRow[] = [
   row("trends-weekly", "trends", "/trends", "svg", {
     pre: [{ op: "local", key: "view:trends.granularity", value: '"week"' }],
   }),
+
+  // No games and no client: the waiting message, and the page without its dashboard header.
+  row("match-history-empty-waiting", "match-history", "/", "main .panel", { data: "empty" }),
 ];
 
 export const stateGroups = () => [...new Set(STATES.map((s) => s.group))];
@@ -127,7 +160,11 @@ export async function resolveVars(page: Page): Promise<Record<string, string>> {
   return page.evaluate(async () => {
     const api = window.api as unknown as Record<string, (...args: unknown[]) => Promise<any>>;
     const history = await api.getMatchHistory!(1, 0);
-    const seasons = (await api.getSeasons!()) as { id: string; games: number }[];
+    const seasons = (await api.getSeasons!()) as {
+      id: string;
+      games: number;
+      start: string | null;
+    }[];
     const teammates = await api.getTeammateStats!();
     const groups = await api.getTeammateGroups!();
     const champions = await api.getChampionStats!();
@@ -135,6 +172,7 @@ export async function resolveVars(page: Page): Promise<Record<string, string>> {
     return {
       gameId: String(history.matches[0]?.game_id ?? ""),
       seasonId: withGames.at(-1)?.id ?? "",
+      numberedSeasonId: withGames.findLast((s) => s.start !== null)?.id ?? "",
       friendKey: encodeURIComponent(teammates[0]?.key ?? ""),
       groupKey: encodeURIComponent(groups[0]?.key ?? ""),
       championId: String(champions[0]?.champion_id ?? ""),
@@ -145,7 +183,36 @@ export async function resolveVars(page: Page): Promise<Record<string, string>> {
 export interface StateOutcome {
   settle: SettleReport;
   card?: { state: string; height: number; error?: string };
+  /** Card states: whether champion, augment and item data all loaded before the card did. */
+  lookupsReady?: boolean;
+  /** Card states: names the card drew from an id because a lookup was not back in time. */
+  placeholders: string[];
   expectFound: boolean;
+}
+
+const PLACEHOLDER = /Unknown augment \d+|\bItem \d+\b/g;
+export const LOOKUP_TIMEOUT_MS = 20_000;
+
+/**
+ * A card stops waiting for its lookups after the app's 3 s grace and draws ids instead. Asking
+ * for the same data first fills the main process's caches, so the card's own requests return
+ * at once.
+ */
+async function warmLookups(page: Page): Promise<boolean> {
+  return page.evaluate(async (timeout) => {
+    const api = window.api as unknown as Record<string, () => Promise<object | null>>;
+    const deadline = Date.now() + timeout;
+    for (;;) {
+      const data = await Promise.all([
+        api.getChampionData!(),
+        api.getAugmentData!(),
+        api.getItemData!(),
+      ]);
+      if (data.every((d) => d !== null && Object.keys(d).length > 0)) return true;
+      if (Date.now() > deadline) return false;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }, LOOKUP_TIMEOUT_MS);
 }
 
 export async function applyState(
@@ -161,6 +228,7 @@ export async function applyState(
   });
   for (const step of state.pre ?? []) await runStep(ctx, step, vars);
 
+  const lookupsReady = state.card ? await warmLookups(page) : undefined;
   ctx.viewport = { ...state.viewport };
   await ctx.resizeWindow(state.viewport.width, state.viewport.height);
   await page.evaluate((hash) => (location.hash = hash), "#" + expand(state.route, vars));
@@ -182,5 +250,8 @@ export async function applyState(
   for (const step of state.steps ?? []) await runStep(ctx, step, vars);
   const report = await settle(page, ctx.viewport);
   const expectFound = (await page.locator(state.expect).count()) > 0;
-  return { settle: report, card, expectFound };
+  const placeholders = state.card
+    ? ((await page.locator("body").innerText()).match(PLACEHOLDER) ?? [])
+    : [];
+  return { settle: report, card, lookupsReady, placeholders, expectFound };
 }

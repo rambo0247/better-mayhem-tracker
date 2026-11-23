@@ -43,7 +43,6 @@ const { O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND } = fs.constants;
 const writeMode = (flags) =>
   typeof flags === "number" && (flags & (O_WRONLY | O_RDWR | O_CREAT | O_TRUNC | O_APPEND)) !== 0;
 
-// [name, indexes of path arguments that are written to]
 const MUTATORS = [
   ["writeFile", [0]],
   ["appendFile", [0]],
@@ -197,6 +196,8 @@ Module._load = function (request, parent, isMain) {
   return loaded;
 };
 
+// The app finds the client through its install and lockfile paths. Reads that fail with ENOENT
+// make the client look closed, so no state depends on whether League is open on this machine.
 const LEAGUE = /League of Legends|Riot Games/;
 const hidden = (p) => LEAGUE.test(asString(p));
 const enoent = (p) => Object.assign(new Error(`ENOENT: seam hid ${p}`), { code: "ENOENT" });

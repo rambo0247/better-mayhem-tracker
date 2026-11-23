@@ -38,7 +38,7 @@ Run from the repository root.
 | `bun parity/determinism.ts <run folder> <run folder>`                                                                                                    | Compares every state two capture runs share under the same-engine policy.                                                                                                   |
 | `bun test`, `bun run lint`, `bun run fmt:check`                                                                                                          | Unit tests, Bun's linter and formatter.                                                                                                                                     |
 
-`--data` takes `fixture`, `snapshot`, or a folder holding `data/matches.db`. The app runs on a copy inside the run folder, so the source is never changed.
+`--data` takes `fixture`, `snapshot`, `empty`, or a folder holding `data/matches.db`. The app runs on a copy inside the run folder, so the source is never changed. `empty` starts the app on an empty data folder, as on a fresh install, and states marked `data: "empty"` in `states.ts` always run on it.
 
 ## Policies (Appendix A)
 
@@ -51,7 +51,11 @@ Run from the repository root.
 
 ## Windows
 
-`.github/workflows/parity.yml` runs the baseline on `windows-latest`. The fixture is not committed yet, so the workflow takes it from a workflow_dispatch input (`fixture_run`, the run id holding a `parity-fixture` artifact) and otherwise skips with a notice. Without the Riot asset cache, icons do not load, which affects both of two Windows runs the same way.
+`.github/workflows/parity.yml` runs the baseline on `windows-latest` once the anonymized fixture is committed under `parity/snapshots/fixture` (decision E2). Until then the Windows job skips with a notice, and lane 9 stays open. Nothing publishes the fixture as an artifact.
+
+Electron runs with `--disable-gpu` by default, because GPU compositing repeats less between runs (waiver W1). `PARITY_GPU=on` turns the GPU back on, and any other value but `off` is an error. `PARITY_ELECTRON_ARGS` adds Chromium flags, such as `--disable-renderer-backgrounding`. `SEAM_DOCK=show` keeps the Dock icon for a comparison run.
+
+Every spawning command runs under `lib/capped.sh <headroom>`, which caps processes at the user's current count plus the headroom and exits 99 if anything was refused a process. `bun run test` and `bun run capture` use a headroom of 200. A bare `ulimit -u 200` would refuse the first fork on macOS, which counts every process the user owns.
 
 ## Known limits
 

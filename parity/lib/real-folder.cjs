@@ -6,7 +6,6 @@ const path = require("node:path");
 
 const APP_FOLDER_NAMES = ["better-mayhem-tracker", "Better Mayhem Tracker"];
 
-/** Where the installed apps keep their data, on this machine. */
 function realDataRoots(platform = process.platform, env = process.env, home = os.homedir()) {
   const bases = [];
   if (platform === "darwin") bases.push(path.join(home, "Library", "Application Support"));
