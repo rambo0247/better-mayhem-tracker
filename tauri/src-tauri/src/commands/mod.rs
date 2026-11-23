@@ -32,6 +32,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
 use ts_rs::{Config, TS, TypeVisitor};
 
+use self::app::*;
 use self::backup::*;
 use self::data::*;
 use self::dragon::*;
@@ -43,7 +44,6 @@ use self::recap::*;
 use self::stats::*;
 use self::teammates::*;
 use self::types::*;
-use self::app::*;
 
 /// What a command body gets besides its arguments: the app, for managed
 /// state, and the window that invoked it, as Electron's `event.sender`.
@@ -176,7 +176,10 @@ pub struct CommandSpec {
 impl CommandSpec {
     /// Electron's positional arguments as the named object Tauri takes. A
     /// missing trailing argument is left out, which Tauri reads as `None`.
-    pub fn named_args(&self, positional: &[serde_json::Value]) -> serde_json::Map<String, serde_json::Value> {
+    pub fn named_args(
+        &self,
+        positional: &[serde_json::Value],
+    ) -> serde_json::Map<String, serde_json::Value> {
         self.args
             .iter()
             .zip(positional)
@@ -404,7 +407,10 @@ mod tests {
             .find(|c| c.method == "getChampionMatchHistory")
             .expect("getChampionMatchHistory is registered");
         let keys: Vec<_> = spec.args.iter().map(ArgSpec::key).collect();
-        assert_eq!(keys, ["championId", "limit", "offset", "patch", "queue", "season"]);
+        assert_eq!(
+            keys,
+            ["championId", "limit", "offset", "patch", "queue", "season"]
+        );
     }
 
     #[test]

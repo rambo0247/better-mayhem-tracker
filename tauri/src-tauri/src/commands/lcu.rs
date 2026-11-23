@@ -24,7 +24,11 @@ pub struct BackfillProgress {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[serde(tag = "kind", rename_all = "lowercase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "lowercase",
+    rename_all_fields = "camelCase"
+)]
 pub enum BackfillLimit {
     Service { history_start: i64 },
     Paging,

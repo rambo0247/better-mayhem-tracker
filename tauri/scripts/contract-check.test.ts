@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
-import { checkContract, DEFAULT_BINDINGS, DEFAULT_SHARED } from "./contract-check.ts";
+import { checkContract, DEFAULT_BINDINGS, DEFAULT_SHARED } from "./contract-check";
 
 const scratch = fs.mkdtempSync(path.join(import.meta.dir, "..", "node_modules", ".contract-test-"));
 afterAll(() => fs.rmSync(scratch, { recursive: true, force: true }));
@@ -30,7 +30,9 @@ describe("contract-check", () => {
     const result = checkContract({ bindings });
     expect(result.ok).toBe(false);
     const text = result.problems.join("\n");
-    expect(text).toContain("getMatchHistory result.matches[].game_creation: missing from the bindings");
+    expect(text).toContain(
+      "getMatchHistory result.matches[].game_creation: missing from the bindings",
+    );
     expect(text).toContain("game_created: not in api.ts");
   });
 
@@ -47,12 +49,17 @@ describe("contract-check", () => {
       s.replace('getVersion: "app:version"', 'getVersion: "app:get-version"'),
     );
     const result = checkContract({ bindings });
-    expect(result.problems).toContain("getVersion: channel app:get-version, api.ts has app:version");
+    expect(result.problems).toContain(
+      "getVersion: channel app:get-version, api.ts has app:version",
+    );
   });
 
   test("a channel added to api.ts fails and is named", () => {
     const shared = path.join(scratch, "api.ts");
-    fs.copyFileSync(path.join(path.dirname(DEFAULT_SHARED), "card.ts"), path.join(scratch, "card.ts"));
+    fs.copyFileSync(
+      path.join(path.dirname(DEFAULT_SHARED), "card.ts"),
+      path.join(scratch, "card.ts"),
+    );
     fs.copyFileSync(
       path.join(path.dirname(DEFAULT_SHARED), "challenges.ts"),
       path.join(scratch, "challenges.ts"),
@@ -61,7 +68,10 @@ describe("contract-check", () => {
       shared,
       fs
         .readFileSync(DEFAULT_SHARED, "utf8")
-        .replace('  getVersion: "app:version",', '  getVersion: "app:version",\n  getUptime: "app:uptime",'),
+        .replace(
+          '  getVersion: "app:version",',
+          '  getVersion: "app:version",\n  getUptime: "app:uptime",',
+        ),
     );
     const result = checkContract({ shared });
     expect(result.problems).toContain("getUptime: missing from the bindings");

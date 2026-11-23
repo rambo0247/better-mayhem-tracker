@@ -48,7 +48,8 @@ const isCommandError = (value: unknown): value is CommandError =>
  * Electron reports as an unregistered handler.
  */
 export function invokeError(channel: string, reason: unknown): InvokeError {
-  if (isCommandError(reason)) return new InvokeError(channel, reason.name, reason.message, reason.code);
+  if (isCommandError(reason))
+    return new InvokeError(channel, reason.name, reason.message, reason.code);
   const text = String(reason);
   if (text === `Command ${channel} not found`) {
     return new InvokeError(channel, "Error", `No handler registered for '${channel}'`);

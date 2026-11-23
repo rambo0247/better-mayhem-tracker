@@ -76,8 +76,6 @@ pub async fn get_item_data<R: Runtime>(
     Err(CommandError::not_ported())
 }
 
-pub async fn get_summoner_spell_data<R: Runtime>(
-    _ctx: Ctx<R>,
-) -> CommandResult<SummonerSpellData> {
+pub async fn get_summoner_spell_data<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<SummonerSpellData> {
     Err(CommandError::not_ported())
 }

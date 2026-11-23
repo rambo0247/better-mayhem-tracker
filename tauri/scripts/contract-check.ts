@@ -66,6 +66,16 @@ type Inner<A, B, P extends string> = [A] extends [readonly unknown[]]
       : Diff<Exclude<A, Nullish>, Exclude<B, Nullish>, P>
     : \`\${P}: null or undefined on one side only\`;
 type Diff<A, B, P extends string> = Eq<A, B> extends true ? never : OrSelf<Inner<A, B, P>, P>;
+// Joins every mismatch into one literal, since tsc reports one member of a union
+type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+type LastOf<U> = UnionToIntersection<U extends unknown ? () => U : never> extends () => infer R ? R : never;
+type Join<U, Acc extends string = ""> = [U] extends [never]
+  ? Acc
+  : LastOf<U> extends infer L extends string
+    ? Join<Exclude<U, L>, Acc extends "" ? L : \`\${Acc}\${typeof SEPARATOR}\${L}\`>
+    : Acc;
+declare const SEPARATOR: " ;; ";
+type Problems<U> = [U] extends [never] ? never : Join<U>;
 type Check<T extends never> = T;
 `;
 
@@ -81,9 +91,7 @@ function importPath(from: string, file: string): string {
   return relative.startsWith(".") ? relative : `./${relative}`;
 }
 
-export function checkContract(
-  options: { bindings?: string; shared?: string } = {},
-): CheckResult {
+export function checkContract(options: { bindings?: string; shared?: string } = {}): CheckResult {
   const bindingsFile = path.resolve(options.bindings ?? DEFAULT_BINDINGS);
   const sharedFile = path.resolve(options.shared ?? DEFAULT_SHARED);
   const bindings = fs.readFileSync(bindingsFile, "utf8");
@@ -95,7 +103,8 @@ export function checkContract(
   for (const [method, channel] of expectedChannels) {
     const actual = actualChannels.get(method);
     if (actual === undefined) problems.push(`${method}: missing from the bindings`);
-    else if (actual !== channel) problems.push(`${method}: channel ${actual}, api.ts has ${channel}`);
+    else if (actual !== channel)
+      problems.push(`${method}: channel ${actual}, api.ts has ${channel}`);
   }
   for (const method of actualChannels.keys()) {
     if (!expectedChannels.has(method)) problems.push(`${method}: not in api.ts`);
@@ -120,11 +129,12 @@ export function checkContract(
       `type Commands = ReturnType<typeof createCommands>;`,
       TYPE_LEVEL_DIFF,
       ...methods.flatMap((m, i) => [
-        `type A${i} = Check<Diff<Parameters<ElectronAPI["${m}"]>, Parameters<Commands["${m}"]>, "${m} arguments">>;`,
-        `type R${i} = Check<Diff<Awaited<ReturnType<ElectronAPI["${m}"]>>, Awaited<ReturnType<Commands["${m}"]>>, "${m} result">>;`,
+        `type A${i} = Check<Problems<Diff<Parameters<ElectronAPI["${m}"]>, Parameters<Commands["${m}"]>, "${m} arguments">>>;`,
+        `type R${i} = Check<Problems<Diff<Awaited<ReturnType<ElectronAPI["${m}"]>>, Awaited<ReturnType<Commands["${m}"]>>, "${m} result">>>;`,
       ]),
       ...events.map(
-        (e, i) => `type E${i} = Check<Diff<SharedEvents["${e}"], BoundEvents["${e}"], "event ${e}">>;`,
+        (e, i) =>
+          `type E${i} = Check<Problems<Diff<SharedEvents["${e}"], BoundEvents["${e}"], "event ${e}">>>;`,
       ),
     ];
     fs.writeFileSync(path.join(scratch, "check.ts"), `${lines.join("\n")}\n`);
@@ -135,26 +145,39 @@ export function checkContract(
           target: "ES2022",
           module: "ESNext",
           moduleResolution: "bundler",
-          lib: ["ES2023"],
+          lib: ["ES2023", "DOM"],
           types: [],
           strict: true,
           noEmit: true,
           skipLibCheck: true,
           noUnusedLocals: false,
+          noErrorTruncation: true,
         },
         files: ["check.ts"],
       }),
     );
-    const tsc = path.join(TAURI_DIR, "node_modules", ".bin", process.platform === "win32" ? "tsc.exe" : "tsc");
+    const tsc = path.join(
+      TAURI_DIR,
+      "node_modules",
+      ".bin",
+      process.platform === "win32" ? "tsc.exe" : "tsc",
+    );
     const run = spawnSync(tsc, ["-p", path.join(scratch, "tsconfig.json")], {
       encoding: "utf8",
       shell: process.platform === "win32",
     });
     if (run.error) throw run.error;
     const output = `${run.stdout}${run.stderr}`;
-    const found = [...output.matchAll(/Type '"([^']+)"(?: \| "[^']+")*' does not satisfy the constraint 'never'/g)];
-    for (const match of found) {
-      for (const literal of match[0].matchAll(/"([^"]+)"/g)) problems.push(literal[1]);
+    const found = output
+      .split("\n")
+      .filter((line) =>
+        /(does not satisfy the constraint|is not assignable to type) 'never'/.test(line),
+      );
+    for (const line of found) {
+      const literal = /Type '"(.*)"' (?:does not satisfy|is not assignable)/.exec(line)?.[1];
+      for (const problem of literal?.split(" ;; ") ?? []) {
+        if (!problems.includes(problem)) problems.push(problem);
+      }
     }
     if (run.status !== 0 && found.length === 0) {
       problems.push(`tsc failed on the contract assertions:\n${output.trim()}`);

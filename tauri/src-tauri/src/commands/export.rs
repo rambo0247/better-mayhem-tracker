@@ -8,7 +8,11 @@ use super::{CommandError, CommandResult, Ctx};
 
 /// What a card is of, `src/shared/card.ts`
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[serde(tag = "kind", rename_all = "lowercase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "lowercase",
+    rename_all_fields = "camelCase"
+)]
 pub enum CardSpec {
     Game {
         game_id: i64,

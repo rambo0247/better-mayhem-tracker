@@ -37,23 +37,37 @@ fn wrapper(command: &CommandSpec, cfg: &Config) -> String {
     let keys: Vec<String> = command.args.iter().map(|arg| arg.key()).collect();
     let ret = ts_return(&command.ret, cfg);
     // Tauri resolves a command that returns nothing with null, Electron with undefined
-    let tail = if command.ret.unit { ".then(() => undefined)" } else { "" };
+    let tail = if command.ret.unit {
+        ".then(() => undefined)"
+    } else {
+        ""
+    };
     format!(
-        "  {method}: ({params}): Promise<{ret}> =>\n    call<{ret}>(\"{channel}\", {{ {keys} }}, [{positional}]){tail},\n",
+        "  {method}: ({params}): Promise<{ret}> =>\n    call<{ret}>(\"{channel}\", {named}, [{positional}]){tail},\n",
         method = command.method,
         params = params.join(", "),
         channel = command.channel,
-        keys = keys.join(", "),
+        named = if keys.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{ {} }}", keys.join(", "))
+        },
         positional = keys.join(", "),
     )
 }
 
+// Set in code: ts-rs reads TS_RS_LARGE_INT only through Config::from_env, and
+// without it every i64 prints as bigint
+fn config() -> Config {
+    Config::new().with_large_int("number")
+}
+
 fn render() -> String {
-    let cfg = Config::new().with_large_int("number");
+    let cfg = config();
     let registry = commands::registry();
     let events = events::event_specs();
 
-    let mut collector = TypeCollector::new(cfg.clone());
+    let mut collector = TypeCollector::new(config());
     for command in &registry {
         for arg in &command.args {
             (arg.ty.visit)(&mut collector);
@@ -81,8 +95,13 @@ fn render() -> String {
 
     out.push_str("/** What the main process pushes to the main window, and each payload. */\nexport interface RendererEvents {\n");
     for event in &events {
-        writeln!(out, "  \"{}\": {};", event.name, ts_return(&event.payload, &cfg))
-            .expect("write to a string");
+        writeln!(
+            out,
+            "  \"{}\": {};",
+            event.name,
+            ts_return(&event.payload, &cfg)
+        )
+        .expect("write to a string");
     }
     out.push_str("}\n\n");
 

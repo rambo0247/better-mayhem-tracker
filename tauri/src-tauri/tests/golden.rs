@@ -55,13 +55,21 @@ struct Golden {
 impl Golden {
     fn parse(value: Value) -> Result<Self, String> {
         let field = |name: &str| value.get(name).cloned().ok_or(format!("no `{name}`"));
-        let text = |name: &str| field(name)?.as_str().map(str::to_owned).ok_or(format!("`{name}` is not text"));
+        let text = |name: &str| {
+            field(name)?
+                .as_str()
+                .map(str::to_owned)
+                .ok_or(format!("`{name}` is not text"))
+        };
         Ok(Self {
             channel: text("channel")?,
             case: text("case")?,
             group: text("group")?,
             seq: field("seq")?.as_i64().ok_or("`seq` is not a number")?,
-            args: field("args")?.as_array().cloned().ok_or("`args` is not a list")?,
+            args: field("args")?
+                .as_array()
+                .cloned()
+                .ok_or("`args` is not a list")?,
             outcome: field("outcome")?,
         })
     }
@@ -84,7 +92,12 @@ fn canonical(value: &Value) -> Value {
                     (k, v)
                 })
                 .collect();
-            Value::Object(sorted.into_iter().map(|(k, v)| (k.clone(), v)).collect::<Map<_, _>>())
+            Value::Object(
+                sorted
+                    .into_iter()
+                    .map(|(k, v)| (k.clone(), v))
+                    .collect::<Map<_, _>>(),
+            )
         }
         Value::Array(items) => Value::Array(items.iter().map(canonical).collect()),
         Value::Number(n) => n
@@ -107,10 +120,10 @@ fn is_not_ported(rejection: &Value) -> bool {
 }
 
 fn classify(outcome: &Value, answer: &Answer) -> Verdict {
-    if let Err(rejection) = answer {
-        if is_not_ported(rejection) {
-            return Verdict::NotPorted;
-        }
+    if let Err(rejection) = answer
+        && is_not_ported(rejection)
+    {
+        return Verdict::NotPorted;
     }
     let kind = outcome.get("kind").and_then(Value::as_str);
     let matched = match (kind, answer) {
@@ -118,15 +131,24 @@ fn classify(outcome: &Value, answer: &Answer) -> Verdict {
         // Electron resolves a void handler with undefined, Tauri with null
         (Some("void"), Ok(value)) => value.is_null(),
         (Some("error"), Err(rejection)) => {
-            rejection.get("name") == outcome.get("name") && rejection.get("message") == outcome.get("message")
+            rejection.get("name") == outcome.get("name")
+                && rejection.get("message") == outcome.get("message")
         }
         _ => false,
     };
-    if matched { Verdict::Pass } else { Verdict::Fail }
+    if matched {
+        Verdict::Pass
+    } else {
+        Verdict::Fail
+    }
 }
 
-fn mock_window(builder: tauri::Builder<MockRuntime>) -> (tauri::App<MockRuntime>, WebviewWindow<MockRuntime>) {
-    let app = builder.build(mock_context(noop_assets())).expect("build the mock app");
+fn mock_window(
+    builder: tauri::Builder<MockRuntime>,
+) -> (tauri::App<MockRuntime>, WebviewWindow<MockRuntime>) {
+    let app = builder
+        .build(mock_context(noop_assets()))
+        .expect("build the mock app");
     let window = WebviewWindowBuilder::new(&app, bmt_lib::WINDOW_LABEL, Default::default())
         .build()
         .expect("build the mock main window");
@@ -143,12 +165,15 @@ fn call(window: &WebviewWindow<MockRuntime>, channel: &str, body: Map<String, Va
         headers: Default::default(),
         invoke_key: INVOKE_KEY.to_string(),
     };
-    tauri::test::get_ipc_response(window, request).map(|body| {
-        body.deserialize::<Value>().expect("a JSON response")
-    })
+    tauri::test::get_ipc_response(window, request)
+        .map(|body| body.deserialize::<Value>().expect("a JSON response"))
 }
 
-fn replay(window: &WebviewWindow<MockRuntime>, spec: &CommandSpec, golden: &Golden) -> (Verdict, Answer) {
+fn replay(
+    window: &WebviewWindow<MockRuntime>,
+    spec: &CommandSpec,
+    golden: &Golden,
+) -> (Verdict, Answer) {
     let answer = call(window, spec.channel, spec.named_args(&golden.args));
     (classify(&golden.outcome, &answer), answer)
 }
@@ -159,13 +184,19 @@ fn read_goldens(dir: &Path) -> Vec<Golden> {
         return out;
     };
     for channel in channels.flatten() {
-        for file in std::fs::read_dir(channel.path()).into_iter().flatten().flatten() {
+        for file in std::fs::read_dir(channel.path())
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
             if file.path().extension().is_none_or(|e| e != "json") {
                 continue;
             }
             let text = std::fs::read_to_string(file.path()).expect("read a golden");
             let value: Value = serde_json::from_str(&text).expect("a golden is JSON");
-            out.push(Golden::parse(value).unwrap_or_else(|e| panic!("{}: {e}", file.path().display())));
+            out.push(
+                Golden::parse(value).unwrap_or_else(|e| panic!("{}: {e}", file.path().display())),
+            );
         }
     }
     out.sort_by(|a, b| (&a.group, a.seq, &a.channel).cmp(&(&b.group, b.seq, &b.channel)));
@@ -177,7 +208,11 @@ fn parse_fixed_time(text: &str) -> Option<i64> {
     let num = |range: std::ops::Range<usize>| text.get(range)?.parse::<i64>().ok();
     let (y, m, d) = (num(0..4)?, num(5..7)?, num(8..10)?);
     let (hh, mm, ss) = (num(11..13)?, num(14..16)?, num(17..19)?);
-    let ms = if text.get(19..20) == Some(".") { num(20..23)? } else { 0 };
+    let ms = if text.get(19..20) == Some(".") {
+        num(20..23)?
+    } else {
+        0
+    };
     // Days from the civil date, Howard Hinnant's algorithm
     let y = if m <= 2 { y - 1 } else { y };
     let era = y.div_euclid(400);
@@ -192,7 +227,11 @@ fn fixed_clock(dir: &Path) -> Clock {
     let manifest = std::fs::read_to_string(dir.join("manifest.json")).ok();
     let fixed = manifest
         .and_then(|text| serde_json::from_str::<Value>(&text).ok())
-        .and_then(|m| m.get("fixedTime").and_then(Value::as_str).and_then(parse_fixed_time));
+        .and_then(|m| {
+            m.get("fixedTime")
+                .and_then(Value::as_str)
+                .and_then(parse_fixed_time)
+        });
     fixed.map_or(Clock::System, Clock::Fixed)
 }
 
@@ -209,7 +248,12 @@ fn copy_dir(from: &Path, to: &Path) {
 }
 
 /// A fresh data folder for one group of cases, and the app built over it.
-fn group_app(scratch: &Path, group: &str, data: Option<&Path>, clock: Clock) -> (tauri::App<MockRuntime>, WebviewWindow<MockRuntime>) {
+fn group_app(
+    scratch: &Path,
+    group: &str,
+    data: Option<&Path>,
+    clock: Clock,
+) -> (tauri::App<MockRuntime>, WebviewWindow<MockRuntime>) {
     let root = scratch.join(group);
     match data {
         Some(data) => copy_dir(data, &root),
@@ -223,49 +267,109 @@ fn group_app(scratch: &Path, group: &str, data: Option<&Path>, clock: Clock) -> 
 
 fn self_check() -> Result<(), String> {
     let expect = |label: &str, got: Verdict, want: Verdict| {
-        if got == want { Ok(()) } else { Err(format!("self-check {label}: {} where {} was expected", got.label(), want.label())) }
+        if got == want {
+            Ok(())
+        } else {
+            Err(format!(
+                "self-check {label}: {} where {} was expected",
+                got.label(),
+                want.label()
+            ))
+        }
     };
     let version = Golden::parse(serde_json::json!({
         "channel": "app:version", "case": "hand-made", "group": "read", "seq": 0, "args": [],
         "outcome": { "kind": "value", "result": "1.2.1" }
     }))?;
     let registry = commands::registry();
-    let spec = registry.iter().find(|c| c.channel == "app:version").ok_or("app:version is not registered")?;
+    let spec = registry
+        .iter()
+        .find(|c| c.channel == "app:version")
+        .ok_or("app:version is not registered")?;
 
     // The real stub answers not ported
     let (_app, window) = mock_window(bmt_lib::app_builder(mock_builder(), Clock::System));
-    expect("stub", replay(&window, spec, &version).0, Verdict::NotPorted)?;
+    expect(
+        "stub",
+        replay(&window, spec, &version).0,
+        Verdict::NotPorted,
+    )?;
 
     // The same stub answering wrong is a failure, not "not ported"
     #[tauri::command(rename = "app:version")]
     async fn wrong_version() -> Result<String, ()> {
         Ok("0.0.0".into())
     }
-    let (_wrong_app, wrong) = mock_window(mock_builder().invoke_handler(tauri::generate_handler![wrong_version]));
-    expect("wrong answer", replay(&wrong, spec, &version).0, Verdict::Fail)?;
+    let (_wrong_app, wrong) =
+        mock_window(mock_builder().invoke_handler(tauri::generate_handler![wrong_version]));
+    expect(
+        "wrong answer",
+        replay(&wrong, spec, &version).0,
+        Verdict::Fail,
+    )?;
 
-    expect("equal value", classify(&version.outcome, &Ok(Value::from("1.2.1"))), Verdict::Pass)?;
-    let number = serde_json::json!({ "kind": "value", "result": { "b": 3, "a": [0.30000000000000004] } });
-    let answer = serde_json::from_str::<Value>(r#"{ "a": [0.30000000000000004], "b": 3.0 }"#).map_err(|e| e.to_string())?;
-    expect("3 against 3.0, keys unordered", classify(&number, &Ok(answer)), Verdict::Pass)?;
-    expect("void against null", classify(&serde_json::json!({ "kind": "void" }), &Ok(Value::Null)), Verdict::Pass)?;
-    expect("void against a value", classify(&serde_json::json!({ "kind": "void" }), &Ok(Value::from(1))), Verdict::Fail)?;
+    expect(
+        "equal value",
+        classify(&version.outcome, &Ok(Value::from("1.2.1"))),
+        Verdict::Pass,
+    )?;
+    let number =
+        serde_json::json!({ "kind": "value", "result": { "b": 3, "a": [0.30000000000000004] } });
+    let answer = serde_json::from_str::<Value>(r#"{ "a": [0.30000000000000004], "b": 3.0 }"#)
+        .map_err(|e| e.to_string())?;
+    expect(
+        "3 against 3.0, keys unordered",
+        classify(&number, &Ok(answer)),
+        Verdict::Pass,
+    )?;
+    expect(
+        "void against null",
+        classify(&serde_json::json!({ "kind": "void" }), &Ok(Value::Null)),
+        Verdict::Pass,
+    )?;
+    expect(
+        "void against a value",
+        classify(&serde_json::json!({ "kind": "void" }), &Ok(Value::from(1))),
+        Verdict::Fail,
+    )?;
     let thrown = serde_json::json!({ "kind": "error", "name": "Error", "message": "boom", "invokeMessage": "" });
-    expect("same error", classify(&thrown, &Err(serde_json::json!({ "name": "Error", "message": "boom" }))), Verdict::Pass)?;
-    expect("other error", classify(&thrown, &Err(serde_json::json!({ "name": "Error", "message": "bang" }))), Verdict::Fail)?;
+    expect(
+        "same error",
+        classify(
+            &thrown,
+            &Err(serde_json::json!({ "name": "Error", "message": "boom" })),
+        ),
+        Verdict::Pass,
+    )?;
+    expect(
+        "other error",
+        classify(
+            &thrown,
+            &Err(serde_json::json!({ "name": "Error", "message": "bang" })),
+        ),
+        Verdict::Fail,
+    )?;
 
     if parse_fixed_time("2026-11-23T02:00:00.000Z") != Some(1_795_399_200_000) {
         return Err("self-check fixedTime: wrong epoch".into());
     }
     let canon = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../parity/canon.ts");
     if let Ok(source) = std::fs::read_to_string(&canon) {
-        let start = source.find("CLOCK_FIELDS").and_then(|i| source[i..].find("new Set<string>([").map(|j| i + j));
+        let start = source
+            .find("CLOCK_FIELDS")
+            .and_then(|i| source[i..].find("new Set<string>([").map(|j| i + j));
         if let Some(start) = start {
             let rest = &source[start + "new Set<string>([".len()..];
             let list = &rest[..rest.find("])").unwrap_or(0)];
-            let names: Vec<&str> = list.split(',').map(|s| s.trim().trim_matches('"')).filter(|s| !s.is_empty()).collect();
+            let names: Vec<&str> = list
+                .split(',')
+                .map(|s| s.trim().trim_matches('"'))
+                .filter(|s| !s.is_empty())
+                .collect();
             if names != CLOCK_FIELDS {
-                return Err(format!("self-check: canon.ts CLOCK_FIELDS is {names:?}, golden.rs has {CLOCK_FIELDS:?}"));
+                return Err(format!(
+                    "self-check: canon.ts CLOCK_FIELDS is {names:?}, golden.rs has {CLOCK_FIELDS:?}"
+                ));
             }
         }
     }
@@ -290,31 +394,48 @@ fn main() -> ExitCode {
     let mut failures = Vec::new();
 
     if goldens.is_empty() {
-        println!("no goldens at {}; set BMT_GOLDEN_DIR to replay them", dir.display());
+        println!(
+            "no goldens at {}; set BMT_GOLDEN_DIR to replay them",
+            dir.display()
+        );
     } else {
         let clock = fixed_clock(&dir);
         let scratch = std::env::temp_dir().join(format!("bmt-golden-{}", std::process::id()));
         let mut groups: BTreeMap<&str, Vec<&Golden>> = BTreeMap::new();
         for golden in &goldens {
-            groups.entry(golden.group.as_str()).or_default().push(golden);
+            groups
+                .entry(golden.group.as_str())
+                .or_default()
+                .push(golden);
         }
         for (group, cases) in groups {
             let (app, window) = group_app(&scratch, group, data.as_deref(), clock);
             for golden in cases {
                 if golden.channel == UNREGISTERED_CHANNEL {
                     let answer = call(&window, &golden.channel, Map::new());
-                    println!("{UNREGISTERED_CHANNEL}: rejected with {answer:?}; src/api.ts maps it to Electron's message");
+                    println!(
+                        "{UNREGISTERED_CHANNEL}: rejected with {answer:?}; src/api.ts maps it to Electron's message"
+                    );
                     continue;
                 }
                 let Some(spec) = registry.iter().find(|c| c.channel == golden.channel) else {
-                    failures.push(format!("{} {}: a golden for a channel the contract lacks", golden.channel, golden.case));
+                    failures.push(format!(
+                        "{} {}: a golden for a channel the contract lacks",
+                        golden.channel, golden.case
+                    ));
                     continue;
                 };
                 let (verdict, answer) = replay(&window, spec, golden);
                 if verdict == Verdict::Fail {
-                    failures.push(format!("{} {}: expected {}, got {answer:?}", golden.channel, golden.case, golden.outcome));
+                    failures.push(format!(
+                        "{} {}: expected {}, got {answer:?}",
+                        golden.channel, golden.case, golden.outcome
+                    ));
                 }
-                verdicts.entry(spec.channel).or_default().push((golden.case.clone(), verdict));
+                verdicts
+                    .entry(spec.channel)
+                    .or_default()
+                    .push((golden.case.clone(), verdict));
             }
             drop(window);
             drop(app);
@@ -325,7 +446,10 @@ fn main() -> ExitCode {
     let mut counts: BTreeMap<Verdict, usize> = BTreeMap::new();
     println!("{:<30} {:<26} {:>5}  result", "channel", "method", "cases");
     for spec in &registry {
-        let cases = verdicts.get(spec.channel).map(Vec::as_slice).unwrap_or_default();
+        let cases = verdicts
+            .get(spec.channel)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
         // A channel passes only when every case does, and any unported case leaves it unported
         let verdict = if cases.is_empty() {
             Verdict::NoGolden
@@ -337,7 +461,13 @@ fn main() -> ExitCode {
             Verdict::Pass
         };
         *counts.entry(verdict).or_default() += 1;
-        println!("{:<30} {:<26} {:>5}  {}", spec.channel, spec.method, cases.len(), verdict.label());
+        println!(
+            "{:<30} {:<26} {:>5}  {}",
+            spec.channel,
+            spec.method,
+            cases.len(),
+            verdict.label()
+        );
     }
     let count = |v| counts.get(&v).copied().unwrap_or(0);
     let mut summary = format!(
@@ -353,5 +483,9 @@ fn main() -> ExitCode {
     for failure in &failures {
         eprintln!("fail: {failure}");
     }
-    if failures.is_empty() { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+    if failures.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
 }
