@@ -46,6 +46,7 @@ const ACTIVATION_ENV: &str = "BMT_PARITY_ACTIVATION";
 /// Set to `1` to open a screen-sized window of the app's own over everything else
 /// at the normal level, only to show captures match with the driver window covered.
 const COVER_ENV: &str = "BMT_PARITY_COVER";
+const PARITY_IDENTIFIER: &str = "com.better-mayhem-tracker.parity";
 const MIN_TOKEN_LEN: usize = 16;
 const MAX_HEAD_BYTES: usize = 64 * 1024;
 const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
@@ -161,11 +162,14 @@ pub fn install(builder: Builder<DynRuntime>) -> Builder<DynRuntime> {
 /// Runs in setup, before the window exists. A parity launch never shows in the
 /// operator's Dock and never takes focus, so it is an accessory app on macOS.
 pub fn prepare(app: &mut tauri::App<DynRuntime>) {
-    // build.rs sets it, so WebKit's storage under ~/Library never lands in the real app's folders
-    assert_eq!(
-        app.config().identifier,
-        "com.better-mayhem-tracker.parity",
-        "a parity-driver build must carry the parity bundle identifier",
+    // build.rs sets it, so WebKit's storage under ~/Library never lands in the real app's
+    // folders. `shell::scope_identifier` may have scoped it to the lane.
+    let identifier = &app.config().identifier;
+    assert!(
+        identifier
+            .strip_prefix(PARITY_IDENTIFIER)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('.')),
+        "a parity-driver build must carry the parity bundle identifier, not {identifier}",
     );
     let home = match window_url() {
         Some(WebviewUrl::CustomProtocol(url)) => vec![url],
