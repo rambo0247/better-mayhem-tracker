@@ -232,8 +232,7 @@ pub trait Domain {
     }
 
     /// Runs before each golden case is replayed: writes the files the case
-    /// reads into its data root, queues a dialog's answer, or seeds state the
-    /// mock runtime cannot hold, such as a maximized window.
+    /// reads into its data root, or queues a dialog's answer.
     #[cfg(feature = "parity-driver")]
     fn before_golden_case<R: Runtime>(_app: &AppHandle<R>, _case: &GoldenCase<'_>) {}
 }
