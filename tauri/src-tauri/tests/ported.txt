@@ -4,6 +4,8 @@
 app:open-logs-folder
 app:open-url
 app:version
+backup:list
+backup:recovery-report
 db:all-summoner-puuids
 db:augment-stats
 db:augment-stats-detailed
