@@ -717,6 +717,23 @@ mod tests {
             panic!("index out of bounds")
         }
 
+        /// Panics on its second poll, after an await, as a body does that
+        /// panics on the result of a query it awaited.
+        pub async fn late_boom<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<String> {
+            let mut polled = false;
+            std::future::poll_fn(|cx| {
+                if polled {
+                    std::task::Poll::Ready(())
+                } else {
+                    polled = true;
+                    cx.waker().wake_by_ref();
+                    std::task::Poll::Pending
+                }
+            })
+            .await;
+            panic!("row 3 is missing")
+        }
+
         pub async fn seeded<R: Runtime>(ctx: Ctx<R>) -> CommandResult<String> {
             Ok(ctx.app.state::<Seeded>().0.lock().unwrap().clone())
         }
@@ -731,6 +748,7 @@ mod tests {
         contract! {
             probe {
                 boom = "boom" "test:boom" () -> String;
+                late_boom = "lateBoom" "test:late-boom" () -> String;
                 seeded = "seeded" "test:seeded" () -> String;
             }
         }
@@ -749,7 +767,20 @@ mod tests {
             headers: Default::default(),
             invoke_key: tauri::test::INVOKE_KEY.to_string(),
         };
-        tauri::test::get_ipc_response(window, request).map(|b| b.deserialize().unwrap())
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        window.as_ref().clone().on_message(
+            request,
+            Box::new(move |_webview, _cmd, response, _callback, _error| {
+                tx.send(response).ok();
+            }),
+        );
+        match rx.recv_timeout(std::time::Duration::from_secs(10)) {
+            Ok(tauri::ipc::InvokeResponse::Ok(body)) => Ok(body.deserialize().unwrap()),
+            Ok(tauri::ipc::InvokeResponse::Err(tauri::ipc::InvokeError(rejection))) => {
+                Err(rejection)
+            }
+            Err(_) => Err(format!("{cmd} never answered").into()),
+        }
     }
 
     #[test]
@@ -767,10 +798,16 @@ mod tests {
         let hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(|_| {}));
         let answer = probe_call(&window, "test:boom");
+        let late = probe_call(&window, "test:late-boom");
         std::panic::set_hook(hook);
         assert_eq!(
             answer,
             Err(serde_json::json!({ "name": "Error", "message": "index out of bounds" }))
+        );
+        assert_eq!(
+            late,
+            Err(serde_json::json!({ "name": "Error", "message": "row 3 is missing" })),
+            "a panic after the body's first await rejects too"
         );
         assert_eq!(probe_call(&window, "test:seeded"), Ok("registered".into()));
         #[cfg(feature = "parity-driver")]

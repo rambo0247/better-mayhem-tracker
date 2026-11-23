@@ -1,6 +1,13 @@
 // clippy.toml's time reads are refused in command bodies only
 #![allow(clippy::disallowed_methods)]
 
+// commands::guarded turns a panicking body into a rejected call, which only
+// an unwinding build can do; an aborting one would end the app instead
+#[cfg(panic = "abort")]
+compile_error!(
+    "Better Mayhem Tracker must build with panic = \"unwind\": a panicking command rejects its call rather than ending the app"
+);
+
 #[deny(clippy::disallowed_methods)]
 pub mod commands;
 pub mod events;
