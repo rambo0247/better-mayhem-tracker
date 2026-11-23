@@ -2,7 +2,14 @@ import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { assertTrayShape, outline, type MenuItemDump, type TrayDump } from "../menus.ts";
+import {
+  assertDoubleClickShowsWindow,
+  assertTrayShape,
+  menuFiles,
+  outline,
+  type MenuItemDump,
+  type TrayDump,
+} from "../menus.ts";
 
 const require = createRequire(import.meta.url);
 const { serializeMenu, serializeTemplate } = require("../seam-overlays.cjs") as {
@@ -62,5 +69,23 @@ describe("tray dump", () => {
       ...block.slice(0, block.indexOf("]);")).matchAll(/label: "([^"]+)"|type: "(separator)"/g),
     ].map((m) => m[1] ?? m[2]);
     expect(labels).toEqual(["Show Window", "separator", "Quit"]);
+  });
+});
+
+describe("the tray's double-click", () => {
+  test("showing the window then focusing it passes, anything else is refused", () => {
+    const probe = (calls: string[], registered = true) => ({ doubleClick: { registered, calls } });
+    expect(() => assertDoubleClickShowsWindow(probe(["show", "focus"]))).not.toThrow();
+    expect(() => assertDoubleClickShowsWindow(probe(["focus", "show"]))).toThrow(/show then focus/);
+    expect(() => assertDoubleClickShowsWindow(probe([]))).toThrow(/show then focus/);
+    expect(() => assertDoubleClickShowsWindow(probe([], false))).toThrow(/no double-click/);
+    expect(() => assertDoubleClickShowsWindow(undefined)).toThrow(/no double-click/);
+  });
+});
+
+describe("the dump's file names", () => {
+  test("Windows saves win-tray-menu.json, macOS tray-menu.json", () => {
+    expect(menuFiles("win32")).toEqual({ tray: "win-tray-menu.json", app: "win-app-menu.json" });
+    expect(menuFiles("darwin")).toEqual({ tray: "tray-menu.json", app: "app-menu.json" });
   });
 });

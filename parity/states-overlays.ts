@@ -9,6 +9,7 @@ const FULL = { width: 1280, height: 820 };
 const RAIL = { width: 1179, height: 820 };
 
 const FIRST_MATCH_ROW = "button.group.relative.flex.w-full";
+const FAVORITE_ROW = `${FIRST_MATCH_ROW}:has([aria-label="Favorite"])`;
 const PLAYER_ROW = 'div[class*="min-h-[54px]"]';
 const UPDATE_BUTTON = 'button[aria-label^="Update to version"]';
 const DIALOG = '[role="dialog"]';
@@ -241,6 +242,20 @@ const menus: StateRow[] = [
   }),
 ];
 
+const favoritesOnly: Step = { op: "local", key: "view:matches.favorites", value: "true" };
+
+const favoriteMenu: StateRow[] = [
+  overlay("overlay-context-menu-favorite", "/", "text=Remove from Favorites", {
+    pre: [favoritesOnly],
+    steps: [
+      { op: "waitFor", selector: FAVORITE_ROW },
+      { op: "click", selector: FAVORITE_ROW, button: "right" },
+      { op: "waitFor", selector: "text=Remove from Favorites" },
+      { op: "wait", ms: 300 },
+    ],
+  }),
+];
+
 const recordsModal: StateRow[] = [
   overlay("overlay-records-modal", "/records", PLAYER_ROW, {
     steps: [
@@ -292,6 +307,21 @@ const exportPills: StateRow[] = [
   ),
 ];
 
+const exportBusy = (id: string, method: string, label: string, busy: string): StateRow =>
+  overlay(id, "/season", `button:has-text("${busy}")`, {
+    pre: [main("hold", { method })],
+    steps: [
+      { op: "click", selector: "button.btn", text: label },
+      { op: "waitFor", selector: "button.btn", text: busy },
+      { op: "wait", ms: 400 },
+    ],
+  });
+
+const exportBusyStates: StateRow[] = [
+  exportBusy("overlay-export-busy-copy", "copyCardImage", "Copy Image", "Copying..."),
+  exportBusy("overlay-export-busy-save", "exportCardImage", "Export PNG", "Exporting..."),
+];
+
 export const OVERLAY_STATES: StateRow[] = [
   ...update,
   ...whatsNew,
@@ -299,6 +329,8 @@ export const OVERLAY_STATES: StateRow[] = [
   ...toasts,
   ...hovers,
   ...menus,
+  ...favoriteMenu,
   ...recordsModal,
   ...exportPills,
+  ...exportBusyStates,
 ];

@@ -95,6 +95,11 @@ jobs:
         working-directory: parity
         run: bun determinism.ts out/baseline/run-1 out/baseline/run-2 | tee out/baseline/determinism.log
 
+      - if: steps.fixture.outputs.found == 'true'
+        name: Dump the tray and app menus
+        working-directory: parity
+        run: bun menus.ts --app electron --data fixture --out out/baseline/menus
+
       - if: always() && steps.fixture.outputs.found == 'true'
         uses: actions/upload-artifact@v4
         with:

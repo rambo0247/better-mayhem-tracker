@@ -35,6 +35,25 @@ export function assertTrayShape(tray: TrayDump | undefined): asserts tray is Tra
   }
 }
 
+export interface TrayProbe {
+  doubleClick: { registered: boolean; calls: string[] };
+}
+
+/** Lane 9's pass rule: double-clicking the tray icon shows the window, then focuses it. */
+export function assertDoubleClickShowsWindow(probe: TrayProbe | undefined): void {
+  const got = probe?.doubleClick;
+  if (!got?.registered) throw new Error("the tray registers no double-click handler");
+  if (JSON.stringify(got.calls) !== JSON.stringify(["show", "focus"])) {
+    throw new Error(`double-click calls ${JSON.stringify(got.calls)}, expected show then focus`);
+  }
+}
+
+/** The Windows lane saves `win-tray-menu.json` beside the macOS `tray-menu.json`. */
+export const menuFiles = (platform: NodeJS.Platform = process.platform) => {
+  const prefix = platform === "win32" ? "win-" : "";
+  return { tray: `${prefix}tray-menu.json`, app: `${prefix}app-menu.json` };
+};
+
 /** The run's stub package renames the app, so its name is swapped for the real one. */
 const STUB_NAME = "bmt-parity-electron";
 const REAL_NAME = "better-mayhem-tracker";
@@ -56,6 +75,7 @@ async function main() {
     const tray = dump.trays[0] as TrayDump;
     // Last: the Quit probe leaves the app's own quit flag set
     const probe = await running.app.evaluate(() => (globalThis as any).__parity.probeTray());
+    assertDoubleClickShowsWindow(probe[0]);
     const interaction = {
       doubleClick: probe[0].doubleClick,
       click: probe[0].click,
@@ -79,10 +99,11 @@ async function main() {
       appName: dump.appName,
       menu: dump.appMenu,
     });
-    fs.writeFileSync(path.join(dir, "tray-menu.json"), JSON.stringify(trayDump, null, 1));
-    fs.writeFileSync(path.join(dir, "app-menu.json"), JSON.stringify(appDump, null, 1));
+    const files = menuFiles(dump.platform);
+    fs.writeFileSync(path.join(dir, files.tray), JSON.stringify(trayDump, null, 1));
+    fs.writeFileSync(path.join(dir, files.app), JSON.stringify(appDump, null, 1));
     console.log(
-      `wrote ${path.join(dir, "tray-menu.json")} (${outline(tray.menu!).join(", ")}) and app-menu.json`,
+      `wrote ${path.join(dir, files.tray)} (${outline(tray.menu!).join(", ")}) and ${files.app}`,
     );
   } finally {
     await running.close();

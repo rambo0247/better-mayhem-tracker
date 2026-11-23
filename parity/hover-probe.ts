@@ -45,6 +45,14 @@ try {
   );
   fs.writeFileSync(path.join(out, "hover-probe.json"), JSON.stringify(result, null, 1));
   console.log(JSON.stringify(result, null, 1));
+  // The hover colour is the active link's own, so the background is what sets the hovered link apart
+  const sameBackground = result.otherStyles.some(
+    (other) => other.backgroundColor === result.hoveredStyle.backgroundColor,
+  );
+  if (!result.hoveredMatchesHover || result.othersMatchingHover !== 0 || sameBackground) {
+    console.error("the hover state is not a real :hover on the Champions link alone");
+    process.exitCode = 1;
+  }
 } finally {
   const report = await running.close();
   if (report.faults.length > 0 || report.leaks.length > 0) {
