@@ -13,6 +13,7 @@ pub mod app_menu;
 pub mod commands;
 #[cfg(any(not(bmt_release_profile), debug_assertions))]
 pub mod data_guard;
+pub mod db;
 pub mod events;
 pub mod install_location;
 pub mod js_arg;
@@ -35,7 +36,7 @@ pub mod tray;
 
 use std::time::Instant;
 
-use tauri::{Builder, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Builder, Manager, RunEvent, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_runtime_wry::Wry;
 
 use crate::commands::Clock;
@@ -103,12 +104,35 @@ pub fn app_version() -> &'static str {
 /// `commands::Domain::register`. The data root is resolved here, each time an
 /// app is built, so a lane process can build apps over several roots.
 pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
+    let paths = Paths::resolve();
+    let builder = match open_database(&paths, &host.clock) {
+        Some(database) => builder.manage(database),
+        None => builder,
+    };
     commands::register(builder, &host)
         .manage(StartedAt(Instant::now()))
         .manage(host.clock)
-        .manage(Paths::resolve())
+        .manage(paths)
         .manage(host.effects)
         .invoke_handler(commands::handler())
+}
+
+/// `matches.db` in the data folder, which the guard has already passed.
+fn open_database(paths: &Paths, clock: &Clock) -> Option<db::Database> {
+    let opened = paths
+        .data_dir()
+        .map_err(|err| err.to_string())
+        .and_then(|dir| {
+            db::Database::open(&dir, clock.now_ms())
+                .map_err(|err| format!("{}: {err}", dir.display()))
+        });
+    match opened {
+        Ok(database) => Some(database),
+        Err(err) => {
+            log::error(format!("Failed to open the database in {err}"));
+            None
+        }
+    }
 }
 
 /// Electron's `process.platform` for this OS, which `window.api.platform` is.
@@ -268,5 +292,13 @@ pub fn run() {
         })
         .build(context)
         .expect("failed to build the Better Mayhem Tracker shell")
-        .run(shell::on_run_event);
+        .run(|app, event| {
+            // closeDatabase: checkpoint the WAL so a quit leaves no -wal file
+            if let RunEvent::Exit = event
+                && let Some(database) = app.try_state::<db::Database>()
+            {
+                database.close();
+            }
+            shell::on_run_event(app, event);
+        });
 }

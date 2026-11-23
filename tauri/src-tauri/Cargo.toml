@@ -45,15 +45,23 @@ tauri = { version = "=3.0.0-alpha.6", features = ["devtools", "image-png", "tray
 tauri-runtime-wry = { version = "=3.0.0-alpha.6", features = ["devtools"] }
 tokio = { version = "=1.54.1", features = ["signal", "time"] }
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
+serde_json = { version = "=1.0.154", features = ["float_roundtrip", "preserve_order"] }
+# preserve_order, so a payload stringifies with its keys where JSON.parse left
+# them. float_roundtrip, because the default float parser is not correctly
+# rounded and lands one ULP off JSON.parse on a few percent of literals.
 ts-rs = "=12.0.1"
 heck = "=0.5.0"
-rusqlite = { version = "=0.43.0", features = ["bundled", "backup"] }
+rusqlite = { version = "=0.43.0", features = ["backup", "bundled"] }
 sha1_smol = { version = "=1.0.1", optional = true }
 dirs = "=7.0.0"
 tauri-plugin-opener = { version = "=3.0.0-alpha.3", default-features = false }
 jiff = "=1.0.2"
 url = "=2.5.9"
+# zlib-rs, because miniz_oxide writes different deflate streams than zlib does
+flate2 = { version = "=1.1.11", default-features = false, features = ["zlib-rs"] }
+# Number.prototype.toString, including its round-half-even choice between
+# equally short digit strings, which std's shortest formatting doesn't make
+ryu-js = "=1.0.4"
 
 [dev-dependencies]
 tauri = { version = "=3.0.0-alpha.6", features = ["test"] }
@@ -123,3 +131,11 @@ opt-level = "s"
 # A panicking command rejects its call rather than ending the app
 panic = "unwind"
 strip = true
+
+# SQLite at -O3 in every build, as better-sqlite3 compiles it. At -O0 a debug
+# build ran T14's queries 2.3 times slower than Electron.
+[profile.dev.package.libsqlite3-sys]
+opt-level = 3
+
+[profile.release.package.libsqlite3-sys]
+opt-level = 3
