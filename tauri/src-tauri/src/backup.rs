@@ -201,8 +201,10 @@ impl Backups {
                 .map_err(|err| node_fs_error(&err, "stat", &dest, None))?
                 .len() as i64;
             // Only once the new snapshot is verified on disk: a database that
-            // has gone bad must never rotate out the good copies
-            self.prune(&self.read(), spare);
+            // has gone bad must never rotate out the good copies. A stepped
+            // name can sort below the files it stepped past, so the prune
+            // keeps the one just written by name
+            self.prune(&self.read(), &[Some(file.as_str()), spare]);
             Ok(BackupInfo {
                 file: file.clone(),
                 created,
@@ -264,10 +266,13 @@ impl Backups {
 
     /// Grandfather-father-son: the newest few, then the newest snapshot of
     /// each of the last few weeks and months. Everything else goes, except
-    /// `spare`.
-    fn prune(&self, backups: &[BackupInfo], spare: Option<&str>) {
+    /// the files `spare` names.
+    fn prune(&self, backups: &[BackupInfo], spare: &[Option<&str>]) {
         let victims = prune_victims(backups, &self.tz);
-        for file in victims.into_iter().filter(|file| Some(*file) != spare) {
+        for file in victims
+            .into_iter()
+            .filter(|file| !spare.contains(&Some(*file)))
+        {
             if let Err(err) = rm_forced(&self.dir.join(file)) {
                 eprintln!("Failed to remove old backup: {file} {err}");
             }
@@ -1583,6 +1588,45 @@ mod tests {
                 "matches-2026-11-22T21-00-01-manual.db"
             ]
         );
+        drop(db);
+        std::fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    /// The verifier's `burst20`: twenty manual backups in one frozen second.
+    /// Electron renames each over the last, so its one name always holds the
+    /// newest snapshot. Each stepped name here must survive its own prune.
+    #[test]
+    fn a_burst_of_backups_in_one_second_keeps_each_newest() {
+        let root = scratch("burst");
+        live_database(&root, 5);
+        let (db, backups) = open(&root);
+        backups
+            .create(&db, Reason::Auto, NOW)
+            .expect("the launch backup");
+        let mut last = String::new();
+        for call in 0..20 {
+            db.with(|conn| {
+                conn.execute(
+                    "INSERT INTO games (game_id, queue_id, game_mode, game_creation, game_duration) VALUES (?, 2400, 'KIWI', ?, 1200)",
+                    (1000 + call, NOW),
+                )
+            })
+            .expect("a new game");
+            let made = backups
+                .create(&db, Reason::Manual, NOW)
+                .expect("a manual backup");
+            let file = root.join("backups").join(&made.file);
+            assert!(file.exists(), "call {call}: {} was pruned", made.file);
+            assert_eq!(games_in(&file), 6 + call, "call {call} holds its snapshot");
+            last = made.file;
+        }
+        let listed: Vec<String> = backups
+            .list()
+            .expect("a listing")
+            .into_iter()
+            .map(|b| b.file)
+            .collect();
+        assert!(listed.contains(&last), "{last} is not in {listed:?}");
         drop(db);
         std::fs::remove_dir_all(&root).expect("clean up");
     }
