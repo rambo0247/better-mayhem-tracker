@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { APP_NAME, assetNames, zipApp } from "./package.ts";
+import { APP_NAME, assetNames, zipApp } from "./package";
 
 test("asset names match the ones electron-builder writes", () => {
   expect(assetNames("mac", "arm64")).toEqual([
