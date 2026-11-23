@@ -662,6 +662,11 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     env.BMT_PARITY_BROWSER_ARGS = WEBVIEW2_ARGS.join(" ");
     env.BMT_PARITY_WEBVIEW_DATA = path.join(runDir, "webview2");
   }
+  // Switches for the two proofs the root asked for, passed on only when set
+  for (const name of ["BMT_PARITY_ACTIVATION", "BMT_PARITY_COVER"]) {
+    const value = process.env[name];
+    if (value) env[name] = value;
+  }
   const token = crypto.randomBytes(16).toString("hex");
   env.BMT_PARITY_TOKEN = token;
 
@@ -839,6 +844,15 @@ export async function smoke(options: { binary?: string; out?: string }) {
     const wrong = await post({ authorization: "Bearer 0000000000000000" });
     check("a request without the token is refused", noToken === 401, noToken);
     check("a request with a wrong token is refused", wrong === 401, wrong);
+    const home = await engine.evaluate<string>("location.href");
+    const navigate = await driver
+      .call("navigate", { url: "file:///etc/hosts", timeoutMs: 2000 })
+      .then(() => "navigated", String);
+    check("navigate refuses a file: URL", navigate.includes("refused"), navigate);
+    await engine.evaluate((url) => void (location.href = url), "https://example.com/");
+    await Bun.sleep(1000);
+    const after = await engine.evaluate<string>("location.href");
+    check("the page cannot leave its origin", after === home, { home, after });
     check("the facts are recorded", true, running.facts);
   } finally {
     await running.close();
