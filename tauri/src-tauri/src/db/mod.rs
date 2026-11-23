@@ -5,10 +5,12 @@
 
 pub mod connection;
 pub mod filters;
+pub mod ingest;
 pub mod js;
 pub mod migrations;
 pub mod payloads;
 pub mod schema;
+pub mod scoring;
 pub mod settings;
 pub mod stmt;
 pub mod summoner;

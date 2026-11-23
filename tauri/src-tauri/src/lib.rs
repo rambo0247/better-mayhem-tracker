@@ -19,6 +19,7 @@ pub mod install_location;
 pub mod js_arg;
 pub mod locale;
 pub mod log;
+pub mod op_score;
 #[cfg(feature = "parity-driver")]
 mod parity_driver;
 #[cfg(feature = "parity-driver")]
