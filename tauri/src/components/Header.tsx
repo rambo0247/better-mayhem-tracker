@@ -37,7 +37,7 @@ const statusLabels: Record<LcuStatus, string> = {
 // macOS draws its own traffic lights into the top left of the window, so the
 // custom controls are for every other platform, and the sidebar leaves the
 // lights their space instead.
-const IS_MAC = api.platform === "darwin";
+const isMac = () => api.platform === "darwin";
 
 // Below this the sidebar folds down to a rail of icons, giving the page the room
 const RAIL_QUERY = "(max-width: 1179px)";
@@ -191,7 +191,7 @@ function WindowControls() {
   const btn =
     "w-11 flex items-center justify-center text-lol-text hover:bg-white/5 hover:text-lol-text-bright transition-colors";
   return (
-    <div data-tauri-drag-region="false" class="flex items-stretch self-stretch">
+    <div data-tauri-drag-region="false" class="titlebar-no-drag flex items-stretch self-stretch">
       <button onClick={() => api.minimizeWindow()} title="Minimize" class={btn}>
         <MinusIcon class="w-3.5 h-3.5" />
       </button>
@@ -221,9 +221,9 @@ export function TitleBar() {
   return (
     <div
       data-tauri-drag-region="deep"
-      class="relative z-10 flex h-8 shrink-0 items-center justify-end"
+      class="titlebar-drag relative z-10 flex h-8 shrink-0 items-center justify-end"
     >
-      <Show when={!IS_MAC}>
+      <Show when={!isMac()}>
         <WindowControls />
       </Show>
     </div>
@@ -332,12 +332,15 @@ export default function Header() {
       ]}
     >
       {/* The traffic lights sit in this strip on macOS; it drags the window */}
-      <div data-tauri-drag-region="deep" class={["shrink-0", IS_MAC ? "h-10" : "h-3"]} />
+      <div
+        data-tauri-drag-region="deep"
+        class={["titlebar-drag shrink-0", isMac() ? "h-10" : "h-3"]}
+      />
 
       <header
         data-tauri-drag-region="deep"
         class={[
-          "flex shrink-0 items-center gap-2.5 pb-5",
+          "titlebar-drag flex shrink-0 items-center gap-2.5 pb-5",
           rail() ? "justify-center pt-1" : "px-5 pt-1",
         ]}
         title={rail() ? "Better Mayhem Tracker" : undefined}

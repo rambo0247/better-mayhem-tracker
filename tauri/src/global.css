@@ -520,6 +520,16 @@ input[type="checkbox"]:focus-visible {
   scrollbar-gutter: stable;
 }
 
+/* Drag region for custom title bar. WKWebView ignores these, so the same
+   elements carry data-tauri-drag-region too. */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
 /* Each view eases in as it's opened */
 @keyframes view-in {
   from {
