@@ -4,23 +4,31 @@ const GAME_PROCESS = "LeagueofLegends";
 const POLL_MS = 30_000;
 const AFTER_GAME_MS = 120_000;
 
-/** True while the League game process runs. Only the process list is read. */
+/**
+ * True while the League game process runs. When the process list cannot be read the answer
+ * is true, so a broken pgrep or tasklist holds a run instead of letting it open windows.
+ */
 export function gameRunning(
   platform: NodeJS.Platform = process.platform,
   processName: string = GAME_PROCESS,
+  log: (line: string) => void = console.error,
 ): boolean {
-  if (platform === "win32") {
-    const out = spawnSync("tasklist", ["/FI", `IMAGENAME eq ${processName}.exe`, "/NH"], {
-      encoding: "utf8",
-    });
-    return (out.stdout ?? "").toLowerCase().includes(processName.toLowerCase());
+  const win = platform === "win32";
+  const out = win
+    ? spawnSync("tasklist", ["/FI", `IMAGENAME eq ${processName}.exe`, "/NH"], { encoding: "utf8" })
+    : spawnSync("pgrep", ["-x", processName], { encoding: "utf8" });
+  if (out.error || out.status === null || (win ? out.status !== 0 : out.status > 1)) {
+    log(
+      `wait-no-game: cannot read the process list (${out.error?.message ?? `exit ${out.status}`}), assuming a game is running`,
+    );
+    return true;
   }
-  return spawnSync("pgrep", ["-x", processName]).status === 0;
+  return win ? out.stdout.toLowerCase().includes(processName.toLowerCase()) : out.status === 0;
 }
 
 /**
- * Captures open windows and load the machine, so they wait while the operator is in a
- * game, then 2 more minutes for the post-game screen. Returns at once when no game runs.
+ * The operator plays on this machine, so runs hold while a game runs and for 2 more minutes
+ * for the post-game screen.
  */
 export async function waitForNoGame(log: (line: string) => void = console.log) {
   if (!gameRunning()) return;

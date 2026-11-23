@@ -3,7 +3,6 @@ import { expand, restoreSettings, runStep, type DriveContext, type Step } from "
 import { settle, type SettleReport } from "./settle.ts";
 
 export type Viewport = { width: number; height: number };
-export type StatePlatform = "any" | "darwin" | "win32";
 
 export interface StateRow {
   id: string;
@@ -12,8 +11,6 @@ export interface StateRow {
   /** Hash route, with {vars} resolved from the data before the state runs. */
   route: string;
   viewport: Viewport;
-  platform: StatePlatform;
-  data: "fixture" | "snapshot";
   /** Run before the page loads: localStorage seeds and settings. */
   pre?: Step[];
   /** Run after the page settles. The state settles again once they finish. */
@@ -24,7 +21,6 @@ export interface StateRow {
   card?: boolean;
 }
 
-// The size the app opens at (src/main/index.ts), as content size
 const FULL: Viewport = { width: 1280, height: 820 };
 const CARD: Viewport = { width: 1200, height: 820 };
 const row = (
@@ -38,8 +34,6 @@ const row = (
   group,
   route,
   viewport: FULL,
-  platform: "any",
-  data: "fixture",
   expect: expectSelector,
   ...extra,
 });
@@ -115,8 +109,8 @@ export const STATES: StateRow[] = [
 
 export const stateGroups = () => [...new Set(STATES.map((s) => s.group))];
 
-export function selectStates(spec: string | undefined, platform: NodeJS.Platform): StateRow[] {
-  const all = STATES.filter((s) => s.platform === "any" || s.platform === platform);
+export function selectStates(spec: string | undefined): StateRow[] {
+  const all = STATES;
   if (!spec || spec === "all") return all;
   const wanted = spec.split(",");
   const picked = all.filter((s) => wanted.includes(s.id) || wanted.includes(s.group));
@@ -129,7 +123,6 @@ export function selectStates(spec: string | undefined, platform: NodeJS.Platform
   return picked;
 }
 
-/** Ids the routes need, read from the data through the app's own API. */
 export async function resolveVars(page: Page): Promise<Record<string, string>> {
   return page.evaluate(async () => {
     const api = window.api as unknown as Record<string, (...args: unknown[]) => Promise<any>>;
@@ -155,7 +148,6 @@ export interface StateOutcome {
   expectFound: boolean;
 }
 
-/** Puts the renderer into a state from a clean slate and waits for it to stop changing. */
 export async function applyState(
   ctx: DriveContext,
   state: StateRow,

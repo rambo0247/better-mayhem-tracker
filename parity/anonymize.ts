@@ -1,3 +1,4 @@
+import { UUID_SOURCE } from "./lib/uuid.ts";
 import { Database } from "bun:sqlite";
 import zlib from "node:zlib";
 
@@ -65,7 +66,7 @@ export const fakePuuid = (index: number) =>
   `fa4e0000-0000-4000-8000-${index.toString(16).padStart(12, "0")}`;
 export const fakeNumericId = (index: number) => 900_000_000 + index;
 
-const UUID_ANYWHERE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+const UUID_ANYWHERE = new RegExp(UUID_SOURCE, "gi");
 const ZERO_PUUID = /^0+(-0+)*$/;
 const NAME_KEYS = new Set(["gameName", "summonerName", "riotIdGameName", "internalName"]);
 const TAG_KEYS = new Set(["tagLine", "riotIdTagline", "riotIdTagLine"]);
@@ -110,15 +111,13 @@ export interface AnonymizeSummary {
   accounts: number;
   sampleNames: string[];
   syntheticFavorites: number[];
+  /** Games whose payload would not decode. It cannot be scrubbed, so it is emptied. */
+  corruptPayloads: number[];
 }
 
 function unpack(blob: Uint8Array | null): any {
   if (!blob) return null;
-  try {
-    return JSON.parse(zlib.gunzipSync(blob).toString("utf8"));
-  } catch {
-    return null;
-  }
+  return JSON.parse(zlib.gunzipSync(blob).toString("utf8"));
 }
 
 function walkIdentity(node: any, visit: (key: string, value: unknown) => void) {
@@ -139,6 +138,7 @@ interface Collected {
   puuids: Mapping;
   numericIds: Mapping;
   decoded: Map<number, any>;
+  corrupt: number[];
 }
 
 function collect(db: Database): Collected {
@@ -157,8 +157,15 @@ function collect(db: Database): Collected {
     .query("SELECT game_id, raw_gz FROM games")
     .all() as any;
   const decoded = new Map<number, any>();
+  const corrupt: number[] = [];
   for (const { game_id, raw_gz } of payloads) {
-    const raw = unpack(raw_gz);
+    let raw: any = null;
+    try {
+      raw = unpack(raw_gz);
+    } catch (error) {
+      corrupt.push(game_id);
+      console.error(`anonymize: game ${game_id} payload would not decode: ${String(error)}`);
+    }
     decoded.set(game_id, raw);
     walkIdentity(raw, (key, value) => {
       if (NAME_KEYS.has(key)) names.add(value);
@@ -186,15 +193,12 @@ function collect(db: Database): Collected {
   for (const row of db.query("SELECT DISTINCT puuid FROM games").all() as any[])
     addPuuid(row.puuid);
   for (const row of db.query("SELECT key FROM settings").all() as any[]) {
-    const embedded = String(row.key).match(
-      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
-    );
+    const embedded = String(row.key).match(new RegExp(UUID_SOURCE, "i"));
     if (embedded) addPuuid(embedded[0]);
   }
-  return { names, tags, puuids, numericIds, decoded };
+  return { names, tags, puuids, numericIds, decoded, corrupt };
 }
 
-/** The real identities a database holds, for the audit that checks a fixture has none of them. */
 export function identitiesOf(file: string) {
   const db = new Database(file, { readonly: true });
   const { names, tags, puuids } = collect(db);
@@ -202,17 +206,12 @@ export function identitiesOf(file: string) {
   return { names: names.keys(), tags: tags.keys(), puuids: puuids.keys() };
 }
 
-/**
- * Rewrites every player name, tag line, summoner name, and PUUID in the tables and in
- * the gzipped payloads to stable fake values, freezes last_run_version, and leaves no
- * free page behind. Works in place on a database file the caller owns.
- */
 export function anonymizeDatabase(file: string): AnonymizeSummary {
   const db = new Database(file);
   db.run("PRAGMA secure_delete = ON");
   db.run("PRAGMA journal_mode = DELETE");
 
-  const { names, tags, puuids, numericIds, decoded } = collect(db);
+  const { names, tags, puuids, numericIds, decoded, corrupt } = collect(db);
   for (const mapping of [names, tags, puuids, numericIds]) mapping.freeze();
 
   const fakeFor = (value: string | null, mapping: Mapping, passZero = false) => {
@@ -305,7 +304,7 @@ export function anonymizeDatabase(file: string): AnonymizeSummary {
         continue;
       }
       const renamed = String(key).replace(
-        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+        new RegExp(UUID_SOURCE, "i"),
         (match) => fakeFor(match, puuids, true) as string,
       );
       if (renamed !== key) db.run("UPDATE settings SET key = ? WHERE key = ?", [renamed, key]);
@@ -336,12 +335,12 @@ export function anonymizeDatabase(file: string): AnonymizeSummary {
       ),
     ].slice(0, 6),
     syntheticFavorites: favorites,
+    corruptPayloads: corrupt,
   };
   db.close();
   return summary;
 }
 
-/** Marks two games as favorites when none are, so the favorites states have something to show. */
 function ensureFavorites(db: Database): number[] {
   const existing = (db.query("SELECT count(*) c FROM games WHERE favorite = 1").get() as any).c;
   if (existing > 0) return [];

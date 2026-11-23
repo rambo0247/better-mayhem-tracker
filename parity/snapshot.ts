@@ -88,7 +88,6 @@ export function takeSnapshot(options: SnapshotOptions): SnapshotResult {
   return { out, database, caches };
 }
 
-/** sha256 of every file under the app-owned folders, read-only, keyed by relative path. */
 export function hashAppFiles(source: string): Map<string, string> {
   const hashes = new Map<string, string>();
   const walk = (dir: string) => {
@@ -109,7 +108,6 @@ export function hashAppFiles(source: string): Map<string, string> {
   return hashes;
 }
 
-/** Which files differ between two hash maps, for the real-folder-untouched check. */
 export function diffHashes(before: Map<string, string>, after: Map<string, string>) {
   return {
     changed: [...before.keys()].filter(
@@ -141,6 +139,7 @@ if (import.meta.main) {
       `added: ${added.length}`,
       ...added.map((file) => `  ${file}`),
     ];
+    refuseRealFolder(args[verifyAt + 1]!, "verify log");
     fs.writeFileSync(args[verifyAt + 1]!, lines.join("\n") + "\n");
     console.log(lines.join("\n"));
   }

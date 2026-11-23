@@ -2,11 +2,11 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { anonymizeDatabase, type AnonymizeSummary } from "./anonymize.ts";
+import { SNAPSHOT_DIRS } from "./lib/data.ts";
 import { realDataRoots, refuseRealFolder } from "./lib/real-folder.ts";
 import { SNAPSHOT_MARKER } from "./snapshot.ts";
 
 export const FIXTURE_MARKER = ".bmt-fixture";
-export const DEFAULT_SNAPSHOT = path.resolve(import.meta.dir, "snapshots", "private");
 
 export interface FixtureOptions {
   /** A folder `snapshot.ts` wrote. */
@@ -61,7 +61,7 @@ if (import.meta.main) {
     process.exit(2);
   }
   const summary = buildFixture({
-    from: value("--from") ?? DEFAULT_SNAPSHOT,
+    from: value("--from") ?? SNAPSHOT_DIRS.snapshot,
     out,
     withAssets: !args.includes("--no-assets"),
   });

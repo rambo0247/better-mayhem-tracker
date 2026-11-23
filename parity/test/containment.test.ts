@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
+import { isUnderRealFolder } from "../lib/real-folder.ts";
 import { waitForNoGame } from "../lib/no-game.ts";
 import { SNAPSHOT_DIRS } from "../lib/data.ts";
 import {
@@ -163,4 +164,90 @@ describe("main-process faults under the seam", () => {
     },
     90_000,
   );
+});
+
+describe("the real-folder guard, in the tools and in the seam", () => {
+  function fakeReal() {
+    const dir = scratch();
+    const real = path.join(dir, "App Support", "better-mayhem-tracker");
+    fs.mkdirSync(path.join(real, "data"), { recursive: true });
+    fs.symlinkSync(real, path.join(dir, "link"));
+    return { dir, real };
+  }
+
+  test("a symlink into the folder, a symlinked root, and a not-yet-created path under either are refused", () => {
+    const { dir, real } = fakeReal();
+    expect(isUnderRealFolder(path.join(dir, "link", "data", "new", "x"), [real])).toBe(true);
+    const linkedRoot = path.join(dir, "root-link");
+    fs.symlinkSync(real, linkedRoot);
+    expect(isUnderRealFolder(path.join(real, "data"), [linkedRoot])).toBe(true);
+    expect(isUnderRealFolder(path.join(dir, "elsewhere"), [real])).toBe(false);
+  });
+
+  function seamWrites(real: string, dir: string, body: string) {
+    const log = path.join(dir, "seam.log");
+    const script = `
+      const fs = require("fs"); const path = require("path"); const { pathToFileURL } = require("url");
+      const real = ${JSON.stringify(real)}; const link = ${JSON.stringify(path.join(dir, "link"))};
+      const out = {};
+      const attempt = (name, f) => { try { f(); out[name] = "written"; } catch (e) { out[name] = /seam refused/.test(e.message) ? "blocked" : e.message; } };
+      ${body}
+      console.log(JSON.stringify(out));
+    `;
+    const result = spawnSync("node", ["-r", seam, "-e", script], {
+      env: { ...process.env, SEAM_LOG: log, SEAM_REAL_ROOTS: JSON.stringify([real]) },
+      encoding: "utf8",
+    });
+    return JSON.parse(result.stdout) as Record<string, string>;
+  }
+
+  test("the seam blocks a write through a symlink into the real folder", () => {
+    const { dir, real } = fakeReal();
+    const out = seamWrites(
+      real,
+      dir,
+      `attempt("symlink", () => fs.writeFileSync(path.join(link, "data", "via-symlink"), "x"));`,
+    );
+    expect(out.symlink).toBe("blocked");
+    expect(fs.readdirSync(path.join(real, "data"))).toEqual([]);
+  });
+
+  test("the seam blocks a file: URL, with its escaped space, into the real folder", () => {
+    const { dir, real } = fakeReal();
+    const out = seamWrites(
+      real,
+      dir,
+      `attempt("url", () => fs.writeFileSync(pathToFileURL(path.join(real, "data", "via-url")), "x"));`,
+    );
+    expect(out.url).toBe("blocked");
+    expect(fs.readdirSync(path.join(real, "data"))).toEqual([]);
+  });
+
+  test("the seam blocks O_CREAT opened read-only, and still allows a plain read", () => {
+    const { dir, real } = fakeReal();
+    fs.writeFileSync(path.join(real, "data", "keep"), "k");
+    const out = seamWrites(
+      real,
+      dir,
+      `attempt("creat", () => fs.closeSync(fs.openSync(path.join(real, "data", "via-creat"), fs.constants.O_CREAT | fs.constants.O_RDONLY)));
+       attempt("read", () => fs.readFileSync(path.join(real, "data", "keep")));`,
+    );
+    expect(out.creat).toBe("blocked");
+    expect(out.read).toBe("written");
+    expect(fs.readdirSync(path.join(real, "data"))).toEqual(["keep"]);
+  });
+
+  test("capture refuses an --out inside the real folder before it creates anything", () => {
+    const home = scratch();
+    const real = path.join(home, "Library", "Application Support", "better-mayhem-tracker");
+    fs.mkdirSync(real, { recursive: true });
+    const result = spawnSync(
+      "bun",
+      [path.resolve(import.meta.dir, "../capture.ts"), "--all", "--out", path.join(real, "x")],
+      { env: { ...process.env, HOME: home }, encoding: "utf8", timeout: 60_000 },
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("refused");
+    expect(fs.readdirSync(real)).toEqual([]);
+  });
 });

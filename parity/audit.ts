@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { identitiesOf } from "./anonymize.ts";
+import { UUID_SOURCE } from "./lib/uuid.ts";
 
 export interface AuditResult {
   searched: { names: number; tags: number; puuids: number };
@@ -12,7 +13,7 @@ export interface AuditResult {
   wordCoincidences: number;
 }
 
-const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+const UUID = new RegExp(UUID_SOURCE, "g");
 const IDENTITY_COLUMN = /game_name|tag_line|summoner_name/;
 const IDENTITY_KEYS = new Set([
   "gameName",

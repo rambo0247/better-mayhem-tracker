@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
+import { refuseRealFolder } from "./lib/real-folder.ts";
 
 export type Policy = "same-engine" | "cross-engine";
 export type GeometryRow = [path: string, tag: string, x: number, y: number, w: number, h: number];
@@ -42,7 +43,7 @@ export interface DiffResult {
   size: [number, number];
   differing: number;
   differingPct: number;
-  worstTile?: { x: number; y: number; differing: number; pct: number };
+  worstTile?: { differing: number; pct: number };
   blurRegions: { region: Region; worstTilePct: number; pass: boolean }[];
   layout?: LayoutResult;
   diffImage?: PNG;
@@ -199,7 +200,7 @@ export function diffPngs(a: PNG, b: PNG, options: DiffOptions): DiffResult {
   const tile = Math.round(CROSS_ENGINE.tileCss * scale);
   const worstCount = pixelmatch(a.data, b.data, null, width, height, { ...base, windowSize: tile });
   const tilePct = worstCount / (tile * tile);
-  result.worstTile = { x: -1, y: -1, differing: worstCount, pct: +(100 * tilePct).toFixed(2) };
+  result.worstTile = { differing: worstCount, pct: +(100 * tilePct).toFixed(2) };
   if (tilePct > CROSS_ENGINE.tileBudget) {
     result.pass = false;
     result.reasons.push(
@@ -263,6 +264,7 @@ export function diffFiles(
     geometryB: options.geometry ? readGeometry(options.geometry[1]) : undefined,
   });
   if (options.outPrefix && result.diffImage) {
+    refuseRealFolder(options.outPrefix, "diff output");
     fs.mkdirSync(path.dirname(options.outPrefix), { recursive: true });
     fs.writeFileSync(`${options.outPrefix}.diff.png`, PNG.sync.write(result.diffImage));
     fs.writeFileSync(

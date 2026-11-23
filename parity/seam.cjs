@@ -1,49 +1,31 @@
-// Loaded into Electron's main process with `-r`. Not app code.
-// 1. Aborts on any write that would reach the app's real data folder.
-// 2. Hides League and Riot paths so the client reads as closed.
-// 3. Blocks main-process network except loopback.
-// 4. Freezes the main process clock.
-// 5. Turns an uncaught error into a logged fault in place of Electron's modal dialog.
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
-const cp = require("child_process");
+const { fileURLToPath } = require("url");
 const Module = require("module");
+const { realDataRoots, isUnderRealFolder } = require("./lib/real-folder.cjs");
 
 const realAppendFileSync = fs.appendFileSync;
 const log = (...parts) => {
   if (process.env.SEAM_LOG) realAppendFileSync(process.env.SEAM_LOG, parts.join(" ") + "\n");
 };
 
-const NAMES = ["better-mayhem-tracker", "Better Mayhem Tracker"];
-function defaultRoots() {
-  const home = os.homedir();
-  let base;
-  if (process.platform === "darwin") base = path.join(home, "Library", "Application Support");
-  else if (process.platform === "win32")
-    base = process.env.APPDATA || path.join(home, "AppData", "Roaming");
-  else base = process.env.XDG_CONFIG_HOME || path.join(home, ".config");
-  return NAMES.map((name) => path.join(base, name));
-}
 // The extra roots only ever add to the defaults, so an override cannot weaken the guard.
-const ROOTS = [...defaultRoots(), ...JSON.parse(process.env.SEAM_REAL_ROOTS || "[]")].map((r) =>
-  path.resolve(r).toLowerCase(),
-);
+const ROOTS = [...realDataRoots(), ...JSON.parse(process.env.SEAM_REAL_ROOTS || "[]")];
 
 const asString = (p) =>
   typeof p === "string"
     ? p
     : p instanceof URL
-      ? p.pathname
+      ? p.protocol === "file:"
+        ? fileURLToPath(p)
+        : ""
       : Buffer.isBuffer(p)
         ? p.toString()
         : "";
 
 function isReal(p) {
   const s = asString(p);
-  if (!s) return false;
-  const lower = path.resolve(s).toLowerCase();
-  return ROOTS.some((root) => lower === root || lower.startsWith(root + path.sep));
+  return s !== "" && isUnderRealFolder(s, ROOTS);
 }
 
 function guard(op, ...targets) {
@@ -57,7 +39,9 @@ function guard(op, ...targets) {
 
 const WRITE_FLAG = /[wa+]/;
 const writeFlags = (flags) => typeof flags === "string" && WRITE_FLAG.test(flags);
-const writeMode = (flags) => typeof flags === "number" && (flags & 3) !== 0;
+const { O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND } = fs.constants;
+const writeMode = (flags) =>
+  typeof flags === "number" && (flags & (O_WRONLY | O_RDWR | O_CREAT | O_TRUNC | O_APPEND)) !== 0;
 
 // [name, indexes of path arguments that are written to]
 const MUTATORS = [
@@ -162,6 +146,8 @@ for (const name of [
     return orig.call(this, p, ...rest);
   };
 }
+// The client reads as installed but not running: the app bundle exists, its lockfile and the
+// Riot metadata do not.
 const realExistsSync = fs.existsSync;
 fs.existsSync = (p) => {
   if (hidden(p)) return asString(p).endsWith("LeagueClient.app");
@@ -175,18 +161,6 @@ for (const name of ["readFile", "readdir", "stat", "lstat", "access"]) {
       throw enoent(asString(p));
     }
     return orig.call(this, p, ...rest);
-  };
-}
-
-for (const name of ["exec", "execFile", "spawn", "execSync", "execFileSync", "spawnSync"]) {
-  const orig = cp[name];
-  cp[name] = function (...args) {
-    const command = JSON.stringify(args.slice(0, 2));
-    if (/LeagueClient|\bps\b|powershell|wmic/i.test(command)) {
-      log("block-process", name, command);
-      throw new Error("seam blocked process scan");
-    }
-    return orig.apply(this, args);
   };
 }
 
@@ -261,7 +235,12 @@ process.on("uncaughtException", (error) => fault("uncaughtException", error));
 process.on("unhandledRejection", (reason) => fault("unhandledRejection", reason));
 
 try {
-  const { dialog, BrowserWindow } = require("electron");
+  const { app: electronApp, dialog, BrowserWindow } = require("electron");
+  // No Dock icon, app switcher entry or activation on macOS. The window is still created and shown.
+  if (process.platform === "darwin") {
+    electronApp.setActivationPolicy("accessory");
+    electronApp.dock?.hide();
+  }
   dialog.showErrorBox = (title, content) => fault("showErrorBox", `${title}: ${content}`);
   const realEmit = BrowserWindow.prototype.emit;
   // Electron's own listeners (visibilityChanged) throw when an event reaches a destroyed window.

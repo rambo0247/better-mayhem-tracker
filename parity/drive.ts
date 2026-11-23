@@ -21,7 +21,6 @@ export interface DriveContext {
   page: Page;
   viewport: { width: number; height: number };
   resizeWindow: (width: number, height: number) => Promise<void>;
-  /** Settings changed by steps, restored after the state. */
   touchedSettings: Map<string, string | null>;
 }
 

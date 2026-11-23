@@ -10,13 +10,9 @@ export interface SettleReport {
   ms: number;
   timedOut: boolean;
   pendingImages: number;
+  decodeFailures: number;
 }
 
-/**
- * Waits until the page has stopped changing: fonts loaded, every image decoded, the
- * client status label past "Connecting...", and QUIET_MS without a DOM mutation. Then
- * it freezes animation and parks the mouse in the corner so no hover is left behind.
- */
 export async function settle(
   page: Page,
   viewport: { width: number; height: number },
@@ -55,18 +51,29 @@ export async function settle(
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
       observer.disconnect();
+      let decodeFailures = 0;
       const decodeWithin = (image: HTMLImageElement) =>
         Promise.race([
-          image.decode().catch(() => {}),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
+          image.decode().catch(() => decodeFailures++),
+          new Promise((resolve) =>
+            setTimeout(() => {
+              decodeFailures++;
+              resolve(undefined);
+            }, 3000),
+          ),
         ]);
       await Promise.all([...document.images].filter((image) => image.complete).map(decodeWithin));
-      return { timedOut, pending };
+      return { timedOut, pending, decodeFailures };
     },
     { quiet: QUIET_MS, timeout: SETTLE_TIMEOUT_MS },
   );
   await page.addStyleTag({ content: KILL_SWITCH_CSS });
   await page.mouse.move(viewport.width - 2, viewport.height - 2);
   await page.waitForTimeout(300);
-  return { ms: Date.now() - started, timedOut: report.timedOut, pendingImages: report.pending };
+  return {
+    ms: Date.now() - started,
+    timedOut: report.timedOut,
+    pendingImages: report.pending,
+    decodeFailures: report.decodeFailures,
+  };
 }

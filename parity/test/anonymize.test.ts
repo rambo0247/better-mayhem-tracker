@@ -170,3 +170,17 @@ test("two runs on the same input produce the same fixture", () => {
   anonymizeDatabase(b);
   expect(allText(a)).toEqual(allText(b));
 });
+
+test("a payload that will not decode is reported and emptied, never kept with its identities", () => {
+  const file = scratchDb("corrupt.db");
+  build(file);
+  const db = new Database(file);
+  db.run("UPDATE games SET raw_gz = ? WHERE game_id = 101", [Buffer.from("not gzip at all")]);
+  db.close();
+  const summary = anonymizeDatabase(file);
+  expect(summary.corruptPayloads).toEqual([101]);
+  const after = new Database(file, { readonly: true });
+  const rows = after.query("SELECT game_id, raw_gz FROM games ORDER BY game_id").all() as any[];
+  after.close();
+  expect(rows.map((r) => r.raw_gz === null)).toEqual([false, true, false]);
+});

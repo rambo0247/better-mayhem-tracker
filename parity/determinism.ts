@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { diffFiles } from "./diff.ts";
+import { refuseRealFolder } from "./lib/real-folder.ts";
 
-/** Compares every state two capture runs share under the same-engine policy. */
 export function compareRuns(a: string, b: string, diffDir?: string) {
+  if (diffDir) refuseRealFolder(diffDir, "diff folder");
   const ids = fs
     .readdirSync(a)
     .filter(

@@ -22,7 +22,6 @@ export interface RunningElectron {
   page: Page;
   runDir: string;
   seamLog: string;
-  userData: string;
   blockedRequests: string[];
   ctx: DriveContext;
   /** Seam faults logged so far: uncaught errors, stubbed error dialogs. */
@@ -195,6 +194,23 @@ function electronBinary(repo: string): string {
   return binary;
 }
 
+/** Teardown steps may fail because the app is already gone, which is worth a line and not a crash. */
+async function teardown(step: string, work: Promise<unknown>) {
+  await work.catch((error) => console.error(`run-electron: ${step} failed: ${String(error)}`));
+}
+
+async function quit(app: ElectronApplication) {
+  await teardown(
+    "hiding windows",
+    app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((w) => w.hide())),
+  );
+  await teardown(
+    "exit",
+    app.evaluate(({ app: electron }) => electron.exit(0)),
+  );
+  await teardown("close", app.close());
+}
+
 export async function startElectron(options: StartOptions): Promise<RunningElectron> {
   await waitForNoGame();
   const repo = options.repo ?? REPO_DIR;
@@ -230,7 +246,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     args: [
       "--force-device-scale-factor=2",
       "--force-color-profile=srgb",
-      "--disable-gpu",
+      ...(process.env.PARITY_GPU === "on" ? [] : ["--disable-gpu"]),
       "--lang=en-US",
       ...(process.env.PARITY_ELECTRON_ARGS?.split(" ").filter(Boolean) ?? []),
       `--user-data-dir=${userData}`,
@@ -242,40 +258,44 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     cwd: runDir,
   });
 
-  const facts = await app.evaluate(({ app: electron }) => ({
-    userData: electron.getPath("userData"),
-    packaged: electron.isPackaged,
-    name: electron.getName(),
-  }));
-  if (!fs.realpathSync(facts.userData).startsWith(fs.realpathSync(runDir))) {
-    await app.close().catch(() => {});
-    throw new Error(`userData escaped the run folder: ${facts.userData}`);
-  }
-  refuseRealFolder(facts.userData, "Electron userData");
-
-  const context = app.context();
   const blockedRequests: string[] = [];
-  await context.route(/^https?:/, (route) => {
-    blockedRequests.push(route.request().url());
-    return route.abort();
-  });
-  await context.clock.setFixedTime(FIXED_TIME);
-
-  const resizeWindow = async (width: number, height: number) => {
-    await app.evaluate(
-      ({ BrowserWindow }, size) => {
-        const window = BrowserWindow.getAllWindows()[0]!;
-        window.setPosition(40, 40);
-        window.setContentSize(size.width, size.height);
-      },
-      { width, height },
+  let page: Page;
+  let resizeWindow: (width: number, height: number) => Promise<void>;
+  try {
+    const reportedUserData = await app.evaluate(({ app: electron }) =>
+      electron.getPath("userData"),
     );
-  };
+    if (!isInside(fs.realpathSync(reportedUserData), fs.realpathSync(runDir))) {
+      throw new Error(`userData escaped the run folder: ${reportedUserData}`);
+    }
+    refuseRealFolder(reportedUserData, "Electron userData");
 
-  const page = await app.firstWindow();
-  await resizeWindow(viewport.width, viewport.height);
-  await page.reload();
-  await page.waitForLoadState("load");
+    const context = app.context();
+    await context.route(/^https?:/, (route) => {
+      blockedRequests.push(route.request().url());
+      return route.abort();
+    });
+    await context.clock.setFixedTime(FIXED_TIME);
+
+    resizeWindow = async (width: number, height: number) => {
+      await app.evaluate(
+        ({ BrowserWindow }, size) => {
+          const window = BrowserWindow.getAllWindows()[0]!;
+          window.setPosition(40, 40);
+          window.setContentSize(size.width, size.height);
+        },
+        { width, height },
+      );
+    };
+
+    page = await app.firstWindow();
+    await resizeWindow(viewport.width, viewport.height);
+    await page.reload();
+    await page.waitForLoadState("load");
+  } catch (error) {
+    await quit(app);
+    throw error;
+  }
 
   const ctx: DriveContext = { page, viewport, resizeWindow, touchedSettings: new Map() };
   const faults = () => readFaults(seamLog);
@@ -284,7 +304,6 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     page,
     runDir,
     seamLog,
-    userData,
     blockedRequests,
     ctx,
     faults,
@@ -293,12 +312,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
         path.join(runDir, "blocked-renderer.json"),
         JSON.stringify(blockedRequests, null, 1),
       );
-      // Hidden first, so the visibility events fire while the windows are alive
-      await app
-        .evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((w) => w.hide()))
-        .catch(() => {});
-      await app.evaluate(({ app: electron }) => electron.exit(0)).catch(() => {});
-      await app.close().catch(() => {});
+      await quit(app);
       return { faults: faults(), leaks: stampDiff(before, checkoutStamp(repo)) };
     },
   };
@@ -354,6 +368,7 @@ if (import.meta.main) {
         }
         if (body.op === "shot") {
           const file = body.path ?? path.join(running.runDir, "shot.png");
+          refuseRealFolder(file, "screenshot path");
           await running.page.screenshot({ path: file, animations: "disabled", caret: "hide" });
           return new Response(file);
         }

@@ -19,3 +19,15 @@ test.skipIf(process.platform !== "darwin")(
     expect(gameRunning(process.platform, "BmtFakeGame")).toBe(false);
   },
 );
+
+test("a process list that cannot be read counts as a running game", () => {
+  const lines: string[] = [];
+  const path = process.env.PATH;
+  process.env.PATH = "/nonexistent";
+  try {
+    expect(gameRunning(process.platform, "BmtFakeGame", (line) => lines.push(line))).toBe(true);
+  } finally {
+    process.env.PATH = path;
+  }
+  expect(lines.join("\n")).toContain("assuming a game is running");
+});
