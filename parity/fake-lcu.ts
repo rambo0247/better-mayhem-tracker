@@ -51,6 +51,8 @@ export interface FakeLcu {
   /** Resolves after the last timeline step has run. */
   finished: Promise<void>;
   play(): void;
+  /** Lets a gated match-history service answer. */
+  releaseSgp(): void;
   stop(): Promise<void>;
 }
 
@@ -273,6 +275,8 @@ export async function startFakeLcu(options: FakeLcuOptions): Promise<FakeLcu> {
     },
   });
 
+  let releaseSgp: () => void = () => {};
+  const sgpGate = new Promise<void>((resolve) => (releaseSgp = resolve));
   const recordSgp = record("sgp");
   const sgp = Bun.serve({
     hostname: "127.0.0.1",
@@ -287,6 +291,7 @@ export async function startFakeLcu(options: FakeLcuOptions): Promise<FakeLcu> {
       if (!/^\/match-history-query\/v1\/products\/lol\/player\/[^/]+$/.test(url.pathname)) {
         return reply(404, {});
       }
+      if (scenario.sgp.gated) await sgpGate;
       if (scenario.sgp.stall) return never();
       if (scenario.sgp.status) return reply(scenario.sgp.status, { message: "parity fake" });
       const start = Number(url.searchParams.get("startIndex") ?? 0);
@@ -332,6 +337,7 @@ export async function startFakeLcu(options: FakeLcuOptions): Promise<FakeLcu> {
     subscribed,
     finished,
     play,
+    releaseSgp,
     async stop() {
       for (const timer of timers) clearTimeout(timer);
       fs.rmSync(lockfile, { force: true });

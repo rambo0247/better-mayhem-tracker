@@ -7,7 +7,7 @@ const scenario: ScenarioFactory = (context) => {
     "backfill-error",
     "A history import fails because the match-history service answers 500.",
   );
-  return { ...failing, sgp: { ...failing.sgp, status: 500 } };
+  return { ...failing, sgp: { ...failing.sgp, status: 500, gated: true } };
 };
 
 export default scenario;

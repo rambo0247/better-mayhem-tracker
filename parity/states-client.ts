@@ -20,6 +20,8 @@ export interface ClientSpec {
   after?: ClientLabel;
   /** Wait until the scenario's new game is the newest one in the database. */
   awaitGame?: boolean;
+  /** Release a gated match-history service once the route is open. */
+  releaseImport?: boolean;
   /** Stop the client once the route is open, then wait for the app to notice. */
   stopClient?: boolean;
 }
@@ -147,10 +149,12 @@ export const CLIENT_STATES: StateRow[] = [
   clientRow("backfill-toast-done", "/", "text=Imported 3 past game(s)", {
     scenario: "backfill-done",
     ready: "Connected",
+    releaseImport: true,
   }),
   clientRow("backfill-toast-error", "/", "text=Import failed", {
     scenario: "backfill-error",
     ready: "Connected",
+    releaseImport: true,
   }),
 
   clientRow("challenges-loaded", "/challenges", "text=Parity Authority", {

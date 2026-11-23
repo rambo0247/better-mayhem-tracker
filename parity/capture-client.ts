@@ -147,6 +147,7 @@ export async function openClientState(
       if (spec.after) await waitForLabel(page, spec.after);
       if (spec.awaitGame) await waitForNewestGame(page, fake.scenario.games[0]!.id);
     }
+    if (fake && spec.releaseImport) fake.releaseSgp();
     if (fake && spec.stopClient) {
       await fake.stop();
       await waitForLabel(page, "Disconnected");

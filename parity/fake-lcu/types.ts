@@ -66,7 +66,8 @@ export interface Scenario {
   state: ClientState;
   timeline: Step[];
   /** What Riot's match-history service lists, newest first. */
-  sgp: { ids: number[]; stall?: boolean; status?: number };
+  /** `gated` holds every answer until the capture opens the page, so a one-off toast is not missed. */
+  sgp: { ids: number[]; stall?: boolean; status?: number; gated?: boolean };
   /** Games the client answers by id. Everything known to the context is answered too. */
   games: { id: number; payload: unknown }[];
   /** Detail requests for the SGP ids from this index on never answer. */
