@@ -77,6 +77,8 @@ function fakeListen() {
   return { listen, listeners };
 }
 
+// The DOM window test/setup.ts installs, which other files run against
+const pageWindow = globalThis.window;
 const noTransport: Transport = () => Promise.reject(new Error("no transport"));
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -85,7 +87,7 @@ describe("createApi events", () => {
     globalThis.window = { __BMT_BOOT__: { platform: "darwin", locale: null } } as never;
   });
   afterEach(() => {
-    delete (globalThis as { window?: unknown }).window;
+    globalThis.window = pageWindow;
   });
 
   test("an unsubscribe before listen resolves still removes the listener", async () => {
@@ -156,7 +158,7 @@ describe("tauriTransport, numbers JSON cannot carry", () => {
     } as never;
   });
   afterEach(() => {
-    delete (globalThis as { window?: unknown }).window;
+    globalThis.window = pageWindow;
   });
 
   // The wire text js_arg.rs's tests decode
