@@ -17,6 +17,8 @@ import {
   type Outcome,
 } from "./golden-format.ts";
 import { IPC_CASES, READ_GROUP, type IpcCase, type Prior, type Vars } from "./ipc-cases.ts";
+import { startFakeLcu } from "./fake-lcu.ts";
+import { loadContext } from "./fake-lcu/context.ts";
 import { PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
 import { FIXED_TIME, startElectron, type RunningElectron } from "./run-electron.ts";
 
@@ -166,6 +168,26 @@ async function resolveVars(run: RunningElectron): Promise<Vars> {
     teammateKey: teammates[0]?.key ?? "no-teammates",
     groupKey: groups[0]?.key ?? "no-groups",
   };
+}
+
+/**
+ * A card page asks main for the item table of its season's patch, and main loads a patch it has
+ * not seen on that first ask. The card photographs itself before a late table arrives, so
+ * whether item names appear depends on timing. Every patch is loaded before the first card.
+ */
+async function warmItemPatches(run: RunningElectron, channels: Record<string, string>) {
+  const ask = async (channel: string, ...args: unknown[]): Promise<any> => {
+    await invokeRaw(run, channel, args);
+    return (await drain(run)).find((r) => r.k === "end" && r.ok)?.result;
+  };
+  const options = await ask(channels.getMatchFilterOptions!);
+  for (const patch of options.patches as string[]) {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const table = await ask(channels.getItemData!, patch);
+      if (table && Object.keys(table).length > 0) break;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
 }
 
 // --- One case ---
@@ -329,6 +351,7 @@ async function runGroup(
       .filter((r) => r.k === "send")
       .map((r, i) => sendLine(r, i, "scenario"));
     const vars = await resolveVars(run);
+    if (group === "export-card") await warmItemPatches(run, channels);
     const prior: Prior = {};
     const goldens: IpcGolden[] = [];
     const scenario: EventLine[] = [];
@@ -447,6 +470,79 @@ async function recordUpdateScenario(data: string, repo: string): Promise<EventLi
   }
 }
 
+// --- The client scenarios ---
+
+/** Each fake-client scenario, and the event that says the app has finished reacting to it. */
+export const CLIENT_SCENARIOS: Record<string, { until: string; options?: Record<string, number> }> =
+  {
+    "end-of-game": { until: "lcu:games-updated" },
+    "backfill-running": { until: "lcu:backfill-progress" },
+    "backfill-done": { until: "lcu:backfill-done" },
+    "in-game": { until: "live:changed" },
+    "challenges-loaded": { until: "challenges:changed" },
+  };
+
+const CLIENT_SETTLE_MS = 1500;
+const CLIENT_DEADLINE_MS = 90_000;
+
+/**
+ * Runs the app against T03's fake League client and records every event the main process
+ * pushes, from launch to the scenario's last event.
+ */
+async function recordClientScenario(
+  name: string,
+  data: string,
+  repo: string,
+): Promise<{ lines: EventLine[]; runDir: string }> {
+  const spec = CLIENT_SCENARIOS[name];
+  if (!spec) throw new Error(`no client scenario ${name}`);
+  const fakeDir = path.join(PARITY_DIR, "out", "runs", `fake-${name}-${process.pid}`);
+  fs.rmSync(fakeDir, { recursive: true, force: true });
+  fs.mkdirSync(fakeDir, { recursive: true });
+  const run = await startElectron({ data, repo, seamEnv: { SEAM_FAKE_DIR: fakeDir } });
+  const fake = await startFakeLcu({
+    scenario: name,
+    context: loadContext(resolveDataRoot(data), spec.options ?? {}, FIXED_TIME.getTime()),
+    dir: fakeDir,
+  });
+  try {
+    await run.page.goto("about:blank");
+    const lines: EventLine[] = [];
+    const take = async () => {
+      for (const record of await drain(run)) {
+        if (record.k === "send") lines.push(sendLine(record, lines.length, "scenario"));
+      }
+    };
+    await Promise.race([
+      fake.subscribed,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`${name}: the app never subscribed`)), 60_000),
+      ),
+    ]);
+    fake.play();
+    await fake.finished;
+    const deadline = Date.now() + CLIENT_DEADLINE_MS;
+    let quietSince = 0;
+    while (Date.now() < deadline) {
+      await take();
+      if (lines.some((l) => l.event === spec.until)) {
+        quietSince ||= Date.now();
+        if (Date.now() - quietSince > CLIENT_SETTLE_MS) break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    await take();
+    if (!lines.some((l) => l.event === spec.until)) {
+      throw new Error(`${name}: ${spec.until} never arrived`);
+    }
+    return { lines, runDir: run.runDir };
+  } finally {
+    await fake.stop();
+    await run.close();
+    fs.rmSync(fakeDir, { recursive: true, force: true });
+  }
+}
+
 // --- Writing ---
 
 function writeJson(file: string, value: unknown, runDir: string) {
@@ -485,7 +581,7 @@ async function recordTiming(
   try {
     await drain(run);
     const vars = await resolveVars(run);
-    const reads = IPC_CASES.filter((c) => c.group === READ_GROUP);
+    const reads = IPC_CASES.filter((c) => c.group === READ_GROUP && !c.untimed);
     const samples = new Map<IpcCase, number[]>(reads.map((c) => [c, []]));
     for (let rep = 0; rep < repeat; rep++) {
       for (const testCase of reads) {
@@ -613,6 +709,17 @@ if (import.meta.main) {
     if (lines.length) {
       writeJsonl(path.join(out, "events", "update-install-failed.jsonl"), lines, out);
     }
+  }
+
+  const clientNames = scenario
+    ? [scenario].filter((n) => n in CLIENT_SCENARIOS)
+    : only
+      ? []
+      : Object.keys(CLIENT_SCENARIOS);
+  for (const name of clientNames) {
+    console.log(`scenario ${name}`);
+    const { lines, runDir } = await recordClientScenario(name, data, repo);
+    writeJsonl(path.join(out, "events", `${name}.jsonl`), lines, runDir);
   }
 
   const coverage = checkCoverage(out, apiText);

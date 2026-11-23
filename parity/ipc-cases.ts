@@ -1,4 +1,5 @@
 import type { Json, Outcome } from "./golden-format.ts";
+import { RENDERER_CALLS } from "./renderer-calls.ts";
 
 /** Ids and keys read from the fixture, so cases name rows that exist in whichever data they run on. */
 export interface Vars {
@@ -35,6 +36,8 @@ export interface IpcCase {
   dialogs?: Dialogs;
   /** Files to read back after the call, `$RUN` standing for the run folder. */
   files?: (vars: Vars, outcome: Outcome) => string[];
+  /** Left out of the timing run. */
+  untimed?: boolean;
   /** Runs before the call, with the run folder. */
   prepare?: (run: string) => void;
 }
@@ -417,6 +420,17 @@ write(WINDOW, "minimizeWindow", "minimize", "minimize");
 
 const CLOSE = "window-close";
 write(CLOSE, "closeWindow", "close", "close hides to tray or quits");
+
+// Replay matches a call by its exact arguments, so the argument lists the renderer really sends
+// each get a case. The timing run skips them: they repeat channels the cases above already time.
+const perMethod = new Map<string, number>();
+for (const [method, args] of RENDERER_CALLS) {
+  const n = (perMethod.get(method) ?? 0) + 1;
+  perMethod.set(method, n);
+  add(method, `renderer-${n}`, "a call the Tauri renderer makes", () => args as Json[], {
+    untimed: true,
+  });
+}
 
 export const IPC_CASES: readonly IpcCase[] = list;
 
