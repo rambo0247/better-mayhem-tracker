@@ -103,7 +103,7 @@ fn hidden_queues(conn: &Connection) -> rusqlite::Result<Vec<f64>> {
     let raw = match get_setting(conn, "hidden_queues")? {
         Cell::Text(raw) => raw,
         Cell::Null => return Ok(Vec::new()),
-        Cell::Number(n) if n == 0.0 => return Ok(Vec::new()),
+        Cell::Number(0.0) => return Ok(Vec::new()),
         Cell::Number(_) | Cell::Blob(_) => {
             return Err(js::thrown(js::TypeError(
                 "raw.split is not a function".into(),
