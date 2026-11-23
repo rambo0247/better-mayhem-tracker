@@ -68,7 +68,7 @@ Client states live in `states-client.ts`. Rows with `empty` run on a copy of the
 
 ## Windows
 
-`.github/workflows/parity.yml` runs the baseline on `windows-latest` once the anonymized fixture is committed under `parity/snapshots/fixture` (decision E2). Until then the Windows job skips with a notice, and lane 9 stays open. Nothing publishes the fixture as an artifact.
+`.github/workflows/parity.yml` runs the baseline on `windows-latest`. The fixture is not committed yet, so the workflow takes it from a workflow_dispatch input (`fixture_run`, the run id holding a `parity-fixture` artifact) and otherwise skips with a notice. Without the Riot asset cache, icons do not load, which affects both of two Windows runs the same way.
 
 Electron runs with `--disable-gpu` by default, because GPU compositing repeats less between runs (waiver W1). `PARITY_GPU=on` turns the GPU back on, and any other value but `off` is an error. Electron also runs with `--disable-partial-raster`, since partial raster made the antialiased edges of icons depend on invalidation order. `PARITY_ELECTRON_ARGS` adds Chromium flags, such as `--disable-renderer-backgrounding`. `SEAM_DOCK=show` keeps the Dock icon for a comparison run.
 
@@ -82,3 +82,23 @@ Every spawning command runs under `lib/capped.sh <headroom>`, which caps process
 
 - `bun lint --flavor eslint` is what lints parity. Without the flavor, Bun walks up to the root `.oxlintrc.json`, whose ignore patterns name `parity`, and lints nothing.
 - Overlays and menus belong to T04.
+
+## Perf probe (T06)
+
+`bun parity/perf.ts --app electron-1.2.1 [--app tauri --tauri <.app|.exe>] --runs 10` measures download size, installed size, idle memory across every process, and launch to first content. It downloads the v1.2.1 release with `gh release download` into `out/perf/assets/`, copies the fixture into a fresh data folder per run, and starts the packaged app as a plain child. Runs alternate between apps with a fresh profile each time. Idle memory is the median of 5 samples 10 s apart, taken 60 s after first content. Unknown flags are an error.
+
+- `--scenario hidden-idle` launches each app with `--hidden`, as a login item does, and measures idle with no window. The default is `visible-idle`. A hidden sweep writes `<apps>-hidden-idle-<mac|win>.json`.
+- Memory on macOS is footprint's de-duplicated `total footprint` for the app's whole process set from `footprint -j`, with summed RSS beside it. On Windows it is the summed private working set (`perf/memory-win.ps1`). Electron helpers are found by parent pid, Tauri's WebKit helpers by what they hold open. A run with a missing or ambiguous helper is marked invalid and records no number.
+- Load is sampled every 2 s for the whole sweep: the 1-minute load average and CPU idle, from `top` on macOS. A sweep whose median CPU idle is below 30% writes `<name>.refused.json` and no numbers, and exits 1. The gate uses idle because Windows reports a load average of 0. Per-run progress prints only ok or INVALID. `--min-cpu-idle <share>` changes the threshold, and the JSON records the threshold and whether the flag set it.
+- On macOS the packaged app has no seam, so it runs under a Seatbelt profile that hides the League install and `ps`, denies all access to the real data folder, and denies writes to `~/Library/LaunchAgents`, with `--no-sandbox` for Electron because a process under a profile cannot start Chromium's own. For Electron, `--isolation none` waits for no League client instead.
+- `bun parity/perf/prove.ts --tauri <.app>` runs the known-case proofs for the attribution.
+- The windows job is `gh workflow run parity.yml --ref <branch> -f lanes=perf -f fixture_run=<id>`.
+
+### Tauri runs
+
+A release build has no data-root override, so the probe moves the folder the OS reports instead. These rules hold for every Tauri run:
+
+- Build the binary with the perf bundle id, `com.better-mayhem-tracker.perf`, because WebKit keeps `~/Library/WebKit/<bundle id>` under the real home whatever HOME says. From `tauri/`: `CI=true CARGO_TARGET_DIR=<yours> bun run tauri build --bundles app --config ../parity/perf/tauri-perf.conf.json`. The probe refuses a bundle whose `Info.plist` carries any other id.
+- On macOS the app runs with HOME set to `<run>/home`, because `dirs::config_dir` is `$HOME/Library/Application Support`, so a release build opens `<run>/home/Library/Application Support/better-mayhem-tracker`. `--tauri-profile lane` is for any other Cargo profile, which also gets `BMT_DATA_ROOT=<run>/userdata`. The Seatbelt profile stays on as the backstop, and `--isolation none` is refused.
+- On Windows a release build finds its folder with `SHGetKnownFolderPath`, which no environment variable moves. Tauri runs there are refused unless `CI` and `GITHUB_ACTIONS` are both `true`, and the probe clears that folder only when it holds the marker the probe left in it.
+- A run counts only once the app proves it opened the copy: its log is at `<data root>/logs/main.log`, and its `first-content N ms` line ends with `row=` and the first row's text as a JSON string, which must be the fixture's newest game. `--data none` is refused for Tauri.
