@@ -99,8 +99,8 @@ mod win {
     use windows::Win32::System::Variant::VT_LPWSTR;
     use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
     use windows::Win32::UI::Shell::{
-        IShellLinkW, SHStrDupW, SLGP_UNCPRIORITY, SetCurrentProcessExplicitAppUserModelID,
-        ShellLink,
+        IShellLinkW, SHCNE_CREATE, SHCNE_UPDATEITEM, SHCNF_FLUSH, SHCNF_PATH, SHChangeNotify,
+        SHStrDupW, SLGP_UNCPRIORITY, SetCurrentProcessExplicitAppUserModelID, ShellLink,
     };
     use windows::core::{BSTR, HSTRING, Interface, Result};
 
@@ -182,20 +182,40 @@ mod win {
         app_id: &str,
     ) -> Result<()> {
         let _com = Com::init();
-        let shell_link = shell_link()?;
-        let app_id = string_variant(app_id)?;
-        // SAFETY: every string and the variant outlive the calls
-        unsafe {
-            shell_link.SetPath(&HSTRING::from(exe))?;
-            shell_link.SetWorkingDirectory(&HSTRING::from(cwd))?;
-            shell_link.SetDescription(&HSTRING::from(description))?;
-            let store = shell_link.cast::<IPropertyStore>()?;
-            store.SetValue(&PKEY_AppUserModel_ID, &app_id)?;
-            store.Commit()?;
-            shell_link
-                .cast::<IPersistFile>()?
-                .Save(&HSTRING::from(link), true)
+        let existed = link.exists();
+        let path = HSTRING::from(link);
+        {
+            let shell_link = shell_link()?;
+            let app_id = string_variant(app_id)?;
+            // SAFETY: every string and the variant outlive the calls
+            unsafe {
+                shell_link.SetPath(&HSTRING::from(exe))?;
+                shell_link.SetWorkingDirectory(&HSTRING::from(cwd))?;
+                shell_link.SetDescription(&HSTRING::from(description))?;
+                let store = shell_link.cast::<IPropertyStore>()?;
+                store.SetValue(&PKEY_AppUserModel_ID, &app_id)?;
+                store.Commit()?;
+                shell_link.cast::<IPersistFile>()?.Save(&path, true)?;
+            }
         }
+        // Chromium releases the link first, in case the shell reads the file
+        // the moment it hears of it
+        let event = if existed {
+            SHCNE_UPDATEITEM
+        } else {
+            SHCNE_CREATE
+        };
+        // SAFETY: HSTRING keeps a terminating null, as SHCNF_PATHW reads, and
+        // the path outlives the call, which SHCNF_FLUSH makes synchronous
+        unsafe {
+            SHChangeNotify(
+                event,
+                SHCNF_PATH | SHCNF_FLUSH,
+                Some(path.as_ptr().cast()),
+                None,
+            );
+        }
+        Ok(())
     }
 }
 
