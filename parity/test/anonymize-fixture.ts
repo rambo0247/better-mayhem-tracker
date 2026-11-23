@@ -77,7 +77,7 @@ function payload(gameId: number, order: Person[]) {
         matchHistoryUri: `/v1/stats/${8000 + i}`,
       },
     })),
-    note: `Played with ${FRIEND.name}, gg al, also ${HANGUL.name}님 and ${RIVAL.name}#${RIVAL.tag}`,
+    note: `Played with ${FRIEND.name}#${FRIEND.tag}, gg al, also ${HANGUL.name}#${HANGUL.tag}, and ${RIVAL.name}#${RIVAL.tag}`,
     scores: { [ME.puuid]: 10 },
   };
 }
@@ -123,7 +123,7 @@ export function buildDatabase(file: string) {
   db.run("INSERT INTO settings VALUES ('auto_start_path', '/Users/someone/App.app')");
   db.run("INSERT INTO settings VALUES ('pinned_friend', ?)", [`${FRIEND.name}#${FRIEND.tag}`]);
   db.run("INSERT INTO challenge_state VALUES (1, ?)", [
-    JSON.stringify({ player: { puuid: ME.puuid, title: `${ME.name}'s title` }, groups: [] }),
+    JSON.stringify({ player: { puuid: ME.puuid, title: "Veteran" }, groups: [] }),
   ]);
   db.run("INSERT INTO challenge_game_progress VALUES (100, 'Bloom Where Planted', ?)", [
     `Win with ${SHORT.name} on your team`,

@@ -147,9 +147,15 @@ export const STATES: StateRow[] = [
     steps: [{ op: "click", selector: ".seg-item", text: "Items" }],
   }),
 
-  row("trends-weekly", "trends", "/trends", "svg", {
-    pre: [{ op: "local", key: "view:trends.granularity", value: '"week"' }],
-  }),
+  row(
+    "trends-weekly",
+    "trends",
+    "/trends",
+    'button.seg-item[aria-pressed="true"]:has-text("Weekly")',
+    {
+      pre: [{ op: "local", key: "view:trends.granularity", value: '"week"' }],
+    },
+  ),
 
   // No games and no client: the waiting message, and the page without its dashboard header.
   row("match-history-empty-waiting", "match-history", "/", "main .panel", { data: "empty" }),

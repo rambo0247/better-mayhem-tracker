@@ -34,10 +34,17 @@ export async function settle(
       let pending: number;
       for (;;) {
         const images = [...document.images];
-        // Lazy images far below the fold never load, so only the ones near the viewport count
+        // A lazy image loads when the engine decides it is near enough, and engines differ on
+        // how near, so one outside the viewport may never load and is not waited for. Others
+        // count within a screen of the viewport.
         pending = images.filter((image) => {
           if (image.complete) return false;
           const box = image.getBoundingClientRect();
+          if (image.loading === "lazy") {
+            return (
+              box.bottom > 0 && box.top < innerHeight && box.right > 0 && box.left < innerWidth
+            );
+          }
           return box.bottom > -innerHeight && box.top < 2 * innerHeight;
         }).length;
         const status = document.querySelector('[role="status"][aria-label^="League client:"]');

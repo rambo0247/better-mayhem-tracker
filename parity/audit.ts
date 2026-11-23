@@ -25,6 +25,8 @@ export interface AuditResult {
     numericIds: number;
     files: number;
     strings: number;
+    /** Names found among other words, which are game text and not identities. Never a failure. */
+    bareNames: number;
   };
   /** Every hit, counted by kind. Any hit fails the audit. */
   hits: Partial<Record<HitKind, number>>;
@@ -74,19 +76,21 @@ export function auditFixture(
       numericIds: real.numericIds.length,
       files: 0,
       strings: 0,
+      bareNames: 0,
     },
     hits: {},
     locations: [],
   };
   const hit = (where: string, kind: HitKind) => {
     result.hits[kind] = (result.hits[kind] ?? 0) + 1;
-    const line = `${matcher.replace(where, () => "<redacted>")}: ${kind}`;
+    const line = `${matcher.redact(where, "<redacted>")}: ${kind}`;
     if (result.locations.length < 200 && !result.locations.includes(line)) {
       result.locations.push(line);
     }
   };
   const searchText = (where: string, text: string) => {
     result.searched.strings++;
+    result.searched.bareNames += matcher.countBareNames(text);
     for (const match of matcher.find(text)) hit(where, MATCH_KIND[match.kind]);
   };
   const searchStructure = (where: string, text: string) => {
@@ -163,7 +167,10 @@ export function auditFixture(
 
   const files = fs.readdirSync(fixtureDir, { recursive: true, encoding: "utf8" }).sort();
   for (const relative of files) {
-    searchText(`file path ${relative}`, relative);
+    for (const segment of relative.split(path.sep)) {
+      searchText(`file path ${relative}`, segment);
+      searchText(`file path ${relative}`, segment.replace(/\.[^.]*$/, ""));
+    }
     const file = path.join(fixtureDir, relative);
     if (!fs.statSync(file).isFile()) continue;
     result.searched.files++;
@@ -200,7 +207,7 @@ if (import.meta.main) {
   const result = auditFixture(fixture, snapshot);
   const s = result.searched;
   console.log(
-    `searched ${s.files} files and ${s.strings} strings for ${s.names} names, ${s.tags} tag lines, ${s.puuids} PUUIDs, ${s.numericIds} account and summoner ids`,
+    `searched ${s.files} files and ${s.strings} strings for ${s.names} names, ${s.tags} tag lines, ${s.puuids} PUUIDs, ${s.numericIds} account and summoner ids. ${s.bareNames} names sit among other words in game text and are not identities`,
   );
   for (const [kind, count] of Object.entries(result.hits)) console.log(`${count}\t${kind}`);
   for (const line of result.locations) console.log(`  ${line}`);

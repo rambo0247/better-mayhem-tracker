@@ -59,21 +59,28 @@ const alternation = (values: string[], wrap: (value: string) => string) =>
  *
  * - A PUUID matches anywhere, in any case. A UUID that is not a known PUUID is skipped whole,
  *   so a name is never found inside one.
- * - A name matches as a whole token, in any case and any script.
- * - A tag line matches only right after `<word>#`, the `name#tag` form the app stores. A bare
- *   tag line is a region code or a number and identifies nobody.
+ * - A name matches as an identity in two places only: right before `#` and a tag, the `name#tag`
+ *   form the app stores, and as the whole value of a string. A name among other words is
+ *   ordinary text, since a player can be called "you" or "Snow" and the game says both.
+ * - A tag line matches only right after `<word>#`. A bare tag line is a region code or a number
+ *   and identifies nobody.
  */
 export class IdentityMatcher {
   private readonly text: RegExp;
   private readonly structure: RegExp;
   private readonly puuids: RegExp;
+  private readonly bare: RegExp;
+  private readonly whole: Set<string>;
 
   constructor(identities: Identities) {
     const puuid = alternation(identities.puuids, escapeRegExp);
     const name = alternation(identities.names, bounded);
     const tag = `(?<=[${WORD}])#(?<tag>${alternation(identities.tags, escapeRegExp)})(?![${WORD}])`;
     const uuid = `(?<uuid>${UUID_SOURCE})`;
-    this.text = new RegExp(`(?<puuid>${puuid})|${uuid}|(?<name>${name})|${tag}`, "giu");
+    const beforeTag = `(?=#[${WORD}])`;
+    this.text = new RegExp(`(?<puuid>${puuid})|${uuid}|(?<name>${name})${beforeTag}|${tag}`, "giu");
+    this.bare = new RegExp(`(?<name>${name})`, "giu");
+    this.whole = new Set(identities.names.map((value) => value.toLowerCase()));
     this.structure = new RegExp(`(?<puuid>${puuid})|${uuid}|${tag}`, "giu");
     this.puuids = new RegExp(`(?<puuid>${puuid})`, "gi");
   }
@@ -85,7 +92,26 @@ export class IdentityMatcher {
 
   /** Every real identity in free text. */
   find(text: string): Match[] {
-    return this.cached(this.textHits, this.text, text);
+    const hits = this.cached(this.textHits, this.text, text);
+    const whole = this.wholeName(text);
+    return whole && !hits.some((hit) => hit.kind === "name") ? [...hits, whole] : hits;
+  }
+
+  /** Names among other words, which are text and not identities. Counted for the audit's report. */
+  countBareNames(text: string): number {
+    let count = this.bareCounts.get(text);
+    if (count === undefined) {
+      const named = this.find(text).filter((hit) => hit.kind === "name").length;
+      this.bareCounts.set(text, (count = Math.max(0, collect(this.bare, text).length - named)));
+    }
+    return count;
+  }
+  private readonly bareCounts = new Map<string, number>();
+
+  private wholeName(text: string): Match | null {
+    const trimmed = text.trim();
+    if (!trimmed || !this.whole.has(trimmed.toLowerCase())) return null;
+    return { kind: "name", text: trimmed, index: text.indexOf(trimmed) };
   }
 
   /** Every real identity in an object key, where only PUUIDs and `name#tag` forms count. */
@@ -103,7 +129,14 @@ export class IdentityMatcher {
   }
 
   replace(text: string, fake: (match: Match) => string): string {
+    const whole = this.wholeName(text);
+    if (whole) return text.replace(whole.text, fake(whole));
     return substitute(this.text, text, fake);
+  }
+
+  /** Text safe to print: every identity and every bare name in it is masked. */
+  redact(text: string, mask: string): string {
+    return substitute(this.text, text, () => mask).replace(this.bare, mask);
   }
 
   replaceInKey(key: string, fake: (match: Match) => string): string {

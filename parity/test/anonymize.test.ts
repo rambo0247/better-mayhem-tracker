@@ -64,22 +64,22 @@ test("no real name, tag line or PUUID survives in a table, a payload, a setting,
   const bytes = fs.readFileSync(anonymized).toString("latin1");
   const words = text.toLowerCase().replaceAll("mapskin_map12_bloom", "");
   for (const person of PEOPLE) {
-    if (person !== SHORT) expect(words).not.toContain(person.name.toLowerCase());
+    if (person !== SHORT && person !== BLOOM)
+      expect(words).not.toContain(person.name.toLowerCase());
     expect(text).not.toContain(person.puuid);
     expect(bytes).not.toContain(person.puuid);
     expect(text).not.toContain(`#${person.tag}`);
   }
-  expect(text).not.toMatch(/\bal\b/i);
   expect(text).not.toContain("someone");
   expect(text).not.toContain("1.9.9");
   expect(text).not.toContain("/v1/stats/");
   expect(text).toContain(BOT);
 });
 
-test("names are scrubbed where they are names and kept where they are game words", () => {
+test("names are scrubbed as identities and kept as words among other text", () => {
   const { anonymized } = anonymizedCopy("words");
   const raw = payloadOf(anonymized, 100);
-  expect(raw.note).toMatch(/^Played with \w+, gg \w+, also \w+님 and \w+#Z\d{3}$/);
+  expect(raw.note).toMatch(/^Played with \w+#Z\d{3}, gg al, also \w+#Z\d{3}, and \w+#Z\d{3}$/);
   expect(raw.platformId).toBe("NA1");
   expect(raw.participantIdentities[0].player.platformId).toBe("NA1");
   expect(raw.gameVersion).toBe("16.23.4321.0042");
@@ -87,11 +87,11 @@ test("names are scrubbed where they are names and kept where they are game words
   expect(one(anonymized, "SELECT game_version FROM games WHERE game_id = 100")).toBe(
     "16.23.4321.0042",
   );
-  const progress = one(anonymized, "SELECT name FROM challenge_game_progress") as string;
-  expect(progress).toMatch(/^\w+ Where Planted$/);
-  expect(progress).not.toContain(BLOOM.name);
-  expect(one(anonymized, "SELECT description FROM challenge_game_progress")).toMatch(
-    /^Win with \w+ on your team$/,
+  expect(one(anonymized, "SELECT name FROM challenge_game_progress")).toBe(
+    `${BLOOM.name} Where Planted`,
+  );
+  expect(one(anonymized, "SELECT description FROM challenge_game_progress")).toBe(
+    `Win with ${SHORT.name} on your team`,
   );
 });
 
@@ -122,7 +122,7 @@ test("the same input name maps to the same fake in tables, payloads, settings an
       expect(identity.tagLine).toBe(row.tag_line);
       expect(identity.puuid).toBe(row.puuid);
     }
-    expect(raw.note).toStartWith(`Played with ${friend.game_name}, `);
+    expect(raw.note).toStartWith(`Played with ${friend.game_name}#${friend.tag_line}, `);
     expect(raw.note).toEndWith(` and ${rival.game_name}#${rival.tag_line}`);
   }
 
@@ -135,7 +135,7 @@ test("the same input name maps to the same fake in tables, payloads, settings an
     (db.query("SELECT payload FROM challenge_state").get() as any).payload,
   );
   expect(challenge.player.puuid).toBe(summoner.puuid);
-  expect(challenge.player.title).toBe(`${summoner.game_name}'s title`);
+  expect(challenge.player.title).toBe("Veteran");
   expect(Object.keys(payloadOf(anonymized, 100).scores)).toEqual([summoner.puuid]);
   const version = db
     .query("SELECT value FROM settings WHERE key = 'last_run_version'")
@@ -149,14 +149,16 @@ test("a name matched through Unicode case folding still finds its fake", () => {
   const file = path.join(dir, "fold.db");
   buildDatabase(file);
   const db = new Database(file);
-  db.run("INSERT INTO settings VALUES ('long_s', ?)", [`gg ${RIVAL.name.replace("S", "\u017f")}`]);
+  db.run("INSERT INTO settings VALUES ('long_s', ?)", [
+    `gg ${RIVAL.name.replace("S", "\u017f")}#${RIVAL.tag}`,
+  ]);
   db.close();
   anonymizeDatabase(file);
   const rival = one(
     file,
     "SELECT game_name FROM match_participants WHERE game_id = 100 AND participant_id = 3",
   ) as string;
-  expect(one(file, "SELECT value FROM settings WHERE key = 'long_s'")).toBe(`gg ${rival}`);
+  expect(one(file, "SELECT value FROM settings WHERE key = 'long_s'")).toStartWith(`gg ${rival}#`);
 });
 
 test("no fake value is itself a real name or tag line", () => {

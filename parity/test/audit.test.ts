@@ -44,36 +44,36 @@ test("the built fixture passes the audit, Riot static names included", () => {
 
 const PLANTS: [string, HitKind, (dir: string, db: Database) => void][] = [
   [
-    "a name in payload free text",
+    "a name before #tag in payload free text",
     "real name",
     (_dir, db) => {
       const row = db.query("SELECT raw_gz FROM games WHERE game_id = 100").get() as any;
       const raw = JSON.parse(zlib.gunzipSync(row.raw_gz).toString());
-      raw.note = `rematch ${RIVAL.name.toUpperCase()} soon`;
+      raw.note = `rematch ${RIVAL.name.toUpperCase()}#9999 soon`;
       db.run("UPDATE games SET raw_gz = ? WHERE game_id = 100", [
         zlib.gzipSync(JSON.stringify(raw)),
       ]);
     },
   ],
   [
-    "a two-letter name in a table the anonymizer has never seen",
+    "a two-letter name as the whole value in a table the anonymizer has never seen",
     "real name",
     (_dir, db) => {
       db.run("CREATE TABLE notes (body TEXT)");
-      db.run("INSERT INTO notes VALUES (?)", [`gg ${SHORT.name}`]);
+      db.run("INSERT INTO notes VALUES (?)", [SHORT.name]);
     },
   ],
   [
     "a Hangul name in a setting value",
     "real name",
-    (_dir, db) => db.run("INSERT INTO settings VALUES ('greeting', ?)", [`${HANGUL.name}님`]),
+    (_dir, db) => db.run("INSERT INTO settings VALUES ('greeting', ?)", [HANGUL.name]),
   ],
   [
-    "a name in another gzipped blob",
+    "a name before #tag in another gzipped blob",
     "real name",
     (_dir, db) => {
       db.run("CREATE TABLE extra (body BLOB)");
-      db.run("INSERT INTO extra VALUES (?)", [zlib.gzipSync(`with ${FRIEND.name}`)]);
+      db.run("INSERT INTO extra VALUES (?)", [zlib.gzipSync(`with ${FRIEND.name}#X1`)]);
     },
   ],
   [
@@ -121,7 +121,7 @@ const PLANTS: [string, HitKind, (dir: string, db: Database) => void][] = [
   [
     "a name in a text file",
     "real name",
-    (dir) => fs.writeFileSync(path.join(dir, "notes.txt"), `ask ${RIVAL.name}`),
+    (dir) => fs.writeFileSync(path.join(dir, "notes.txt"), `ask ${RIVAL.name}#7`),
   ],
   [
     "an identity field in a Riot static file",

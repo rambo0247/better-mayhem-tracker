@@ -304,6 +304,25 @@ function isLoopback(given) {
     octets.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)
   );
 }
+// A running game serves its API on 2999 with no login, so no socket, whatever called it, may
+// connect to that port. http, https, fetch, net and tls all end in Socket.connect. The port is
+// SEAM_LIVE_PORT so a test can stand a listener in for it, and run-electron pins it to 2999.
+const net = require("net");
+const realSocketConnect = net.Socket.prototype.connect;
+net.Socket.prototype.connect = function (...args) {
+  const first = Array.isArray(args[0]) ? args[0][0] : args[0];
+  const options = first !== null && typeof first === "object" ? first : { port: first };
+  const guarded = Number(process.env.SEAM_LIVE_PORT || 2999);
+  if (Number(options.port) === guarded) {
+    log("blocked-live-port", String(options.host ?? "localhost"), String(options.port));
+    const error = new Error(`seam refused the live client port ${options.port}`);
+    error.code = "ECONNREFUSED";
+    process.nextTick(() => this.destroy(error));
+    return this;
+  }
+  return realSocketConnect.apply(this, args);
+};
+
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : (input.url ?? String(input));

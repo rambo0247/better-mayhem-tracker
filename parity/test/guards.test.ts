@@ -338,4 +338,68 @@ describe("seam", () => {
       "https://example.com/": "blocked",
     });
   });
+  test("every way of connecting to the live client's port is refused, and another port still connects", () => {
+    const script = `
+      const http = require("http"), https = require("https"), net = require("net"), tls = require("tls");
+      const hosts = ["127.0.0.1", "localhost", "[::1]", "127.0.0.2", "0.0.0.0"];
+      const bare = (h) => h.replace("[", "").replace("]", "");
+      const server = net.createServer((socket) => { hits++; socket.destroy(); });
+      let hits = 0;
+      const refused = (error) => /seam refused the live client port/.test(String(error?.message ?? error));
+      const settle = (run) => new Promise((resolve) => {
+        const done = (value) => resolve(value);
+        try {
+          const target = run(done);
+          target?.on?.("error", (error) => done(refused(error) ? "refused" : "failed"));
+          setTimeout(() => done("open"), 700);
+        } catch (error) { done(refused(error) ? "refused" : "failed"); }
+      });
+      server.listen(0, "127.0.0.1", async () => {
+        const live = server.address().port;
+        process.env.SEAM_LIVE_PORT = String(live);
+        const forms = {
+          httpString: (h) => http.get("http://" + h + ":" + live + "/liveclientdata/allgamedata"),
+          httpUrl: (h) => http.get(new URL("http://" + h + ":" + live + "/")),
+          httpOptions: (h) => http.request({ host: bare(h), port: live }),
+          httpsString: (h) => https.get("https://" + h + ":" + live + "/", { rejectUnauthorized: false }),
+          httpsOptions: (h) => https.request({ hostname: bare(h), port: live, rejectUnauthorized: false }),
+          netPortHost: (h) => net.connect(live, bare(h)),
+          netOptions: (h) => net.connect({ port: live, host: bare(h) }),
+          netPortOnly: () => net.connect(live),
+          netString: (h) => net.connect(String(live), bare(h)),
+          socketConnect: (h) => new net.Socket().connect(live, bare(h)),
+          tlsConnect: (h) => tls.connect(live, bare(h), { rejectUnauthorized: false }),
+          tlsOptions: (h) => tls.connect({ port: live, host: bare(h), rejectUnauthorized: false }),
+        };
+        const results = {};
+        for (const [name, make] of Object.entries(forms)) {
+          for (const host of name === "netPortOnly" ? ["-"] : hosts) {
+            const outcome = await settle(() => make(host));
+            results[name + " " + host] = outcome === "refused" ? "refused" : "reached";
+          }
+        }
+        results.fetch = {};
+        for (const host of hosts) {
+          try { await fetch("http://" + host + ":" + live + "/", { signal: AbortSignal.timeout(700) }); results.fetch[host] = "reached"; }
+          catch (error) { results.fetch[host] = refused(error) || refused(error?.cause) ? "refused" : "failed"; }
+        }
+        const before = hits;
+        process.env.SEAM_LIVE_PORT = String(live + 1);
+        await settle(() => net.connect(live, "127.0.0.1").on("connect", () => {}));
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        console.log(JSON.stringify({ results, hitsWhileGuarded: before, hitsAfter: hits }));
+        process.exit(0);
+      });
+    `;
+    const { result, log } = run(script);
+    const { results, hitsWhileGuarded, hitsAfter } = JSON.parse(result.stdout);
+    const reached = Object.entries(results).filter(
+      ([name, outcome]) => name !== "fetch" && outcome !== "refused",
+    );
+    expect(reached).toEqual([]);
+    expect(Object.values(results.fetch)).toEqual(Array(5).fill("refused"));
+    expect(hitsWhileGuarded).toBe(0);
+    expect(hitsAfter).toBeGreaterThan(0);
+    expect(log).toContain("blocked-live-port");
+  });
 });
