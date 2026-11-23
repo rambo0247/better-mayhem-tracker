@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { emit } from "@tauri-apps/api/event";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { createApi, invokeError, tauriTransport, type Listen } from "./api";
 import type { Transport } from "./bindings";
 
@@ -174,6 +176,45 @@ describe("tauriTransport, answers JSON cannot carry", () => {
     answering({ $bytes: "AA==", other: 1 });
     const value: unknown = await createApi(tauriTransport).getSetting("x");
     expect(value).toEqual({ $bytes: "AA==", other: 1 });
+  });
+});
+
+describe("windowListen, payloads JSON cannot carry", () => {
+  beforeEach(() => {
+    globalThis.window = {
+      __BMT_BOOT__: { platform: "darwin", locale: null },
+      crypto: globalThis.crypto,
+    } as never;
+    mockWindows("main");
+    mockIPC(() => null, { shouldMockEvents: true });
+  });
+  afterEach(() => {
+    clearMocks();
+    globalThis.window = pageWindow;
+  });
+
+  test("a live game's non-finite numbers reach the page as the numbers", async () => {
+    const seen: unknown[] = [];
+    createApi(noTransport).onLiveGame((game) => seen.push(game));
+    await tick();
+    await emit("live:changed", {
+      respawnTimer: { $bmtNum: "Infinity" },
+      players: [{ level: { $bmtNum: "NaN" }, kills: 2 }],
+    });
+    const [game] = seen as [{ respawnTimer: number; players: { level: number; kills: number }[] }];
+    expect(game.respawnTimer).toBe(Infinity);
+    expect(game.players[0].level).toBeNaN();
+    expect(game.players[0].kills).toBe(2);
+  });
+
+  test("a challenges payload's blob reaches the page as a Uint8Array", async () => {
+    const seen: unknown[] = [];
+    createApi(noTransport).onChallengesChanged((state) => seen.push(state));
+    await tick();
+    await emit("challenges:changed", { blob: { $bytes: "AAEC/w==" } });
+    const [state] = seen as [{ blob: Uint8Array }];
+    expect(state.blob).toBeInstanceOf(Uint8Array);
+    expect([...state.blob]).toEqual([0, 1, 2, 255]);
   });
 });
 

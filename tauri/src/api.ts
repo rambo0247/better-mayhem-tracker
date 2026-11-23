@@ -125,8 +125,9 @@ type Unsubscribe = () => void;
 /** Registers a listener for one event of the main window, resolving to its unlisten. */
 export type Listen = <T>(event: string, handler: (payload: T) => void) => Promise<Unsubscribe>;
 
+/** Rust emits payloads with the same `{ $bmtNum }` and `{ $bytes }` sentinels it answers with. */
 export const windowListen: Listen = (event, handler) =>
-  getCurrentWebviewWindow().listen(event, (e) => handler(e.payload as never));
+  getCurrentWebviewWindow().listen(event, (e) => handler(decodeAnswer(e.payload) as never));
 
 /**
  * Electron's `on*` hands back its unsubscribe at once; Tauri's `listen` resolves to one.
