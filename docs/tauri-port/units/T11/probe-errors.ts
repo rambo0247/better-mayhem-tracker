@@ -10,7 +10,9 @@ const run = await startElectron({ data: data!, runDir: runDir!, repo: repo! });
 try {
   const result = await run.app.evaluate(() => {
     const base = (process as any).mainModule.require;
-    const req = base("module").createRequire(base("path").join(process.cwd(), "out", "main", "index.js"));
+    const req = base("module").createRequire(
+      base("path").join(process.cwd(), "out", "main", "index.js"),
+    );
     const Database = req("better-sqlite3");
     const p = req("path");
     const fs = req("fs");
@@ -20,7 +22,12 @@ try {
       try {
         return { kind: "ok", value: f() ?? null };
       } catch (e: any) {
-        return { kind: "error", name: e.constructor.name, code: e.code ?? null, message: e.message };
+        return {
+          kind: "error",
+          name: e.constructor.name,
+          code: e.code ?? null,
+          message: e.message,
+        };
       }
     };
     const mem = () => {
@@ -30,7 +37,9 @@ try {
       return db;
     };
     const cases: Record<string, unknown> = {};
-    cases.cantopen_missing_dir = attempt(() => new Database(p.join(scratch, "no-such-dir", "matches.db")));
+    cases.cantopen_missing_dir = attempt(
+      () => new Database(p.join(scratch, "no-such-dir", "matches.db")),
+    );
     cases.cantopen_directory = attempt(() => new Database(scratch).prepare("SELECT 1").get());
     cases.no_such_table = attempt(() => mem().prepare("SELECT * FROM nowhere").all());
     cases.syntax = attempt(() => mem().prepare("SELEC 1").all());
@@ -85,7 +94,10 @@ try {
           })();
         } catch {}
       })();
-      return db.prepare("SELECT a FROM t ORDER BY a").all().map((r: any) => r.a);
+      return db
+        .prepare("SELECT a FROM t ORDER BY a")
+        .all()
+        .map((r: any) => r.a);
     });
     cases.tx_savepoint_sql = attempt(() => {
       const db = mem();

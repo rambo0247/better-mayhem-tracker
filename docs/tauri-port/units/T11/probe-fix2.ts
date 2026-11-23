@@ -26,7 +26,7 @@ try {
         t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
         return (t ^ (t >>> 14)) >>> 0;
       };
-      const pick = <T,>(a: T[]): T => a[rnd() % a.length]!;
+      const pick = <T>(a: T[]): T => a[rnd() % a.length]!;
       const dv = new DataView(new ArrayBuffer(8));
       const bits = (x: number) => {
         if (Number.isNaN(x)) return "nan";
@@ -67,8 +67,7 @@ try {
       const literals = new Set<string>();
       while (literals.size < 30000) {
         const [prefixes, log2] = pick(RADIX);
-        const width =
-          rnd() % 10 === 0 ? 1018 + (rnd() % 16) : 54 + (rnd() % (1024 - 54 + 16));
+        const width = rnd() % 10 === 0 ? 1018 + (rnd() % 16) : 54 + (rnd() % (1024 - 54 + 16));
         const zeros = rnd() % 8 === 0 ? "0".repeat(1 + (rnd() % 6)) : "";
         literals.add(pick(prefixes) + zeros + digitsOf(valueBits(width), log2, true));
       }
@@ -102,7 +101,21 @@ try {
         for (let n = rnd() % 330; n > 0; n--) d += rnd() % 10;
         parseInts.add(pick(["", "-", "+", " ", "0000"]) + d + pick(["", "e5", ".9", "x"]));
       }
-      for (const t of ["0XAcAB4CAfab4AD45E6905b82dcff4", "0x", "-0x", "0x g", "0xg", "0x0", "-0", "-0x0", "", "  ", "0X1F", "+0x10"]) parseInts.add(t);
+      for (const t of [
+        "0XAcAB4CAfab4AD45E6905b82dcff4",
+        "0x",
+        "-0x",
+        "0x g",
+        "0xg",
+        "0x0",
+        "-0",
+        "-0x0",
+        "",
+        "  ",
+        "0X1F",
+        "+0x10",
+      ])
+        parseInts.add(t);
       const parseInt_ = [...parseInts].map((t) => [t, bits(parseInt(t))]);
       fs.writeFileSync(`${out}/parse-int.json`, JSON.stringify(parseInt_));
 
@@ -129,15 +142,21 @@ try {
         push("zero-then-garbage", Buffer.concat([gz(raw), z(1), Buffer.from("garbage")]));
         push("zero-then-member", Buffer.concat([gz(raw), z(n), gz(other)]));
         push("two-members", Buffer.concat([gz(raw.subarray(0, 3)), gz(raw.subarray(3))]));
-        push("two-members-zeros", Buffer.concat([gz(raw.subarray(0, 2)), gz(raw.subarray(2)), z(n)]));
-        push("trailing-garbage", Buffer.concat([gz(raw), Buffer.from(pick(["garbage", "\x01", "x\0\0"]))]));
+        push(
+          "two-members-zeros",
+          Buffer.concat([gz(raw.subarray(0, 2)), gz(raw.subarray(2)), z(n)]),
+        );
+        push(
+          "trailing-garbage",
+          Buffer.concat([gz(raw), Buffer.from(pick(["garbage", "\x01", "x\0\0"]))]),
+        );
         push("trailing-magic", Buffer.concat([gz(raw), Buffer.from([0x1f, 0x8b])]));
         push("trailing-1f", Buffer.concat([gz(raw), Buffer.from([0x1f])]));
         push("truncated", cut(gz(raw)));
         push("truncated-second", Buffer.concat([gz(raw), cut(gz(other))]));
         push("zeros-then-truncated", Buffer.concat([gz(raw), z(n), cut(gz(other))]));
         const crc = Buffer.from(gz(raw));
-        crc[crc.length - 6] ^= 1 << rnd() % 8;
+        crc[crc.length - 6] ^= 1 << (rnd() % 8);
         push("bad-crc", crc);
         const size = Buffer.from(gz(raw));
         size[size.length - 2] ^= 1;
@@ -145,7 +164,13 @@ try {
         push("leading-zero", Buffer.concat([z(1), gz(raw)]));
         push("empty-member-zeros", Buffer.concat([gz(Buffer.alloc(0)), z(n)]));
       }
-      for (const b of [Buffer.alloc(0), Buffer.alloc(4), Buffer.from("not gzip"), gz(Buffer.alloc(0))]) push("special", b);
+      for (const b of [
+        Buffer.alloc(0),
+        Buffer.alloc(4),
+        Buffer.from("not gzip"),
+        gz(Buffer.alloc(0)),
+      ])
+        push("special", b);
       fs.writeFileSync(`${out}/frames.json`, JSON.stringify(frames));
 
       const stringifyTexts = [
@@ -175,12 +200,16 @@ try {
     run.app.evaluate(
       (_electron, { db, key, sql }) => {
         const base = (process as any).mainModule.require;
-        const req = base("module").createRequire(base("path").join(process.cwd(), "out", "main", "index.js"));
+        const req = base("module").createRequire(
+          base("path").join(process.cwd(), "out", "main", "index.js"),
+        );
         const Database = req("better-sqlite3");
         const conn = new Database(db);
         try {
           conn.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES (?, ${sql})`).run(key);
-          return conn.prepare("SELECT typeof(value) AS t, quote(value) AS q FROM settings WHERE key = ?").get(key);
+          return conn
+            .prepare("SELECT typeof(value) AS t, quote(value) AS q FROM settings WHERE key = ?")
+            .get(key);
         } finally {
           conn.close();
         }
@@ -227,13 +256,19 @@ try {
   const augmentSlots = await run.app.evaluate(
     (_electron, { db }) => {
       const base = (process as any).mainModule.require;
-      const req = base("module").createRequire(base("path").join(process.cwd(), "out", "main", "index.js"));
+      const req = base("module").createRequire(
+        base("path").join(process.cwd(), "out", "main", "index.js"),
+      );
       const Database = req("better-sqlite3");
       const conn = new Database(db, { readonly: true });
       try {
         return {
           games: conn.prepare("SELECT COUNT(*) AS n FROM games").get().n,
-          augmentSlots: conn.prepare("SELECT typeof(value) AS t, quote(value) AS q FROM settings WHERE key = 'augment_slots'").get(),
+          augmentSlots: conn
+            .prepare(
+              "SELECT typeof(value) AS t, quote(value) AS q FROM settings WHERE key = 'augment_slots'",
+            )
+            .get(),
           gameAugments: conn.prepare("SELECT COUNT(*) AS n FROM game_augments").get().n,
         };
       } finally {

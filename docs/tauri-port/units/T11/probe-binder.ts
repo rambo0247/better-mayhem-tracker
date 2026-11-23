@@ -17,14 +17,29 @@ const GAMES = `CREATE TABLE games (
       raw_gz        BLOB
     )`;
 const SQL: Record<string, string> = {
-  ingest: "INSERT OR IGNORE INTO games (game_id, queue_id, game_mode, game_creation, game_duration, is_remake, puuid, game_version, raw_gz) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  ingest:
+    "INSERT OR IGNORE INTO games (game_id, queue_id, game_mode, game_creation, game_duration, is_remake, puuid, game_version, raw_gz) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
   anon: "INSERT INTO r VALUES (?, ?)",
   named: "INSERT INTO r VALUES (@a, @b)",
   mixed: "INSERT INTO r VALUES (?, @a)",
   namedFirst: "INSERT INTO r VALUES (:a, ?)",
 };
-const base = ["5", "2400", "'KIWI'", "1790000000000", "1500", "0", "'p'", "'16.23'", "Buffer.from('x')"];
-const ingest = (id: string, at: Record<number, string>, extra?: { drop?: number; add?: string[] }) => {
+const base = [
+  "5",
+  "2400",
+  "'KIWI'",
+  "1790000000000",
+  "1500",
+  "0",
+  "'p'",
+  "'16.23'",
+  "Buffer.from('x')",
+];
+const ingest = (
+  id: string,
+  at: Record<number, string>,
+  extra?: { drop?: number; add?: string[] },
+) => {
   let args = base.map((a, i) => at[i + 1] ?? a);
   if (extra?.drop) args = args.slice(0, args.length - extra.drop);
   if (extra?.add) args = [...args, ...extra.add];
@@ -85,7 +100,11 @@ const CASES = [
   { id: "named_array_value", stmt: "named", args: "{ a: [1], b: 1 }" },
   { id: "named_boolean_value", stmt: "named", args: "{ a: true, b: 1 }" },
   { id: "named_in_array", stmt: "named", args: "[{ a: 1, b: 2 }]" },
-  { id: "named_null_prototype", stmt: "named", args: "Object.assign(Object.create(null), { a: 1, b: 2 })" },
+  {
+    id: "named_null_prototype",
+    stmt: "named",
+    args: "Object.assign(Object.create(null), { a: 1, b: 2 })",
+  },
   { id: "mixed_ok", stmt: "mixed", args: "1, { a: 2 }" },
   { id: "mixed_object_first", stmt: "mixed", args: "{ a: 2 }, 1" },
   { id: "mixed_only_object", stmt: "mixed", args: "{ a: 2 }" },
@@ -102,10 +121,15 @@ try {
   const result = await run.app.evaluate(
     (_electron, { cases, sql, games }) => {
       const base = (process as any).mainModule.require;
-      const req = base("module").createRequire(base("path").join(process.cwd(), "out", "main", "index.js"));
+      const req = base("module").createRequire(
+        base("path").join(process.cwd(), "out", "main", "index.js"),
+      );
       const Database = req("better-sqlite3");
       const read = (db: any, table: string) => {
-        const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c: any) => c.name);
+        const cols = db
+          .prepare(`PRAGMA table_info(${table})`)
+          .all()
+          .map((c: any) => c.name);
         const parts = cols.map((c: string) => `typeof(${c}), quote(${c})`).join(", ");
         return db.prepare(`SELECT ${parts} FROM ${table} ORDER BY rowid`).raw().all();
       };
@@ -119,7 +143,15 @@ try {
           const table = c.stmt === "ingest" ? "games" : "r";
           return { ...c, outcome: { kind: "ok", changes: info.changes, rows: read(db, table) } };
         } catch (e: any) {
-          return { ...c, outcome: { kind: "error", name: e.constructor.name, message: e.message, code: e.code ?? null } };
+          return {
+            ...c,
+            outcome: {
+              kind: "error",
+              name: e.constructor.name,
+              message: e.message,
+              code: e.code ?? null,
+            },
+          };
         } finally {
           db.close();
         }
