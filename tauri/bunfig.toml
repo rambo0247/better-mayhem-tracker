@@ -9,8 +9,6 @@ version = 2
 correctness = "error"
 
 [lint.rules]
-# The scripts parse registry JSON that has no types
-"@typescript-eslint/no-explicit-any" = "off"
 "solid/jsx-no-duplicate-props" = "error"
 "solid/jsx-no-undef" = "error"
 "solid/jsx-uses-vars" = "error"

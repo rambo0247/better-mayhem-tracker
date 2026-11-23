@@ -28,17 +28,22 @@ function npmDeps(): Dep[] {
   return out;
 }
 
+type CrateSpec = string | { version?: string };
+type CrateTable = Record<string, CrateSpec>;
+type CrateTables = { dependencies?: CrateTable; "build-dependencies"?: CrateTable };
+type Manifest = CrateTables & { target?: Record<string, CrateTables> };
+
 function crateDeps(): Dep[] {
   const manifest = Bun.TOML.parse(
     readFileSync(resolve(root, "src-tauri/Cargo.toml"), "utf8"),
-  ) as Record<string, any>;
-  const tables: Record<string, any>[] = [manifest["dependencies"], manifest["build-dependencies"]];
-  for (const target of Object.values<any>(manifest["target"] ?? {})) {
-    tables.push(target["dependencies"], target["build-dependencies"]);
+  ) as Manifest;
+  const tables = [manifest.dependencies, manifest["build-dependencies"]];
+  for (const target of Object.values(manifest.target ?? {})) {
+    tables.push(target.dependencies, target["build-dependencies"]);
   }
   const out = new Map<string, Dep>();
   for (const table of tables) {
-    for (const [name, spec] of Object.entries<any>(table ?? {})) {
+    for (const [name, spec] of Object.entries(table ?? {})) {
       const raw = typeof spec === "string" ? spec : spec.version;
       if (typeof raw === "string") out.set(name, { eco: "crate", name, pinned: raw });
     }
@@ -61,8 +66,11 @@ function pick(versions: string[], latest: string | null) {
 async function npmVersions(name: string) {
   const res = await fetch(`https://registry.npmjs.org/${name.replace("/", "%2F")}`);
   if (!res.ok) throw new Error(`npm ${res.status}`);
-  const doc: any = await res.json();
-  const latest: string | null = doc["dist-tags"]?.latest ?? null;
+  const doc = (await res.json()) as {
+    "dist-tags"?: { latest?: string };
+    versions?: Record<string, unknown>;
+  };
+  const latest = doc["dist-tags"]?.latest ?? null;
   return { latest, ...pick(Object.keys(doc.versions ?? {}), latest) };
 }
 
@@ -71,8 +79,8 @@ async function crateVersions(name: string) {
     headers: { "User-Agent": "better-mayhem-tracker-deps-report" },
   });
   if (!res.ok) throw new Error(`crates.io ${res.status}`);
-  const doc: any = await res.json();
-  const live: string[] = doc.versions.filter((v: any) => !v.yanked).map((v: any) => v.num);
+  const doc = (await res.json()) as { versions: { num: string; yanked: boolean }[] };
+  const live = doc.versions.filter((v) => !v.yanked).map((v) => v.num);
   const stable = live.filter((v) => !isPre(v));
   const latest = stable.reduce<string | null>(
     (best, v) => (best === null || newer(v, best) ? v : best),

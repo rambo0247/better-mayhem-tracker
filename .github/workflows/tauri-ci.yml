@@ -67,7 +67,7 @@ jobs:
         run: bun run tauri build --debug
 
       # The size is not asserted: a runner's display is smaller than 1280 by 820,
-      # so the OS shrinks the window. The title is read back from the window.
+      # so the OS shrinks the window.
       - name: Launch the debug build and read its window
         run: |
           exe=src-tauri/target/debug/better-mayhem-tracker-tauri
