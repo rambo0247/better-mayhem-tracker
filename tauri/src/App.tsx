@@ -6,7 +6,9 @@ import RoutePlaceholder from "./components/RoutePlaceholder";
 
 // Each page unit adds its file under pages/ and its route picks it up here, so
 // no page unit edits this one
-const pages = import.meta.glob<{ default: Component }>("./pages/*.tsx", { eager: true });
+const pages = import.meta.glob<{ default: Component }>(["./pages/*.tsx", "!./pages/*.test.tsx"], {
+  eager: true,
+});
 
 function page(name: string): Component {
   return pages[`./pages/${name}.tsx`]?.default ?? (() => <RoutePlaceholder page={name} />);
