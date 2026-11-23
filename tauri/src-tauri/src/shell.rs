@@ -20,7 +20,6 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use tauri::plugin::TauriPlugin;
 use tauri::{AppHandle, Manager, RunEvent, Runtime, Window, WindowEvent};
 
 use crate::WINDOW_LABEL;
@@ -339,46 +338,22 @@ pub fn on_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
     }
 }
 
-/// Registered before any other plugin, so a second launch hands over and
-/// exits 0 before it opens anything.
-pub fn single_instance<R: Runtime>() -> TauriPlugin<R> {
-    tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app, true))
-}
-
-/// Electron's lock is per user data folder, and the plugin keys its lock on
-/// the identifier. On macOS and Linux that lock is a socket in the shared
-/// `/tmp`, so the identifier carries the user id: another user's lock is never
-/// this user's. A lane's data root override scopes it to that root, and a
-/// driver build with no root takes its own process id, so lanes never hand
-/// over to each other.
-pub fn scope_identifier(identifier: &str, uid: Option<u32>, data_root: Option<&OsStr>) -> String {
-    let mut scoped = identifier.to_owned();
-    if let Some(uid) = uid {
-        scoped.push_str(&format!(".u{uid}"));
-    }
+/// Lanes on their own data never see each other, as Electron's lock is per
+/// user data folder: a lane's data root override scopes the identifier, and
+/// so the single-instance lock, to that root. A driver build with no root
+/// takes its own process id. A release build has no override, so its
+/// identifier is `tauri.conf.json`'s.
+pub fn scope_identifier(identifier: &str, data_root: Option<&OsStr>) -> String {
     match data_root {
         Some(root) => {
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             root.hash(&mut hasher);
-            scoped.push_str(&format!(".{:016x}", hasher.finish()));
+            format!("{identifier}.{:016x}", hasher.finish())
         }
         None if cfg!(feature = "parity-driver") => {
-            scoped.push_str(&format!(".pid{}", std::process::id()));
+            format!("{identifier}.pid{}", std::process::id())
         }
-        None => {}
-    }
-    scoped
-}
-
-pub fn user_id() -> Option<u32> {
-    #[cfg(unix)]
-    {
-        // SAFETY: getuid has no preconditions and cannot fail
-        Some(unsafe { libc::getuid() })
-    }
-    #[cfg(not(unix))]
-    {
-        None
+        None => identifier.to_owned(),
     }
 }
 
@@ -618,45 +593,17 @@ mod tests {
 
     #[test]
     fn identifier_is_scoped_to_the_data_root() {
-        let a = scope_identifier(BASE, Some(501), Some("/tmp/run-a".as_ref()));
-        let b = scope_identifier(BASE, Some(501), Some("/tmp/run-b".as_ref()));
+        let a = scope_identifier(BASE, Some("/tmp/run-a".as_ref()));
+        let b = scope_identifier(BASE, Some("/tmp/run-b".as_ref()));
         assert_ne!(a, b);
-        assert_eq!(
-            a,
-            scope_identifier(BASE, Some(501), Some("/tmp/run-a".as_ref()))
-        );
-        assert!(a.starts_with("com.better-mayhem-tracker.app.u501."));
-        // The plugin's socket path must stay under 100 bytes, with the widest uid
-        let widest = scope_identifier(BASE, Some(u32::MAX), Some("/tmp/run-a".as_ref()));
-        assert!(format!("/tmp/{}_si.sock", widest.replace(['.', '-'], "_")).len() < 100);
-    }
-
-    #[test]
-    fn each_user_gets_their_own_lock() {
-        let root = Some("/Users/shared/run".as_ref());
-        assert_ne!(
-            scope_identifier(BASE, Some(501), root),
-            scope_identifier(BASE, Some(502), root)
-        );
+        assert_eq!(a, scope_identifier(BASE, Some("/tmp/run-a".as_ref())));
+        assert!(a.starts_with("com.better-mayhem-tracker.app."));
     }
 
     #[cfg(not(feature = "parity-driver"))]
     #[test]
-    fn identifier_without_a_root_is_per_user_only() {
-        assert_eq!(scope_identifier(BASE, None, None), BASE);
-        assert_eq!(
-            scope_identifier(BASE, Some(501), None),
-            "com.better-mayhem-tracker.app.u501"
-        );
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn the_user_id_is_this_process_user() {
-        let home = std::env::var_os("HOME").expect("HOME is set");
-        use std::os::unix::fs::MetadataExt;
-        let owner = std::fs::metadata(home).expect("home exists").uid();
-        assert_eq!(user_id(), Some(owner));
+    fn identifier_without_a_root_is_unchanged() {
+        assert_eq!(scope_identifier(BASE, None), BASE);
     }
 
     static LINES: Mutex<Vec<String>> = Mutex::new(Vec::new());
