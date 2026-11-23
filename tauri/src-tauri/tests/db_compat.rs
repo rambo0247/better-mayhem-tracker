@@ -1443,3 +1443,92 @@ fn js_semantics_match_node() {
     }
     assert!(number_misses.is_empty() && json_misses.is_empty() && to_number_misses.is_empty());
 }
+
+/// Fix round 2's answers from trunk Electron's main process, which
+/// `docs/tauri-port/units/T11/probe-fix2.ts` writes into the folder
+/// `BMT_ELECTRON_FIX2` names: `Number()` and `parseInt()` of radix literals
+/// from 2^53 to past 2^1024, `zlib.gunzipSync` on gzip framings, and
+/// `JSON.stringify(JSON.parse(text))` key order.
+#[test]
+#[ignore]
+fn fix2_answers_match_electron() {
+    let dir = PathBuf::from(std::env::var_os("BMT_ELECTRON_FIX2").expect("set BMT_ELECTRON_FIX2"));
+    let read = |file: &str| -> Value {
+        serde_json::from_slice(&std::fs::read(dir.join(file)).unwrap()).unwrap()
+    };
+    let bits = |x: f64| {
+        if x.is_nan() {
+            "nan".to_owned()
+        } else {
+            format!("{:x}", x.to_bits())
+        }
+    };
+    let mut misses = 0;
+    for (file, f) in [
+        (
+            "to-number.json",
+            bmt_lib::db::js::string_to_number as fn(&str) -> f64,
+        ),
+        ("parse-int.json", bmt_lib::db::js::parse_int),
+    ] {
+        let cases = read(file);
+        let differ: Vec<String> = cases
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|case| {
+                let (text, electron) = (case[0].as_str().unwrap(), case[1].as_str().unwrap());
+                let ours = bits(f(text));
+                (ours != electron).then(|| format!("{text:?}: electron {electron} ours {ours}"))
+            })
+            .collect();
+        println!(
+            "{file}: {} of {} differ",
+            differ.len(),
+            cases.as_array().unwrap().len()
+        );
+        for miss in differ.iter().take(10) {
+            println!("  {miss}");
+        }
+        misses += differ.len();
+    }
+
+    let frames = read("frames.json");
+    let mut by_frame: std::collections::BTreeMap<&str, (usize, usize)> = Default::default();
+    for case in frames.as_array().unwrap() {
+        let hex = case["blob"].as_str().unwrap();
+        let blob: Vec<u8> = (0..hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+            .collect();
+        let ours = payloads::unpack_raw(Some(&blob))
+            .map_or_else(|| "null".to_owned(), |v| bmt_lib::db::js::stringify(&v));
+        let tally = by_frame.entry(case["frame"].as_str().unwrap()).or_default();
+        tally.0 += 1;
+        if ours != case["want"].as_str().unwrap() {
+            tally.1 += 1;
+            misses += 1;
+        }
+    }
+    for (frame, (count, differ)) in &by_frame {
+        println!("frames {frame}: {differ} of {count} differ");
+    }
+
+    for case in read("stringify.json").as_array().unwrap() {
+        let (text, electron) = (case[0].as_str().unwrap(), case[1].as_str().unwrap());
+        let ours = payloads::unpack_raw(Some(&payloads::gzip(text.as_bytes())))
+            .map(|v| bmt_lib::db::js::stringify(&v));
+        println!(
+            "stringify {text}: {}",
+            if ours.as_deref() == Some(electron) {
+                "same"
+            } else {
+                "differs"
+            }
+        );
+        if ours.as_deref() != Some(electron) {
+            misses += 1;
+        }
+    }
+    assert_eq!(misses, 0);
+}
