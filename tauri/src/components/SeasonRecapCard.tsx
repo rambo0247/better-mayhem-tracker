@@ -991,7 +991,7 @@ function Activity(props: { recap: SeasonRecap; narrow?: boolean }) {
       subtitle={subtitle()}
       icon={<CalendarIcon class="h-3 w-3" />}
       accent="gold"
-      class={`h-full ${props.narrow && !beside() ? "w-[620px]" : ""}`}
+      class={props.narrow && !beside() ? "h-full w-[620px]" : "h-full"}
     >
       <Show
         when={beside()}
