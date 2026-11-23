@@ -1,9 +1,13 @@
 //! Where the app keeps its files: `src/main/paths.ts`. The root is the folder
 //! Electron 1.2.1 uses, named for package.json's `name` and never for the
 //! Tauri identifier, so an updated install opens the same matches.
-//! In debug and parity-driver builds `BMT_DATA_ROOT` moves it, which is how
-//! lanes point the app at a snapshot, and `data_guard.rs` keeps those
-//! builds out of the real folder. A release build has neither: it compiles
+//! In a lane build `BMT_DATA_ROOT` moves it, which is how lanes point the app
+//! at a snapshot, and `data_guard.rs` keeps it out of the real folder. A lane
+//! build is any build whose Cargo profile is not, or does not inherit from,
+//! `release`. build.rs sets `bmt_release_profile` from the profile itself,
+//! because profile settings can turn `debug_assertions` on in a release build
+//! or off in a debug one. One cfg gates the override and the guard, so no
+//! build has one without the other. A release build has neither: it compiles
 //! no override, as 1.2.1 has none, so no process environment can move a
 //! player's database or backups.
 
@@ -13,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 pub const DATA_FOLDER: &str = "better-mayhem-tracker";
 
-#[cfg(any(debug_assertions, feature = "parity-driver"))]
+#[cfg(not(bmt_release_profile))]
 pub const ROOT_OVERRIDE: &str = "BMT_DATA_ROOT";
 
 /// `EX_CONFIG` from sysexits.h.
@@ -27,18 +31,18 @@ enum Build {
     Lane,
 }
 
-const BUILD: Build = if cfg!(any(debug_assertions, feature = "parity-driver")) {
+const BUILD: Build = if cfg!(not(bmt_release_profile)) {
     Build::Lane
 } else {
     Build::Release
 };
 
-#[cfg(any(debug_assertions, feature = "parity-driver"))]
+#[cfg(not(bmt_release_profile))]
 fn override_root() -> Option<OsString> {
     std::env::var_os(ROOT_OVERRIDE)
 }
 
-#[cfg(not(any(debug_assertions, feature = "parity-driver")))]
+#[cfg(bmt_release_profile)]
 fn override_root() -> Option<OsString> {
     None
 }
@@ -65,11 +69,11 @@ impl Paths {
         }
     }
 
-    /// `root`, once the guard passes it. A debug build exits here when it is
+    /// `root`, once the guard passes it. A lane build exits here when it is
     /// the real folder.
     pub fn at(root: impl Into<PathBuf>) -> Self {
         let root = root.into();
-        #[cfg(any(debug_assertions, feature = "parity-driver"))]
+        #[cfg(not(bmt_release_profile))]
         crate::data_guard::enforce(&root);
         Self {
             root: absolute(root),
@@ -77,7 +81,7 @@ impl Paths {
     }
 
     /// [`Paths::at`] against stand-ins for the real folder's parent.
-    #[cfg(test)]
+    #[cfg(all(test, not(bmt_release_profile)))]
     pub(crate) fn at_with(root: PathBuf, config_dirs: &[PathBuf]) -> Self {
         crate::data_guard::enforce_against(&root, config_dirs);
         Self {

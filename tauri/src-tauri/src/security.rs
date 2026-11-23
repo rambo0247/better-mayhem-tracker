@@ -109,7 +109,7 @@ pub fn harden<'a, R: Runtime, M: Manager<R>>(
     builder: WebviewWindowBuilder<'a, R, M>,
     app: &tauri::AppHandle<R>,
 ) -> WebviewWindowBuilder<'a, R, M> {
-    let dev_url = if cfg!(debug_assertions) {
+    let dev_url = if cfg!(not(bmt_release_profile)) {
         app.config().build.dev_url.clone()
     } else {
         None

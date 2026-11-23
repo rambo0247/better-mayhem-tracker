@@ -11,9 +11,10 @@ pub const APP_DISPLAY_NAME: &str = "Better Mayhem Tracker";
 /// The release artifact's name, `build.win.artifactName` in package.json.
 pub const WINDOWS_EXE_NAME: &str = "BetterMayhemTracker.exe";
 
-/// Electron's `app.isPackaged`: a debug build runs out of a build folder.
+/// Electron's `app.isPackaged`: only a release-profile build is installed;
+/// any other runs out of a build folder.
 fn is_packaged() -> bool {
-    !cfg!(debug_assertions)
+    cfg!(bmt_release_profile)
 }
 
 /// The exe on Windows. Electron's portable launcher ran a temp copy, so it
@@ -80,7 +81,7 @@ mod tests {
         }
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(not(bmt_release_profile))]
     #[test]
     fn a_debug_build_has_no_durable_install() {
         assert!(!has_durable_install());
