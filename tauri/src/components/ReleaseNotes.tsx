@@ -29,9 +29,10 @@ function ReleaseBody(props: { release: ReleaseNote }) {
 // A scrolling box of release notes, newest first
 export default function ReleaseNotes(props: { releases: ReleaseNote[] }) {
   // Only the newest is expanded up front: someone several versions behind gets a
-  // scannable list of what they missed instead of a wall of bullets.
+  // scannable list of what they missed instead of a wall of bullets. Seeded
+  // once, so a new list keeps what the reader opened and closed.
   const [openVersions, setOpenVersions] = createSignal<Set<string>>(
-    () => new Set(props.releases.length ? [props.releases[0]!.version] : []),
+    (opened) => opened ?? new Set(props.releases.length ? [props.releases[0]!.version] : []),
   );
 
   const toggleVersion = (version: string) => {
