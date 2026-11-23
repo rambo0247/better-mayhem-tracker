@@ -14,13 +14,14 @@
 //! identity, which catches aliases such as macOS firmlinks
 //! (`/System/Volumes/Data/Users/...`). It stops at the first step that would
 //! enter the real folder, so the real folder is never stat-ed by a spelling
-//! the check recognizes. Two kinds of spelling it can only recognize by
-//! looking: a path that names the real folder itself under another name (a
-//! volfs inode path, a Windows 8.3 short name), and, on Windows, a spelling
-//! only `canonicalize` resolves. Those cost one metadata look at the real
-//! folder. A file is also matched against the real folder's file of the same
-//! name by (device, inode) when it has more than one link, which catches a
-//! hard link. Nothing here reads a file's contents.
+//! the check recognizes. A macOS volfs path (`/.vol/<device>/<inode>`) fails
+//! by its text. A path that passes all that is compared by identity, folder
+//! by folder up from its deepest existing part, with the real folder, which
+//! catches a name only the file system knows, such as a Windows 8.3 short
+//! name. That compare stats the real folder only when one of those folders
+//! sits directly in a config folder. A file with a second name fails, since
+//! a hard link can make any of the player's files a lane's database or log.
+//! Nothing here reads a file's contents.
 //! There is no override: a lane build that fails it exits.
 
 use std::ffi::OsStr;
@@ -83,26 +84,18 @@ impl Guard {
         check(path, &self.config_dirs)
     }
 
-    /// [`Guard::check`] for a file, plus a hard link test: `relative` is where
-    /// the file sits under the data root, `data/matches.db`, and a file that
-    /// has the (device, inode) of the real folder's file at that place fails.
-    pub fn check_file(&self, file: &Path, relative: &Path) -> Result<(), Tripped> {
+    /// [`Guard::check`] for a file, which also fails when the file has a
+    /// second name: a hard link can make any of the player's files the
+    /// lane's database or log, and no lane file needs one.
+    pub fn check_file(&self, file: &Path) -> Result<(), Tripped> {
         self.check(file)?;
-        let Some(id) = file_id(file).filter(|id| id.links > 1) else {
-            return Ok(());
-        };
-        for config in &self.config_dirs {
-            for name in REAL_FOLDER_NAMES {
-                let real = config.join(name).join(relative);
-                if file_id(&real).is_some_and(|other| other.same_file(&id)) {
-                    return Err(Tripped {
-                        root: file.to_path_buf(),
-                        reason: format!("is a hard link to {}", real.display()),
-                    });
-                }
-            }
+        match file_id(file) {
+            Some(id) if id.links > 1 => Err(Tripped {
+                root: file.to_path_buf(),
+                reason: format!("has {} names, so it may be a hard link", id.links),
+            }),
+            _ => Ok(()),
         }
-        Ok(())
     }
 
     /// Exits the process when `path` fails [`Guard::check`].
@@ -111,8 +104,8 @@ impl Guard {
     }
 
     /// Exits the process when `file` fails [`Guard::check_file`].
-    pub fn enforce_file(&self, file: &Path, relative: &Path) {
-        exit_on(self.check_file(file, relative));
+    pub fn enforce_file(&self, file: &Path) {
+        exit_on(self.check_file(file));
     }
 }
 
@@ -218,6 +211,10 @@ pub fn check(root: &Path, config_dirs: &[PathBuf]) -> Result<(), Tripped> {
         .collect();
     let step = |folder: &Path, name: &OsStr| -> Option<String> {
         let next = folder.join(name);
+        // macOS volfs, `/.vol/<device>/<inode>`, names a folder by number
+        if folder == Path::new("/") && fold(name) == ".vol" {
+            return Some(format!("goes through volfs, {}", next.display()));
+        }
         if let Some(real) = inside(&next) {
             return Some(format!(
                 "reaches {} through {}",
@@ -241,13 +238,61 @@ pub fn check(root: &Path, config_dirs: &[PathBuf]) -> Result<(), Tripped> {
         Ok(physical) => physical,
         Err(reason) => return trip(reason),
     };
-    #[cfg(windows)]
-    if let Some(reason) = windows::canonical_check(&physical, config_dirs) {
-        return trip(reason);
+    match inside_by_identity(&physical, config_dirs) {
+        Some(reason) => trip(reason),
+        None => Ok(()),
     }
-    #[cfg(not(windows))]
-    drop(physical);
-    Ok(())
+}
+
+/// What no name shows: a folder that is the real folder under a name the
+/// text checks do not know (a Windows 8.3 short name, a volume GUID path).
+/// From the deepest part of `physical` that exists it climbs the folders the
+/// kernel reaches, and when one sits directly in a config folder, compares
+/// that one with the real folder by identity. So the real folder is looked at
+/// only when the path is inside something in a config folder.
+fn inside_by_identity(physical: &Path, config_dirs: &[PathBuf]) -> Option<String> {
+    let configs: Vec<(&PathBuf, FileId)> = config_dirs
+        .iter()
+        .filter_map(|config| Some((config, file_id(config)?)))
+        .collect();
+    let (mut at, mut id) = physical
+        .ancestors()
+        .find_map(|a| Some((a.to_path_buf(), file_id(a).filter(|id| id.dir)?)))?;
+    loop {
+        let parent = up(&at)?;
+        let parent_id = file_id(&parent)?;
+        if parent_id.same_file(&id) {
+            return None;
+        }
+        for (config, config_id) in &configs {
+            if !parent_id.same_file(config_id) {
+                continue;
+            }
+            for name in REAL_FOLDER_NAMES {
+                let real = config.join(name);
+                if file_id(&real).is_some_and(|real_id| real_id.same_file(&id)) {
+                    return Some(format!(
+                        "is {} or inside it, as {}",
+                        real.display(),
+                        at.display()
+                    ));
+                }
+            }
+        }
+        (at, id) = (parent, parent_id);
+    }
+}
+
+/// The folder the kernel reaches from `path` by `..`. On Windows that is the
+/// text's parent, since Win32 applies `..` to the text.
+#[cfg(unix)]
+fn up(path: &Path) -> Option<PathBuf> {
+    Some(path.join(".."))
+}
+
+#[cfg(windows)]
+fn up(path: &Path) -> Option<PathBuf> {
+    path.parent().map(Path::to_path_buf)
 }
 
 /// The path the kernel reaches by `path`: symlinks expanded, dangling ones
@@ -395,12 +440,13 @@ fn same_dir(a: &Path, b: &Path) -> bool {
     }
 }
 
-/// A file's identity, and how many names it has.
+/// A file's identity, how many names it has, and whether it is a folder.
 #[derive(Debug, Clone, Copy)]
 struct FileId {
     device: u64,
     index: u64,
     links: u64,
+    dir: bool,
 }
 
 impl FileId {
@@ -418,6 +464,7 @@ fn file_id(path: &Path) -> Option<FileId> {
         device: meta.dev(),
         index: meta.ino(),
         links: meta.nlink(),
+        dir: meta.is_dir(),
     })
 }
 
@@ -428,7 +475,8 @@ fn file_id(path: &Path) -> Option<FileId> {
     use std::os::windows::fs::OpenOptionsExt;
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Storage::FileSystem::{
-        BY_HANDLE_FILE_INFORMATION, FILE_FLAG_BACKUP_SEMANTICS, GetFileInformationByHandle,
+        BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_DIRECTORY, FILE_FLAG_BACKUP_SEMANTICS,
+        GetFileInformationByHandle,
     };
     touched(path);
     let file = std::fs::OpenOptions::new()
@@ -445,50 +493,8 @@ fn file_id(path: &Path) -> Option<FileId> {
         device: u64::from(info.dwVolumeSerialNumber),
         index: (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
         links: u64::from(info.nNumberOfLinks),
+        dir: info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0,
     })
-}
-
-#[cfg(windows)]
-mod windows {
-    use std::path::{Path, PathBuf};
-
-    use super::{REAL_FOLDER_NAMES, starts_with, touched};
-
-    /// What only Windows itself resolves, an 8.3 short name (`BETTER~1`) or a
-    /// volume GUID path: `canonicalize` of the deepest folder that exists,
-    /// with the rest of the path after it.
-    pub(super) fn canonical_check(physical: &Path, config_dirs: &[PathBuf]) -> Option<String> {
-        let canonical = canonical_prefix(physical)?;
-        for config in config_dirs {
-            let Some(config) = canonical_prefix(config) else {
-                continue;
-            };
-            for name in REAL_FOLDER_NAMES {
-                let real = config.join(name);
-                if starts_with(&canonical, &real) {
-                    return Some(format!(
-                        "is {} or inside it, as {}",
-                        real.display(),
-                        canonical.display()
-                    ));
-                }
-            }
-        }
-        None
-    }
-
-    fn canonical_prefix(path: &Path) -> Option<PathBuf> {
-        let mut tail = Vec::new();
-        let mut at = path;
-        loop {
-            touched(at);
-            if let Ok(canonical) = std::fs::canonicalize(at) {
-                return Some(tail.iter().rev().fold(canonical, |p, name| p.join(name)));
-            }
-            tail.push(at.file_name()?.to_owned());
-            at = at.parent()?;
-        }
-    }
 }
 
 fn symlink_metadata(path: &Path) -> std::io::Result<std::fs::Metadata> {
@@ -827,13 +833,86 @@ mod tests {
         let db = paths.data_file("matches.db").unwrap();
         assert_eq!(db, root.join("data").join("matches.db"));
         std::fs::write(&db, b"lane").unwrap();
-        // A second name for the lane's own file is not the real one
-        std::fs::hard_link(&db, s.0.join("lane-copy.db")).unwrap();
         assert_eq!(paths.data_file("matches.db").unwrap(), db);
         assert_eq!(
             paths.log_file("main.log").unwrap(),
             root.join("logs").join("main.log")
         );
+    }
+
+    /// `/.vol/<device>/<inode>` names a folder by number, so no name in it
+    /// says which folder it is.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn refuses_a_volfs_path() {
+        use std::os::unix::fs::MetadataExt;
+        let s = Scratch::new("volfs");
+        let real_db = s.real().join("data").join("matches.db");
+        std::fs::create_dir_all(real_db.parent().unwrap()).unwrap();
+        std::fs::write(&real_db, b"the player's matches").unwrap();
+        let volfs = |path: &Path| {
+            let meta = std::fs::metadata(path).unwrap();
+            PathBuf::from(format!("/.vol/{}/{}", meta.dev(), meta.ino()))
+        };
+        let real = volfs(&s.real());
+        assert!(trips(&s, &real), "{}", real.display());
+        assert!(trips(&s, &real.join("data")), "{}", real.display());
+        for use_as in ["database", "log"] {
+            assert_child_refused(&real, &s.config(), use_as);
+        }
+        assert_eq!(std::fs::read(&real_db).unwrap(), b"the player's matches");
+        assert!(!s.real().join("logs").exists(), "no log reached it");
+        // A lane never needs volfs, so any folder spelled that way fails
+        std::fs::create_dir_all(s.0.join("run")).unwrap();
+        assert!(trips(&s, &volfs(&s.0.join("run"))));
+    }
+
+    /// A second name for a lane file can be any file of the player's, the
+    /// database under the log's name included, so a lane file has one name.
+    #[test]
+    fn refuses_a_lane_file_with_a_second_name() {
+        let s = Scratch::new("second-name");
+        let real_files = [
+            ("data/matches.db", "the player's matches"),
+            ("logs/main.old.log", "the player's old log\n"),
+            ("backups/matches-2026-11-01.db", "the player's backup"),
+        ];
+        for (file, text) in real_files {
+            let path = s.real().join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        }
+        let elsewhere = s.0.join("elsewhere.db");
+        std::fs::write(&elsewhere, b"not the player's").unwrap();
+        for (i, (lane, other, use_as)) in [
+            ("logs/main.log", s.real().join("logs/main.old.log"), "log"),
+            (
+                "data/matches.db",
+                s.real().join("backups/matches-2026-11-01.db"),
+                "database",
+            ),
+            ("logs/main.log", s.real().join("data/matches.db"), "log"),
+            ("data/matches.db", elsewhere.clone(), "database"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let root = s.0.join(format!("run-{i}"));
+            for folder in ["data", "logs"] {
+                std::fs::create_dir_all(root.join(folder)).unwrap();
+            }
+            std::fs::hard_link(&other, root.join(lane)).unwrap();
+            assert!(!trips(&s, &root), "the root itself passes");
+            assert_child_refused(&root, &s.config(), use_as);
+        }
+        for (file, text) in real_files {
+            assert_eq!(
+                std::fs::read_to_string(s.real().join(file)).unwrap(),
+                text,
+                "{file}"
+            );
+        }
+        assert_eq!(std::fs::read(&elsewhere).unwrap(), b"not the player's");
     }
 
     /// Every hostile spelling trips, and none makes the check look at the
@@ -925,6 +1004,29 @@ mod tests {
                 assert!(
                     !inside,
                     "checking {} looked at {} in the real folder",
+                    root.display(),
+                    path.display()
+                );
+            }
+        }
+        // A lane's own root passes, through the identity compare, unseen by it
+        std::fs::create_dir_all(s.0.join("run").join("data")).unwrap();
+        for root in [s.0.join("run"), s.0.join("run").join("data").join("x.db")] {
+            TOUCHED.with(|t| t.borrow_mut().clear());
+            assert!(
+                check(&root, std::slice::from_ref(&config)).is_ok(),
+                "{}",
+                root.display()
+            );
+            for path in TOUCHED.with(|t| t.take()) {
+                let seen = std::fs::metadata(&path).is_ok_and(is_real)
+                    || path
+                        .ancestors()
+                        .skip(1)
+                        .any(|a| std::fs::metadata(a).is_ok_and(is_real));
+                assert!(
+                    !seen,
+                    "checking {} looked at {}",
                     root.display(),
                     path.display()
                 );

@@ -126,8 +126,8 @@ impl Paths {
 
     /// `data/<name>`. The database code takes the path it opens from here,
     /// `matches.db` and each SQLite file beside it, so a lane build refuses a
-    /// file that is the real folder's file of the same name, by a symlink or
-    /// a hard link, before it is opened.
+    /// file that links into the real folder, or has a second name, before it
+    /// is opened.
     pub fn data_file(&self, name: &str) -> io::Result<PathBuf> {
         self.file_in("data", name)
     }
@@ -151,8 +151,7 @@ impl Paths {
     fn file_in(&self, folder: &str, name: &str) -> io::Result<PathBuf> {
         let file = self.ensure(folder)?.join(name);
         #[cfg(not(bmt_release_profile))]
-        self.guard
-            .enforce_file(&file, &Path::new(folder).join(name));
+        self.guard.enforce_file(&file);
         Ok(file)
     }
 }
