@@ -32,6 +32,7 @@ const failing = (layoutPass: boolean, elementsB = 10): DiffResult => ({
     within1: 10,
     beyond: 0,
     pathMismatches: 0,
+    widthExempt: 0,
   },
 });
 

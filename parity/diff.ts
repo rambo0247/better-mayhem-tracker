@@ -5,7 +5,9 @@ import { PNG } from "pngjs";
 import { refuseRealFolder } from "./lib/real-folder.ts";
 
 export type Policy = "same-engine" | "cross-engine";
-export type GeometryRow = [path: string, tag: string, x: number, y: number, w: number, h: number];
+type Box = [path: string, tag: string, x: number, y: number, w: number, h: number];
+/** `geometry.js` marks a row "ellipsis" when an ancestor truncates its overflowing text. */
+export type GeometryRow = Box | [...Box, inside: "ellipsis"];
 export interface Region {
   x: number;
   y: number;
@@ -33,6 +35,8 @@ export interface LayoutResult {
   within1: number;
   beyond: number;
   pathMismatches: number;
+  /** Pairs compared on x, y and height only, because both sit inside a truncating ancestor. */
+  widthExempt: number;
   worst?: { path: string; shiftCss: number };
 }
 
@@ -72,17 +76,24 @@ export function compareLayout(
     within1: 0,
     beyond: 0,
     pathMismatches: 0,
+    widthExempt: 0,
   };
   const pairs = Math.min(a.length, b.length);
   let worst = 0;
   for (let i = 0; i < pairs; i++) {
-    const [pathA, , ...boxA] = a[i]!;
-    const [pathB, , ...boxB] = b[i]!;
-    if (pathA !== pathB) {
+    const rowA = a[i]!;
+    const rowB = b[i]!;
+    const pathA = rowA[0];
+    if (pathA !== rowB[0]) {
       result.pathMismatches++;
       continue;
     }
-    const shift = Math.max(...boxA.map((value, k) => Math.abs(value - boxB[k]!)));
+    // Chromium's inline box under text-overflow: ellipsis spans the ellipsis, WebKit's the text
+    // run, so their widths differ while nothing moves (the register in README.md).
+    const widthExempt = rowA[6] === "ellipsis" && rowB[6] === "ellipsis";
+    if (widthExempt) result.widthExempt++;
+    const keys = widthExempt ? ([2, 3, 5] as const) : ([2, 3, 4, 5] as const);
+    const shift = Math.max(...keys.map((k) => Math.abs(rowA[k] - rowB[k])));
     if (shift === 0) result.identical++;
     else if (shift <= 0.5) result.within05++;
     else if (shift <= toleranceCss) result.within1++;
