@@ -7,6 +7,9 @@ name: Tauri Release
 on:
   push:
     tags: ["tauri-v*"]
+    # TEMPORARY: workflow_dispatch needs the file on the default branch
+    branches: ["port/T39-release"]
+    paths: [".github/workflows/tauri-release.yml"]
   workflow_dispatch:
     inputs:
       version:
@@ -47,7 +50,7 @@ jobs:
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             VERSION="${GITHUB_REF_NAME#tauri-v}"
           else
-            VERSION="${{ inputs.version }}"
+            VERSION="${{ inputs.version || '0.0.0-dispatch' }}"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Building $VERSION"
