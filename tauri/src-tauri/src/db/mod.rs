@@ -18,6 +18,7 @@ pub mod settings;
 pub mod stats;
 pub mod stmt;
 pub mod summoner;
+pub mod teammates;
 pub mod week;
 mod week_data;
 

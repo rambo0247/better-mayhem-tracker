@@ -5,8 +5,12 @@ use tauri::Runtime;
 use ts_rs::TS;
 
 use super::types::{MatchListItem, ScoreBadge, TeammateStats};
-use super::{CommandError, CommandResult, Ctx, Domain};
+use super::{CommandResult, Ctx, Domain};
+use crate::db::filters::season_window;
+use crate::db::teammates::{self, CareerFilter};
+use crate::db::{self, Database};
 use crate::js_arg::Js;
+use crate::op_score::ChampionClassMap;
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -102,30 +106,66 @@ pub struct TeammateDetail {
     pub matches: Vec<TeammateMatch>,
 }
 
+/// The Friends page sets its own minimum, so every teammate comes back.
 pub async fn get_teammate_stats<R: Runtime>(
-    _ctx: Ctx<R>,
-    _season: Js<Option<String>>,
+    ctx: Ctx<R>,
+    season: Js<Option<String>>,
 ) -> CommandResult<Vec<TeammateStats>> {
-    Err(CommandError::not_ported())
+    let season = season.typed().flatten();
+    let filter = season_filter(season.as_deref());
+    db::of(&ctx)?.with(|conn| teammates::get_teammate_stats(conn, &filter, 1))
 }
 
 pub async fn get_teammate_groups<R: Runtime>(
-    _ctx: Ctx<R>,
-    _season: Js<Option<String>>,
+    ctx: Ctx<R>,
+    season: Js<Option<String>>,
 ) -> CommandResult<Vec<TeammateGroup>> {
-    Err(CommandError::not_ported())
+    let season = season.typed().flatten();
+    let filter = season_filter(season.as_deref());
+    db::of(&ctx)?.with(|conn| teammates::get_teammate_groups(conn, &filter))
 }
 
 pub async fn get_teammate_group_detail<R: Runtime>(
-    _ctx: Ctx<R>,
-    _key: Js<String>,
+    ctx: Ctx<R>,
+    key: Js<String>,
 ) -> CommandResult<Option<TeammateGroupDetail>> {
-    Err(CommandError::not_ported())
+    // Electron compares the key with ===, so only a string can match
+    let Some(key) = key.typed() else {
+        return Ok(None);
+    };
+    let db = db::of(&ctx)?;
+    let classes = champion_classes(&db);
+    db.with(|conn| teammates::get_teammate_group_detail(conn, &key, &classes))
 }
 
 pub async fn get_teammate_detail<R: Runtime>(
-    _ctx: Ctx<R>,
-    _key: Js<String>,
+    ctx: Ctx<R>,
+    key: Js<String>,
 ) -> CommandResult<Option<TeammateDetail>> {
-    Err(CommandError::not_ported())
+    // Electron compares the key with ===, so only a string can match
+    let Some(key) = key.typed() else {
+        return Ok(None);
+    };
+    let db = db::of(&ctx)?;
+    let classes = champion_classes(&db);
+    db.with(|conn| teammates::get_teammate_detail(conn, &key, &classes))
+}
+
+/// `seasonWindow(season)` as a career filter.
+fn season_filter(season: Option<&str>) -> CareerFilter {
+    let window = season_window(season);
+    CareerFilter {
+        from: window.from,
+        to: window.to,
+        ..CareerFilter::default()
+    }
+}
+
+/// Teammate scores need champion classes, read from the cache beside the
+/// database until Data Dragon is ported.
+fn champion_classes(db: &Database) -> ChampionClassMap {
+    db.path()
+        .parent()
+        .map(teammates::cached_champion_classes)
+        .unwrap_or_default()
 }
