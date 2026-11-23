@@ -9,6 +9,7 @@ const RELEASE = (version: string) => ({
   version,
   body: `Notes for ${version}`,
   publishedAt: "2026-11-01T00:00:00Z",
+  url: `https://github.com/x/y/releases/tag/v${version}`,
 });
 
 const base: UpdateInfo = {
