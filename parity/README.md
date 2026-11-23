@@ -83,6 +83,10 @@ Differences between Chromium and WebKit that the cross-engine layout gate leaves
 - Rule: `geometry.js` marks a row `"ellipsis"` when an ancestor has `text-overflow: ellipsis`, an `overflow-x` other than `visible`, and `scrollWidth > clientWidth`. When both engines mark a row, the gate compares its x, y and height and not its width, and counts it in `widthExempt`. The container itself is compared in full.
 - Controls: the `bdi` moved 2 px in x, in y, or grown 2 px in height each fail. The container 2 px narrower fails. A row that only one engine marks is compared on width.
 
+### Port elements marked `data-parity-skip`
+
+Not an engine difference but a deliberate one in the port's markup. Where Electron drew one element and the port needs a wrapper to draw the same thing in WebKit, the port marks the outer element `data-parity-skip`, and `geometry.js` records its box and leaves out what it wraps. T27's `ChampionIcon` is the case: Electron draws the portrait as one `img` with `object-view-box`, which WKWebView ignores, and the port draws a clipping span at that box with a larger `img` inside. An unmarked extra element still fails the gate.
+
 ## Determinism
 
 `run-electron.ts` passes `--force-device-scale-factor=2`, `--force-color-profile=srgb`, `--lang=en-US`, `TZ=America/New_York`, freezes the renderer clock with `context.clock.setFixedTime` and the main-process clock in the seam, aborts renderer `http` and `https`, and blocks main-process network except loopback. `settle.ts` waits for fonts, decoded images, a client status past "Connecting...", and 1.2 s of unchanged DOM, then kills animation and parks the mouse. Each state starts from cleared `localStorage` and a reload, and restores any setting it changed.
