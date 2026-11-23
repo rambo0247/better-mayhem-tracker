@@ -172,6 +172,16 @@ pub fn map_name_for_skin(skin: &str) -> Option<String> {
     })
 }
 
+/// A number in a template literal, where non-finite values print by name.
+fn number_text(x: f64) -> String {
+    match x {
+        x if x.is_nan() => "NaN".into(),
+        f64::INFINITY => "Infinity".into(),
+        f64::NEG_INFINITY => "-Infinity".into(),
+        x => js::number_to_string(x),
+    }
+}
+
 /// A name set apart from the sentence around it with Unicode isolates, so a
 /// right-to-left name can't pull the words beside it over to its side.
 fn isolate(name: &str) -> String {
@@ -637,10 +647,8 @@ fn describe_event(event: &Value, by_name: &HashMap<String, (String, String)>) ->
             let named = (streak.fract() == 0.0 && (0.0..6.0).contains(&streak))
                 .then(|| MULTIKILL_NAMES[streak as usize])
                 .filter(|name| !name.is_empty());
-            let label = named.map_or_else(
-                || format!("{} kills", js::number_to_string(streak)),
-                str::to_owned,
-            );
+            let label =
+                named.map_or_else(|| format!("{} kills", number_text(streak)), str::to_owned);
             (
                 LiveEventTone::Special,
                 format!("{}: {label}", actor("KillerName")),
@@ -708,9 +716,8 @@ struct RecordCache {
     histories: HashMap<String, PlayerHistory>,
 }
 
-#[derive(Default)]
 struct LiveState {
-    latest: Option<LiveGameSnapshot>,
+    latest: LiveGameSnapshot,
     record_cache: Option<RecordCache>,
     /// The game whose map is already written
     stored_map_for: Option<f64>,
@@ -738,6 +745,22 @@ impl Drop for Refreshing<'_> {
     }
 }
 
+/// `emptySnapshot`, for the live game ref as it stands.
+fn empty_snapshot(reference: Option<crate::lcu::LiveGameRef>) -> LiveGameSnapshot {
+    LiveGameSnapshot {
+        in_game: false,
+        starting: false,
+        game_id: whole(reference.map(|r| r.game_id)),
+        queue_id: whole(reference.map(|r| r.queue_id)),
+        map_id: None,
+        map_name: None,
+        map_skin: None,
+        game_time: 0.0,
+        players: Vec::new(),
+        events: Vec::new(),
+    }
+}
+
 fn whole(x: Option<f64>) -> Option<i64> {
     x.filter(|x| !x.is_nan()).map(|x| x as i64)
 }
@@ -749,6 +772,8 @@ impl LiveTracker {
         env: Arc<dyn TrackingEnv>,
         runtime: Handle,
     ) -> Arc<Self> {
+        // `let latest = emptySnapshot()` runs once, at module load
+        let latest = empty_snapshot(client.live_game_ref());
         Arc::new(Self {
             client,
             game,
@@ -756,7 +781,12 @@ impl LiveTracker {
             runtime,
             refreshing: AtomicBool::new(false),
             emitting: AtomicBool::new(false),
-            state: Mutex::default(),
+            state: Mutex::new(LiveState {
+                latest,
+                record_cache: None,
+                stored_map_for: None,
+                poll: None,
+            }),
             spells: Mutex::default(),
         })
     }
@@ -764,29 +794,16 @@ impl LiveTracker {
     /// `emptySnapshot`. The game id outlives its match, which is what lets the
     /// page switch over to that game's recap the moment it ends.
     fn empty_snapshot(&self) -> LiveGameSnapshot {
-        let reference = self.client.live_game_ref();
-        LiveGameSnapshot {
-            in_game: false,
-            starting: false,
-            game_id: whole(reference.map(|r| r.game_id)),
-            queue_id: whole(reference.map(|r| r.queue_id)),
-            map_id: None,
-            map_name: None,
-            map_skin: None,
-            game_time: 0.0,
-            players: Vec::new(),
-            events: Vec::new(),
-        }
+        empty_snapshot(self.client.live_game_ref())
     }
 
-    /// `getLiveGame`: the last snapshot published, or an empty one before any.
+    /// `getLiveGame`: the last snapshot published.
     pub fn latest(&self) -> LiveGameSnapshot {
-        let latest = self.state.lock().expect("live lock").latest.clone();
-        latest.unwrap_or_else(|| self.empty_snapshot())
+        self.state.lock().expect("live lock").latest.clone()
     }
 
     fn publish(&self, snapshot: LiveGameSnapshot) {
-        self.state.lock().expect("live lock").latest = Some(snapshot.clone());
+        self.state.lock().expect("live lock").latest = snapshot.clone();
         if self.emitting.load(Ordering::SeqCst) {
             self.env.live_changed(&snapshot);
         }
@@ -799,6 +816,11 @@ impl LiveTracker {
         if self.refreshing.swap(true, Ordering::SeqCst) {
             return self.latest();
         }
+        self.refresh_claimed().await
+    }
+
+    /// The refresh once the one-at-a-time flag is taken.
+    async fn refresh_claimed(&self) -> LiveGameSnapshot {
         let _refreshing = Refreshing(&self.refreshing);
         match self.build_snapshot().await {
             Ok(snapshot) => {
@@ -813,10 +835,16 @@ impl LiveTracker {
         }
     }
 
+    /// `void refreshLiveGame()`: the flag is taken here, as the async
+    /// function takes it before its first await, so a call that lands before
+    /// the task runs answers with the last snapshot.
     fn spawn_refresh(self: &Arc<Self>) {
+        if self.refreshing.swap(true, Ordering::SeqCst) {
+            return;
+        }
         let this = self.clone();
         self.runtime.spawn(async move {
-            this.refresh().await;
+            this.refresh_claimed().await;
         });
     }
 
@@ -1067,10 +1095,10 @@ impl LiveTracker {
         }
         let this = self.clone();
         state.poll = Some(self.runtime.spawn(async move {
-            let mut next = Instant::now() + POLL_INTERVAL;
+            // setInterval reschedules from each run, so a stall costs one late
+            // tick rather than a burst of missed ones
             loop {
-                tokio::time::sleep_until(next).await;
-                next += POLL_INTERVAL;
+                tokio::time::sleep_until(Instant::now() + POLL_INTERVAL).await;
                 this.spawn_refresh();
             }
         }));
@@ -1169,27 +1197,43 @@ fn resolve_champion_id(
 /// Both trackers and the one status listener they share, in the order
 /// Electron registers them: live first, then challenges.
 pub struct Tracking {
-    pub live: Arc<LiveTracker>,
-    pub challenges: Arc<ChallengeTracker>,
+    trackers: Mutex<(Arc<LiveTracker>, Arc<ChallengeTracker>)>,
     listener: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl Tracking {
     pub fn new(live: Arc<LiveTracker>, challenges: Arc<ChallengeTracker>) -> Self {
         Self {
-            live,
-            challenges,
+            trackers: Mutex::new((live, challenges)),
             listener: Mutex::new(None),
         }
+    }
+
+    pub fn live(&self) -> Arc<LiveTracker> {
+        self.trackers.lock().expect("trackers lock").0.clone()
+    }
+
+    pub fn challenges(&self) -> Arc<ChallengeTracker> {
+        self.trackers.lock().expect("trackers lock").1.clone()
+    }
+
+    /// Puts scripted trackers in place for one golden case ([`golden`]).
+    #[cfg(debug_assertions)]
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "T08's before_golden_case calls it at the restack")
+    )]
+    pub fn replace(&self, live: Arc<LiveTracker>, challenges: Arc<ChallengeTracker>) {
+        *self.trackers.lock().expect("trackers lock") = (live, challenges);
     }
 
     /// `startLiveTracking(win)` and `startChallengeTracking(win)`, which
     /// follow `startPolling(win)` at launch. `changes` is the client's status
     /// changes, which the listeners hear in order.
     pub fn start(&self, runtime: &Handle, mut changes: broadcast::Receiver<LcuStatus>) {
-        self.live.start_tracking();
-        self.challenges.start_tracking();
-        let (live, challenges) = (self.live.clone(), self.challenges.clone());
+        let (live, challenges) = (self.live(), self.challenges());
+        live.start_tracking();
+        challenges.start_tracking();
         let listener = runtime.spawn(async move {
             loop {
                 match changes.recv().await {
@@ -1217,8 +1261,8 @@ impl Tracking {
         if let Some(listener) = self.listener.lock().expect("listener lock").take() {
             listener.abort();
         }
-        self.live.stop_tracking();
-        self.challenges.stop_tracking();
+        self.live().stop_tracking();
+        self.challenges().stop_tracking();
     }
 }
 
@@ -1290,6 +1334,212 @@ pub fn plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             Ok(())
         })
         .build()
+}
+
+/// Per-case seeding for T05's state goldens of `live:snapshot` and
+/// `challenges:get`, which were recorded with T03's fake client in a given
+/// state. T08's `Domain::before_golden_case` calls [`golden::seed`] at the
+/// restack. A script is what the fake answers in one scenario, written by
+/// T21's `record-scenarios.ts` from T03's scenario code over the fixture.
+#[cfg(debug_assertions)]
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "T08's before_golden_case calls it at the restack")
+)]
+pub mod golden {
+    use std::path::Path;
+
+    use serde::Deserialize;
+
+    use super::*;
+    use crate::lcu::{LcuError, LiveGameRef};
+
+    #[derive(Debug, Clone, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Script {
+        pub phase: Value,
+        pub session: Value,
+        /// The in-game API's mode: "on", "loading" or "off"
+        pub live: String,
+        pub live_data: Value,
+        pub challenges: Option<ScriptChallenges>,
+        pub live_ref: Option<ScriptRef>,
+    }
+
+    #[derive(Debug, Clone, Deserialize)]
+    pub struct ScriptChallenges {
+        pub all: Value,
+        pub summary: Value,
+    }
+
+    #[derive(Debug, Clone, Copy, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ScriptRef {
+        pub game_id: f64,
+        pub queue_id: f64,
+    }
+
+    impl Script {
+        pub fn read(dir: &Path, scenario: &str) -> Result<Self, String> {
+            let path = dir.join(format!("{scenario}.json"));
+            let text =
+                std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+            serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))
+        }
+    }
+
+    /// The fake client's answers, as `fake-lcu.ts` routes them.
+    pub struct ScriptedClient {
+        pub script: Script,
+        pub connected: bool,
+    }
+
+    impl Client for ScriptedClient {
+        fn request_json<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<Value, LcuError>> {
+            let missing = || LcuError::Status {
+                status: 404,
+                url: path.to_string(),
+            };
+            let challenges = self.script.challenges.as_ref();
+            let answer = match path {
+                PHASE_PATH => Some(self.script.phase.clone()),
+                SESSION_PATH => Some(self.script.session.clone()).filter(|s| truthy(Some(s))),
+                "/lol-challenges/v1/challenges/local-player" => challenges.map(|c| c.all.clone()),
+                "/lol-challenges/v1/summary-player-data/local-player" => {
+                    challenges.map(|c| c.summary.clone())
+                }
+                _ => None,
+            };
+            Box::pin(async move { answer.ok_or_else(missing) })
+        }
+
+        fn is_client_connected(&self) -> bool {
+            self.connected
+        }
+
+        fn live_game_ref(&self) -> Option<LiveGameRef> {
+            self.script.live_ref.map(|r| LiveGameRef {
+                game_id: r.game_id,
+                queue_id: r.queue_id,
+            })
+        }
+    }
+
+    /// The fake live client: data while "on", 404 while loading, 503 when off.
+    pub struct ScriptedGame(pub Script);
+
+    impl GameApi for ScriptedGame {
+        fn get<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<Value, GameApiError>> {
+            let answer = match (self.0.live.as_str(), path) {
+                ("on", ALL_GAME_DATA_PATH) => Ok(self.0.live_data.clone()),
+                ("on", GAME_STATS_PATH) => Ok(self.0.live_data["gameData"].clone()),
+                ("on" | "loading", _) => {
+                    Err(GameApiError::Failed("In-game API returned 404".into()))
+                }
+                _ => Err(GameApiError::Failed("In-game API returned 503".into())),
+            };
+            Box::pin(async move { answer })
+        }
+    }
+
+    /// T03's client state for a state golden: its scenario, whether the client
+    /// is up, whether the connect listener's challenge refresh had run before
+    /// the page asked, and whether the data was the empty copy.
+    struct StateSpec {
+        scenario: &'static str,
+        connected: bool,
+        refreshed: bool,
+        empty: bool,
+    }
+
+    fn spec(state: &str) -> Option<StateSpec> {
+        let spec = |scenario, connected, refreshed, empty| StateSpec {
+            scenario,
+            connected,
+            refreshed,
+            empty,
+        };
+        Some(match state {
+            "live-in-game" => spec("in-game", true, false, false),
+            "live-loading" => spec("in-game-loading", true, false, false),
+            "live-champ-select" => spec("champ-select", true, false, false),
+            "live-standby-connected" => spec("connected-idle", true, false, false),
+            "challenges-loaded" => spec("challenges-loaded", true, true, false),
+            "challenges-offline-stored" => spec("challenges-loaded", false, true, false),
+            "challenges-offline-empty" => spec("connected-idle", false, false, true),
+            _ => return None,
+        })
+    }
+
+    /// Seeds the trackers for the T03 client state a golden was recorded in.
+    /// False for a state with nothing to seed, such as a case recorded with no
+    /// client. `challenges-offline-empty` ran on a copy with every table but
+    /// `settings` emptied; this clears only what `challenges:get` reads.
+    pub async fn seed(
+        tracking: &Tracking,
+        env: Arc<dyn TrackingEnv>,
+        runtime: Handle,
+        state: &str,
+        scripts: &Path,
+    ) -> Result<bool, String> {
+        let Some(spec) = spec(state) else {
+            return Ok(false);
+        };
+        let script = Script::read(scripts, spec.scenario)?;
+        if spec.empty {
+            with_db(env.as_ref(), |conn| {
+                conn.execute_batch("DELETE FROM challenge_state")
+            })?;
+        }
+        let build = |connected: bool| {
+            let client: Arc<dyn Client> = Arc::new(ScriptedClient {
+                script: script.clone(),
+                connected,
+            });
+            let game: Arc<dyn GameApi> = Arc::new(ScriptedGame(script.clone()));
+            (
+                LiveTracker::new(client.clone(), game, env.clone(), runtime.clone()),
+                ChallengeTracker::new(client, env.clone(), runtime.clone()),
+            )
+        };
+        if spec.refreshed {
+            let (_, challenges) = build(true);
+            challenges.refresh_and_broadcast().await;
+        }
+        let (live, challenges) = build(spec.connected);
+        tracking.replace(live, challenges);
+        Ok(true)
+    }
+
+    /// The T03 state each case of `channel` was recorded in, from T05's
+    /// `states/<state>.json`.
+    pub fn states_of_cases(golden_dir: &Path, channel: &str) -> Vec<(String, String)> {
+        let mut out = Vec::new();
+        for entry in std::fs::read_dir(golden_dir.join("states"))
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            let Ok(text) = std::fs::read_to_string(entry.path()) else {
+                continue;
+            };
+            let Ok(state) = serde_json::from_str::<Value>(&text) else {
+                continue;
+            };
+            let name = state["state"].as_str().unwrap_or_default().to_string();
+            for call in state["calls"].as_array().into_iter().flatten() {
+                let case = call["case"].as_str().unwrap_or_default().to_string();
+                if call["channel"] == channel
+                    && case.starts_with("state-")
+                    && !out.contains(&(case.clone(), name.clone()))
+                {
+                    out.push((case, name.clone()));
+                }
+            }
+        }
+        out.sort();
+        out
+    }
 }
 
 /// Stand-ins for the client, the game's API, and the app, on tokio's paused
@@ -1930,6 +2180,49 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn before_the_first_refresh_the_answer_is_the_launch_snapshot() {
+        let rig = rig("launch-snapshot");
+        in_game(&rig);
+        *rig.client.live.lock().unwrap() = Some(LiveGameRef {
+            game_id: 7.0,
+            queue_id: 2400.0,
+        });
+        assert_eq!(
+            rig.live.latest().game_id,
+            None,
+            "made when no game was known"
+        );
+        // The poll's first refresh holds the flag before its task runs, so a
+        // call that lands first answers with the launch snapshot
+        rig.live.on_status(LcuStatus::Ingame);
+        let answer = rig.live.refresh().await;
+        assert_eq!((answer.in_game, answer.game_id), (false, None));
+        settle().await;
+        assert!(rig.live.latest().in_game);
+    }
+
+    #[test]
+    fn a_streak_past_the_names_is_counted() {
+        let by_name = HashMap::new();
+        let streak = |value: Value| {
+            describe_event(
+                &json!({ "EventName": "Multikill", "KillerName": "x", "KillStreak": value }),
+                &by_name,
+            )
+            .unwrap()
+            .text
+        };
+        assert_eq!(streak(json!(5)), "\u{2068}x\u{2069}: PENTAKILL");
+        assert_eq!(streak(json!(1)), "\u{2068}x\u{2069}: 1 kills");
+        assert_eq!(
+            streak(json!("Infinity")),
+            "\u{2068}x\u{2069}: Infinity kills"
+        );
+        assert_eq!(streak(json!(2.5)), "\u{2068}x\u{2069}: 2.5 kills");
+        assert_eq!(streak(json!("nope")), "\u{2068}x\u{2069}: 0 kills");
+    }
+
+    #[tokio::test]
     async fn events_wait_for_tracking_to_start_and_stop_with_it() {
         let client = StubClient::new();
         let env = TestEnv::new("emitting");
@@ -2117,5 +2410,369 @@ mod tests {
     #[test]
     fn the_fixed_clock_is_the_goldens() {
         assert_eq!(NOW_MS, 1_795_399_200_000);
+    }
+}
+
+/// Opt in: run T03's `parity/fake-lcu.ts`, then point `BMT_PARITY_LEAGUE_DIR`,
+/// `BMT_PARITY_CA` and `BMT_PARITY_LIVE_PORT` at it and `BMT_TEST_DATA` at a
+/// fixture copy's data root. Runs T20's sync and both trackers over the real
+/// transport, with Dragon over the copy's caches and the web blocked, and
+/// prints every event, and the two commands' answers at `BMT_TEST_CALLS_MS`
+/// after the first connected status, as JSON lines.
+#[cfg(all(test, feature = "parity-driver"))]
+mod parity_run {
+    use std::path::PathBuf;
+    use std::time::Instant as WallInstant;
+
+    use serde_json::json;
+
+    use super::*;
+    use crate::commands::lcu::{BackfillOutcome, BackfillProgress};
+    use crate::dragon::Dragon;
+    use crate::lcu::sync::{Champions, Env, LcuSync};
+    use crate::live::test_env::NOW_MS;
+
+    struct PrintingEnv {
+        started: WallInstant,
+        db: Database,
+        dragon: Dragon,
+        out: Mutex<()>,
+    }
+
+    impl PrintingEnv {
+        fn print(&self, kind: &str, event: &str, payload: Value) {
+            let _line = self.out.lock().unwrap();
+            let line = json!({"t": self.started.elapsed().as_millis() as u64, "event": event, "payload": payload});
+            println!("{kind} {line}");
+        }
+    }
+
+    impl Env for PrintingEnv {
+        fn db(&self) -> Option<&Database> {
+            Some(&self.db)
+        }
+        fn champions(&self) -> Option<Arc<dyn Champions>> {
+            Some(Arc::new(self.dragon.clone()))
+        }
+        fn now_ms(&self) -> i64 {
+            NOW_MS
+        }
+        fn games_updated(&self) {
+            self.print("EVENT", "lcu:games-updated", Value::Null);
+        }
+        fn backfill_progress(&self, progress: &BackfillProgress) {
+            self.print(
+                "EVENT",
+                "lcu:backfill-progress",
+                serde_json::to_value(progress).unwrap(),
+            );
+        }
+        fn backfill_done(&self, outcome: &BackfillOutcome) {
+            self.print(
+                "EVENT",
+                "lcu:backfill-done",
+                serde_json::to_value(outcome).unwrap(),
+            );
+        }
+    }
+
+    impl TrackingEnv for PrintingEnv {
+        fn db(&self) -> Option<&Database> {
+            Some(&self.db)
+        }
+        fn now_ms(&self) -> i64 {
+            NOW_MS
+                + std::env::var("BMT_TEST_DAYS")
+                    .ok()
+                    .and_then(|d| d.parse::<i64>().ok())
+                    .unwrap_or(0)
+                    * 86_400_000
+        }
+        fn champion_data(&self) -> ChampionData {
+            self.dragon.loaded_champion_data()
+        }
+        fn spell_keys(&self) -> BoxFuture<'_, Option<Arc<HashMap<String, i64>>>> {
+            Box::pin(async move { self.dragon.summoner_spell_keys().await.ok() })
+        }
+        fn spell_data(&self) -> BoxFuture<'_, Option<Arc<SummonerSpellData>>> {
+            Box::pin(async move { self.dragon.summoner_spells().await.ok() })
+        }
+        fn live_changed(&self, snapshot: &LiveGameSnapshot) {
+            self.print(
+                "EVENT",
+                "live:changed",
+                serde_json::to_value(snapshot).unwrap(),
+            );
+        }
+        fn challenges_changed(&self, result: &ChallengesResult) {
+            self.print(
+                "EVENT",
+                "challenges:changed",
+                serde_json::to_value(result).unwrap(),
+            );
+        }
+    }
+
+    #[ignore = "needs a running parity fake client"]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn against_the_parity_fake_client() {
+        let root = PathBuf::from(std::env::var_os("BMT_TEST_DATA").expect("BMT_TEST_DATA"));
+        let ms = |name: &str, fallback: u64| {
+            std::env::var(name)
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(fallback)
+        };
+        let calls: Vec<u64> = std::env::var("BMT_TEST_CALLS_MS")
+            .unwrap_or_default()
+            .split(',')
+            .filter_map(|v| v.parse().ok())
+            .collect();
+        let started = WallInstant::now();
+        let web = crate::assets::app_web().expect("the parity web");
+        let assets = crate::assets::GameAssets::new(
+            root.join("asset-cache"),
+            web.clone(),
+            Arc::new(crate::assets::NoClient),
+        );
+        let dragon = Dragon::new(web, assets.clone(), root.join("data"));
+        drop(dragon.load_champion_data());
+        assets.start();
+        dragon.start();
+        let env = Arc::new(PrintingEnv {
+            started,
+            db: Database::open(&root.join("data"), NOW_MS).expect("open the fixture copy"),
+            dragon,
+            out: Mutex::default(),
+        });
+        let printer = env.clone();
+        let sync = LcuSync::new(
+            env.clone(),
+            Handle::current(),
+            Box::new(move |status| {
+                printer.print("EVENT", "lcu:status-changed", Value::from(status.as_str()))
+            }),
+        );
+        let client: Arc<dyn Client> = Arc::new(sync.lcu.clone());
+        let game: Arc<dyn GameApi> = Arc::new(HttpGameApi::new(GameApiTarget::from_env()));
+        let tracking = Tracking::new(
+            LiveTracker::new(client.clone(), game, env.clone(), Handle::current()),
+            ChallengeTracker::new(client, env.clone(), Handle::current()),
+        );
+        let mut changes = sync.lcu.subscribe();
+        sync.start_polling();
+        tracking.start(&Handle::current(), sync.lcu.subscribe());
+
+        let live = tracking.live();
+        let challenges = tracking.challenges();
+        let lcu = sync.lcu.clone();
+        let caller = env.clone();
+        tokio::spawn(async move {
+            while let Ok(status) = changes.recv().await {
+                if status.is_client_connected() {
+                    break;
+                }
+            }
+            let connected = WallInstant::now();
+            for at in calls {
+                tokio::time::sleep_until(tokio::time::Instant::from_std(
+                    connected + Duration::from_millis(at),
+                ))
+                .await;
+                let snapshot = if lcu.is_client_connected() {
+                    live.refresh().await
+                } else {
+                    live.latest()
+                };
+                caller.print(
+                    "CALL",
+                    "live:snapshot",
+                    serde_json::to_value(snapshot).unwrap(),
+                );
+                let result = challenges.get_challenges().map_err(|e| e.message);
+                caller.print(
+                    "CALL",
+                    "challenges:get",
+                    serde_json::to_value(result.ok()).unwrap(),
+                );
+            }
+        });
+        tokio::time::sleep(Duration::from_millis(ms("BMT_TEST_RUN_MS", 20_000))).await;
+        tracking.stop();
+        sync.stop_polling();
+        env.db.close();
+    }
+}
+
+/// Opt in: [`golden::seed`] against what trunk Electron answered under T03's
+/// fake client, and against T05's state goldens when they are on disk.
+/// `BMT_T21_SCRIPTS` names `record-scenarios.ts`'s output, `BMT_T21_FIXTURE`
+/// a fixture data root, `BMT_T21_RUNS` the folder of `t21-run.ts` Electron
+/// runs, and `BMT_GOLDEN_DIR` T05's goldens.
+#[cfg(test)]
+mod golden_states {
+    use std::path::{Path, PathBuf};
+
+    use super::golden::seed;
+    use super::test_env::{StubClient, TestEnv};
+    use super::*;
+
+    fn canonical(value: &Value) -> Value {
+        match value {
+            Value::Object(map) => {
+                let mut keys: Vec<&String> = map.keys().collect();
+                keys.sort();
+                Value::Object(
+                    keys.into_iter()
+                        .map(|k| (k.clone(), canonical(&map[k])))
+                        .collect(),
+                )
+            }
+            Value::Array(items) => Value::Array(items.iter().map(canonical).collect()),
+            Value::Number(n) => serde_json::Number::from_f64(n.as_f64().unwrap())
+                .map_or(value.clone(), Value::Number),
+            other => other.clone(),
+        }
+    }
+
+    fn copy_dir(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap().flatten() {
+            let target = to.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_dir(&entry.path(), &target);
+            } else {
+                std::fs::copy(entry.path(), target).unwrap();
+            }
+        }
+    }
+
+    /// The command's answer in `state`, on a fresh copy of the fixture.
+    async fn answer(
+        state: &str,
+        channel: &str,
+        scripts: &Path,
+        fixture: &Path,
+        n: usize,
+    ) -> Option<Value> {
+        let dir = std::env::temp_dir().join(format!("bmt-live-golden-{}-{n}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        copy_dir(&fixture.join("data"), &dir);
+        let env = TestEnv::over(dir);
+        let idle = StubClient::new();
+        idle.connected.store(false, Ordering::SeqCst);
+        let tracking = Tracking::new(
+            LiveTracker::new(
+                idle.clone(),
+                Arc::new(HttpGameApi::new(GameApiTarget::Refused)),
+                env.clone(),
+                Handle::current(),
+            ),
+            ChallengeTracker::new(idle, env.clone(), Handle::current()),
+        );
+        if !seed(&tracking, env.clone(), Handle::current(), state, scripts)
+            .await
+            .unwrap()
+        {
+            return None;
+        }
+        match channel {
+            "live:snapshot" => {
+                let live = tracking.live();
+                let connected = live.client.is_client_connected();
+                let snapshot = if connected {
+                    live.refresh().await
+                } else {
+                    live.latest()
+                };
+                Some(serde_json::to_value(snapshot).unwrap())
+            }
+            _ => {
+                Some(serde_json::to_value(tracking.challenges().get_challenges().unwrap()).unwrap())
+            }
+        }
+    }
+
+    /// The first command answer of `channel` in an Electron run's events.
+    fn electron_call(runs: &Path, run: &str, channel: &str) -> Option<Value> {
+        let log = std::fs::read_to_string(runs.join(run).join("electron-events.log")).ok()?;
+        log.lines().find_map(|line| {
+            let body: Value = serde_json::from_str(line.strip_prefix("CALL ")?).ok()?;
+            (body["event"] == channel).then(|| body["payload"].clone())
+        })
+    }
+
+    #[ignore = "needs the T21 scripts, a fixture, and Electron runs or goldens"]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn seeded_states_answer_as_electron_did() {
+        let path = |name| PathBuf::from(std::env::var_os(name).unwrap_or_else(|| panic!("{name}")));
+        let (scripts, fixture) = (path("BMT_T21_SCRIPTS"), path("BMT_T21_FIXTURE"));
+        let runs = std::env::var_os("BMT_T21_RUNS").map(PathBuf::from);
+        let goldens = std::env::var_os("BMT_GOLDEN_DIR").map(PathBuf::from);
+        let mut checked = 0;
+        let mut failures = Vec::new();
+        let mut n = 0;
+        let mut check = |label: String, want: Value, got: Option<Value>| {
+            let Some(got) = got else {
+                println!("skip {label}: a state with nothing to seed");
+                return;
+            };
+            if canonical(&want) == canonical(&got) {
+                println!("pass {label}");
+            } else {
+                println!("FAIL {label}\n  electron {want}\n  rust     {got}");
+                failures.push(label);
+            }
+            checked += 1;
+        };
+        if let Some(runs) = &runs {
+            for (state, run, channel) in [
+                ("live-in-game", "electron-in-game", "live:snapshot"),
+                ("live-loading", "electron-in-game-loading", "live:snapshot"),
+                (
+                    "live-champ-select",
+                    "electron-champ-select",
+                    "live:snapshot",
+                ),
+                (
+                    "challenges-loaded",
+                    "electron-challenges-loaded",
+                    "challenges:get",
+                ),
+            ] {
+                let Some(want) = electron_call(runs, run, channel) else {
+                    println!("skip {state}: no {run} run");
+                    continue;
+                };
+                n += 1;
+                check(
+                    format!("{state} {channel} against {run}"),
+                    want,
+                    answer(state, channel, &scripts, &fixture, n).await,
+                );
+            }
+        }
+        if let Some(goldens) = &goldens {
+            for channel in ["live:snapshot", "challenges:get"] {
+                for (case, state) in golden::states_of_cases(goldens, channel) {
+                    let file = goldens
+                        .join("ipc")
+                        .join(channel.replace(':', "."))
+                        .join(format!("{case}.json"));
+                    let Ok(text) = std::fs::read_to_string(&file) else {
+                        continue;
+                    };
+                    let golden: Value = serde_json::from_str(&text).unwrap();
+                    n += 1;
+                    check(
+                        format!("{state} {channel} {case} against T05"),
+                        golden["outcome"]["result"].clone(),
+                        answer(&state, channel, &scripts, &fixture, n).await,
+                    );
+                }
+            }
+        }
+        println!("{checked} checked, {} failed", failures.len());
+        assert!(failures.is_empty(), "{failures:?}");
     }
 }

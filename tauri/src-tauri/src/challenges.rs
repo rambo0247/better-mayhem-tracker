@@ -443,7 +443,8 @@ impl ChallengeTracker {
             })
             .collect();
         let payload = stringify(&data)?;
-        let now = data.fetched_at;
+        // saveChallenges stamps the row with a clock read of its own
+        let now = self.env.now_ms();
         with_db(self.env.as_ref(), |conn| {
             save_challenges(conn, &today, &payload, &tracked, now)
         })?;
@@ -556,21 +557,16 @@ impl ChallengeTracker {
 
     /// `startGameCapture`: up to four tries, each after the one before ends.
     pub fn start_game_capture(self: &Arc<Self>, game_id: f64) -> Result<(), String> {
-        if self
-            .capture_pending
-            .lock()
-            .expect("capture lock")
-            .contains(&id_key(game_id))
         {
-            return Ok(());
+            // Checked and claimed in one step, as the synchronous original is
+            let mut pending = self.capture_pending.lock().expect("capture lock");
+            if pending.contains(&id_key(game_id))
+                || with_db(self.env.as_ref(), |conn| has_game_challenges(conn, game_id))?
+            {
+                return Ok(());
+            }
+            pending.insert(id_key(game_id));
         }
-        if with_db(self.env.as_ref(), |conn| has_game_challenges(conn, game_id))? {
-            return Ok(());
-        }
-        self.capture_pending
-            .lock()
-            .expect("capture lock")
-            .insert(id_key(game_id));
         let this = self.clone();
         self.runtime.spawn(async move {
             for delay in GAME_CAPTURE_DELAYS {
