@@ -1,0 +1,6579 @@
+{
+  "BrandMark": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "aria-hidden": "true",
+        "class": "h-9 w-9",
+        "fill": "none",
+        "viewBox": "0 0 40 40"
+      },
+      "children": [
+        {
+          "tag": "defs",
+          "attrs": {},
+          "children": [
+            {
+              "tag": "lineargradient",
+              "attrs": {
+                "gradientUnits": "userSpaceOnUse",
+                "id": "#",
+                "x1": "6",
+                "x2": "34",
+                "y1": "2",
+                "y2": "38"
+              },
+              "children": [
+                {
+                  "tag": "stop",
+                  "attrs": {
+                    "offset": "0",
+                    "stop-color": "#f6e3b0"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "stop",
+                  "attrs": {
+                    "offset": "0.45",
+                    "stop-color": "#d4b273"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "stop",
+                  "attrs": {
+                    "offset": "1",
+                    "stop-color": "#8f6c2f"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "tag": "lineargradient",
+              "attrs": {
+                "gradientUnits": "userSpaceOnUse",
+                "id": "#",
+                "x1": "20",
+                "x2": "20",
+                "y1": "2",
+                "y2": "20"
+              },
+              "children": [
+                {
+                  "tag": "stop",
+                  "attrs": {
+                    "offset": "0",
+                    "stop-color": "#fff",
+                    "stop-opacity": "0.45"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "stop",
+                  "attrs": {
+                    "offset": "1",
+                    "stop-color": "#fff",
+                    "stop-opacity": "0"
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M9 4h20l5 5-7.4 29H1z",
+            "fill": "url(#)"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M9 4h20l5 5-2.3 9H5.6z",
+            "fill": "url(#)"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M7.6 31.5 11.9 11l6.3 11.2L26.6 11l-4.3 20.5",
+            "stroke": "#0a1024",
+            "stroke-linecap": "butt",
+            "stroke-linejoin": "miter",
+            "stroke-miterlimit": "12",
+            "stroke-width": "4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M35.5 0.5 36.6 3.4l2.9 1.1-2.9 1.1-1.1 2.9-1.1-2.9-2.9-1.1 2.9-1.1z",
+            "fill": "#f2dca6"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "Kda": [
+    "12",
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "mx-[0.15em] text-lol-text/40"
+      },
+      "children": ["/"]
+    },
+    "0",
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "mx-[0.15em] text-lol-text/40"
+      },
+      "children": ["/"]
+    },
+    "7"
+  ],
+  "MultikillBadge 0": [],
+  "MultikillBadge 1": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex flex-wrap gap-1 whitespace-nowrap"
+      },
+      "children": [
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "bg-sky-400/14 font-bold font-display leading-none px-1.5 py-[3px] ring-1 ring-inset ring-sky-400/25 rounded-[2px] text-[11px] text-sky-400 tracking-[0.06em]"
+          },
+          "children": ["DOUBLE ×3"]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "bg-amber-400/14 font-bold font-display leading-none px-1.5 py-[3px] ring-1 ring-amber-400/25 ring-inset rounded-[2px] text-[11px] text-amber-400 tracking-[0.06em]"
+          },
+          "children": ["TRIPLE"]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "bg-red-400/16 font-bold font-display leading-none px-1.5 py-[3px] ring-1 ring-inset ring-red-400/35 rounded-[2px] text-[11px] text-red-400 tracking-[0.06em]"
+          },
+          "children": ["PENTA"]
+        }
+      ]
+    }
+  ],
+  "MultikillBadge 2": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex gap-1 whitespace-nowrap"
+      },
+      "children": [
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "bg-sky-400/14 font-bold font-num leading-none px-1 py-[3px] ring-1 ring-inset ring-sky-400/25 rounded-[2px] text-[11px] text-sky-400",
+            "title": "Double kill"
+          },
+          "children": ["D"]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "bg-amber-400/14 font-bold font-num leading-none px-1 py-[3px] ring-1 ring-amber-400/25 ring-inset rounded-[2px] text-[11px] text-amber-400",
+            "title": "Triple kills x2"
+          },
+          "children": ["T2"]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "bg-purple-400/14 font-bold font-num leading-none px-1 py-[3px] ring-1 ring-inset ring-purple-400/25 rounded-[2px] text-[11px] text-purple-400",
+            "title": "Quadra kill"
+          },
+          "children": ["Q"]
+        }
+      ]
+    }
+  ],
+  "PageHeader full": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex flex-wrap gap-x-6 gap-y-3 items-end justify-between pb-2 pb-5"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "min-w-0"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "kicker mb-2"
+              },
+              "children": ["Analyze"]
+            },
+            {
+              "tag": "h1",
+              "attrs": {
+                "class": "page-title truncate"
+              },
+              "children": ["Champions"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "mt-2 text-[13px] text-lol-text"
+              },
+              "children": ["Every pick"]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex flex-wrap gap-2 items-center"
+          },
+          "children": ["x"]
+        }
+      ]
+    }
+  ],
+  "PageHeader bare": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex flex-wrap gap-x-6 gap-y-3 items-end justify-between pb-5"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "min-w-0"
+          },
+          "children": [
+            {
+              "tag": "h1",
+              "attrs": {
+                "class": "page-title truncate"
+              },
+              "children": ["Records"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "StatCard full": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex flex-col overflow-hidden p-4 panel"
+      },
+      "children": [
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "absolute bg-gradient-to-r from-lol-gold/70 h-px inset-x-0 pointer-events-none to-transparent top-0"
+          },
+          "children": []
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex gap-2 items-center mb-2"
+          },
+          "children": [
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "bg-lol-gold/12 flex h-6 items-center justify-center rounded-md text-lol-gold w-6"
+              },
+              "children": ["i"]
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "label"
+              },
+              "children": ["Games"]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "font-num font-semibold leading-none text-[30px] text-lol-text-bright"
+          },
+          "children": ["42"]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "mt-2 text-[13px] text-lol-text"
+          },
+          "children": ["this set"]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "mt-auto pt-3"
+          },
+          "children": ["foot"]
+        }
+      ]
+    }
+  ],
+  "StatCard bare": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex flex-col overflow-hidden p-4 panel"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex gap-2 items-center mb-2"
+          },
+          "children": [
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "label"
+              },
+              "children": ["Win rate"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "Panel": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex flex-col overflow-hidden p-4 panel"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex gap-2 items-center mb-3"
+          },
+          "children": [
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "bg-sky-400/12 flex h-6 items-center justify-center rounded-md text-sky-400 w-6"
+              },
+              "children": ["i"]
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "section-title"
+              },
+              "children": ["Best"]
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "text-lol-text text-xs"
+              },
+              "children": ["of 3"]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex-1"
+          },
+          "children": ["body"]
+        }
+      ]
+    }
+  ],
+  "RiotId tagged": [
+    {
+      "tag": "bdi",
+      "attrs": {},
+      "children": ["Name With Space"]
+    },
+    "#",
+    {
+      "tag": "bdi",
+      "attrs": {},
+      "children": ["EUW"]
+    }
+  ],
+  "RiotId bare": [
+    {
+      "tag": "bdi",
+      "attrs": {},
+      "children": ["#leading"]
+    }
+  ],
+  "RiotText": [
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "text-lol-gold-light"
+      },
+      "children": ["25"]
+    },
+    "Move Speed",
+    {
+      "tag": "br",
+      "attrs": {},
+      "children": []
+    },
+    {
+      "tag": "br",
+      "attrs": {},
+      "children": []
+    },
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "font-semibold text-lol-gold"
+      },
+      "children": ["Quick:"]
+    },
+    "Gain",
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "text-[#78d6b0]"
+      },
+      "children": ["Move Speed"]
+    },
+    "out of combat.",
+    {
+      "tag": "br",
+      "attrs": {},
+      "children": []
+    },
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "select-none text-lol-text/40"
+      },
+      "children": ["•"]
+    },
+    "Stacks once.",
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "mt-1 text-lol-text/80"
+      },
+      "children": ["Limited to 1."]
+    }
+  ],
+  "RiotText font": [
+    {
+      "tag": "span",
+      "attrs": {
+        "style": "color:#ffd700"
+      },
+      "children": ["Gold"]
+    },
+    "kept",
+    {
+      "tag": "br",
+      "attrs": {},
+      "children": []
+    },
+    {
+      "tag": "br",
+      "attrs": {},
+      "children": []
+    },
+    "end"
+  ],
+  "RiotText empty": [],
+  "HoverCard closed": [
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "contents"
+      },
+      "children": ["trigger"]
+    }
+  ],
+  "SearchInput empty": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "relative"
+      },
+      "children": [
+        {
+          "tag": "svg",
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "-translate-y-1/2 absolute h-3.5 left-2.5 pointer-events-none text-lol-text/70 top-1/2 w-3.5",
+            "fill": "none",
+            "stroke": "currentColor",
+            "stroke-linecap": "round",
+            "stroke-width": "2.25",
+            "viewBox": "0 0 24 24",
+            "xmlns": "http://www.w3.org/2000/svg"
+          },
+          "children": [
+            {
+              "tag": "circle",
+              "attrs": {
+                "cx": "11",
+                "cy": "11",
+                "r": "7"
+              },
+              "children": []
+            },
+            {
+              "tag": "path",
+              "attrs": {
+                "d": "m20 20-3.5-3.5"
+              },
+              "children": []
+            }
+          ]
+        },
+        {
+          "tag": "input",
+          "attrs": {
+            "class": "input pl-8 pr-7 w-52",
+            "placeholder": "Search",
+            "type": "text",
+            ":value": ""
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SearchInput typed": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "relative"
+      },
+      "children": [
+        {
+          "tag": "svg",
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "-translate-y-1/2 absolute h-3.5 left-2.5 pointer-events-none text-lol-text/70 top-1/2 w-3.5",
+            "fill": "none",
+            "stroke": "currentColor",
+            "stroke-linecap": "round",
+            "stroke-width": "2.25",
+            "viewBox": "0 0 24 24",
+            "xmlns": "http://www.w3.org/2000/svg"
+          },
+          "children": [
+            {
+              "tag": "circle",
+              "attrs": {
+                "cx": "11",
+                "cy": "11",
+                "r": "7"
+              },
+              "children": []
+            },
+            {
+              "tag": "path",
+              "attrs": {
+                "d": "m20 20-3.5-3.5"
+              },
+              "children": []
+            }
+          ]
+        },
+        {
+          "tag": "input",
+          "attrs": {
+            "class": "input pl-8 pr-7 w-52",
+            "placeholder": "Search",
+            "type": "text",
+            ":value": "ann"
+          },
+          "children": []
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-label": "Clear search",
+            "class": "-translate-y-1/2 absolute hover:text-lol-text-bright right-2 text-lol-text/50 top-1/2 transition-colors"
+          },
+          "children": [
+            {
+              "tag": "svg",
+              "attrs": {
+                "class": "h-3.5 w-3.5",
+                "fill": "currentColor",
+                "viewBox": "0 0 16 16",
+                "xmlns": "http://www.w3.org/2000/svg"
+              },
+              "children": [
+                {
+                  "tag": "path",
+                  "attrs": {
+                    "clip-rule": "evenodd",
+                    "d": "M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm2.78-4.22a.75.75 0 0 1-1.06 0L8 9.06l-1.72 1.72a.75.75 0 1 1-1.06-1.06L6.94 8 5.22 6.28a.75.75 0 0 1 1.06-1.06L8 6.94l1.72-1.72a.75.75 0 1 1 1.06 1.06L9.06 8l1.72 1.72a.75.75 0 0 1 0 1.06Z",
+                    "fill-rule": "evenodd"
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "RarityFilter all": [
+    {
+      "tag": "div",
+      "attrs": {
+        "aria-label": "Rarity",
+        "class": "seg",
+        "role": "group"
+      },
+      "children": [
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "true",
+            "class": "bg-lol-text-bright seg-item text-[#0a0f24]"
+          },
+          "children": ["All"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-[#c9d1e8]"
+          },
+          "children": ["Silver"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-amber-400"
+          },
+          "children": ["Gold"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-fuchsia-400"
+          },
+          "children": ["Prismatic"]
+        }
+      ]
+    }
+  ],
+  "RarityFilter kSilver": [
+    {
+      "tag": "div",
+      "attrs": {
+        "aria-label": "Rarity",
+        "class": "seg",
+        "role": "group"
+      },
+      "children": [
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-lol-text"
+          },
+          "children": ["All"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "true",
+            "class": "bg-[#c9d1e8] seg-item text-[#0a0f24]"
+          },
+          "children": ["Silver"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-amber-400"
+          },
+          "children": ["Gold"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-fuchsia-400"
+          },
+          "children": ["Prismatic"]
+        }
+      ]
+    }
+  ],
+  "RarityFilter kGold": [
+    {
+      "tag": "div",
+      "attrs": {
+        "aria-label": "Rarity",
+        "class": "seg",
+        "role": "group"
+      },
+      "children": [
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-lol-text"
+          },
+          "children": ["All"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-[#c9d1e8]"
+          },
+          "children": ["Silver"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "true",
+            "class": "bg-amber-400 seg-item text-[#2a1c00]"
+          },
+          "children": ["Gold"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-fuchsia-400"
+          },
+          "children": ["Prismatic"]
+        }
+      ]
+    }
+  ],
+  "RarityFilter kPrismatic": [
+    {
+      "tag": "div",
+      "attrs": {
+        "aria-label": "Rarity",
+        "class": "seg",
+        "role": "group"
+      },
+      "children": [
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-lol-text"
+          },
+          "children": ["All"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-[#c9d1e8]"
+          },
+          "children": ["Silver"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "false",
+            "class": "seg-item text-amber-400"
+          },
+          "children": ["Gold"]
+        },
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-pressed": "true",
+            "class": "bg-gradient-to-r from-fuchsia-400 seg-item text-[#140a2a] to-sky-400"
+          },
+          "children": ["Prismatic"]
+        }
+      ]
+    }
+  ],
+  "ScoreCell none": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "shrink-0 text-center w-11"
+      },
+      "children": []
+    }
+  ],
+  "ScoreCell plain": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "shrink-0 text-center w-11"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "font-num font-semibold leading-none text-[20px] text-lol-text-bright"
+          },
+          "children": ["6.3"]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "mt-1"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "label leading-[15px] text-[11px] text-lol-text/80"
+              },
+              "children": ["score"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ScoreCell mvp": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "shrink-0 text-center w-11"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "font-num font-semibold leading-none text-[20px] text-amber-400"
+          },
+          "children": ["9.4"]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "mt-1"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "bg-amber-400 font-display font-extrabold italic leading-[15px] mx-auto px-1.5 slant-sm text-[#2a1c00] text-[11px] tracking-[0.06em] w-fit"
+              },
+              "children": ["MVP"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ScoreBadge large": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "bg-purple-400 font-display font-extrabold italic leading-[20px] px-2.5 slant-sm text-[#1b0b3a] text-[13px] tracking-[0.06em]"
+      },
+      "children": ["ACE"]
+    }
+  ],
+  "StatBars": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "shrink-0 space-y-[3px] w-40"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex gap-2 items-center"
+          },
+          "children": [
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "font-bold font-display shrink-0 text-[11px] text-lol-text tracking-[0.04em] w-7"
+              },
+              "children": ["DMG"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "bg-white/[0.06] flex-1 h-1.5 overflow-hidden relative rounded-[1px]"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "bg-red-400 h-full opacity-80",
+                    "style": "width:78%"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "font-num font-semibold shrink-0 text-[13px] text-lol-text-bright text-right w-10"
+              },
+              "children": ["31.3k"]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex gap-2 items-center"
+          },
+          "children": [
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "font-bold font-display shrink-0 text-[11px] text-lol-text tracking-[0.04em] w-7"
+              },
+              "children": ["TKN"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "bg-white/[0.06] flex-1 h-1.5 overflow-hidden relative rounded-[1px]"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "bg-sky-400 h-full opacity-80",
+                    "style": "width:0%"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "font-num font-semibold shrink-0 text-[13px] text-lol-text-bright text-right w-10"
+              },
+              "children": ["—"]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex gap-2 items-center"
+          },
+          "children": [
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "font-bold font-display shrink-0 text-[11px] text-lol-text tracking-[0.04em] w-7"
+              },
+              "children": ["HEL"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "bg-white/[0.06] flex-1 h-1.5 overflow-hidden relative rounded-[1px]"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "bg-emerald-400 h-full opacity-80",
+                    "style": "width:0%"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "font-num font-semibold shrink-0 text-[13px] text-lol-text-bright text-right w-10"
+              },
+              "children": ["900"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "WinRateBar win": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex gap-2.5 items-center"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "bg-lol-loss/25 flex-1 h-1.5 min-w-16 overflow-hidden relative rounded-[2px]"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "bg-gradient-to-r from-lol-win/70 h-full rounded-[2px] to-lol-win transition-all",
+                "style": "width:60%"
+              },
+              "children": []
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "absolute bg-lol-dark/70 inset-y-0 left-1/2 w-px"
+              },
+              "children": []
+            }
+          ]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "font-num font-semibold min-w-11 text-[14px] text-lol-win text-right"
+          },
+          "children": ["60.0%"]
+        }
+      ]
+    }
+  ],
+  "WinRateBar empty": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex gap-2.5 items-center"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "bg-lol-loss/25 flex-1 h-1.5 min-w-16 overflow-hidden relative rounded-[2px]"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "bg-gradient-to-r from-lol-win/70 h-full rounded-[2px] to-lol-win transition-all",
+                "style": "width:0%"
+              },
+              "children": []
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "absolute bg-lol-dark/70 inset-y-0 left-1/2 w-px"
+              },
+              "children": []
+            }
+          ]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "font-num font-semibold min-w-11 text-[14px] text-lol-text text-right"
+          },
+          "children": ["0%"]
+        }
+      ]
+    }
+  ],
+  "Markdown": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "space-y-2.5"
+      },
+      "children": [
+        {
+          "tag": "p",
+          "attrs": {
+            "class": "label pt-1 text-[13px] text-lol-text-bright"
+          },
+          "children": ["Fixed"]
+        },
+        {
+          "tag": "ul",
+          "attrs": {
+            "class": "space-y-1.5"
+          },
+          "children": [
+            {
+              "tag": "li",
+              "attrs": {
+                "class": "flex gap-2.5"
+              },
+              "children": [
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "aria-hidden": "true",
+                    "class": "bg-lol-gold/70 h-[5px] mt-[7px] rotate-45 shrink-0 w-[5px]"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "flex-1"
+                  },
+                  "children": [
+                    "The",
+                    {
+                      "tag": "strong",
+                      "attrs": {
+                        "class": "font-semibold text-lol-text-bright"
+                      },
+                      "children": ["card"]
+                    },
+                    "export"
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "li",
+              "attrs": {
+                "class": "flex gap-2.5 ml-5"
+              },
+              "children": [
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "aria-hidden": "true",
+                    "class": "border border-lol-text/50 h-[5px] mt-[7px] rotate-45 shrink-0 w-[5px]"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "flex-1"
+                  },
+                  "children": [
+                    "nested",
+                    {
+                      "tag": "code",
+                      "attrs": {
+                        "class": "font-sans font-semibold text-lol-text-bright"
+                      },
+                      "children": ["code"]
+                    },
+                    "item"
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "li",
+              "attrs": {
+                "class": "flex gap-2.5"
+              },
+              "children": [
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "aria-hidden": "true",
+                    "class": "bg-lol-gold/70 h-[5px] mt-[7px] rotate-45 shrink-0 w-[5px]"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "flex-1"
+                  },
+                  "children": [
+                    "See",
+                    {
+                      "tag": "button",
+                      "attrs": {
+                        "class": "cursor-pointer font-medium hover:text-lol-gold-light hover:underline text-left text-lol-gold transition-colors underline-offset-2"
+                      },
+                      "children": ["GitHub"]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "tag": "p",
+          "attrs": {},
+          "children": [
+            "A",
+            {
+              "tag": "button",
+              "attrs": {
+                "class": "cursor-pointer font-medium hover:text-lol-gold-light hover:underline text-left text-lol-gold transition-colors underline-offset-2"
+              },
+              "children": ["link"]
+            },
+            "in prose."
+          ]
+        }
+      ]
+    }
+  ],
+  "ActivityCalendar": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "max-w-full w-fit"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "grid",
+            "style": "gap:3px;grid-template-columns:auto repeat(7, minmax(0, 14px))"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "font-display font-semibold leading-none pb-0.5 text-[11px] text-lol-text tracking-[0.08em] uppercase w-0 whitespace-nowrap",
+                "style": "grid-column:2;grid-row:1"
+              },
+              "children": ["Sep"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "font-display font-semibold leading-none pb-0.5 text-[11px] text-lol-text tracking-[0.08em] uppercase w-0 whitespace-nowrap",
+                "style": "grid-column:7;grid-row:1"
+              },
+              "children": ["Oct"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex font-display font-semibold h-0 items-center leading-none pr-2 self-center text-[11px] text-lol-text tracking-[0.06em] uppercase",
+                "style": "grid-column:1;grid-row:2"
+              },
+              "children": ["Sun"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex font-display font-semibold h-0 items-center leading-none pr-2 self-center text-[11px] text-lol-text tracking-[0.06em] uppercase",
+                "style": "grid-column:1;grid-row:3"
+              },
+              "children": ["Mon"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex font-display font-semibold h-0 items-center leading-none pr-2 self-center text-[11px] text-lol-text tracking-[0.06em] uppercase",
+                "style": "grid-column:1;grid-row:4"
+              },
+              "children": ["Tue"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex font-display font-semibold h-0 items-center leading-none pr-2 self-center text-[11px] text-lol-text tracking-[0.06em] uppercase",
+                "style": "grid-column:1;grid-row:5"
+              },
+              "children": ["Wed"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex font-display font-semibold h-0 items-center leading-none pr-2 self-center text-[11px] text-lol-text tracking-[0.06em] uppercase",
+                "style": "grid-column:1;grid-row:6"
+              },
+              "children": ["Thu"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex font-display font-semibold h-0 items-center leading-none pr-2 self-center text-[11px] text-lol-text tracking-[0.06em] uppercase",
+                "style": "grid-column:1;grid-row:7"
+              },
+              "children": ["Fri"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex font-display font-semibold h-0 items-center leading-none pr-2 self-center text-[11px] text-lol-text tracking-[0.06em] uppercase",
+                "style": "grid-column:1;grid-row:8"
+              },
+              "children": ["Sat"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:2;grid-row:4",
+                "title": "Tue, Sep 1, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:2;grid-row:5",
+                "title": "Wed, Sep 2, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square rounded-[2px]",
+                "style": "grid-column:2;grid-row:6",
+                "title": "Thu, Sep 3, 2026 · 1 game · 1W 0L"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square rounded-[2px]",
+                "style": "background:#b4dcff;grid-column:2;grid-row:7",
+                "title": "Fri, Sep 4, 2026 · 4 games · 2W 2L"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:2;grid-row:8",
+                "title": "Sat, Sep 5, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:3;grid-row:2",
+                "title": "Sun, Sep 6, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:3;grid-row:3",
+                "title": "Mon, Sep 7, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:3;grid-row:4",
+                "title": "Tue, Sep 8, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:3;grid-row:5",
+                "title": "Wed, Sep 9, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:3;grid-row:6",
+                "title": "Thu, Sep 10, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:3;grid-row:7",
+                "title": "Fri, Sep 11, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:3;grid-row:8",
+                "title": "Sat, Sep 12, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:4;grid-row:2",
+                "title": "Sun, Sep 13, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:4;grid-row:3",
+                "title": "Mon, Sep 14, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:4;grid-row:4",
+                "title": "Tue, Sep 15, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:4;grid-row:5",
+                "title": "Wed, Sep 16, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:4;grid-row:6",
+                "title": "Thu, Sep 17, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:4;grid-row:7",
+                "title": "Fri, Sep 18, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:4;grid-row:8",
+                "title": "Sat, Sep 19, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:5;grid-row:2",
+                "title": "Sun, Sep 20, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square rounded-[2px]",
+                "style": "grid-column:5;grid-row:3",
+                "title": "Mon, Sep 21, 2026 · 2 games · 0W 2L"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:5;grid-row:4",
+                "title": "Tue, Sep 22, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:5;grid-row:5",
+                "title": "Wed, Sep 23, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:5;grid-row:6",
+                "title": "Thu, Sep 24, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:5;grid-row:7",
+                "title": "Fri, Sep 25, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:5;grid-row:8",
+                "title": "Sat, Sep 26, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:6;grid-row:2",
+                "title": "Sun, Sep 27, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:6;grid-row:3",
+                "title": "Mon, Sep 28, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:6;grid-row:4",
+                "title": "Tue, Sep 29, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:6;grid-row:5",
+                "title": "Wed, Sep 30, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square bg-white/[0.045] rounded-[2px]",
+                "style": "grid-column:6;grid-row:6",
+                "title": "Thu, Oct 1, 2026 · no games"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square border border-white/[0.07] rounded-[2px]",
+                "style": "grid-column:6;grid-row:7"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square border border-white/[0.07] rounded-[2px]",
+                "style": "grid-column:6;grid-row:8"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square border border-white/[0.07] rounded-[2px]",
+                "style": "grid-column:7;grid-row:2"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square border border-white/[0.07] rounded-[2px]",
+                "style": "grid-column:7;grid-row:3"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square border border-white/[0.07] rounded-[2px]",
+                "style": "grid-column:7;grid-row:4"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square border border-white/[0.07] rounded-[2px]",
+                "style": "grid-column:7;grid-row:5"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square border border-white/[0.07] rounded-[2px]",
+                "style": "grid-column:7;grid-row:6"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square border border-white/[0.07] rounded-[2px]",
+                "style": "grid-column:7;grid-row:7"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square border border-white/[0.07] rounded-[2px]",
+                "style": "grid-column:7;grid-row:8"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "aspect-square border border-white/[0.07] rounded-[2px]",
+                "style": "grid-column:8;grid-row:2"
+              },
+              "children": []
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex font-display font-semibold gap-1 items-center justify-end mt-3 text-[11px] text-lol-text tracking-[0.08em] uppercase"
+          },
+          "children": [
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "mr-1.5"
+              },
+              "children": ["Less"]
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "bg-white/[0.045] h-3.5 rounded-[2px] w-3.5"
+              },
+              "children": []
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "h-3.5 rounded-[2px] w-3.5"
+              },
+              "children": []
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "h-3.5 rounded-[2px] w-3.5"
+              },
+              "children": []
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "h-3.5 rounded-[2px] w-3.5"
+              },
+              "children": []
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "h-3.5 rounded-[2px] w-3.5",
+                "style": "background:#b4dcff"
+              },
+              "children": []
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "ml-1.5"
+              },
+              "children": ["More"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ChampionIcon": [
+    {
+      "tag": "img",
+      "attrs": {
+        "alt": "",
+        "class": "border-2 rounded-md shrink-0",
+        "height": "40",
+        "src": "asset://game-data/latest/v1/champion-icons/1.png",
+        "style": "object-view-box:inset(6%)",
+        "title": "Annie",
+        "width": "40"
+      },
+      "children": []
+    }
+  ],
+  "ChampionIcon square": [
+    {
+      "tag": "img",
+      "attrs": {
+        "alt": "",
+        "class": "rounded-sm shrink-0",
+        "height": "32",
+        "src": "asset://game-data/latest/v1/champion-icons/1.png",
+        "style": "object-view-box:inset(6%)",
+        "width": "32"
+      },
+      "children": []
+    }
+  ],
+  "SummonerIcon": [
+    {
+      "tag": "img",
+      "attrs": {
+        "alt": "",
+        "class": "rounded-full shrink-0",
+        "height": "30",
+        "loading": "lazy",
+        "src": "asset://game-data/latest/v1/profile-icons/29.jpg",
+        "width": "30"
+      },
+      "children": []
+    }
+  ],
+  "SummonerIcon none": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "bg-lol-border/60 rounded-full shrink-0",
+        "style": "height:28px;width:28px"
+      },
+      "children": []
+    }
+  ],
+  "SummonerSpellIcon": [
+    {
+      "tag": "img",
+      "attrs": {
+        "alt": "",
+        "class": "rounded-[3px]",
+        "height": "18",
+        "src": "asset://game-data/latest/data/spells/icons2d/summoner_flash.png",
+        "title": "Flash",
+        "width": "18"
+      },
+      "children": []
+    }
+  ],
+  "SummonerSpellIcon none": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "bg-black/25 border border-white/[0.06] rounded-[3px]",
+        "style": "height:16px;width:16px"
+      },
+      "children": []
+    }
+  ],
+  "ChallengeToken": [
+    {
+      "tag": "img",
+      "attrs": {
+        "alt": "",
+        "class": "grayscale opacity-25 shrink-0",
+        "height": "40",
+        "src": "asset://game-data/latest/challenges/config/1/tokens/gold.png",
+        "title": "Gold",
+        "width": "40"
+      },
+      "children": []
+    }
+  ],
+  "ChallengeToken none": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "bg-white/5 border border-lol-border/60 rounded-full shrink-0",
+        "style": "height:24px;width:24px"
+      },
+      "children": []
+    }
+  ],
+  "ItemIcon": [
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "contents"
+      },
+      "children": [
+        {
+          "tag": "img",
+          "attrs": {
+            "alt": "",
+            "class": "rounded-[3px]",
+            "height": "22",
+            "src": "asset://game-data/latest/assets/items/icons2d/1001_class_t1_bootsofspeed.png",
+            "width": "22"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "ItemIcon empty": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "bg-black/25 border border-white/[0.06] rounded-[3px]",
+        "style": "height:24px;width:24px"
+      },
+      "children": []
+    }
+  ],
+  "AugmentIcon named": [
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "contents"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex gap-1.5 items-center min-w-0"
+          },
+          "children": [
+            {
+              "tag": "img",
+              "attrs": {
+                "alt": "Back To Basics",
+                "class": "ring-1 ring-amber-400/75 rounded-[3px] shrink-0",
+                "height": "28",
+                "src": "asset://game-data/latest/assets/ux/cherry/augments/icons/backtobasics_large.png",
+                "width": "28"
+              },
+              "children": []
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "text-lol-text-bright text-xs truncate"
+              },
+              "children": ["Back To Basics"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "AugmentIcon blank name": [
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "contents"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex gap-1.5 items-center min-w-0"
+          },
+          "children": [
+            {
+              "tag": "img",
+              "attrs": {
+                "alt": "Pentakill",
+                "class": "ring-1 ring-fuchsia-400/80 rounded-[3px] shrink-0",
+                "height": "22",
+                "src": "asset://game-data/16.14/assets/ux/cherry/augments/icons/pentakill_large.png",
+                "width": "22"
+              },
+              "children": []
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "text-lol-text-bright text-sm truncate"
+              },
+              "children": ["Pentakill"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "FilterMenu": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "relative"
+      },
+      "children": [
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-expanded": "false",
+            "class": "btn btn-active relative",
+            "title": "Filters"
+          },
+          "children": [
+            {
+              "tag": "svg",
+              "attrs": {
+                "class": "h-3.5 w-3.5",
+                "fill": "none",
+                "height": "1em",
+                "stroke": "currentColor",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round",
+                "stroke-width": "2",
+                "viewBox": "0 0 24 24",
+                "width": "1em",
+                "xmlns": "http://www.w3.org/2000/svg"
+              },
+              "children": [
+                {
+                  "tag": "path",
+                  "attrs": {
+                    "d": "M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "tag": "span",
+              "attrs": {},
+              "children": ["Filters"]
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "bg-lol-gold flex font-bold font-num h-[18px] items-center justify-center min-w-[18px] px-1 rounded-[3px] text-[12px] text-lol-dark"
+              },
+              "children": ["2"]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "absolute hidden menu mt-2 p-4 right-0 space-y-3.5 top-full w-76 z-30"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex items-center justify-between"
+              },
+              "children": [
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "section-title"
+                  },
+                  "children": ["Filters"]
+                },
+                {
+                  "tag": "button",
+                  "attrs": {
+                    "class": "disabled:hover:text-lol-text disabled:opacity-40 hover:text-lol-gold label text-[11px] transition-colors"
+                  },
+                  "children": ["Reset"]
+                }
+              ]
+            },
+            "fields"
+          ]
+        }
+      ]
+    }
+  ],
+  "FilterMenu idle": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "relative"
+      },
+      "children": [
+        {
+          "tag": "button",
+          "attrs": {
+            "aria-expanded": "false",
+            "class": "btn relative",
+            "title": "Filters"
+          },
+          "children": [
+            {
+              "tag": "svg",
+              "attrs": {
+                "class": "h-3.5 w-3.5",
+                "fill": "none",
+                "height": "1em",
+                "stroke": "currentColor",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round",
+                "stroke-width": "2",
+                "viewBox": "0 0 24 24",
+                "width": "1em",
+                "xmlns": "http://www.w3.org/2000/svg"
+              },
+              "children": [
+                {
+                  "tag": "path",
+                  "attrs": {
+                    "d": "M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "tag": "span",
+              "attrs": {},
+              "children": ["Filters"]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "absolute hidden menu mt-2 p-4 right-0 space-y-3.5 top-full w-76 z-30"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex items-center justify-between"
+              },
+              "children": [
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "section-title"
+                  },
+                  "children": ["Filters"]
+                },
+                {
+                  "tag": "button",
+                  "attrs": {
+                    "class": "disabled:hover:text-lol-text disabled:opacity-40 hover:text-lol-gold label text-[11px] transition-colors",
+                    "disabled": ""
+                  },
+                  "children": ["Reset"]
+                }
+              ]
+            },
+            "fields"
+          ]
+        }
+      ]
+    }
+  ],
+  "FilterField": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "space-y-1.5"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "label text-[11px]"
+          },
+          "children": ["Patch"]
+        },
+        "select"
+      ]
+    }
+  ],
+  "SortHeader active": [
+    {
+      "tag": "th",
+      "attrs": {
+        "class": "bg-lol-gold/[0.07] cursor-pointer font-bold font-display px-3 py-3 relative select-none text-[12px] text-lol-gold-light text-right tracking-[0.07em] transition-colors uppercase whitespace-nowrap",
+        "title": "Games played\nSorted ascending"
+      },
+      "children": [
+        "Games",
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "absolute bg-lol-gold h-0.5 inset-x-0 top-0"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SortHeader idle": [
+    {
+      "tag": "th",
+      "attrs": {
+        "class": "cursor-pointer font-bold font-display hover:bg-white/[0.03] hover:text-lol-text-bright px-2 py-2.5 relative select-none text-[11px] text-left text-lol-text tracking-[0.07em] transition-colors uppercase whitespace-nowrap"
+      },
+      "children": ["Name"]
+    }
+  ],
+  "CycleSortHeader": [
+    {
+      "tag": "th",
+      "attrs": {
+        "class": "bg-lol-gold/[0.07] cursor-pointer font-bold font-display px-3 py-3 relative select-none text-[12px] text-left text-lol-gold-light tracking-[0.07em] transition-colors uppercase whitespace-nowrap",
+        "title": "Sorted by Doubles, highest first. Click for lowest first"
+      },
+      "children": [
+        "Doubles",
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "absolute bg-lol-gold bottom-0 h-0.5 inset-x-0"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "DialogFrame": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "backdrop-blur-[6px] bg-[#03060f]/70 fixed flex inset-0 items-center justify-center z-50"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "aria-modal": "true",
+            "class": "flex flex-col max-h-[85vh] max-w-[90vw] outline-none overflow-hidden panel shadow-[0_30px_80px_-20px_rgb(0_0_0/0.85)] view-in w-[34rem]",
+            "role": "dialog",
+            "tabindex": "-1"
+          },
+          "children": [
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "absolute bg-gradient-to-r from-lol-gold/70 h-px inset-x-0 pointer-events-none to-transparent top-0 via-lol-gold/25"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex gap-3.5 items-center pt-6 px-6"
+              },
+              "children": [
+                {
+                  "tag": "svg",
+                  "attrs": {
+                    "aria-hidden": "true",
+                    "class": "drop-shadow-[0_4px_12px_rgb(212_178_115/0.25)] h-10 shrink-0 w-10",
+                    "fill": "none",
+                    "viewBox": "0 0 40 40"
+                  },
+                  "children": [
+                    {
+                      "tag": "defs",
+                      "attrs": {},
+                      "children": [
+                        {
+                          "tag": "lineargradient",
+                          "attrs": {
+                            "gradientUnits": "userSpaceOnUse",
+                            "id": "#",
+                            "x1": "6",
+                            "x2": "34",
+                            "y1": "2",
+                            "y2": "38"
+                          },
+                          "children": [
+                            {
+                              "tag": "stop",
+                              "attrs": {
+                                "offset": "0",
+                                "stop-color": "#f6e3b0"
+                              },
+                              "children": []
+                            },
+                            {
+                              "tag": "stop",
+                              "attrs": {
+                                "offset": "0.45",
+                                "stop-color": "#d4b273"
+                              },
+                              "children": []
+                            },
+                            {
+                              "tag": "stop",
+                              "attrs": {
+                                "offset": "1",
+                                "stop-color": "#8f6c2f"
+                              },
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "tag": "lineargradient",
+                          "attrs": {
+                            "gradientUnits": "userSpaceOnUse",
+                            "id": "#",
+                            "x1": "20",
+                            "x2": "20",
+                            "y1": "2",
+                            "y2": "20"
+                          },
+                          "children": [
+                            {
+                              "tag": "stop",
+                              "attrs": {
+                                "offset": "0",
+                                "stop-color": "#fff",
+                                "stop-opacity": "0.45"
+                              },
+                              "children": []
+                            },
+                            {
+                              "tag": "stop",
+                              "attrs": {
+                                "offset": "1",
+                                "stop-color": "#fff",
+                                "stop-opacity": "0"
+                              },
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "M9 4h20l5 5-7.4 29H1z",
+                        "fill": "url(#)"
+                      },
+                      "children": []
+                    },
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "M9 4h20l5 5-2.3 9H5.6z",
+                        "fill": "url(#)"
+                      },
+                      "children": []
+                    },
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "M7.6 31.5 11.9 11l6.3 11.2L26.6 11l-4.3 20.5",
+                        "stroke": "#0a1024",
+                        "stroke-linecap": "butt",
+                        "stroke-linejoin": "miter",
+                        "stroke-miterlimit": "12",
+                        "stroke-width": "4"
+                      },
+                      "children": []
+                    },
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "M35.5 0.5 36.6 3.4l2.9 1.1-2.9 1.1-1.1 2.9-1.1-2.9-2.9-1.1 2.9-1.1z",
+                        "fill": "#f2dca6"
+                      },
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "min-w-0"
+                  },
+                  "children": [
+                    {
+                      "tag": "div",
+                      "attrs": {
+                        "class": "kicker mb-1.5"
+                      },
+                      "children": ["Update"]
+                    },
+                    {
+                      "tag": "h2",
+                      "attrs": {
+                        "class": "font-display font-extrabold italic leading-none text-[26px] text-lol-text-bright tracking-[0.01em] uppercase"
+                      },
+                      "children": ["Version 1.2.1"]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex flex-1 flex-col min-h-0 pb-5 pt-4 px-6"
+              },
+              "children": ["body"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "bg-black/20 border-lol-line border-t flex gap-2 items-center justify-between px-6 py-3.5"
+              },
+              "children": ["buttons"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "VersionJump": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex gap-2.5 items-center"
+      },
+      "children": [
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "bg-white/[0.05] chip font-num h-6 normal-case px-2 text-[13px] text-lol-text"
+          },
+          "children": ["v1.2.0"]
+        },
+        {
+          "tag": "svg",
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "h-3 text-lol-gold/70 w-6",
+            "fill": "none",
+            "viewBox": "0 0 24 12"
+          },
+          "children": [
+            {
+              "tag": "path",
+              "attrs": {
+                "d": "M1 6h20m-5-4.5L21 6l-5 4.5",
+                "stroke": "currentColor",
+                "stroke-width": "1.8"
+              },
+              "children": []
+            }
+          ]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "bg-lol-gold/14 chip font-num h-6 normal-case px-2 text-[13px] text-lol-gold-light"
+          },
+          "children": ["v1.2.1"]
+        }
+      ]
+    }
+  ],
+  "ReleaseNotes many": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "bg-black/25 border border-lol-line flex-1 min-h-0 mt-4 overflow-y-auto rounded-lg"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {},
+          "children": [
+            {
+              "tag": "button",
+              "attrs": {
+                "aria-expanded": "true",
+                "class": "flex gap-2.5 h-10 hover:bg-white/[0.03] items-center px-4 text-left transition-colors w-full"
+              },
+              "children": [
+                {
+                  "tag": "svg",
+                  "attrs": {
+                    "class": "h-3.5 rotate-90 shrink-0 text-lol-gold/70 transition-transform w-3.5",
+                    "fill": "none",
+                    "height": "1em",
+                    "stroke": "currentColor",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round",
+                    "stroke-width": "2",
+                    "viewBox": "0 0 24 24",
+                    "width": "1em",
+                    "xmlns": "http://www.w3.org/2000/svg"
+                  },
+                  "children": [
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "m9 18 6-6-6-6"
+                      },
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "font-num font-semibold text-[15px] text-lol-gold-light"
+                  },
+                  "children": ["v1.2.1"]
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "bg-lol-gold/12 chip text-lol-gold"
+                  },
+                  "children": ["Latest"]
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "font-num ml-auto text-[13px] text-lol-text"
+                  },
+                  "children": ["Nov 1"]
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "pb-3.5 pl-10 pr-4"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "leading-[1.5] text-[13px] text-lol-text"
+                  },
+                  "children": [
+                    {
+                      "tag": "div",
+                      "attrs": {
+                        "class": "space-y-2.5"
+                      },
+                      "children": [
+                        {
+                          "tag": "p",
+                          "attrs": {
+                            "class": "label pt-1 text-[13px] text-lol-text-bright"
+                          },
+                          "children": ["Fixed"]
+                        },
+                        {
+                          "tag": "ul",
+                          "attrs": {
+                            "class": "space-y-1.5"
+                          },
+                          "children": [
+                            {
+                              "tag": "li",
+                              "attrs": {
+                                "class": "flex gap-2.5"
+                              },
+                              "children": [
+                                {
+                                  "tag": "span",
+                                  "attrs": {
+                                    "aria-hidden": "true",
+                                    "class": "bg-lol-gold/70 h-[5px] mt-[7px] rotate-45 shrink-0 w-[5px]"
+                                  },
+                                  "children": []
+                                },
+                                {
+                                  "tag": "span",
+                                  "attrs": {
+                                    "class": "flex-1"
+                                  },
+                                  "children": [
+                                    "The",
+                                    {
+                                      "tag": "strong",
+                                      "attrs": {
+                                        "class": "font-semibold text-lol-text-bright"
+                                      },
+                                      "children": ["card"]
+                                    },
+                                    "export"
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "tag": "li",
+                              "attrs": {
+                                "class": "flex gap-2.5 ml-5"
+                              },
+                              "children": [
+                                {
+                                  "tag": "span",
+                                  "attrs": {
+                                    "aria-hidden": "true",
+                                    "class": "border border-lol-text/50 h-[5px] mt-[7px] rotate-45 shrink-0 w-[5px]"
+                                  },
+                                  "children": []
+                                },
+                                {
+                                  "tag": "span",
+                                  "attrs": {
+                                    "class": "flex-1"
+                                  },
+                                  "children": [
+                                    "nested",
+                                    {
+                                      "tag": "code",
+                                      "attrs": {
+                                        "class": "font-sans font-semibold text-lol-text-bright"
+                                      },
+                                      "children": ["code"]
+                                    },
+                                    "item"
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "tag": "li",
+                              "attrs": {
+                                "class": "flex gap-2.5"
+                              },
+                              "children": [
+                                {
+                                  "tag": "span",
+                                  "attrs": {
+                                    "aria-hidden": "true",
+                                    "class": "bg-lol-gold/70 h-[5px] mt-[7px] rotate-45 shrink-0 w-[5px]"
+                                  },
+                                  "children": []
+                                },
+                                {
+                                  "tag": "span",
+                                  "attrs": {
+                                    "class": "flex-1"
+                                  },
+                                  "children": [
+                                    "See",
+                                    {
+                                      "tag": "button",
+                                      "attrs": {
+                                        "class": "cursor-pointer font-medium hover:text-lol-gold-light hover:underline text-left text-lol-gold transition-colors underline-offset-2"
+                                      },
+                                      "children": ["GitHub"]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "tag": "p",
+                          "attrs": {},
+                          "children": [
+                            "A",
+                            {
+                              "tag": "button",
+                              "attrs": {
+                                "class": "cursor-pointer font-medium hover:text-lol-gold-light hover:underline text-left text-lol-gold transition-colors underline-offset-2"
+                              },
+                              "children": ["link"]
+                            },
+                            "in prose."
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "border-lol-line border-t"
+          },
+          "children": [
+            {
+              "tag": "button",
+              "attrs": {
+                "aria-expanded": "false",
+                "class": "flex gap-2.5 h-10 hover:bg-white/[0.03] items-center px-4 text-left transition-colors w-full"
+              },
+              "children": [
+                {
+                  "tag": "svg",
+                  "attrs": {
+                    "class": "h-3.5 shrink-0 text-lol-gold/70 transition-transform w-3.5",
+                    "fill": "none",
+                    "height": "1em",
+                    "stroke": "currentColor",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round",
+                    "stroke-width": "2",
+                    "viewBox": "0 0 24 24",
+                    "width": "1em",
+                    "xmlns": "http://www.w3.org/2000/svg"
+                  },
+                  "children": [
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "m9 18 6-6-6-6"
+                      },
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "font-num font-semibold text-[15px] text-lol-text-bright"
+                  },
+                  "children": ["v1.2.0"]
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "font-num ml-auto text-[13px] text-lol-text"
+                  },
+                  "children": ["Oct 1"]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ReleaseNotes one": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "bg-black/25 border border-lol-line flex-1 min-h-0 mt-4 overflow-y-auto rounded-lg"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "px-4 py-3.5"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "leading-[1.5] text-[13px] text-lol-text"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "space-y-2.5"
+                  },
+                  "children": [
+                    {
+                      "tag": "p",
+                      "attrs": {
+                        "class": "label pt-1 text-[13px] text-lol-text-bright"
+                      },
+                      "children": ["Fixed"]
+                    },
+                    {
+                      "tag": "ul",
+                      "attrs": {
+                        "class": "space-y-1.5"
+                      },
+                      "children": [
+                        {
+                          "tag": "li",
+                          "attrs": {
+                            "class": "flex gap-2.5"
+                          },
+                          "children": [
+                            {
+                              "tag": "span",
+                              "attrs": {
+                                "aria-hidden": "true",
+                                "class": "bg-lol-gold/70 h-[5px] mt-[7px] rotate-45 shrink-0 w-[5px]"
+                              },
+                              "children": []
+                            },
+                            {
+                              "tag": "span",
+                              "attrs": {
+                                "class": "flex-1"
+                              },
+                              "children": [
+                                "The",
+                                {
+                                  "tag": "strong",
+                                  "attrs": {
+                                    "class": "font-semibold text-lol-text-bright"
+                                  },
+                                  "children": ["card"]
+                                },
+                                "export"
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "tag": "li",
+                          "attrs": {
+                            "class": "flex gap-2.5 ml-5"
+                          },
+                          "children": [
+                            {
+                              "tag": "span",
+                              "attrs": {
+                                "aria-hidden": "true",
+                                "class": "border border-lol-text/50 h-[5px] mt-[7px] rotate-45 shrink-0 w-[5px]"
+                              },
+                              "children": []
+                            },
+                            {
+                              "tag": "span",
+                              "attrs": {
+                                "class": "flex-1"
+                              },
+                              "children": [
+                                "nested",
+                                {
+                                  "tag": "code",
+                                  "attrs": {
+                                    "class": "font-sans font-semibold text-lol-text-bright"
+                                  },
+                                  "children": ["code"]
+                                },
+                                "item"
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "tag": "li",
+                          "attrs": {
+                            "class": "flex gap-2.5"
+                          },
+                          "children": [
+                            {
+                              "tag": "span",
+                              "attrs": {
+                                "aria-hidden": "true",
+                                "class": "bg-lol-gold/70 h-[5px] mt-[7px] rotate-45 shrink-0 w-[5px]"
+                              },
+                              "children": []
+                            },
+                            {
+                              "tag": "span",
+                              "attrs": {
+                                "class": "flex-1"
+                              },
+                              "children": [
+                                "See",
+                                {
+                                  "tag": "button",
+                                  "attrs": {
+                                    "class": "cursor-pointer font-medium hover:text-lol-gold-light hover:underline text-left text-lol-gold transition-colors underline-offset-2"
+                                  },
+                                  "children": ["GitHub"]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "tag": "p",
+                      "attrs": {},
+                      "children": [
+                        "A",
+                        {
+                          "tag": "button",
+                          "attrs": {
+                            "class": "cursor-pointer font-medium hover:text-lol-gold-light hover:underline text-left text-lol-gold transition-colors underline-offset-2"
+                          },
+                          "children": ["link"]
+                        },
+                        "in prose."
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "QueueSelect": [
+    {
+      "tag": "select",
+      "attrs": {
+        "class": "select",
+        ":value": "2450"
+      },
+      "children": [
+        {
+          "tag": "option",
+          "attrs": {
+            "value": ""
+          },
+          "children": ["All Queues"]
+        },
+        {
+          "tag": "option",
+          "attrs": {
+            "value": "2400"
+          },
+          "children": ["ARAM Mayhem"]
+        },
+        {
+          "tag": "option",
+          "attrs": {
+            "value": "2450"
+          },
+          "children": ["Mayhem Classic"]
+        }
+      ]
+    }
+  ],
+  "QueueSelect labelled": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "space-y-1.5"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "label text-[11px]"
+          },
+          "children": ["Queue"]
+        },
+        {
+          "tag": "select",
+          "attrs": {
+            "class": "select w-full",
+            ":value": ""
+          },
+          "children": [
+            {
+              "tag": "option",
+              "attrs": {
+                "value": ""
+              },
+              "children": ["All Queues"]
+            },
+            {
+              "tag": "option",
+              "attrs": {
+                "value": "2400"
+              },
+              "children": ["ARAM Mayhem"]
+            },
+            {
+              "tag": "option",
+              "attrs": {
+                "value": "2450"
+              },
+              "children": ["Mayhem Classic"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "PatchSelect": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "space-y-1.5"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "label text-[11px]"
+          },
+          "children": ["Patch"]
+        },
+        {
+          "tag": "select",
+          "attrs": {
+            "class": "select w-full",
+            ":value": "15.19"
+          },
+          "children": [
+            {
+              "tag": "option",
+              "attrs": {
+                "value": ""
+              },
+              "children": ["All Patches"]
+            },
+            {
+              "tag": "option",
+              "attrs": {
+                "value": "15.20"
+              },
+              "children": ["Patch 25.20"]
+            },
+            {
+              "tag": "option",
+              "attrs": {
+                "value": "15.19"
+              },
+              "children": ["Patch 25.19"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "SeasonSelect": [
+    {
+      "tag": "select",
+      "attrs": {
+        "class": "select",
+        ":value": ""
+      },
+      "children": [
+        {
+          "tag": "option",
+          "attrs": {
+            "value": ""
+          },
+          "children": ["All Sets"]
+        },
+        {
+          "tag": "option",
+          "attrs": {
+            "value": "s1"
+          },
+          "children": ["s1"]
+        },
+        {
+          "tag": "option",
+          "attrs": {
+            "value": "s2"
+          },
+          "children": ["s2"]
+        }
+      ]
+    }
+  ],
+  "AccountSelect": [
+    {
+      "tag": "select",
+      "attrs": {
+        "class": "select",
+        ":value": "puuid-b"
+      },
+      "children": [
+        {
+          "tag": "option",
+          "attrs": {
+            "value": ""
+          },
+          "children": ["All Accounts"]
+        },
+        {
+          "tag": "option",
+          "attrs": {
+            "value": "puuid-a"
+          },
+          "children": ["First#NA1"]
+        },
+        {
+          "tag": "option",
+          "attrs": {
+            "value": "puuid-b"
+          },
+          "children": ["Unknown account"]
+        }
+      ]
+    }
+  ],
+  "MinGamesFilter": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "space-y-1.5"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "label text-[11px]"
+          },
+          "children": ["Min games"]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex gap-3 items-center"
+          },
+          "children": [
+            {
+              "tag": "input",
+              "attrs": {
+                "class": "accent-lol-gold flex-1 min-w-0",
+                "max": "30",
+                "min": "1",
+                "type": "range",
+                ":value": "5"
+              },
+              "children": []
+            },
+            {
+              "tag": "input",
+              "attrs": {
+                "class": "[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [appearance:textfield] input px-2 tabular-nums text-right w-16",
+                "min": "1",
+                "placeholder": "Off",
+                "type": "number",
+                ":value": "5"
+              },
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "RecordTogetherCard": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex flex-col overflow-hidden p-4 panel relative"
+      },
+      "children": [
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "-left-16 -top-24 absolute bg-lol-win/[0.06] blur-3xl h-56 pointer-events-none rounded-full w-56"
+          },
+          "children": []
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "absolute bg-gradient-to-r from-lol-win/70 h-px inset-x-0 pointer-events-none to-transparent top-0"
+          },
+          "children": []
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex gap-2 items-center mb-2 relative"
+          },
+          "children": [
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "bg-lol-win/12 flex h-6 items-center justify-center rounded-md text-lol-win w-6"
+              },
+              "children": [
+                {
+                  "tag": "svg",
+                  "attrs": {
+                    "class": "h-3.5 w-3.5",
+                    "fill": "none",
+                    "height": "1em",
+                    "stroke": "currentColor",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round",
+                    "stroke-width": "2",
+                    "viewBox": "0 0 24 24",
+                    "width": "1em",
+                    "xmlns": "http://www.w3.org/2000/svg"
+                  },
+                  "children": [
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "M6 9H4.5a2.5 2.5 0 0 1 0-5H6"
+                      },
+                      "children": []
+                    },
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "M18 9h1.5a2.5 2.5 0 0 0 0-5H18"
+                      },
+                      "children": []
+                    },
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "M4 22h16"
+                      },
+                      "children": []
+                    },
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"
+                      },
+                      "children": []
+                    },
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"
+                      },
+                      "children": []
+                    },
+                    {
+                      "tag": "path",
+                      "attrs": {
+                        "d": "M18 2H6v7a6 6 0 0 0 12 0V2Z"
+                      },
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "label"
+              },
+              "children": ["Record Together"]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex gap-3 items-end justify-between relative"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "font-num font-semibold leading-none text-[30px]"
+              },
+              "children": [
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "text-lol-win"
+                  },
+                  "children": ["7"]
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "ml-0.5 text-[17px] text-lol-win/70"
+                  },
+                  "children": ["W"]
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "ml-2.5 text-lol-loss/85"
+                  },
+                  "children": ["4"]
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "ml-0.5 text-[17px] text-lol-loss/60"
+                  },
+                  "children": ["L"]
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "text-right"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "label leading-3 mb-1 text-[11px] text-lol-text/70"
+                  },
+                  "children": ["Last 3"]
+                },
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "flex gap-[3px] items-end",
+                    "title": "Last 3 games together"
+                  },
+                  "children": [
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "bg-lol-loss/75 h-4 slant-sm w-[9px]"
+                      },
+                      "children": []
+                    },
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "bg-lol-win h-4 slant-sm w-[9px]"
+                      },
+                      "children": []
+                    },
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "bg-lol-win h-4 slant-sm w-[9px]"
+                      },
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "mt-3 relative"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex gap-2.5 items-center"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "bg-lol-loss/25 flex-1 h-1.5 min-w-16 overflow-hidden relative rounded-[2px]"
+                  },
+                  "children": [
+                    {
+                      "tag": "div",
+                      "attrs": {
+                        "class": "bg-gradient-to-r from-lol-win/70 h-full rounded-[2px] to-lol-win transition-all",
+                        "style": "width:63.63636363636363%"
+                      },
+                      "children": []
+                    },
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "absolute bg-lol-dark/70 inset-y-0 left-1/2 w-px"
+                      },
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "font-num font-semibold min-w-11 text-[14px] text-lol-win text-right"
+                  },
+                  "children": ["63.6%"]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "mt-auto pt-3 relative"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "gap-1 grid grid-cols-3"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "bg-black/15 border border-lol-line px-1 py-1 rounded-[3px] text-center"
+                  },
+                  "children": [
+                    {
+                      "tag": "div",
+                      "attrs": {
+                        "class": "font-num font-semibold leading-tight text-[16px] text-lol-text-bright"
+                      },
+                      "children": ["11"]
+                    },
+                    {
+                      "tag": "div",
+                      "attrs": {
+                        "class": "label leading-3 text-[11px] text-lol-text"
+                      },
+                      "children": ["Games"]
+                    }
+                  ]
+                },
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "bg-black/15 border border-lol-line px-1 py-1 rounded-[3px] text-center"
+                  },
+                  "children": [
+                    {
+                      "tag": "div",
+                      "attrs": {
+                        "class": "font-num font-semibold leading-tight text-[16px] text-lol-text-bright"
+                      },
+                      "children": ["2-1"]
+                    },
+                    {
+                      "tag": "div",
+                      "attrs": {
+                        "class": "label leading-3 text-[11px] text-lol-text"
+                      },
+                      "children": ["Last 3"]
+                    }
+                  ]
+                },
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "bg-black/15 border border-lol-line px-1 py-1 rounded-[3px] text-center"
+                  },
+                  "children": [
+                    {
+                      "tag": "div",
+                      "attrs": {
+                        "class": "font-num font-semibold leading-tight text-[16px] text-lol-win"
+                      },
+                      "children": ["W2"]
+                    },
+                    {
+                      "tag": "div",
+                      "attrs": {
+                        "class": "label leading-3 text-[11px] text-lol-text"
+                      },
+                      "children": ["Streak"]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "TaggedRiotId": [
+    {
+      "tag": "bdi",
+      "attrs": {},
+      "children": ["Pal"]
+    },
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "text-xs"
+      },
+      "children": [
+        "#",
+        {
+          "tag": "bdi",
+          "attrs": {},
+          "children": ["KR1"]
+        }
+      ]
+    }
+  ],
+  "ScoreMeter": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "bg-white/[0.06] h-1.5 overflow-hidden relative rounded-[2px]"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "absolute inset-0 transition-[clip-path]",
+            "style": "background:linear-gradient(90deg, var(--color-lol-text) 0 50%, var(--color-lol-text-bright) 50% 70%, var(--color-sky-400) 70% 90%, var(--color-amber-400) 90%);clip-path:inset(0 27% 0 0)"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "BadgeCounts": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "gap-x-2.5 gap-y-1.5 grid grid-cols-[auto_1fr_auto] items-center"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "bg-amber-400 font-display font-extrabold italic leading-[15px] mx-auto px-1.5 slant-sm text-[#2a1c00] text-[11px] tracking-[0.06em] w-fit"
+          },
+          "children": ["MVP"]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "font-num font-semibold text-[15px] text-lol-text-bright"
+          },
+          "children": ["3"]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "font-num text-[13px] text-lol-text",
+            "title": "Share of wins"
+          },
+          "children": ["33.3%"]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "bg-purple-400 font-display font-extrabold italic leading-[15px] mx-auto px-1.5 slant-sm text-[#1b0b3a] text-[11px] tracking-[0.06em] w-fit"
+          },
+          "children": ["ACE"]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "font-num font-semibold text-[15px] text-lol-text-bright"
+          },
+          "children": ["1"]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "font-num text-[13px] text-lol-text",
+            "title": "Share of losses"
+          },
+          "children": ["—"]
+        }
+      ]
+    }
+  ],
+  "ScoreValue": [
+    {
+      "tag": "span",
+      "attrs": {
+        "class": "text-sky-400"
+      },
+      "children": [
+        "8.0",
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "font-medium text-[17px] text-lol-text/60"
+          },
+          "children": ["/ 10"]
+        }
+      ]
+    }
+  ],
+  "ScoreValue none": ["—"],
+  "GamesHeading": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex gap-4 items-center mb-3 px-0.5"
+      },
+      "children": [
+        {
+          "tag": "h2",
+          "attrs": {
+            "class": "font-bold font-display italic text-[17px] text-lol-text-bright tracking-[0.04em] uppercase"
+          },
+          "children": ["Games Played Together"]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "text-[13px] text-lol-text"
+          },
+          "children": [
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "font-num font-semibold text-[14px] text-lol-text-bright"
+              },
+              "children": ["1"]
+            },
+            "game"
+          ]
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "bg-gradient-to-r flex-1 from-lol-border h-px to-transparent"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "RowScore caption": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "shrink-0 text-center w-12"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "font-num font-semibold leading-none text-[20px] text-lol-text-bright"
+          },
+          "children": ["5.5"]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex h-[14px] justify-center mt-1"
+          },
+          "children": [
+            {
+              "tag": "span",
+              "attrs": {
+                "class": "label leading-[14px] text-[11px] text-lol-text/70"
+              },
+              "children": ["Score"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "RowScore bare": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "relative shrink-0 text-center w-12"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "font-num font-semibold leading-none text-[20px] text-amber-400"
+          },
+          "children": ["9.9"]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "absolute flex inset-x-0 justify-center mt-1 top-full"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "bg-amber-400 font-display font-extrabold italic leading-[15px] mx-auto px-1.5 slant-sm text-[#2a1c00] text-[11px] tracking-[0.06em] w-fit"
+              },
+              "children": ["MVP"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "RowPlayer": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "leading-tight min-w-0"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "font-display font-semibold text-[13px] text-lol-gold truncate",
+            "title": "Pal"
+          },
+          "children": [
+            {
+              "tag": "bdi",
+              "attrs": {},
+              "children": ["Pal"]
+            }
+          ]
+        },
+        "Annie"
+      ]
+    }
+  ],
+  "KdaTotals": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "gap-1 grid grid-cols-3"
+      },
+      "children": [
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "bg-black/15 border border-lol-line px-1 py-1 rounded-[3px] text-center"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "font-num font-semibold leading-tight text-[16px] text-lol-text-bright"
+              },
+              "children": ["1,200"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "label leading-3 text-[11px] text-lol-text"
+              },
+              "children": ["Kills"]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "bg-black/15 border border-lol-line px-1 py-1 rounded-[3px] text-center"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "font-num font-semibold leading-tight text-[16px] text-lol-text-bright"
+              },
+              "children": ["3"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "label leading-3 text-[11px] text-lol-text"
+              },
+              "children": ["Deaths"]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "bg-black/15 border border-lol-line px-1 py-1 rounded-[3px] text-center"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "font-num font-semibold leading-tight text-[16px] text-lol-text-bright"
+              },
+              "children": ["45"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "label leading-3 text-[11px] text-lol-text"
+              },
+              "children": ["Assists"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "RecordCard": [
+    {
+      "tag": "button",
+      "attrs": {
+        "class": "cursor-pointer flex flex-col group hover:bg-lol-card-hover hover:border-lol-gold/45 overflow-hidden panel text-left transition-colors",
+        "title": "View match"
+      },
+      "children": [
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "absolute bg-gradient-to-r from-lol-gold/70 h-px inset-x-0 pointer-events-none to-transparent top-0"
+          },
+          "children": []
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "[&>svg]:h-[72px] [&>svg]:w-[72px] [mask-image:linear-gradient(225deg,black_25%,transparent_80%)] absolute opacity-[0.09] pointer-events-none right-4 text-lol-gold top-4"
+          },
+          "children": [
+            {
+              "tag": "svg",
+              "attrs": {
+                "class": "h-3 w-3",
+                "fill": "none",
+                "height": "1em",
+                "stroke": "currentColor",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round",
+                "stroke-width": "2",
+                "viewBox": "0 0 24 24",
+                "width": "1em",
+                "xmlns": "http://www.w3.org/2000/svg"
+              },
+              "children": [
+                {
+                  "tag": "polyline",
+                  "attrs": {
+                    "points": "14.5 17.5 3 6 3 3 6 3 17.5 14.5"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "line",
+                  "attrs": {
+                    "x1": "13",
+                    "x2": "19",
+                    "y1": "19",
+                    "y2": "13"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "line",
+                  "attrs": {
+                    "x1": "16",
+                    "x2": "20",
+                    "y1": "16",
+                    "y2": "20"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "line",
+                  "attrs": {
+                    "x1": "19",
+                    "x2": "21",
+                    "y1": "21",
+                    "y2": "19"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "polyline",
+                  "attrs": {
+                    "points": "14.5 6.5 18 3 21 3 21 6 17.5 10"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "line",
+                  "attrs": {
+                    "x1": "5",
+                    "x2": "9",
+                    "y1": "14",
+                    "y2": "18"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "line",
+                  "attrs": {
+                    "x1": "7",
+                    "x2": "4",
+                    "y1": "17",
+                    "y2": "20"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "line",
+                  "attrs": {
+                    "x1": "3",
+                    "x2": "5",
+                    "y1": "19",
+                    "y2": "21"
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex flex-1 flex-col pb-3.5 pt-4 px-4 relative"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex gap-2 items-center"
+              },
+              "children": [
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "[&>svg]:h-3.5 [&>svg]:w-3.5 bg-lol-gold/12 flex h-6 items-center justify-center rounded-md shrink-0 text-lol-gold w-6"
+                  },
+                  "children": [
+                    {
+                      "tag": "svg",
+                      "attrs": {
+                        "class": "h-3 w-3",
+                        "fill": "none",
+                        "height": "1em",
+                        "stroke": "currentColor",
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round",
+                        "stroke-width": "2",
+                        "viewBox": "0 0 24 24",
+                        "width": "1em",
+                        "xmlns": "http://www.w3.org/2000/svg"
+                      },
+                      "children": [
+                        {
+                          "tag": "polyline",
+                          "attrs": {
+                            "points": "14.5 17.5 3 6 3 3 6 3 17.5 14.5"
+                          },
+                          "children": []
+                        },
+                        {
+                          "tag": "line",
+                          "attrs": {
+                            "x1": "13",
+                            "x2": "19",
+                            "y1": "19",
+                            "y2": "13"
+                          },
+                          "children": []
+                        },
+                        {
+                          "tag": "line",
+                          "attrs": {
+                            "x1": "16",
+                            "x2": "20",
+                            "y1": "16",
+                            "y2": "20"
+                          },
+                          "children": []
+                        },
+                        {
+                          "tag": "line",
+                          "attrs": {
+                            "x1": "19",
+                            "x2": "21",
+                            "y1": "21",
+                            "y2": "19"
+                          },
+                          "children": []
+                        },
+                        {
+                          "tag": "polyline",
+                          "attrs": {
+                            "points": "14.5 6.5 18 3 21 3 21 6 17.5 10"
+                          },
+                          "children": []
+                        },
+                        {
+                          "tag": "line",
+                          "attrs": {
+                            "x1": "5",
+                            "x2": "9",
+                            "y1": "14",
+                            "y2": "18"
+                          },
+                          "children": []
+                        },
+                        {
+                          "tag": "line",
+                          "attrs": {
+                            "x1": "7",
+                            "x2": "4",
+                            "y1": "17",
+                            "y2": "20"
+                          },
+                          "children": []
+                        },
+                        {
+                          "tag": "line",
+                          "attrs": {
+                            "x1": "3",
+                            "x2": "5",
+                            "y1": "19",
+                            "y2": "21"
+                          },
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "label truncate"
+                  },
+                  "children": ["Most Kills"]
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "font-num font-semibold leading-none mt-3.5 text-[40px] text-lol-text-bright"
+              },
+              "children": ["21"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "leading-5 min-h-5 mt-2 text-[13px] text-lol-text truncate"
+              },
+              "children": ["we don't talk about this one"]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "bg-black/15 border-lol-line border-t flex gap-2.5 items-center mt-auto px-4 py-2.5 relative"
+          },
+          "children": [
+            {
+              "tag": "img",
+              "attrs": {
+                "alt": "",
+                "class": "rounded-md shrink-0",
+                "height": "32",
+                "src": "asset://game-data/latest/v1/champion-icons/1.png",
+                "style": "object-view-box:inset(6%)",
+                "width": "32"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex-1 min-w-0"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "font-display font-semibold leading-5 text-[15px] text-lol-text-bright truncate"
+                  },
+                  "children": ["Annie"]
+                },
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "flex gap-1.5 items-center leading-4 text-[12px] text-lol-text truncate"
+                  },
+                  "children": [
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "font-bold font-display text-[12px] text-lol-win tracking-[0.06em]"
+                      },
+                      "children": ["W"]
+                    },
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "font-num text-[13px] text-lol-text-bright/80"
+                      },
+                      "children": [
+                        "21",
+                        {
+                          "tag": "span",
+                          "attrs": {
+                            "class": "mx-[0.15em] text-lol-text/40"
+                          },
+                          "children": ["/"]
+                        },
+                        "3",
+                        {
+                          "tag": "span",
+                          "attrs": {
+                            "class": "mx-[0.15em] text-lol-text/40"
+                          },
+                          "children": ["/"]
+                        },
+                        "14"
+                      ]
+                    },
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "text-lol-text/40"
+                      },
+                      "children": ["·"]
+                    },
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "font-num text-[13px]"
+                      },
+                      "children": ["Sep 12, 2025"]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "svg",
+              "attrs": {
+                "class": "group-hover:text-lol-gold h-4 shrink-0 text-lol-text/40 transition-colors w-4",
+                "fill": "none",
+                "height": "1em",
+                "stroke": "currentColor",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round",
+                "stroke-width": "2",
+                "viewBox": "0 0 24 24",
+                "width": "1em",
+                "xmlns": "http://www.w3.org/2000/svg"
+              },
+              "children": [
+                {
+                  "tag": "path",
+                  "attrs": {
+                    "d": "m9 18 6-6-6-6"
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "RecordCard plain": [
+    {
+      "tag": "div",
+      "attrs": {
+        "class": "flex flex-col group overflow-hidden panel text-left"
+      },
+      "children": [
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "absolute bg-gradient-to-r from-lol-win/70 h-px inset-x-0 pointer-events-none to-transparent top-0"
+          },
+          "children": []
+        },
+        {
+          "tag": "span",
+          "attrs": {
+            "class": "[&>svg]:h-[72px] [&>svg]:w-[72px] [mask-image:linear-gradient(225deg,black_25%,transparent_80%)] absolute opacity-[0.09] pointer-events-none right-4 text-lol-win top-4"
+          },
+          "children": [
+            {
+              "tag": "svg",
+              "attrs": {
+                "class": "h-3 w-3",
+                "fill": "none",
+                "height": "1em",
+                "stroke": "currentColor",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round",
+                "stroke-width": "2",
+                "viewBox": "0 0 24 24",
+                "width": "1em",
+                "xmlns": "http://www.w3.org/2000/svg"
+              },
+              "children": [
+                {
+                  "tag": "line",
+                  "attrs": {
+                    "x1": "10",
+                    "x2": "14",
+                    "y1": "2",
+                    "y2": "2"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "line",
+                  "attrs": {
+                    "x1": "12",
+                    "x2": "15",
+                    "y1": "14",
+                    "y2": "11"
+                  },
+                  "children": []
+                },
+                {
+                  "tag": "circle",
+                  "attrs": {
+                    "cx": "12",
+                    "cy": "14",
+                    "r": "8"
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "flex flex-1 flex-col pb-3.5 pt-4 px-4 relative"
+          },
+          "children": [
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex gap-2 items-center"
+              },
+              "children": [
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "[&>svg]:h-3.5 [&>svg]:w-3.5 bg-lol-win/12 flex h-6 items-center justify-center rounded-md shrink-0 text-lol-win w-6"
+                  },
+                  "children": [
+                    {
+                      "tag": "svg",
+                      "attrs": {
+                        "class": "h-3 w-3",
+                        "fill": "none",
+                        "height": "1em",
+                        "stroke": "currentColor",
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round",
+                        "stroke-width": "2",
+                        "viewBox": "0 0 24 24",
+                        "width": "1em",
+                        "xmlns": "http://www.w3.org/2000/svg"
+                      },
+                      "children": [
+                        {
+                          "tag": "line",
+                          "attrs": {
+                            "x1": "10",
+                            "x2": "14",
+                            "y1": "2",
+                            "y2": "2"
+                          },
+                          "children": []
+                        },
+                        {
+                          "tag": "line",
+                          "attrs": {
+                            "x1": "12",
+                            "x2": "15",
+                            "y1": "14",
+                            "y2": "11"
+                          },
+                          "children": []
+                        },
+                        {
+                          "tag": "circle",
+                          "attrs": {
+                            "cx": "12",
+                            "cy": "14",
+                            "r": "8"
+                          },
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "tag": "span",
+                  "attrs": {
+                    "class": "label truncate"
+                  },
+                  "children": ["Fastest Win"]
+                }
+              ]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "font-num font-semibold leading-none mt-3.5 text-[40px] text-lol-text-bright"
+              },
+              "children": ["18:20"]
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "leading-5 min-h-5 mt-2 text-[13px] text-lol-text truncate"
+              },
+              "children": []
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "attrs": {
+            "class": "bg-black/15 border-lol-line border-t flex gap-2.5 items-center mt-auto px-4 py-2.5 relative"
+          },
+          "children": [
+            {
+              "tag": "img",
+              "attrs": {
+                "alt": "",
+                "class": "rounded-md shrink-0",
+                "height": "32",
+                "src": "asset://game-data/latest/v1/champion-icons/1.png",
+                "style": "object-view-box:inset(6%)",
+                "width": "32"
+              },
+              "children": []
+            },
+            {
+              "tag": "div",
+              "attrs": {
+                "class": "flex-1 min-w-0"
+              },
+              "children": [
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "font-display font-semibold leading-5 text-[15px] text-lol-text-bright truncate"
+                  },
+                  "children": ["Champion 1"]
+                },
+                {
+                  "tag": "div",
+                  "attrs": {
+                    "class": "flex gap-1.5 items-center leading-4 text-[12px] text-lol-text truncate"
+                  },
+                  "children": [
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "font-bold font-display text-[12px] text-lol-loss tracking-[0.06em]"
+                      },
+                      "children": ["L"]
+                    },
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "font-num text-[13px] text-lol-text-bright/80"
+                      },
+                      "children": [
+                        "21",
+                        {
+                          "tag": "span",
+                          "attrs": {
+                            "class": "mx-[0.15em] text-lol-text/40"
+                          },
+                          "children": ["/"]
+                        },
+                        "3",
+                        {
+                          "tag": "span",
+                          "attrs": {
+                            "class": "mx-[0.15em] text-lol-text/40"
+                          },
+                          "children": ["/"]
+                        },
+                        "14"
+                      ]
+                    },
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "text-lol-text/40"
+                      },
+                      "children": ["·"]
+                    },
+                    {
+                      "tag": "span",
+                      "attrs": {
+                        "class": "font-num text-[13px]"
+                      },
+                      "children": ["Sep 12, 2025"]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "icons.ArrowDownIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12 5v14"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m19 12-7 7-7-7"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.AwardIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"
+          },
+          "children": []
+        },
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "12",
+            "cy": "8",
+            "r": "6"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.CalendarIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M8 2v4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M16 2v4"
+          },
+          "children": []
+        },
+        {
+          "tag": "rect",
+          "attrs": {
+            "height": "18",
+            "rx": "2",
+            "width": "18",
+            "x": "3",
+            "y": "4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M3 10h18"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.ChevronDownIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m6 9 6 6 6-6"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.ChevronLeftIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m15 18-6-6 6-6"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.ChevronRightIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m9 18 6-6-6-6"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.ClockIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "12",
+            "cy": "12",
+            "r": "10"
+          },
+          "children": []
+        },
+        {
+          "tag": "polyline",
+          "attrs": {
+            "points": "12 6 12 12 16 14"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.CoinsIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "8",
+            "cy": "8",
+            "r": "6"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M18.09 10.37A6 6 0 1 1 10.34 18"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M7 6h1v4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m16.71 13.88.7.71-2.82 2.82"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.CopyIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "rect",
+          "attrs": {
+            "height": "14",
+            "rx": "2",
+            "ry": "2",
+            "width": "14",
+            "x": "8",
+            "y": "8"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.CrosshairIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "12",
+            "cy": "12",
+            "r": "10"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "22",
+            "x2": "18",
+            "y1": "12",
+            "y2": "12"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "6",
+            "x2": "2",
+            "y1": "12",
+            "y2": "12"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "12",
+            "x2": "12",
+            "y1": "6",
+            "y2": "2"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "12",
+            "x2": "12",
+            "y1": "22",
+            "y2": "18"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.DownloadIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12 15V3"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m7 10 5 5 5-5"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.EyeOffIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M14.084 14.158a3 3 0 0 1-4.242-4.242"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m2 2 20 20"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.FlameIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.FunnelIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.GlobeIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "12",
+            "cy": "12",
+            "r": "10"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M2 12h20"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.HeartIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.HourglassIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M5 22h14"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M5 2h14"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M7 2v4.172a2 2 0 0 0 .586 1.414L16.414 16.414a2 2 0 0 1 .586 1.414V22"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M17 2v4.172a2 2 0 0 1-.586 1.414L15 9"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M9 15 7.586 16.414A2 2 0 0 0 7 18.828V22"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.ImageIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "rect",
+          "attrs": {
+            "height": "18",
+            "rx": "2",
+            "ry": "2",
+            "width": "18",
+            "x": "3",
+            "y": "3"
+          },
+          "children": []
+        },
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "9",
+            "cy": "9",
+            "r": "2"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.MapPinIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"
+          },
+          "children": []
+        },
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "12",
+            "cy": "10",
+            "r": "3"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.MaximizeIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "rect",
+          "attrs": {
+            "height": "14",
+            "rx": "1",
+            "width": "14",
+            "x": "5",
+            "y": "5"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.MayhemIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M5 19V5l14 14V5"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M19 5l-4.5 4.5"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M9.5 14.5 5 19"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.MedalIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M11 12 5.12 2.2"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m13 12 5.88-9.8"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M8 7h8"
+          },
+          "children": []
+        },
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "12",
+            "cy": "17",
+            "r": "5"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12 18v-2h-.5"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.MinusIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M5 12h14"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.RadioIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M4.9 19.1C1 15.2 1 8.8 4.9 4.9"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"
+          },
+          "children": []
+        },
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "12",
+            "cy": "12",
+            "r": "2"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M19.1 4.9C23 8.8 23 15.1 19.1 19"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.RefreshIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M21 3v5h-5"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M8 16H3v5"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.RestoreIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "rect",
+          "attrs": {
+            "height": "11",
+            "rx": "1",
+            "width": "11",
+            "x": "5",
+            "y": "8"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M8 5h10a1 1 0 0 1 1 1v10"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.SettingsIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+          },
+          "children": []
+        },
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "12",
+            "cy": "12",
+            "r": "3"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.ShieldIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.SkullIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m12.5 17-.5-1-.5 1h1z"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"
+          },
+          "children": []
+        },
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "15",
+            "cy": "12",
+            "r": "1"
+          },
+          "children": []
+        },
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "9",
+            "cy": "12",
+            "r": "1"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.SparklesIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M9.9 2.5 12 8l5.5 2.1L12 12.2 9.9 17.7 7.8 12.2 2.3 10.1 7.8 8Z"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M18 3v4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M20 5h-4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M18 17v4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M20 19h-4"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.StarIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M11.5 2.3a.6.6 0 0 1 1 0l2.5 5.1 5.6.8a.6.6 0 0 1 .3 1l-4 4 1 5.6a.6.6 0 0 1-.9.6L12 16.7l-5 2.7a.6.6 0 0 1-.9-.6l1-5.6-4.1-4a.6.6 0 0 1 .3-1l5.6-.8Z"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.SwordsIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "polyline",
+          "attrs": {
+            "points": "14.5 17.5 3 6 3 3 6 3 17.5 14.5"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "13",
+            "x2": "19",
+            "y1": "19",
+            "y2": "13"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "16",
+            "x2": "20",
+            "y1": "16",
+            "y2": "20"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "19",
+            "x2": "21",
+            "y1": "21",
+            "y2": "19"
+          },
+          "children": []
+        },
+        {
+          "tag": "polyline",
+          "attrs": {
+            "points": "14.5 6.5 18 3 21 3 21 6 17.5 10"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "5",
+            "x2": "9",
+            "y1": "14",
+            "y2": "18"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "7",
+            "x2": "4",
+            "y1": "17",
+            "y2": "20"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "3",
+            "x2": "5",
+            "y1": "19",
+            "y2": "21"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.TimerIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "10",
+            "x2": "14",
+            "y1": "2",
+            "y2": "2"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "12",
+            "x2": "15",
+            "y1": "14",
+            "y2": "11"
+          },
+          "children": []
+        },
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "12",
+            "cy": "14",
+            "r": "8"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.TrendingDownIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M16 17h6v-6"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m22 17-8.5-8.5-5 5L2 7"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.TrendingUpIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M16 7h6v6"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m22 7-8.5 8.5-5-5L2 17"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.TrophyIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M6 9H4.5a2.5 2.5 0 0 1 0-5H6"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M18 9h1.5a2.5 2.5 0 0 0 0-5H18"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M4 22h16"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M18 2H6v7a6 6 0 0 0 12 0V2Z"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.UsersIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+          },
+          "children": []
+        },
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "9",
+            "cy": "7",
+            "r": "4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M22 21v-2a4 4 0 0 0-3-3.87"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M16 3.13a4 4 0 0 1 0 7.75"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.XIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M18 6 6 18"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m6 6 12 12"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "icons.ZapIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M13 2 3 14h9l-1 8 10-12h-9l1-8Z"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.AlertTriangleIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12 9v4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12 17h.01"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.ArchiveIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "rect",
+          "attrs": {
+            "height": "5",
+            "rx": "1",
+            "width": "20",
+            "x": "2",
+            "y": "3"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M10 12h4"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.CheckIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M20 6 9 17l-5-5"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.DatabaseIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "ellipse",
+          "attrs": {
+            "cx": "12",
+            "cy": "5",
+            "rx": "9",
+            "ry": "3"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M3 5V19A9 3 0 0 0 21 19V5"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M3 12A9 3 0 0 0 21 12"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.ExternalLinkIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M15 3h6v6"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M10 14 21 3"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.FolderOpenIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.GithubIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M9 18c-4.51 2-5-2-7-2"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.HistoryIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M3 3v5h5"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12 7v5l4 2"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.InfoIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "circle",
+          "attrs": {
+            "cx": "12",
+            "cy": "12",
+            "r": "10"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12 16v-4"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12 8h.01"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.LockIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "rect",
+          "attrs": {
+            "height": "11",
+            "rx": "2",
+            "ry": "2",
+            "width": "18",
+            "x": "3",
+            "y": "11"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M7 11V7a5 5 0 0 1 10 0v4"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.PanelLeftIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "rect",
+          "attrs": {
+            "height": "18",
+            "rx": "2",
+            "width": "18",
+            "x": "3",
+            "y": "3"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M9 3v18"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.SlidersIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "21",
+            "x2": "14",
+            "y1": "4",
+            "y2": "4"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "10",
+            "x2": "3",
+            "y1": "4",
+            "y2": "4"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "21",
+            "x2": "12",
+            "y1": "12",
+            "y2": "12"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "8",
+            "x2": "3",
+            "y1": "12",
+            "y2": "12"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "21",
+            "x2": "16",
+            "y1": "20",
+            "y2": "20"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "12",
+            "x2": "3",
+            "y1": "20",
+            "y2": "20"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "14",
+            "x2": "14",
+            "y1": "2",
+            "y2": "6"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "8",
+            "x2": "8",
+            "y1": "10",
+            "y2": "14"
+          },
+          "children": []
+        },
+        {
+          "tag": "line",
+          "attrs": {
+            "x1": "16",
+            "x2": "16",
+            "y1": "18",
+            "y2": "22"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.SparkIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M9.94 14.06 4 20"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12 3 9.94 9.94 3 12l6.94 2.06L12 21l2.06-6.94L21 12l-6.94-2.06Z"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.UploadIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M12 3v12"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "m17 8-5-5-5 5"
+          },
+          "children": []
+        },
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "SettingsIcons.WrenchIcon": [
+    {
+      "tag": "svg",
+      "attrs": {
+        "class": "h-4 w-4",
+        "fill": "none",
+        "height": "1em",
+        "stroke": "currentColor",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "stroke-width": "2",
+        "viewBox": "0 0 24 24",
+        "width": "1em",
+        "xmlns": "http://www.w3.org/2000/svg"
+      },
+      "children": [
+        {
+          "tag": "path",
+          "attrs": {
+            "d": "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+          },
+          "children": []
+        }
+      ]
+    }
+  ]
+}
