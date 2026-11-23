@@ -128,13 +128,13 @@ export default function ActivityCalendar(props: {
           gap: `${GAP}px`,
         }}
       >
-        <For each={grid().months}>
+        <For each={grid().months} keyed={(label) => label.week}>
           {(label) => (
             <div
-              style={{ "grid-column": String(label.week + 2), "grid-row": "1" }}
+              style={{ "grid-column": String(label().week + 2), "grid-row": "1" }}
               class="w-0 whitespace-nowrap pb-0.5 font-display text-[11px] font-semibold uppercase leading-none tracking-[0.08em] text-lol-text"
             >
-              {label.text}
+              {label().text}
             </div>
           )}
         </For>
@@ -154,25 +154,23 @@ export default function ActivityCalendar(props: {
             </div>
           )}
         </For>
-        <For each={grid().cells}>
-          {(cell) =>
-            cell.future ? (
-              <div
-                style={place(cell.week, cell.row)}
-                class="aspect-square rounded-[2px] border border-white/[0.07]"
-              />
-            ) : (
-              <div
-                title={cell.title}
-                style={
-                  cell.level > 0
-                    ? { ...place(cell.week, cell.row), background: LEVELS[cell.level - 1] }
-                    : place(cell.week, cell.row)
-                }
-                class={["aspect-square rounded-[2px]", { "bg-white/[0.045]": cell.level === 0 }]}
-              />
-            )
-          }
+        <For each={grid().cells} keyed={(cell) => cell.day}>
+          {(cell) => (
+            <div
+              title={cell().future ? undefined : cell().title}
+              style={
+                cell().level > 0
+                  ? { ...place(cell().week, cell().row), background: LEVELS[cell().level - 1] }
+                  : place(cell().week, cell().row)
+              }
+              class={[
+                "aspect-square rounded-[2px]",
+                cell().future
+                  ? "border border-white/[0.07]"
+                  : { "bg-white/[0.045]": cell().level === 0 },
+              ]}
+            />
+          )}
         </For>
       </div>
       <div class="mt-3 flex items-center justify-end gap-1 font-display text-[11px] font-semibold uppercase tracking-[0.08em] text-lol-text">

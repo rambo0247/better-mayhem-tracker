@@ -92,9 +92,11 @@ export function RecordTogetherCard(props: {
               class="flex items-end gap-[3px]"
               title={`Last ${pips().length} ${pips().length === 1 ? "game" : "games"} together`}
             >
-              <For each={pips()}>
+              <For each={pips()} keyed={(g) => g.game_id}>
                 {(g) => (
-                  <span class={["slant-sm h-4 w-[9px]", g.win ? "bg-lol-win" : "bg-lol-loss/75"]} />
+                  <span
+                    class={["slant-sm h-4 w-[9px]", g().win ? "bg-lol-win" : "bg-lol-loss/75"]}
+                  />
                 )}
               </For>
             </div>
@@ -279,18 +281,18 @@ export function StatTiles(props: {
 }) {
   return (
     <div class="grid grid-cols-3 gap-1">
-      <For each={props.tiles}>
+      <For each={props.tiles} keyed={(t) => t.label}>
         {(t) => (
           <div class="rounded-[3px] border border-lol-line bg-black/15 px-1 py-1 text-center">
             <div
               class={[
                 "font-num text-[16px] font-semibold leading-tight",
-                t.class || "text-lol-text-bright",
+                t().class || "text-lol-text-bright",
               ]}
             >
-              {t.value}
+              {t().value}
             </div>
-            <div class="label text-[11px] leading-3 text-lol-text">{t.label}</div>
+            <div class="label text-[11px] leading-3 text-lol-text">{t().label}</div>
           </div>
         )}
       </For>

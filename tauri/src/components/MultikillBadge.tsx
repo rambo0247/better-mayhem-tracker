@@ -49,16 +49,16 @@ export default function MultikillBadge(props: MultikillBadgeProps) {
         when={props.compact}
         fallback={
           <div class="flex flex-wrap gap-1 whitespace-nowrap">
-            <For each={badges()}>
+            <For each={badges()} keyed={(badge) => badge.label}>
               {(badge) => (
                 <span
                   class={[
                     "font-display rounded-[2px] px-1.5 py-[3px] text-[11px] font-bold leading-none tracking-[0.06em]",
-                    badge.color,
+                    badge().color,
                   ]}
                 >
-                  {badge.label}
-                  {badge.count > 1 ? ` ×${badge.count}` : ""}
+                  {badge().label}
+                  {badge().count > 1 ? ` ×${badge().count}` : ""}
                 </span>
               )}
             </For>
@@ -66,17 +66,17 @@ export default function MultikillBadge(props: MultikillBadgeProps) {
         }
       >
         <div class="flex gap-1 whitespace-nowrap">
-          <For each={badges()}>
+          <For each={badges()} keyed={(badge) => badge.label}>
             {(badge) => (
               <span
-                title={`${badge.label[0]}${badge.label.slice(1).toLowerCase()} kill${badge.count > 1 ? `s x${badge.count}` : ""}`}
+                title={`${badge().label[0]}${badge().label.slice(1).toLowerCase()} kill${badge().count > 1 ? `s x${badge().count}` : ""}`}
                 class={[
                   "font-num rounded-[2px] px-1 py-[3px] text-[11px] font-bold leading-none",
-                  badge.color,
+                  badge().color,
                 ]}
               >
-                {badge.label[0]}
-                {badge.count > 1 ? badge.count : ""}
+                {badge().label[0]}
+                {badge().count > 1 ? badge().count : ""}
               </span>
             )}
           </For>

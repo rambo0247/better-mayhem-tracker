@@ -95,11 +95,11 @@ export default function MatchScoreboard(props: {
       }
     >
       <div class="@container space-y-3">
-        <For each={teams()}>
-          {([teamId, players]) => (
+        <For each={teams()} keyed={([teamId]) => teamId}>
+          {(team) => (
             <TeamScoreboard
-              teamId={teamId}
-              players={players}
+              teamId={team()[0]}
+              players={team()[1]}
               maxStats={gameMaxStats()}
               champData={props.champData}
               scores={scores()}
@@ -201,13 +201,13 @@ function TeamScoreboard(props: {
       </div>
 
       {/* Player rows */}
-      <For each={props.players}>
+      <For each={props.players} keyed={(p) => p.participantId}>
         {(p) => (
           <PlayerRow
-            player={p}
+            player={p()}
             maxStats={props.maxStats}
             champData={props.champData}
-            score={props.scores.get(p.participantId)}
+            score={props.scores.get(p().participantId)}
             patch={props.patch}
             grid={grid()}
             multikills={props.multikills}
@@ -534,15 +534,15 @@ function ScoreBreakdownTooltip(props: { breakdown: ScoreBreakdown; anchor: DOMRe
         </span>
         <span class="label text-[11px]">{b().cls ? `${b().cls} weights` : "Standard weights"}</span>
       </div>
-      <For each={b().components}>
+      <For each={b().components} keyed={(c) => c.key}>
         {(c) => (
           <BreakdownRow
-            label={COMPONENT_LABELS[c.key]}
-            detail={componentValue(c)}
+            label={COMPONENT_LABELS[c().key]}
+            detail={componentValue(c())}
             value={
               <>
-                {formatDecimal(c.points)}
-                <span class="text-lol-text"> / {formatDecimal(c.weight)}</span>
+                {formatDecimal(c().points)}
+                <span class="text-lol-text"> / {formatDecimal(c().weight)}</span>
               </>
             }
           />
