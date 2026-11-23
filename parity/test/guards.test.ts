@@ -612,7 +612,7 @@ describe("seam", () => {
       expect(Object.values(JSON.parse(off.stdout))).toEqual(Array(6).fill("blocked"));
       expect(seen).toEqual([]);
     } finally {
-      server.stop(true);
+      await server.stop(true);
     }
   });
 

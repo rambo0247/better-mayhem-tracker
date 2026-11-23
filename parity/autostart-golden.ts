@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { REPO_DIR } from "./lib/data.ts";
+import { ELECTRON_REPO_DIR, REPO_DIR } from "./lib/data.ts";
 
 const BUNDLE = "/Applications/Better Mayhem Tracker.app";
 const MOVED_BUNDLE = "/Users/player/Games & <Tools>/Better Mayhem Tracker.app";
@@ -65,11 +65,11 @@ function mockElectronSide() {
       getName: () => "better-mayhem-tracker",
     },
   }));
-  void mock.module(path.join(REPO_DIR, "src/main/db/index.ts"), () => ({
+  void mock.module(path.join(ELECTRON_REPO_DIR, "src/main/db/index.ts"), () => ({
     getSetting: (key: string) => settings.get(key) ?? null,
     setSetting: (key: string, value: string) => settings.set(key, value),
   }));
-  void mock.module(path.join(REPO_DIR, "src/main/install-location.ts"), () => ({
+  void mock.module(path.join(ELECTRON_REPO_DIR, "src/main/install-location.ts"), () => ({
     portableExe: () => (platform === "win32" ? install : null),
     macAppBundle: () => (platform === "darwin" ? install : null),
     hasDurableInstall: () => install !== null,
@@ -87,7 +87,7 @@ async function record() {
   }
   const execPath = process.execPath;
   mockElectronSide();
-  const autostart = await import(path.join(REPO_DIR, "src/main/autostart.ts"));
+  const autostart = await import(path.join(ELECTRON_REPO_DIR, "src/main/autostart.ts"));
   const plist = path.join(
     home,
     "Library",
@@ -147,16 +147,15 @@ export function recordInScratchHome(): unknown {
 
 /**
  * `text` as the repo's formatter writes `file`, so a rerun leaves the committed fixture
- * byte-identical and `npm run format:check` passes it.
+ * byte-identical and `bun fmt:check` passes it.
  */
 function formatted(file: string, text: string): string {
-  const oxfmt = path.join(REPO_DIR, "node_modules", ".bin", "oxfmt");
-  const result = spawnSync(oxfmt, [`--stdin-filepath=${file}`], {
-    cwd: REPO_DIR,
-    input: text,
-    encoding: "utf8",
-  });
-  if (result.status !== 0) throw new Error(`oxfmt failed on ${file}:\n${result.stderr}`);
+  const result = spawnSync(
+    process.execPath,
+    ["fmt", "--no-script", `--stdin-filepath=${file}`, "--print-width=100"],
+    { cwd: path.join(REPO_DIR, "tauri"), input: text, encoding: "utf8" },
+  );
+  if (result.status !== 0) throw new Error(`bun fmt failed on ${file}:\n${result.stderr}`);
   return result.stdout;
 }
 

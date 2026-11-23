@@ -17,7 +17,7 @@ import {
   computeMatchScores,
   type ChampionClassMap,
   type ScoreInput,
-} from "../src/shared/opScore.ts";
+} from "../tauri/src/shared/opScore.ts";
 
 const SCORE_ROW_COLUMNS = `participant_id, puuid, team_id, champion_id, win,
        kills, deaths, assists, double_kills, triple_kills, quadra_kills, penta_kills,

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { ELECTRON_CONTRACT } from "../lib/data.ts";
 import { channelDirName, channelFromDirName } from "../golden-format.ts";
 import { IPC_CASES, SEAM_STAMP } from "../ipc-cases.ts";
 import { FIXED_TIME, TIME_ZONE } from "../run-electron.ts";
@@ -15,7 +16,7 @@ import {
   type Timing,
 } from "../record-ipc.ts";
 
-const API = path.resolve(import.meta.dir, "../../src/shared/api.ts");
+const API = ELECTRON_CONTRACT;
 const apiText = fs.readFileSync(API, "utf8");
 
 describe("what api.ts declares", () => {

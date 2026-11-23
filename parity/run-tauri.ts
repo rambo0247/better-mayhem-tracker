@@ -11,7 +11,14 @@ import {
   type Target,
 } from "./drive.ts";
 import { isScenario, RELEASES_PATH, startFakeGithub, type FakeGithub } from "./fake-github.ts";
-import { copyDataTree, PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
+import {
+  copyDataTree,
+  ELECTRON_CONTRACT,
+  ELECTRON_REPO_DIR,
+  PARITY_DIR,
+  REPO_DIR,
+  resolveDataRoot,
+} from "./lib/data.ts";
 import { gameRunning, waitForNoGame } from "./lib/no-game.ts";
 import { claimRunFolder, DEFAULT_VIEWPORT, FIXED_TIME, TIME_ZONE } from "./run-electron.ts";
 import { settle } from "./settle.ts";
@@ -158,19 +165,19 @@ export interface ReplayBundle {
   emit?: { event: string; payload?: unknown }[];
 }
 
-/** `INVOKE_CHANNELS` from `src/shared/api.ts`: the method each channel answers. */
-export function readInvokeChannels(repo: string = REPO_DIR): Record<string, string> {
-  const source = fs.readFileSync(path.join(repo, "src", "shared", "api.ts"), "utf8");
+/** 1.2.1's `INVOKE_CHANNELS`: the method each channel answers. */
+export function readInvokeChannels(): Record<string, string> {
+  const source = fs.readFileSync(ELECTRON_CONTRACT, "utf8");
   const block = source.match(/export const INVOKE_CHANNELS = \{([\s\S]*?)\n\}/)?.[1];
-  if (!block) throw new Error("INVOKE_CHANNELS not found in src/shared/api.ts");
+  if (!block) throw new Error(`INVOKE_CHANNELS not found in ${ELECTRON_CONTRACT}`);
   return Object.fromEntries(
     [...block.matchAll(/^\s*(\w+): "([^"]+)",/gm)].map((m) => [m[1]!, m[2]!]),
   );
 }
 
-/** The preload's `onX: subscribe("event")` lines: the method each pushed event reaches. */
-export function readEventMethods(repo: string = REPO_DIR): Record<string, string> {
-  const source = fs.readFileSync(path.join(repo, "src", "preload", "index.ts"), "utf8");
+/** 1.2.1's preload `onX: subscribe("event")` lines: the method each pushed event reaches. */
+export function readEventMethods(): Record<string, string> {
+  const source = fs.readFileSync(ELECTRON_CONTRACT, "utf8");
   return Object.fromEntries(
     [...source.matchAll(/^\s*(on\w+): subscribe\("([^"]+)"\)/gm)].map((m) => [m[1]!, m[2]!]),
   );
@@ -708,7 +715,10 @@ export interface StartTauriOptions {
    */
   api?: "replay" | "tauri";
   runDir?: string;
+  /** The Tauri checkout the binary is looked up in. */
   repo?: string;
+  /** The Electron checkout whose built renderer a `renderer: "electron"` run loads. */
+  electronRepo?: string;
   binary?: string;
   goldenDir?: string;
   scenario?: string;
@@ -995,9 +1005,10 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     BMT_DATA_ROOT: appRoot,
   };
   if (renderer === "electron") {
-    const rendererDir = path.join(repo, "out", "renderer");
+    const electronRepo = options.electronRepo ?? ELECTRON_REPO_DIR;
+    const rendererDir = path.join(electronRepo, "out", "renderer");
     if (!fs.existsSync(path.join(rendererDir, "index.html"))) {
-      throw new Error(`${rendererDir} has no build. Run \`npm run build\` in ${repo}.`);
+      throw new Error(`${rendererDir} has no build. Run \`npm run build\` in ${electronRepo}.`);
     }
     env.BMT_PARITY_RENDERER_DIR = rendererDir;
   }
@@ -1007,8 +1018,8 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
   } else if (renderer === "electron") {
     bundle = buildReplayBundle({
       goldenDir: options.goldenDir ?? path.join(PARITY_DIR, "out", "golden"),
-      methods: readInvokeChannels(repo),
-      events: readEventMethods(repo),
+      methods: readInvokeChannels(),
+      events: readEventMethods(),
       locale: options.locale ?? "en-US",
       scenario: options.scenario,
     });

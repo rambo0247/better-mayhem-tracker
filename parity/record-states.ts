@@ -19,7 +19,7 @@ import {
   writeJson,
   type SeamRecord,
 } from "./record-ipc.ts";
-import { PARITY_DIR, REPO_DIR } from "./lib/data.ts";
+import { ELECTRON_CONTRACT, ELECTRON_REPO_DIR, PARITY_DIR } from "./lib/data.ts";
 import { gameRunning } from "./lib/no-game.ts";
 import { startElectron, type RunningElectron } from "./run-electron.ts";
 import { STATES, applyState, resolveVars, selectStates, type StateRow } from "./states.ts";
@@ -252,7 +252,7 @@ async function main() {
   const argv = process.argv.slice(2);
   const value = (flag: string) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
   const data = value("--data") ?? "fixture";
-  const repo = value("--repo") ?? REPO_DIR;
+  const repo = value("--repo") ?? ELECTRON_REPO_DIR;
   const out = path.resolve(value("--out") ?? GOLDEN_DIR);
   const states = selectStates(value("--states") ?? "all");
   if (!fs.existsSync(path.join(out, "ipc"))) {
@@ -266,9 +266,7 @@ async function main() {
   }
   process.env.SEAM_IPC = "1";
 
-  const channels = parseChannels(
-    fs.readFileSync(path.join(REPO_DIR, "src", "shared", "api.ts"), "utf8"),
-  );
+  const channels = parseChannels(fs.readFileSync(ELECTRON_CONTRACT, "utf8"));
   const methods = new Map(Object.entries(channels).map(([method, channel]) => [channel, method]));
   const book = new CaseBook(out);
   for (const state of states)

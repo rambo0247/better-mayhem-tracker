@@ -20,11 +20,11 @@ import { RENDERER_CALLS } from "./renderer-calls.ts";
 import { IPC_CASES, READ_GROUP, type IpcCase, type Prior, type Vars } from "./ipc-cases.ts";
 import { startFakeLcu } from "./fake-lcu.ts";
 import { loadContext } from "./fake-lcu/context.ts";
-import { PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
+import { ELECTRON_CONTRACT, ELECTRON_REPO_DIR, PARITY_DIR, resolveDataRoot } from "./lib/data.ts";
 import { FIXED_TIME, TIME_ZONE, startElectron, type RunningElectron } from "./run-electron.ts";
 
 const GOLDEN_DIR = path.join(PARITY_DIR, "out", "golden");
-const API_PATH = path.join(REPO_DIR, "src", "shared", "api.ts");
+const API_PATH = ELECTRON_CONTRACT;
 /** Events that fire after a handler returns still belong to it. */
 const QUIET_MS = 150;
 
@@ -706,7 +706,7 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   const value = (flag: string) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
   const data = value("--data") ?? "fixture";
-  const repo = value("--repo") ?? REPO_DIR;
+  const repo = value("--repo") ?? ELECTRON_REPO_DIR;
   const out = path.resolve(value("--out") ?? GOLDEN_DIR);
   const apiPath = path.resolve(value("--api") ?? API_PATH);
   const apiText = fs.readFileSync(apiPath, "utf8");

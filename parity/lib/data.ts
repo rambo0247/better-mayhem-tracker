@@ -4,6 +4,16 @@ import { refuseRealFolder } from "./real-folder.ts";
 
 export const PARITY_DIR = path.resolve(import.meta.dir, "..");
 export const REPO_DIR = path.resolve(PARITY_DIR, "..");
+/**
+ * The checkout trunk Electron 1.2.1 builds and runs from: the v1.2.1 tag with `npm ci` and
+ * `npm run build` run in it. This tree no longer holds Electron. Set `BMT_ELECTRON_REPO` to a
+ * checkout kept anywhere, such as a `git worktree add <path> v1.2.1`.
+ */
+export const ELECTRON_REPO_DIR = path.resolve(
+  process.env.BMT_ELECTRON_REPO ?? path.join(REPO_DIR, "baseline-1.2.1"),
+);
+/** Electron 1.2.1's channel, event and preload surface, frozen from the v1.2.1 tag. */
+export const ELECTRON_CONTRACT = path.join(PARITY_DIR, "lib", "electron-contract.txt");
 export const SNAPSHOT_DIRS = {
   fixture: path.join(PARITY_DIR, "snapshots", "fixture"),
   snapshot: path.join(PARITY_DIR, "snapshots", "private"),

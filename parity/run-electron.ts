@@ -7,7 +7,7 @@ import path from "node:path";
 import { _electron, type ElectronApplication, type Page } from "playwright";
 import { startFakeGithub } from "./fake-github.ts";
 import { serveControl, type DriveContext, type Engine, type Target } from "./drive.ts";
-import { copyDataTree, PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
+import { copyDataTree, ELECTRON_REPO_DIR, PARITY_DIR, resolveDataRoot } from "./lib/data.ts";
 import { waitForNoGame } from "./lib/no-game.ts";
 import { realDataRoots, refuseRealFolder } from "./lib/real-folder.ts";
 import { resolveThroughSymlinks } from "./lib/real-folder.cjs";
@@ -413,7 +413,7 @@ async function quit(
 
 export async function startElectron(options: StartOptions): Promise<RunningElectron> {
   await waitForNoGame();
-  const repo = options.repo ?? REPO_DIR;
+  const repo = options.repo ?? ELECTRON_REPO_DIR;
   const viewport = options.viewport ?? DEFAULT_VIEWPORT;
   const runDir = path.resolve(
     options.runDir ??

@@ -14,7 +14,7 @@
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { PARITY_DIR, REPO_DIR } from "./lib/data.ts";
+import { ELECTRON_REPO_DIR, PARITY_DIR } from "./lib/data.ts";
 import { type RunningElectron, startElectron } from "./run-electron.ts";
 import { type RunningTauri, startTauri } from "./run-tauri.ts";
 import { settle } from "./settle.ts";
@@ -603,7 +603,7 @@ try {
     "-size",
     "68x44",
     "xc:none",
-    path.join(REPO_DIR, "assets", "tray@2x.png"),
+    path.join(ELECTRON_REPO_DIR, "assets", "tray@2x.png"),
     "-gravity",
     "center",
     "-composite",

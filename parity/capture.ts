@@ -204,7 +204,7 @@ async function start(
     args,
     await startTauri({
       data,
-      repo: args.repo,
+      electronRepo: args.repo,
       renderer: args.renderer,
       api: args.api,
       goldenDir: args.golden,
@@ -234,7 +234,7 @@ async function startClientApp(
     args,
     await startTauri({
       data,
-      repo: args.repo,
+      electronRepo: args.repo,
       renderer: args.renderer,
       api: args.api,
       goldenDir: args.golden,

@@ -10,6 +10,9 @@ import {
   type MenuItemDump,
   type TrayDump,
 } from "../menus.ts";
+import { ELECTRON_REPO_DIR } from "../lib/data.ts";
+
+const ELECTRON_SOURCE = path.join(ELECTRON_REPO_DIR, "src", "main", "index.ts");
 
 const require = createRequire(import.meta.url);
 const { serializeMenu, serializeTemplate } = require("../seam-overlays.cjs") as {
@@ -59,17 +62,17 @@ describe("tray dump", () => {
     expect(entry?.click.$function).toContain("=> 1");
   });
 
-  test("the tray template in src/main/index.ts has the same three entries", () => {
-    const source = fs.readFileSync(
-      path.resolve(import.meta.dir, "../../src/main/index.ts"),
-      "utf8",
-    );
-    const block = source.slice(source.indexOf("Menu.buildFromTemplate(["));
-    const labels = [
-      ...block.slice(0, block.indexOf("]);")).matchAll(/label: "([^"]+)"|type: "(separator)"/g),
-    ].map((m) => m[1] ?? m[2]);
-    expect(labels).toEqual(["Show Window", "separator", "Quit"]);
-  });
+  test.skipIf(!fs.existsSync(ELECTRON_SOURCE))(
+    "the tray template in 1.2.1's src/main/index.ts has the same three entries",
+    () => {
+      const source = fs.readFileSync(ELECTRON_SOURCE, "utf8");
+      const block = source.slice(source.indexOf("Menu.buildFromTemplate(["));
+      const labels = [
+        ...block.slice(0, block.indexOf("]);")).matchAll(/label: "([^"]+)"|type: "(separator)"/g),
+      ].map((m) => m[1] ?? m[2]);
+      expect(labels).toEqual(["Show Window", "separator", "Quit"]);
+    },
+  );
 });
 
 describe("the tray's double-click", () => {

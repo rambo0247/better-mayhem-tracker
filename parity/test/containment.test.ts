@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { isUnderRealFolder, realDataRoots } from "../lib/real-folder.ts";
-import { SNAPSHOT_DIRS } from "../lib/data.ts";
+import { ELECTRON_REPO_DIR, SNAPSHOT_DIRS } from "../lib/data.ts";
 import { waitForNoGame } from "../lib/no-game.ts";
 import {
   assertNoEscapingLinks,
@@ -182,7 +182,7 @@ describe("main-process faults under the seam", () => {
   });
 
   const require = createRequire(import.meta.url);
-  const installed = path.resolve(import.meta.dir, "../../node_modules/electron/index.js");
+  const installed = path.join(ELECTRON_REPO_DIR, "node_modules", "electron", "index.js");
   const binary = fs.existsSync(installed) ? (require(installed) as string) : "";
   const hasElectron = process.platform === "darwin" && binary !== "" && fs.existsSync(binary);
 
@@ -198,10 +198,7 @@ describe("main-process faults under the seam", () => {
     const repo = path.join(dir, "repo");
     fs.mkdirSync(path.join(repo, "out", "main"), { recursive: true });
     fs.writeFileSync(path.join(repo, "out", "main", "index.js"), main);
-    fs.symlinkSync(
-      path.resolve(import.meta.dir, "../../node_modules"),
-      path.join(repo, "node_modules"),
-    );
+    fs.symlinkSync(path.join(ELECTRON_REPO_DIR, "node_modules"), path.join(repo, "node_modules"));
     fs.writeFileSync(
       path.join(repo, "package.json"),
       JSON.stringify({ name: "x", version: "1.2.1", main: "./out/main/index.js" }),

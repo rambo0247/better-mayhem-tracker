@@ -1,0 +1,95 @@
+// The parts of Electron 1.2.1's contract that parity reads, copied from
+// `git show v1.2.1:src/shared/api.ts` and `src/preload/index.ts`. 1.2.1 is a
+// released build, so this never changes. It is plain text, not code: record-ipc.ts
+// and run-tauri.ts parse it with the same patterns they used on the source.
+
+export const INVOKE_CHANNELS = {
+  getMatchHistory: "db:match-history",
+  getMatchSessions: "db:match-sessions",
+  getMatchFilterOptions: "db:match-filters",
+  getStoredQueues: "db:stored-queues",
+  getMatchDetail: "db:match-detail",
+  toggleFavorite: "db:toggle-favorite",
+  getChampionStats: "db:champion-stats",
+  getAugmentStats: "db:augment-stats",
+  getAugmentStatsDetailed: "db:augment-stats-detailed",
+  getDashboard: "db:dashboard",
+  getChampionMatchHistory: "db:champion-match-history",
+  getChampionItemStats: "db:champion-item-stats",
+  getTeammateStats: "db:teammate-stats",
+  getTeammateGroups: "db:teammate-groups",
+  getTeammateGroupDetail: "db:teammate-group-detail",
+  getTeammateDetail: "db:teammate-detail",
+  getGlobalStats: "db:global-stats",
+  getTrends: "db:trends",
+  getRecords: "db:records",
+  getLiveGame: "live:snapshot",
+  getGameRecap: "db:game-recap",
+  getGameCard: "db:game-card",
+  getSeasonRecap: "db:season-recap",
+  getSeasons: "db:seasons",
+  getGlobalChampionDetail: "db:global-champion-detail",
+  getChallenges: "challenges:get",
+  getAllSummonerPuuids: "db:all-summoner-puuids",
+  getProfile: "db:profile",
+  backfillHistory: "lcu:backfill",
+  cancelBackfill: "lcu:cancel-backfill",
+  isBackfillRunning: "lcu:backfill-running",
+  getLcuStatus: "lcu:status",
+  getChampionData: "dragon:champions",
+  getAugmentData: "dragon:augments",
+  resolveAugmentIcon: "dragon:augment-icon",
+  getItemData: "dragon:items",
+  getSummonerSpellData: "dragon:summoner-spells",
+  getSetting: "settings:get",
+  isAutoStartSupported: "autostart:supported",
+  setSetting: "settings:set",
+  exportCardImage: "export:card-image",
+  copyCardImage: "export:copy-card-image",
+  exportData: "data:export",
+  importData: "data:import",
+  repairPuuids: "data:repair-puuids",
+  listBackups: "backup:list",
+  createBackup: "backup:create",
+  restoreBackup: "backup:restore",
+  getRecoveryReport: "backup:recovery-report",
+  openBackupFolder: "backup:open-folder",
+  openLogsFolder: "app:open-logs-folder",
+  getVersion: "app:version",
+  checkForUpdate: "app:check-update",
+  downloadUpdate: "app:download-update",
+  getLaunchInstall: "app:launch-install",
+  getUpdateNotes: "app:update-notes",
+  openUrl: "app:open-url",
+  minimizeWindow: "window:minimize",
+  toggleMaximizeWindow: "window:toggle-maximize",
+  closeWindow: "window:close",
+  isWindowMaximized: "window:is-maximized",
+} as const satisfies Record<InvokeMethod, string>;
+
+export interface RendererEvents {
+  "lcu:status-changed": LcuStatus;
+  "lcu:games-updated": void;
+  "lcu:backfill-progress": BackfillProgress;
+  "lcu:backfill-done": BackfillResult | { error: string };
+  "live:changed": LiveGameSnapshot;
+  "challenges:changed": ChallengesResult;
+  "update:progress": number;
+  "update:installing": UpdateInfo;
+  "update:install-failed": string;
+  "window:maximized-changed": boolean;
+  "data:import-progress": ImportProgress;
+}
+
+// src/preload/index.ts, the lines that subscribe to a pushed event
+  onBackfillDone: subscribe("lcu:backfill-done"),
+  onBackfillProgress: subscribe("lcu:backfill-progress"),
+  onLiveGame: subscribe("live:changed"),
+  onChallengesChanged: subscribe("challenges:changed"),
+  onStatusChanged: subscribe("lcu:status-changed"),
+  onGamesUpdated: subscribe("lcu:games-updated"),
+  onUpdateProgress: subscribe("update:progress"),
+  onUpdateInstalling: subscribe("update:installing"),
+  onUpdateInstallFailed: subscribe("update:install-failed"),
+  onImportProgress: subscribe("data:import-progress"),
+  onMaximizedChanged: subscribe("window:maximized-changed"),
