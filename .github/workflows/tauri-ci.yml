@@ -161,7 +161,8 @@ jobs:
           # devDependencies: only package.json's version is embedded, not the
           # file (build.rs)
           for marker in bmt-parity-driver BMT_PARITY_TOKEN BMT_DATA_ROOT \
-            'Debug and parity builds never' devDependencies BMT_PARITY_CA BMT_PARITY_LEAGUE_DIR; do
+            'Debug and parity builds never' devDependencies BMT_PARITY_CA BMT_PARITY_LEAGUE_DIR \
+            BMT_PARITY_GITHUB BMT_PARITY_PACKAGED BMT_PARITY_VERSION; do
             if grep -a -q -F "$marker" "$exe"; then
               echo "release binary contains $marker"
               exit 1
