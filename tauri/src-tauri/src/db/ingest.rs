@@ -452,7 +452,9 @@ mod tests {
             (
                 "true",
                 Some(json!(true)),
-                Err("SQLite3 can only bind numbers, strings, bigints, buffers, and null"),
+                Err(
+                    "TypeError: SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+                ),
             ),
             ("abc", Some(json!("abc")), mismatch),
             ("1e20", Some(json!(1e20)), mismatch),
