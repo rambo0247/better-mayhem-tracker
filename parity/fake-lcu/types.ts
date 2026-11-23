@@ -65,17 +65,17 @@ export interface Scenario {
   description: string;
   state: ClientState;
   timeline: Step[];
-  /** What Riot's match-history service lists, newest first. */
-  /** `gated` holds every answer until the capture opens the page, so a one-off toast is not missed. */
+  /**
+   * What Riot's match-history service lists, newest first. `gated` holds every answer until the capture opens
+   * the page, so a one-off toast is not missed.
+   */
   sgp: { ids: number[]; stall?: boolean; status?: number; gated?: boolean };
   /** Games the client answers by id. Everything known to the context is answered too. */
   games: { id: number; payload: unknown }[];
-  /** Detail requests for the SGP ids from this index on never answer. */
+  /** Detail requests for the SGP ids from this index on never answer, except for the oldest id. */
   hangDetailsFrom?: number;
   /** The first `n` detail requests for a game answer 404. */
   misses?: Record<number, number>;
-  /** Recent games the client lists. Defaults to the known ones, as a stale client does. */
-  listed?: { gameId: number; queueId: number; gameCreation: number }[];
   challenges: { all: Record<string, unknown>; summary: unknown } | null;
   /** What the in-game API answers on port 2999 while `live` is "on". */
   liveData?: unknown;

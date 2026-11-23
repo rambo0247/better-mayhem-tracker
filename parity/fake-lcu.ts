@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { PNG } from "pngjs";
 import { generatePki, type FakePki } from "./fake-lcu/ca.ts";
-import { loadContext } from "./fake-lcu/context.ts";
+import { loadContext, syntheticContext } from "./fake-lcu/context.ts";
 import { buildScenario, SCENARIOS } from "./fake-lcu/scenarios/index.ts";
 import type { ClientState, Frame, Scenario, ScenarioContext, Step } from "./fake-lcu/types.ts";
 import { startFakeLiveClient, type FakeLiveClient } from "./fake-live-client.ts";
@@ -26,7 +26,10 @@ export interface RequestRecord {
   server: "lcu" | "sgp" | "live";
   method: string;
   path: string;
-  status: number;
+  /** Null until the response is sent, and for good when the fake never answers. */
+  status: number | null;
+  /** Set at stop for a request that never got its answer. */
+  hung?: true;
 }
 
 export interface SentFrame {
@@ -110,8 +113,14 @@ export async function startFakeLcu(options: FakeLcuOptions): Promise<FakeLcu> {
   fs.mkdirSync(lockfileDir, { recursive: true });
 
   const requests: RequestRecord[] = [];
-  const record = (server: RequestRecord["server"]) => (method: string, p: string, status: number) =>
-    requests.push({ t: Date.now() - started, server, method, path: p, status });
+  /** Logs a request as it arrives. The returned function sets its status once it is answered. */
+  const record =
+    (server: RequestRecord["server"]) =>
+    (method: string, p: string, status: number | null = null) => {
+      const entry: RequestRecord = { t: Date.now() - started, server, method, path: p, status };
+      requests.push(entry);
+      return (answered: number) => void (entry.status = answered);
+    };
   const recordLcu = record("lcu");
 
   let state: ClientState = { ...scenario.state };
@@ -154,7 +163,6 @@ export async function startFakeLcu(options: FakeLcuOptions): Promise<FakeLcu> {
     });
   }
 
-  const listed = () => scenario.listed ?? context.known;
   const detailOf = (gameId: number) =>
     scenario.games.find((g) => g.id === gameId)?.payload ?? context.gameDetail(gameId);
 
@@ -194,7 +202,7 @@ export async function startFakeLcu(options: FakeLcuOptions): Promise<FakeLcu> {
 
     if (/^\/lol-match-history\/v1\/products\/lol\/[^/]+\/matches$/.test(pathname)) {
       const end = Number(search.get("endIndex") ?? 19);
-      const games = listed()
+      const games = context.known
         .slice(0, Math.min(end + 1, 20))
         .map((g) => ({ ...g, gameMode: "KIWI", gameType: "MATCHED_GAME" }));
       return json({ games: { gameIndexBegin: 0, gameIndexEnd: games.length, games } });
@@ -202,7 +210,10 @@ export async function startFakeLcu(options: FakeLcuOptions): Promise<FakeLcu> {
     if ((match = pathname.match(/^\/lol-match-history\/v1\/games\/(\d+)$/))) {
       const gameId = Number(match[1]);
       const index = scenario.sgp.ids.indexOf(gameId);
-      if (scenario.hangDetailsFrom !== undefined && index >= scenario.hangDetailsFrom) {
+      // The app reads the oldest id's date to see where Riot's history starts, before it imports
+      // anything, so that one answers or the import never reaches its first progress report.
+      const probed = index === scenario.sgp.ids.length - 1;
+      if (scenario.hangDetailsFrom !== undefined && index >= scenario.hangDetailsFrom && !probed) {
         return never();
       }
       const count = hits.get(gameId) ?? 0;
@@ -238,8 +249,9 @@ export async function startFakeLcu(options: FakeLcuOptions): Promise<FakeLcu> {
     tls: { key: pki.leafKeyPem, cert: pki.leafPem },
     async fetch(request, self) {
       const url = new URL(request.url);
+      const answered = recordLcu(request.method, url.pathname);
       if (request.headers.get("authorization") !== basic) {
-        recordLcu(request.method, url.pathname, 401);
+        answered(401);
         return new Response("Unauthorized", { status: 401 });
       }
       if (request.headers.get("upgrade")?.toLowerCase() === "websocket") {
@@ -247,11 +259,11 @@ export async function startFakeLcu(options: FakeLcuOptions): Promise<FakeLcu> {
         return new Response("upgrade failed", { status: 400 });
       }
       if (request.method !== "GET") {
-        recordLcu(request.method, url.pathname, 405);
+        answered(405);
         return new Response("Method Not Allowed", { status: 405 });
       }
       const response = await lcuBody(url.pathname, url.searchParams);
-      recordLcu(request.method, url.pathname, response.status);
+      answered(response.status);
       return response;
     },
     websocket: {
@@ -283,8 +295,9 @@ export async function startFakeLcu(options: FakeLcuOptions): Promise<FakeLcu> {
     port: 0,
     async fetch(request) {
       const url = new URL(request.url);
+      const answered = recordSgp(request.method, url.pathname + url.search);
       const reply = (status: number, body: unknown) => {
-        recordSgp(request.method, url.pathname + url.search, status);
+        answered(status);
         return Response.json(body, { status });
       };
       if (!request.headers.get("authorization")?.startsWith("Bearer ")) return reply(401, {});
@@ -341,10 +354,12 @@ export async function startFakeLcu(options: FakeLcuOptions): Promise<FakeLcu> {
     async stop() {
       for (const timer of timers) clearTimeout(timer);
       fs.rmSync(lockfile, { force: true });
+      for (const entry of requests) if (entry.status === null) entry.hung = true;
       fs.writeFileSync(path.join(dir, "requests.json"), JSON.stringify(requests, null, 1));
       live.stop();
       await sgp.stop(true);
       await server.stop(true);
+      fs.rmSync(path.join(dir, "ca.pem"), { force: true });
     },
   };
 }
@@ -354,8 +369,12 @@ if (import.meta.main) {
   const value = (flag: string) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
   const name = value("--scenario");
   if (!name || !(name in SCENARIOS)) {
+    const sample = syntheticContext();
+    const listing = Object.keys(SCENARIOS)
+      .map((key) => `  ${key}: ${buildScenario(key, sample).description}`)
+      .join("\n");
     console.error(
-      `usage: bun parity/fake-lcu.ts --scenario <name> [--data <fixture|snapshot|folder>] [--out <folder>] [--set key=value ...]\nscenarios: ${Object.keys(SCENARIOS).join(", ")}`,
+      `usage: bun parity/fake-lcu.ts --scenario <name> [--data <fixture|snapshot|folder>] [--out <folder>] [--set key=value ...]\nscenarios:\n${listing}`,
     );
     process.exit(2);
   }

@@ -176,6 +176,50 @@ describe("the fake client", () => {
     expect(statuses).toEqual([404, 404, 404, 200, 200]);
   });
 
+  test("a running import answers the oldest game the app probes, then hangs from the served count", async () => {
+    const fake = await start("backfill-running", { total: 40, served: 12 });
+    const ids = fake.scenario.sgp.ids;
+    const detail = (n: number) => get(fake, `/lol-match-history/v1/games/${ids[n]}`);
+    expect((await detail(11)).status).toBe(200);
+    expect((await detail(39)).status).toBe(200);
+    expect((await detail(39)).body.gameId).toBe(ids[39]);
+  });
+
+  test("logs a request that is never answered, and marks it hung at stop", async () => {
+    const fake = await start("backfill-running", { total: 40, served: 12 });
+    const hungId = fake.scenario.sgp.ids[12];
+    const password = fs
+      .readFileSync(path.join(fake.lockfileDir, "lockfile"), "utf8")
+      .split(":")[3]!;
+    const request = https.get({
+      host: "127.0.0.1",
+      port: fake.port,
+      path: `/lol-match-history/v1/games/${hungId}`,
+      ca: fake.caPem,
+      headers: { Authorization: "Basic " + Buffer.from(`riot:${password}`).toString("base64") },
+    });
+    request.on("error", () => {});
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    request.destroy();
+
+    const entry = fake.requests.find((r) => r.path.endsWith(`/games/${hungId}`));
+    expect(entry?.status).toBeNull();
+    expect(entry?.hung).toBeUndefined();
+    await fake.stop();
+    expect(entry?.hung).toBe(true);
+    const written = JSON.parse(fs.readFileSync(path.join(fake.dir, "requests.json"), "utf8"));
+    expect(written.find((r: { path: string }) => r.path.endsWith(`/games/${hungId}`)).hung).toBe(
+      true,
+    );
+  });
+
+  test("removes its CA file on stop", async () => {
+    const fake = await start("connected-idle");
+    expect(fs.existsSync(path.join(fake.dir, "ca.pem"))).toBe(true);
+    await fake.stop();
+    expect(fs.existsSync(path.join(fake.dir, "ca.pem"))).toBe(false);
+  });
+
   test("serves a challenge token as a PNG", async () => {
     const fake = await start("challenges-loaded");
     const tree = await get(fake, "/lol-challenges/v1/challenges/local-player");
@@ -201,13 +245,16 @@ describe("scenario timelines", () => {
       expect(received.map((r) => r.frame)).toEqual(
         expected.map((e) => [8, "OnJsonApiEvent", e.frame]),
       );
-      const timeline = fake.sent.map((s) => s.at);
-      expect(timeline).toEqual([...timeline].sort((a, b) => a - b));
-      fake.sent.forEach((sent, i) => {
-        const due = expected[i]!.at * SCALE;
-        expect(sent.at).toBeGreaterThanOrEqual(due - 5);
-        // Lanes run at background priority beside a game, where a timer fires up to ~120 ms late.
-        expect(sent.at).toBeLessThan(due + 1000);
+      // The client's clock starts at its own socket, so the first frame anchors the rest.
+      // A timer never fires early, so the lower bound is the scaled delay less a millisecond of
+      // clock rounding on each end. Under load a timer runs late, and 150 ms is the most one
+      // was seen to slip.
+      const gaps = received.map((r) => r.at - received[0]!.at);
+      expect(gaps).toEqual([...gaps].sort((a, b) => a - b));
+      expected.forEach((want, i) => {
+        const due = (want.at - expected[0]!.at) * SCALE;
+        expect(gaps[i]!).toBeGreaterThanOrEqual(due - 2);
+        expect(gaps[i]!).toBeLessThan(due + 150);
       });
     });
   }

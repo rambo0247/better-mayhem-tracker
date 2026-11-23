@@ -33,7 +33,7 @@ export function integer(value: Buffer) {
 }
 
 /** 16 random bytes, never zero, so the serial is a positive integer. */
-export function serialNumber() {
+function serialNumber() {
   const bytes = crypto.randomBytes(16);
   if (bytes.every((b) => b === 0)) bytes[15] = 1;
   return integer(bytes);
