@@ -580,7 +580,7 @@ fn count_games(conn: &Connection) -> rusqlite::Result<i64> {
 
 fn auto_backup_off(db: &Database) -> bool {
     match db.with(|conn| settings::get_setting(conn, "auto_backup")) {
-        Ok(value) => value.as_deref() == Some("false"),
+        Ok(value) => value.as_str() == Some("false"),
         Err(err) => {
             eprintln!("Failed to read auto_backup: {}", err.message);
             false
