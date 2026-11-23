@@ -264,7 +264,7 @@ impl GameSync {
         let completed_key = format!("backfill_complete_{puuid}");
         let walked_before = self
             .db(|conn| get_setting(conn, &completed_key))?
-            .as_deref()
+            .as_str()
             == Some("1");
         let stop_at_known = walked_before && !full;
         let stop_after =
@@ -534,7 +534,11 @@ impl GameSync {
             return Ok(host);
         }
         let cached = self.db(|conn| get_setting(conn, "sgp_host"))?;
-        if let Some(cached) = cached.filter(|c| SGP_HOSTS.contains(&c.as_str())) {
+        if let Some(cached) = cached
+            .as_str()
+            .map(str::to_owned)
+            .filter(|c| SGP_HOSTS.contains(&c.as_str()))
+        {
             self.state().sgp_host = Some(cached.clone());
             return Ok(cached);
         }

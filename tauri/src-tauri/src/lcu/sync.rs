@@ -458,7 +458,7 @@ impl InstallDirSetting for DbInstallDir {
         self.0
             .db(|conn| crate::db::settings::get_setting(conn, INSTALL_DIR_SETTING))
             .ok()
-            .flatten()
+            .and_then(|cell| cell.as_str().map(str::to_owned))
     }
 
     fn set(&self, dir: &str) {
