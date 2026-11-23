@@ -748,6 +748,60 @@ mod tests {
         );
     }
 
+    /// Trunk Electron's `Number(text)` and `parseInt(text)` for radix
+    /// literals past 2^53, which must round once from their exact value
+    /// (`probe-fix2.ts`). The last six sit at the double's top: 53 ones and
+    /// then a tail below, at or above the midpoint.
+    #[test]
+    fn radix_literals_round_once_as_v8_does() {
+        let max = "1".repeat(53);
+        let cases = [
+            (
+                string_to_number("0x11a257fAC6fCDe80169eA9C7db46Ed77f400419e0"),
+                0x49f1a257fac6fcdf_u64,
+            ),
+            (
+                string_to_number("0o316505013466432226411246113651225023013230346"),
+                0x4849d4505cda3497,
+            ),
+            (
+                parse_int("0XAcAB4CAfab4AD45E6905b82dcff4"),
+                0x46e5956995f5695b,
+            ),
+            (
+                string_to_number(&format!("0b{max}{}1", "0".repeat(970))),
+                0x7fefffffffffffff,
+            ),
+            (
+                string_to_number(&format!("0b{max}1{}", "0".repeat(970))),
+                0x7ff0000000000000,
+            ),
+            (
+                string_to_number(&format!("0b{max}0{}", "1".repeat(970))),
+                0x7fefffffffffffff,
+            ),
+            (
+                string_to_number(&format!("0b{max}{}", "1".repeat(971))),
+                0x7ff0000000000000,
+            ),
+            (
+                string_to_number(&format!("0b1{}", "0".repeat(1024))),
+                0x7ff0000000000000,
+            ),
+            (
+                string_to_number(&format!("0b1{}", "0".repeat(53))),
+                0x4340000000000000,
+            ),
+        ];
+        for (i, (ours, electron)) in cases.into_iter().enumerate() {
+            assert_eq!(
+                format!("{:016x}", ours.to_bits()),
+                format!("{electron:016x}"),
+                "case {i}"
+            );
+        }
+    }
+
     #[test]
     fn stringify_keeps_key_order_and_escapes_as_javascript() {
         let v: Value =
