@@ -203,6 +203,18 @@ export function varsReadMismatches(calls: Call[], book: CaseBook, runDir: string
   });
 }
 
+/** The reads `resolveVars` in states.ts makes. The page's own launch calls land in the same window. */
+const VARS_READS = new Set([
+  "getMatchHistory",
+  "getSeasons",
+  "getTeammateStats",
+  "getTeammateGroups",
+  "getChampionStats",
+]);
+
+/** Trends.tsx buckets the same daily rows by week or month, so this key changes no call. */
+const CALL_FREE_VIEW_KEYS = new Set(["view:trends.granularity"]);
+
 const SETTINGS_CHANNELS = new Set(["settings:get", "settings:set"]);
 
 /** The page's own calls, without the driver's settings reads and writes. */
@@ -214,7 +226,10 @@ export const pageCalls = (index: StateIndex) =>
 /** Rows that seed `view:` keys, each paired with the default state of its route. */
 export const viewKeyRows = (states: StateRow[]) =>
   states.flatMap((state) => {
-    if (!state.pre?.some((step) => step.op === "local" && step.key.startsWith("view:"))) return [];
+    const keys = (state.pre ?? []).flatMap((step) =>
+      step.op === "local" && step.key.startsWith("view:") ? [step.key] : [],
+    );
+    if (!keys.some((key) => !CALL_FREE_VIEW_KEYS.has(key))) return [];
     const base = states.find((other) => other.group === "default" && other.route === state.route);
     return base ? [{ state: state.id, base: base.id }] : [];
   });
@@ -311,8 +326,12 @@ async function main() {
         await drain(running);
         vars = await resolveVars(running.page);
         console.log(`vars ${wanted}: ${JSON.stringify(vars)}`);
-        if (wanted === data)
-          varsReads.push({ calls: callsFrom(await drain(running)), runDir: running.runDir });
+        if (wanted === data) {
+          const reads = callsFrom(await drain(running)).filter((call) =>
+            VARS_READS.has(methods.get(call.channel) ?? ""),
+          );
+          varsReads.push({ calls: reads, runDir: running.runDir });
+        }
       }
       console.log(`state ${state.id}: status ${await waitForFirstTick(running.page, state)}`);
       await drain(running);
