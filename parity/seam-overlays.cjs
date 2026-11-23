@@ -92,7 +92,13 @@ function rewriteGithubUrl(url, base, scenario) {
   return target.toString();
 }
 
-module.exports = { rewriteGithubUrl, serializeMenu, serializeTemplate, compareVersions, toReleaseNote };
+module.exports = {
+  rewriteGithubUrl,
+  serializeMenu,
+  serializeTemplate,
+  compareVersions,
+  toReleaseNote,
+};
 
 if (process.versions.electron) {
   const { app, ipcMain, BrowserWindow, Menu, Tray } = require("electron");
