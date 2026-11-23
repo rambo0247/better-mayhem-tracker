@@ -5,6 +5,7 @@
 //! outage backoff with the art.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::panic::AssertUnwindSafe;
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, Mutex};
 
@@ -19,8 +20,8 @@ use tokio::sync::Semaphore;
 
 use crate::asset_cache::by_newest_patch;
 use crate::assets::{
-    Fetched, Flights, GameAssets, Web, WebAnswer, game_asset_url, game_data_path, js_string,
-    js_truthy, log, log_error,
+    Fetched, Flights, GameAssets, Web, WebAnswer, game_asset_url, game_data_path, js_number_string,
+    js_string, js_truthy, log, log_error,
 };
 
 const VERSIONS: &str = "https://ddragon.leagueoflegends.com/api/versions.json";
@@ -205,6 +206,52 @@ impl<'de, V: Deserialize<'de>> Deserialize<'de> for JsObject<V> {
 /// branch the walk reached has it".
 type IconCacheFile = JsObject<Option<String>>;
 
+/// A top-level field of a file: an object read in JavaScript's key order, or
+/// any other value. Read as a `JsObject` of these, a key set twice keeps its
+/// last value, as `JSON.parse` does, where serde's derive refuses it.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Field {
+    Object(JsObject<Value>),
+    Other(Value),
+}
+
+/// `JSON.stringify`: numbers as JavaScript writes them, so `-0` and `0.0` are
+/// `0`, `100.0` is `100` and `1e21` is `1e+21`.
+fn js_json(value: &impl Serialize) -> String {
+    struct JsNumbers;
+    impl serde_json::ser::Formatter for JsNumbers {
+        fn write_f64<W: ?Sized + std::io::Write>(
+            &mut self,
+            writer: &mut W,
+            value: f64,
+        ) -> std::io::Result<()> {
+            writer.write_all(js_number_string(value).as_bytes())
+        }
+        fn write_i64<W: ?Sized + std::io::Write>(
+            &mut self,
+            writer: &mut W,
+            value: i64,
+        ) -> std::io::Result<()> {
+            self.write_f64(writer, value as f64)
+        }
+        fn write_u64<W: ?Sized + std::io::Write>(
+            &mut self,
+            writer: &mut W,
+            value: u64,
+        ) -> std::io::Result<()> {
+            self.write_f64(writer, value as f64)
+        }
+    }
+    let mut out = Vec::new();
+    value
+        .serialize(&mut serde_json::Serializer::with_formatter(
+            &mut out, JsNumbers,
+        ))
+        .expect("strings and JSON values serialize");
+    String::from_utf8(out).expect("JSON is UTF-8")
+}
+
 /// The keys JavaScript orders first: canonical integers below 2^32 - 1.
 fn array_index(key: &str) -> Option<u64> {
     let index: u64 = key.parse().ok()?;
@@ -226,28 +273,65 @@ fn as_asset_url(url: Option<String>) -> Option<String> {
     }
 }
 
-/// `Number(text)` for the strings a patch or an id arrives as.
+fn panic_text(panic: &(dyn std::any::Any + Send)) -> String {
+    match (panic.downcast_ref::<&str>(), panic.downcast_ref::<String>()) {
+        (Some(text), _) => (*text).to_string(),
+        (_, Some(text)) => text.clone(),
+        _ => "a panic".into(),
+    }
+}
+
+/// JavaScript's whitespace and line terminators: Rust's set less U+0085,
+/// plus U+FEFF.
+fn is_js_whitespace(c: char) -> bool {
+    (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}'
+}
+
+/// `Number(text)` for a string, ECMA-262 StringToNumber: JavaScript's own
+/// whitespace trims, a blank string is 0, `Infinity` and the `0x`, `0o` and
+/// `0b` forms read as JavaScript reads them, and anything else that is not a
+/// plain decimal is NaN. The same function as T11's `db::js::string_to_number`,
+/// which replaces it at the restack.
 fn string_to_number(text: &str) -> f64 {
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
+    let t = text.trim_matches(is_js_whitespace);
+    if t.is_empty() {
         return 0.0;
     }
-    match trimmed {
-        "Infinity" | "+Infinity" => return f64::INFINITY,
-        "-Infinity" => return f64::NEG_INFINITY,
-        _ => {}
+    for (prefixes, radix) in [(["0x", "0X"], 16), (["0o", "0O"], 8), (["0b", "0B"], 2)] {
+        if let Some(digits) = prefixes.iter().find_map(|p| t.strip_prefix(p)) {
+            if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
+                return f64::NAN;
+            }
+            // Exact below 2^128, then rounded once, as the spec rounds the
+            // literal's mathematical value
+            return match u128::from_str_radix(digits, radix) {
+                Ok(n) => n as f64,
+                Err(_) => digits.chars().fold(0.0, |n, c| {
+                    n * f64::from(radix) + f64::from(c.to_digit(radix).unwrap_or(0))
+                }),
+            };
+        }
     }
-    if let Some(hex) = trimmed
-        .strip_prefix("0x")
-        .or_else(|| trimmed.strip_prefix("0X"))
-    {
-        return u64::from_str_radix(hex, 16).map_or(f64::NAN, |n| n as f64);
+    let unsigned = t.strip_prefix(['+', '-']).unwrap_or(t);
+    if unsigned == "Infinity" {
+        return if t.starts_with('-') {
+            f64::NEG_INFINITY
+        } else {
+            f64::INFINITY
+        };
     }
-    if trimmed
-        .bytes()
-        .all(|b| b.is_ascii_digit() || matches!(b, b'+' | b'-' | b'.' | b'e' | b'E'))
-    {
-        trimmed.parse().unwrap_or(f64::NAN)
+    let (mantissa, exponent) = match unsigned.split_once(['e', 'E']) {
+        Some((m, e)) => (m, Some(e)),
+        None => (unsigned, None),
+    };
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+    let mantissa_ok = (digits(whole) || whole.is_empty())
+        && (digits(fraction) || fraction.is_empty())
+        && !(whole.is_empty() && fraction.is_empty());
+    let exponent_ok = exponent.is_none_or(|e| digits(e.strip_prefix(['+', '-']).unwrap_or(e)));
+    if mantissa_ok && exponent_ok {
+        t.parse().unwrap_or(f64::NAN)
     } else {
         f64::NAN
     }
@@ -279,7 +363,7 @@ fn id_key(id: f64) -> Option<i64> {
 /// `parseInt(text)`: leading whitespace, a sign, a `0x` for hex, then digits
 /// up to the first that isn't. NaN when there are none.
 fn js_parse_int(text: &str) -> f64 {
-    let text = text.trim_start();
+    let text = text.trim_start_matches(is_js_whitespace);
     let (sign, rest) = match text.as_bytes().first() {
         Some(b'-') => (-1.0, &text[1..]),
         Some(b'+') => (1.0, &text[1..]),
@@ -303,21 +387,6 @@ fn js_parse_int(text: &str) -> f64 {
         digits.iter().fold(0.0, |n, d| n * 16.0 + d)
     };
     sign * value
-}
-
-/// `String(n)` for the numbers `parseInt` returns, as an object key.
-fn js_number_key(n: f64) -> String {
-    if n.is_nan() {
-        "NaN".into()
-    } else if n.is_infinite() {
-        if n > 0.0 { "Infinity" } else { "-Infinity" }.into()
-    } else if n == 0.0 {
-        "0".into()
-    } else if n.abs() >= 1e21 {
-        format!("{n:e}").replace('e', "e+").replace("e+-", "e-")
-    } else {
-        n.to_string()
-    }
 }
 
 /// `champ.tags?.[0]`.
@@ -535,53 +604,49 @@ impl Dragon {
     /// names and classes, and scoring stays consistent with the previous run.
     /// An entry that isn't a champion's shape is dropped.
     fn hydrate_champions_from_disk(&self) {
-        #[derive(Deserialize)]
-        struct Cached {
-            champions: Option<JsObject<Value>>,
-            version: Option<Value>,
-        }
         let Ok(text) = std::fs::read_to_string(self.champion_cache_file()) else {
             return;
         };
-        let Ok(Cached {
-            champions: Some(listed),
-            version,
-        }) = serde_json::from_str::<Cached>(&text)
+        let Ok(cached) = serde_json::from_str::<JsObject<Field>>(&text) else {
+            return;
+        };
+        let (Some(Field::Object(listed)), Some(Field::Other(version))) =
+            (cached.get("champions"), cached.get("version"))
         else {
             return;
         };
-        let Some(version) = version.filter(|v| js_truthy(Some(v))) else {
+        if !js_truthy(Some(version)) {
             return;
-        };
+        }
         let mut data = ChampionData::default();
-        for (id, champion) in listed.0 {
-            if let Ok(info) = serde_json::from_value::<ChampionInfo>(champion) {
-                data.set(id, info);
+        for (id, champion) in &listed.0 {
+            if let Ok(info) = serde_json::from_value::<ChampionInfo>(champion.clone()) {
+                data.set(id.clone(), info);
             }
         }
         let mut champions = self.0.champions.lock().expect("champions lock");
         champions.data = data;
-        champions.version = js_string(&version);
+        champions.version = js_string(version);
     }
 
     async fn fetch_champions(&self) -> Result<(), String> {
-        #[derive(Deserialize)]
-        struct Listed {
-            data: Option<JsObject<Value>>,
-        }
         let versions: Value = self.fetch_json(VERSIONS).await?;
         let version = versions.get(0).map_or("undefined".into(), js_string);
-        let listed: Listed = self
+        let file: JsObject<Field> = self
             .fetch_json(&format!("{DDRAGON_CDN}/{version}/data/en_US/champion.json"))
             .await?;
-        let Some(listed) = listed.data else {
-            return Err("TypeError: Cannot convert undefined or null to object".into());
+        let listed = match file.get("data") {
+            Some(Field::Object(listed)) => listed,
+            None | Some(Field::Other(Value::Null)) => {
+                return Err("TypeError: Cannot convert undefined or null to object".into());
+            }
+            Some(Field::Other(_)) => return Err("champion.json data is not an object".into()),
         };
         let mut champions = ChampionData::default();
         for (key, champion) in listed.entries() {
             let id = js_parse_int(&champion.get("key").map_or("undefined".into(), js_string));
             champions.set(
-                js_number_key(id),
+                js_number_string(id),
                 ChampionInfo {
                     name: champion.get("name").map(js_string).unwrap_or_default(),
                     key: key.to_string(),
@@ -595,11 +660,10 @@ impl Dragon {
             version: &'a str,
             champions: &'a ChampionData,
         }
-        let json = serde_json::to_string(&CacheFile {
+        let json = js_json(&CacheFile {
             version: &version,
             champions: &champions,
-        })
-        .expect("strings and JSON values serialize");
+        });
         {
             let mut current = self.0.champions.lock().expect("champions lock");
             current.data = champions;
@@ -630,8 +694,14 @@ impl Dragon {
     pub fn load_champion_data(&self) -> Shared<BoxFuture<'static, ()>> {
         self.hydrate_champions_from_disk();
         let dragon = self.clone();
+        // A panic must not escape into the Shared, which would leave every
+        // waiter parked on it waiting
         let ready = async move {
-            if let Err(err) = dragon.fetch_champions().await {
+            let fetched = AssertUnwindSafe(dragon.fetch_champions())
+                .catch_unwind()
+                .await
+                .unwrap_or_else(|panic| Err(panic_text(panic.as_ref())));
+            if let Err(err) = fetched {
                 log_error(format!("Failed to load champion data: {err}"));
             }
         }
@@ -1790,7 +1860,7 @@ mod tests {
         }
         let wide = format!("0b{}", "1".repeat(70));
         assert_eq!(
-            js_number_key(string_to_number(&wide)),
+            js_number_string(string_to_number(&wide)),
             "1.1805916207174113e+21"
         );
         for (text, want) in [
@@ -1814,13 +1884,13 @@ mod tests {
         assert_eq!(js_parse_int(" 12abc"), 12.0);
         assert_eq!(js_parse_int("0x1A"), 26.0);
         assert!(js_parse_int("abc").is_nan());
-        assert_eq!(js_number_key(js_parse_int("-0")), "0");
+        assert_eq!(js_number_string(js_parse_int("-0")), "0");
         assert_eq!(
-            js_number_key(js_parse_int("1000000000000000000000")),
+            js_number_string(js_parse_int("1000000000000000000000")),
             "1e+21"
         );
         assert_eq!(
-            js_number_key(js_parse_int("123456789012345678901")),
+            js_number_string(js_parse_int("123456789012345678901")),
             "123456789012345680000"
         );
         // `.` in JavaScript stops at U+2028, so this old hit is left as it is
