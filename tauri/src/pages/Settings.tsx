@@ -14,7 +14,7 @@ import {
   SESSION_GROUPING_SETTING,
   parseSessionGrouping,
   type SessionGrouping,
-} from "@shared/session";
+} from "../shared/session";
 import PageHeader from "../components/PageHeader";
 import BrandMark from "../components/BrandMark";
 import { DownloadIcon, RefreshIcon } from "../components/icons";

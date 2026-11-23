@@ -1,4 +1,4 @@
-import { MAYHEM_QUEUE_IDS } from "@shared/queues";
+import { MAYHEM_QUEUE_IDS } from "../shared/queues";
 import type { LcuStatus, LiveGameSnapshot } from "../lib/types";
 
 // How long to keep waiting for a finished game's results before giving up and

@@ -5,7 +5,7 @@ import {
   type ScoreBreakdown,
   type ScoreComponent,
   type ScoreComponentKey,
-} from "@shared/opScore";
+} from "../shared/opScore";
 import type { ChampionData, MatchDetail, ParsedParticipant } from "../lib/types";
 import { parseParticipants, groupByTeam } from "../lib/participants";
 import { getChampionName } from "../hooks/useChampions";

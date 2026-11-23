@@ -72,7 +72,7 @@ import {
   sessionKey,
   sessionWeek,
   type SessionGrouping,
-} from "@shared/session";
+} from "../shared/session";
 import Kda from "../components/Kda";
 import RiotId from "../components/RiotId";
 

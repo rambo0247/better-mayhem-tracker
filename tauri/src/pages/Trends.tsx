@@ -8,7 +8,7 @@ import {
   Show,
 } from "solid-js";
 import type { JSX } from "@solidjs/web";
-import { daysIntoWeek } from "@shared/session";
+import { daysIntoWeek } from "../shared/session";
 import { api } from "../lib/api-shim";
 import { reportFirstContent } from "../lib/perf";
 import { useIpc } from "../hooks/useIpc";

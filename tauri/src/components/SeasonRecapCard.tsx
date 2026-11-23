@@ -24,8 +24,8 @@ import {
   winRateColor,
   winRatePercent,
 } from "../lib/format";
-import { ALL_TIME_ID, findSeason, seasonBounds, seasonDate } from "@shared/seasons";
-import { sessionDay } from "@shared/session";
+import { ALL_TIME_ID, findSeason, seasonBounds, seasonDate } from "../shared/seasons";
+import { sessionDay } from "../shared/session";
 import ActivityCalendar from "./ActivityCalendar";
 import AugmentIcon from "./AugmentIcon";
 import BrandMark from "./BrandMark";

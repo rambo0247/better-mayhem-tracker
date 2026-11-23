@@ -78,10 +78,6 @@ jobs:
         working-directory: tauri/src-tauri
         run: cargo run --bin export_bindings --features export-bindings -- --check
 
-      # Until T41 deletes src/shared/api.ts, the Rust contract must equal it
-      - name: Contract matches api.ts
-        run: bun scripts/contract-check.ts
-
       # Plain clippy and tests never compile the debug-only driver
       - name: Rust lint with the parity driver
         working-directory: tauri/src-tauri

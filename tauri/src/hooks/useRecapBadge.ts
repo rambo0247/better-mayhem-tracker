@@ -1,5 +1,5 @@
 import { createSignal, onSettled } from "solid-js";
-import { findSeason, seasonBounds } from "@shared/seasons";
+import { findSeason, seasonBounds } from "../shared/seasons";
 import { api } from "../lib/api-shim";
 import type { SeasonSummary } from "../lib/types";
 

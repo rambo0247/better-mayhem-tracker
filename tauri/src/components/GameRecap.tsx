@@ -26,7 +26,7 @@ import {
   challengeLevelName,
   formatChallengeValue,
 } from "../lib/challenges";
-import { ordinal } from "@shared/text";
+import { ordinal } from "../shared/text";
 import { queueLabel } from "./QueueSelect";
 import ChallengeToken from "./ChallengeToken";
 import ChampionIcon from "./ChampionIcon";

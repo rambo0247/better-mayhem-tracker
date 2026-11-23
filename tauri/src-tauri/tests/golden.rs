@@ -756,7 +756,7 @@ fn wire_shapes(dir: &Path, goldens: &[Golden], registry: &[CommandSpec]) -> (usi
         match roundtrip(sent.clone()) {
             Ok(written) => {
                 // A key the Rust type drops is one api.ts does not declare, so
-                // the handler never read it; contract-check catches a rename
+                // the handler never read it; the generated bindings catch a rename
                 let found = first_difference("", &shape(sent), &shape(&written))
                     .filter(|f| !(argument && f.ends_with(": dropped by the Rust type")));
                 if let Some(found) = found {

@@ -2,7 +2,7 @@ import { createEffect, createMemo, createSignal, onSettled, type Accessor } from
 import { isTauri } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { CARD_STATUS_KEY, type CardStatus } from "@shared/card";
+import { CARD_STATUS_KEY, type CardStatus } from "../shared/card";
 
 // How often the settle check looks at the card, and how long it keeps looking
 // before deciding this is as finished as the page is going to get. A card with

@@ -1,4 +1,4 @@
-import { dayKey, daysIntoWeek } from "@shared/session";
+import { dayKey, daysIntoWeek } from "../shared/session";
 import type { TrendsDay } from "./types";
 import { LOCALE, WEEK_START } from "./format";
 

@@ -1,5 +1,5 @@
 import { createEffect, For, Show } from "solid-js";
-import { findSeason } from "@shared/seasons";
+import { findSeason } from "../shared/seasons";
 import { useFilterOptions } from "../hooks/useFilterOptions";
 import { FilterField } from "./FilterMenu";
 

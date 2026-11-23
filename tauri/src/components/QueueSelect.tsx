@@ -1,5 +1,5 @@
 import { createEffect, For, Show } from "solid-js";
-import { QUEUE_LABELS } from "@shared/queues";
+import { QUEUE_LABELS } from "../shared/queues";
 import { useFilterOptions } from "../hooks/useFilterOptions";
 import { FilterField } from "./FilterMenu";
 

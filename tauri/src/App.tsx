@@ -1,6 +1,6 @@
 import type { Component } from "solid-js";
 import { createRouter, type RouteDefinition } from "@solidjs/router";
-import { GAME_CARD_ROUTE, SEASON_CARD_ROUTE } from "@shared/card";
+import { GAME_CARD_ROUTE, SEASON_CARD_ROUTE } from "./shared/card";
 import Layout from "./components/Layout";
 import { hashHistoryWithState } from "./lib/history";
 import RoutePlaceholder from "./components/RoutePlaceholder";

@@ -1,5 +1,5 @@
 import { createMemo, For } from "solid-js";
-import { addDays, daysIntoWeek } from "@shared/session";
+import { addDays, daysIntoWeek } from "../shared/session";
 import { LOCALE, WEEK_START } from "../lib/format";
 
 export interface CalendarDay {

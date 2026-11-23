@@ -1,6 +1,6 @@
 import { createSignal, onSettled, Show } from "solid-js";
 import { Dynamic } from "@solidjs/web";
-import { cardRoute, type CardSpec } from "@shared/card";
+import { cardRoute, type CardSpec } from "../shared/card";
 import { api } from "../lib/api-shim";
 import { CopyIcon, ImageIcon } from "./icons";
 

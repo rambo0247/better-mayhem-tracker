@@ -3,10 +3,40 @@
 // the generated wrappers in bindings.ts; events are the main window's own.
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import type { ElectronAPI } from "../../src/shared/api";
 import { createCommands, type RendererEvents, type Transport } from "./bindings";
 
 export type { RendererEvents, Transport };
+
+type Unsubscribe = () => void;
+
+/** `window.api`: every command, the boot values, and one `on*` subscription per window event. */
+export interface Api extends ReturnType<typeof createCommands> {
+  /** The OS the page matches: the title bar draws window controls only where the OS has none. */
+  platform: string;
+  /** Windows' regional format, for every date and number the page prints; undefined for a tag that is no locale. */
+  locale: string | undefined;
+  onBackfillDone: (callback: (result: RendererEvents["lcu:backfill-done"]) => void) => Unsubscribe;
+  onBackfillProgress: (
+    callback: (progress: RendererEvents["lcu:backfill-progress"]) => void,
+  ) => Unsubscribe;
+  onLiveGame: (callback: (snapshot: RendererEvents["live:changed"]) => void) => Unsubscribe;
+  onChallengesChanged: (
+    callback: (result: RendererEvents["challenges:changed"]) => void,
+  ) => Unsubscribe;
+  onStatusChanged: (
+    callback: (status: RendererEvents["lcu:status-changed"]) => void,
+  ) => Unsubscribe;
+  onGamesUpdated: (callback: () => void) => Unsubscribe;
+  onUpdateProgress: (callback: (percent: number) => void) => Unsubscribe;
+  onUpdateInstalling: (
+    callback: (update: RendererEvents["update:installing"]) => void,
+  ) => Unsubscribe;
+  onUpdateInstallFailed: (callback: (error: string) => void) => Unsubscribe;
+  onImportProgress: (
+    callback: (progress: RendererEvents["data:import-progress"]) => void,
+  ) => Unsubscribe;
+  onMaximizedChanged: (callback: (maximized: boolean) => void) => Unsubscribe;
+}
 
 // What lib.rs's boot script sets before any page script runs
 interface Boot {
@@ -17,7 +47,7 @@ interface Boot {
 declare global {
   interface Window {
     __BMT_BOOT__?: Boot;
-    api: ElectronAPI;
+    api: Api;
   }
 }
 
@@ -120,8 +150,6 @@ export const tauriTransport: Transport = <T>(channel: string, args: Record<strin
     },
   );
 
-type Unsubscribe = () => void;
-
 /** Registers a listener for one event of the main window, resolving to its unlisten. */
 export type Listen = <T>(event: string, handler: (payload: T) => void) => Promise<Unsubscribe>;
 
@@ -156,7 +184,7 @@ function subscriber(listen: Listen) {
 export function createApi(
   transport: Transport = tauriTransport,
   listen: Listen = windowListen,
-): ElectronAPI {
+): Api {
   const boot = window.__BMT_BOOT__;
   // lib.rs sets it before any page script; without it platform would read as ""
   if (!boot) throw new Error("window.__BMT_BOOT__ is not set; lib.rs's boot script did not run");
@@ -182,7 +210,7 @@ export function createApi(
 }
 
 /** Sets `window.api`, for a page that reads it as Electron's renderer does. */
-export function install(transport?: Transport, listen?: Listen): ElectronAPI {
+export function install(transport?: Transport, listen?: Listen): Api {
   const api = createApi(transport, listen);
   window.api = api;
   return api;

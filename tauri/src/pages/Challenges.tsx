@@ -20,7 +20,7 @@ import {
   challengeLevelName as levelName,
   formatChallengeValue as formatValue,
 } from "../lib/challenges";
-import { challengeFraction } from "@shared/challenges";
+import { challengeFraction } from "../shared/challenges";
 
 type Group = ChallengesData["groups"][number];
 

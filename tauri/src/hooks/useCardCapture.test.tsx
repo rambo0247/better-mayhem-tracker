@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { createSignal } from "solid-js";
-import { CARD_STATUS_KEY } from "@shared/card";
+import { CARD_STATUS_KEY } from "../shared/card";
 import { mount } from "../../test/render";
 import { useCardCapture } from "./useCardCapture";
 

@@ -7,7 +7,7 @@ import path from "node:path";
 const TAURI_DIR = path.resolve(import.meta.dir, "..");
 
 export async function buildApiBundle(): Promise<string> {
-  const scratch = fs.mkdtempSync(path.join(TAURI_DIR, "node_modules", ".api-bundle-"));
+  const scratch = fs.mkdtempSync(path.join(TAURI_DIR, ".api-bundle-"));
   try {
     const entry = path.join(scratch, "entry.ts");
     const api = path.relative(scratch, path.join(TAURI_DIR, "src", "api.ts")).replace(/\\/g, "/");

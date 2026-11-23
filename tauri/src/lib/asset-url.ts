@@ -3,9 +3,9 @@
 // WebView2 routes custom schemes only as `http://<scheme>.localhost`, so on Windows the URL
 // becomes `http://asset.localhost/...` and the kind ("game-data", "splash") moves from the host
 // to the first path segment, which `assets.rs` reads either way.
-import * as shared from "../../../src/shared/game-assets";
+import * as shared from "../shared/game-assets";
 
-export { ASSET_SCHEME, gameDataPath, isPatchBranch } from "../../../src/shared/game-assets";
+export { ASSET_SCHEME, gameDataPath, isPatchBranch } from "../shared/game-assets";
 
 const SCHEME_BASE = `${shared.ASSET_SCHEME}://`;
 export const WEBVIEW2_BASE = `http://${shared.ASSET_SCHEME}.localhost/`;

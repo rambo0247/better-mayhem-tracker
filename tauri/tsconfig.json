@@ -12,8 +12,7 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "resolveJsonModule": true,
-    "paths": { "@shared/*": ["../src/shared/*"] }
+    "resolveJsonModule": true
   },
   "include": ["src", "lint", "scripts", "test", "vite.config.ts"],
   // Renders the React tree, so it needs the repository root's node_modules,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import * as shared from "../../../src/shared/game-assets";
+import * as shared from "../shared/game-assets";
 import * as routed from "./asset-url";
 import { WEBVIEW2_BASE, forWebview, isWebView2 } from "./asset-url";
 import * as constants from "./constants";

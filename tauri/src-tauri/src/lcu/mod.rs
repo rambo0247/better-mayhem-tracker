@@ -977,41 +977,10 @@ mod tests {
         assert!(matches!(discovery.process, ProcessSource::Nothing));
     }
 
-    /// Reads the constants out of the TypeScript the port replaces, so a change
-    /// on either side fails here.
+    /// The 1.2.1 timings, spelled out so a change to them is a deliberate one.
     #[test]
-    fn the_default_timings_match_the_constants_in_lcu_ts_and_lockfile_ts() {
-        let main = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src/main");
-        let sources = ["lcu.ts", "lockfile.ts"].map(|name| {
-            std::fs::read_to_string(main.join(name)).unwrap_or_else(|err| panic!("{name}: {err}"))
-        });
-        let constant = |name: &str| -> u64 {
-            let pattern = regex::Regex::new(&format!(r"(?m)^const {name} = ([0-9_]+);")).unwrap();
-            let found: Vec<_> = sources
-                .iter()
-                .filter_map(|source| pattern.captures(source))
-                .collect();
-            assert_eq!(
-                found.len(),
-                1,
-                "{name} is declared once in lcu.ts or lockfile.ts"
-            );
-            found[0][1].replace('_', "").parse().expect("a number")
-        };
-        let ms = |name| Duration::from_millis(constant(name));
+    fn the_default_timings_are_the_ones_1_2_1_shipped() {
         let timing = Timing::default();
-        assert_eq!(timing.connect_interval, ms("CONNECT_INTERVAL_MS"));
-        assert_eq!(timing.poll_interval, ms("POLL_INTERVAL_MS"));
-        assert_eq!(timing.attach_timeout, ms("EOG_ATTACH_TIMEOUT_MS"));
-        assert_eq!(timing.probe_timeout, ms("PROBE_TIMEOUT_MS"));
-        assert_eq!(timing.authenticate_interval, ms("AUTHENTICATE_INTERVAL_MS"));
-        assert_eq!(timing.client_file_timeout, ms("CLIENT_FILE_TIMEOUT_MS"));
-        assert_eq!(timing.file_lookup_ttl, ms("FILE_LOOKUP_TTL_MS"));
-        assert_eq!(
-            timing.client_file_concurrency as u64,
-            constant("CLIENT_FILE_CONCURRENCY")
-        );
-        // Spelled out too, so a change to both sides at once is a deliberate one
         let ms = |ms| Duration::from_millis(ms);
         assert_eq!(
             (

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, jest, test } from "bun:test";
 import { createSignal, flush } from "solid-js";
-import { CARD_STATUS_KEY, type CardStatus } from "@shared/card";
+import { CARD_STATUS_KEY, type CardStatus } from "../shared/card";
 import { mount } from "../../test/render";
 import { useCardCapture, useLookupGrace } from "./useCardCapture";
 

@@ -1,4 +1,4 @@
-import type { BackfillProgress, BackfillResult, ImportProgress } from "@shared/api";
+import type { BackfillProgress, BackfillResult, ImportProgress } from "../bindings";
 
 type Count = (value: number) => string;
 type Day = (timestamp: number) => string;

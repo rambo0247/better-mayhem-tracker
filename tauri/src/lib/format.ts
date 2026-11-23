@@ -1,4 +1,4 @@
-import { firstDayOfWeek } from "@shared/session";
+import { firstDayOfWeek } from "../shared/session";
 import { api } from "./api-shim";
 
 // Windows' regional format, passed in by the main process (src/main/locale.ts).

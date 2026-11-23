@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { BackfillResult } from "@shared/api";
+import type { BackfillResult } from "../bindings";
 import { readFileSync } from "node:fs";
 import {
   backfillOutcome,

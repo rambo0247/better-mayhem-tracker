@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createSignal, flush } from "solid-js";
-import type { MatchDetail, MatchParticipantRecord } from "@shared/api";
+import type { MatchDetail, MatchParticipantRecord } from "../bindings";
 import { FAKE_API } from "../../test/parity-cases";
 import { fake } from "../../test/fakeApi";
 import { mount, settle } from "../../test/render";

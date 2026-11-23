@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useSearchParams } from "@solidjs/router";
-import { CARD_WIDTH, type CardSpec } from "@shared/card";
+import { CARD_WIDTH, type CardSpec } from "../shared/card";
 import { api } from "../lib/api-shim";
 import { useIpc } from "../hooks/useIpc";
 import { useViewState } from "../hooks/useViewState";
