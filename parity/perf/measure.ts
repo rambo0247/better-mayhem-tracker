@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { waitForNoGame } from "../lib/no-game.ts";
+import { gameRunning, waitForNoGame } from "../lib/no-game.ts";
 import { apparentBytes } from "./size.ts";
 import {
   freePort,
@@ -256,6 +256,8 @@ export async function runElectron(
     for (let i = 0; i < options.samples; i++) {
       if (i > 0) await Bun.sleep(options.intervalSeconds * 1000);
       if (app.hasExited()) throw new MemoryProbeError("app exited during idle", "missing-helper");
+      if (gameRunning())
+        throw new MemoryProbeError("a League game started during the run", "unreadable");
       const { sample, roles } = await readTree();
       for (const [pid, role] of frozen) {
         if (roles.get(pid) !== role) {
@@ -434,6 +436,8 @@ export async function runTauri(options: RunOptions & { app: string }): Promise<R
     for (let i = 0; i < options.samples; i++) {
       if (i > 0) await Bun.sleep(options.intervalSeconds * 1000);
       if (app.hasExited()) throw new MemoryProbeError("app exited during idle", "missing-helper");
+      if (gameRunning())
+        throw new MemoryProbeError("a League game started during the run", "unreadable");
       const { sample } = await readTree(mac ? frozen : undefined);
       result.samples.push({ footprintBytes: sample.footprintBytes, rssBytes: sample.rssBytes });
       result.members = sample.members.map(({ role, pid, footprintBytes, rssBytes }) => ({
