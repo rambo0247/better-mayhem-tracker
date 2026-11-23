@@ -7,9 +7,9 @@
 //! channel that reads anything else fails the run, and so does a channel that
 //! passes without being listed.
 //!
-//! The goldens are recorded locally and never committed. `BMT_GOLDEN_DIR`
-//! names them, defaulting to `parity/out/golden`; when it is set the folder
-//! must exist. `BMT_GOLDEN_DATA` names the fixture data folder, whose
+//! T05's goldens are committed as `parity/goldens/data`. `BMT_GOLDEN_DIR`
+//! names them, defaulting to a fresh recording in `parity/out/golden`; when it
+//! is set the folder must exist. `BMT_GOLDEN_DATA` names the fixture data folder, whose
 //! `matches.db` must have the manifest's `dbSha256`, copied fresh for each
 //! group of cases. Without goldens only the self-check runs.
 //!

@@ -83,12 +83,15 @@ jobs:
 
       # Golden replay needs the recording's zone in the process, since SQLite
       # reads libc's. Windows' C runtime reads only a POSIX zone (replay.rs).
-      - name: Rust test with the parity driver, golden harness included
+      # It replays the committed goldens over the committed fixture (decision E2).
+      - name: Rust test with the parity driver, golden replay included
         working-directory: tauri/src-tauri
         env:
           LANG: en_US.UTF-8
         run: |
           if [ "$RUNNER_OS" = Windows ]; then export TZ=EST5EDT; else export TZ=America/New_York; fi
+          export BMT_GOLDEN_DIR="$GITHUB_WORKSPACE/parity/goldens/data"
+          export BMT_GOLDEN_DATA="$GITHUB_WORKSPACE/parity/snapshots/fixture/data"
           cargo test --features parity-driver
 
       # The message is matched so a failure for any other reason does not pass
