@@ -177,6 +177,13 @@ fn absolute(root: PathBuf) -> PathBuf {
     std::path::absolute(&root).unwrap_or(root)
 }
 
+/// The override as set, for scoping the app's identifier. `None` in a build
+/// that has no override, which never names it, so a release binary holds no
+/// `BMT_DATA_ROOT`.
+pub fn lane_root_override() -> Option<OsString> {
+    override_root()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

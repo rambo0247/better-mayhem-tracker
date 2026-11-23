@@ -544,7 +544,7 @@ mod tests {
         );
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(not(bmt_release_profile))]
     #[test]
     fn a_debug_build_registers_nothing() {
         assert_eq!(registered_target(), None);
