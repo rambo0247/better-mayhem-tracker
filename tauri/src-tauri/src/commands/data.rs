@@ -362,7 +362,7 @@ mod tests {
             std::fs::write(root.join("rust-result.json"), out.to_string()).unwrap();
             // Waits out the launch backup, which runs on its own thread
             if let Some(backups) = app.try_state::<Backups>() {
-                backups.list();
+                backups.list().expect("list the backups");
             }
             if let Some(db) = app.try_state::<Database>() {
                 db.close();
