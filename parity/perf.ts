@@ -203,6 +203,13 @@ async function main() {
     }
   }
 
+  const extracted = (results["electron-1.2.1"] ?? [])
+    .map((run) => run.extractedBytes)
+    .filter((bytes): bytes is number => bytes !== undefined);
+  if (extracted.length > 0 && sizes["electron-1.2.1"]) {
+    sizes["electron-1.2.1"].installedApparentBytes = median(extracted);
+    sizes["electron-1.2.1"].installedAllocatedBytes = median(extracted);
+  }
   const summary = Object.fromEntries(apps.map((app) => [app, summarize(results[app]!)]));
   const full = { ...report, summary, runs: results, finishedAt: new Date().toISOString() };
   fs.mkdirSync(out, { recursive: true });

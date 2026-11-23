@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { apparentBytes } from "./size.ts";
 import {
   freePort,
   pidExists,
@@ -60,6 +61,8 @@ export interface RunResult {
   members: Array<{ role: string; pid: number; footprintBytes: number; rssBytes: number }>;
   notes: string[];
   loadAverage: number;
+  /** Windows: bytes of the folder the portable exe unpacks into, read while it runs. */
+  extractedBytes?: number;
 }
 
 const FREEZE_DELAY_MS = 1500;
@@ -68,6 +71,7 @@ async function sampleWindows(rootPid: number): Promise<{
   sample: MemorySample;
   roles: Map<number, string>;
   exePaths: string[];
+  rootExe: string;
 }> {
   const script = path.resolve(import.meta.dir, "memory-win.ps1");
   const out = spawnSync(
@@ -107,6 +111,7 @@ async function sampleWindows(rootPid: number): Promise<{
     },
     roles,
     exePaths: members.map((m) => m.executablePath ?? ""),
+    rootExe: members.find((m) => m.pid === rootPid)?.executablePath ?? "",
   };
 }
 
@@ -195,6 +200,13 @@ export async function runElectron(
     const readTree = async () => {
       if (process.platform === "win32") {
         const windows = await sampleWindows(app.pid);
+        if (result.extractedBytes === undefined) {
+          const unpacked = windows.exePaths.find(
+            (exe) =>
+              exe && exe !== windows.rootExe && path.dirname(exe) !== path.dirname(windows.rootExe),
+          );
+          if (unpacked) result.extractedBytes = apparentBytes(path.dirname(unpacked));
+        }
         return { sample: windows.sample, roles: windows.roles, strays: 0 };
       }
       const attribution = attributeElectron(listProcesses(), app.pid, prepared.userData);
