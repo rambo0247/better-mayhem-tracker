@@ -172,21 +172,24 @@ async function resolveVars(run: RunningElectron): Promise<Vars> {
 }
 
 /**
- * A card page asks main for the item table of its season's patch, and main loads a patch it has
- * not seen on that first ask. The card photographs itself before a late table arrives, so
- * whether item names appear depends on timing. Every patch is loaded before the first card.
+ * A card page asks main for the item and augment tables of its season's patch, and main loads a
+ * patch it has not seen on that first ask. The card photographs itself before a late table
+ * arrives, so whether item and augment names appear depends on timing. Every patch's tables are
+ * loaded before the first card.
  */
-async function warmItemPatches(run: RunningElectron, channels: Record<string, string>) {
+async function warmCardPatches(run: RunningElectron, channels: Record<string, string>) {
   const ask = async (channel: string, ...args: unknown[]): Promise<any> => {
     await invokeRaw(run, channel, args);
     return (await drain(run)).find((r) => r.k === "end" && r.ok)?.result;
   };
   const options = await ask(channels.getMatchFilterOptions!);
   for (const patch of options.patches as string[]) {
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const table = await ask(channels.getItemData!, patch);
-      if (table && Object.keys(table).length > 0) break;
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    for (const channel of [channels.getItemData!, channels.getAugmentData!]) {
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const table = await ask(channel, patch);
+        if (table && Object.keys(table).length > 0) break;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
     }
   }
   // Icon lookups walk archived patches one at a time, so a card that asks for a dozen at once
@@ -357,7 +360,7 @@ async function runGroup(
       .filter((r) => r.k === "send")
       .map((r, i) => sendLine(r, i, "scenario"));
     const vars = await resolveVars(run);
-    if (group === "export-card") await warmItemPatches(run, channels);
+    if (group === "export-card") await warmCardPatches(run, channels);
     const prior: Prior = {};
     const goldens: IpcGolden[] = [];
     const scenario: EventLine[] = [];
