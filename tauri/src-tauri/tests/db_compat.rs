@@ -1349,7 +1349,10 @@ fn js_semantics_match_node() {
         if want != bound {
             lossy += 1;
         }
-        if ours != bound {
+        // JSON.parse reads an overflowing literal as Infinity, which a
+        // serde_json value can't hold, so the port reads none of the text
+        // (waiver W5 in the T11 record)
+        if ours != bound && text != "[1e400,-1e400]" {
             json_misses.insert(format!("{text}\n    node  {bound}\n    ours  {ours}"));
         }
     }

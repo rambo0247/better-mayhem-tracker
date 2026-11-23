@@ -492,7 +492,16 @@ fn write_json(out: &mut String, value: &Value) {
     match value {
         Value::Null => out.push_str("null"),
         Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
-        Value::Number(n) => out.push_str(&number_to_string(n.as_f64().unwrap_or(f64::NAN))),
+        // An integer below 2^53 prints as its digits, which is what
+        // Number.prototype.toString gives it, without the general formatter.
+        // A JSON -0 parses as a double, so it takes the formatter and prints 0
+        Value::Number(n) => match n.as_i64().filter(|i| i.unsigned_abs() < 1 << 53) {
+            Some(i) => {
+                use std::fmt::Write;
+                let _ = write!(out, "{i}");
+            }
+            None => write_number(out, n.as_f64().unwrap_or(f64::NAN)),
+        },
         Value::String(s) => write_string(out, s),
         Value::Array(items) => {
             out.push('[');
@@ -550,30 +559,48 @@ fn array_index(key: &str) -> Option<u32> {
 
 fn write_string(out: &mut String, s: &str) {
     out.push('"');
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\u{8}' => out.push_str("\\b"),
-            '\u{c}' => out.push_str("\\f"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
-            c => out.push(c),
+    let mut rest = s;
+    // Copy each run that needs no escape whole; only a quote, a backslash or
+    // a control character breaks a run
+    while let Some(at) = rest
+        .bytes()
+        .position(|b| b == b'"' || b == b'\\' || b < 0x20)
+    {
+        out.push_str(&rest[..at]);
+        match rest.as_bytes()[at] {
+            b'"' => out.push_str("\\\""),
+            b'\\' => out.push_str("\\\\"),
+            0x8 => out.push_str("\\b"),
+            0xc => out.push_str("\\f"),
+            b'\n' => out.push_str("\\n"),
+            b'\r' => out.push_str("\\r"),
+            b'\t' => out.push_str("\\t"),
+            c => {
+                use std::fmt::Write;
+                let _ = write!(out, "\\u{c:04x}");
+            }
         }
+        rest = &rest[at + 1..];
     }
+    out.push_str(rest);
     out.push('"');
+}
+
+fn write_number(out: &mut String, x: f64) {
+    if x.is_finite() {
+        out.push_str(ryu_js::Buffer::new().format_finite(x));
+    } else {
+        out.push_str("null");
+    }
 }
 
 /// `Number.prototype.toString()`, ECMA-262 6.1.6.1.20, through ryu-js,
 /// which also makes the spec's even choice between two equally near shortest
 /// digit strings. `JSON.stringify` writes a non-finite number as `null`.
 pub fn number_to_string(x: f64) -> String {
-    if !x.is_finite() {
-        return "null".into();
-    }
-    ryu_js::Buffer::new().format_finite(x).to_owned()
+    let mut out = String::new();
+    write_number(&mut out, x);
+    out
 }
 
 #[cfg(test)]
@@ -616,6 +643,23 @@ mod tests {
         for (bits, node) in cases {
             assert_eq!(number_to_string(f64::from_bits(bits)), node, "{bits:x}");
         }
+    }
+
+    /// Node's `JSON.stringify(JSON.parse(text))`: the integer fast path agrees
+    /// with the formatter at 2^53 and beyond, and a JSON -0 prints as 0.
+    #[test]
+    fn integers_and_negative_zero_print_as_node_does() {
+        let text = "[-0,0,-0.0,9007199254740991,-9007199254740991,9007199254740992,9007199254740993,-9007199254740993,12345678901234567890,18446744073709551616,1e21,100000000000000000000,999999999999999999999,5e-324]";
+        let node = "[0,0,0,9007199254740991,-9007199254740991,9007199254740992,9007199254740992,-9007199254740992,12345678901234567000,18446744073709552000,1e+21,100000000000000000000,1e+21,5e-324]";
+        assert_eq!(stringify(&parse(text).unwrap()), node);
+        assert!(
+            parse("-0").unwrap().as_f64().unwrap().is_sign_negative(),
+            "serde reads -0 as a double"
+        );
+        assert_eq!(
+            stringify(&parse(r#""a\u0000b\u001f\"\\\u007f\u2028""#).unwrap()),
+            "\"a\\u0000b\\u001f\\\"\\\\\u{7f}\u{2028}\""
+        );
     }
 
     #[test]
