@@ -1,9 +1,18 @@
+import fs from "node:fs";
+
 /**
  * Stands in for GitHub's releases API so the updater and the What's New dialog get
  * release data without the network. The seam rewrites the app's requests to
  * api.github.com and the asset downloads on github.com onto this server. The release page
  * gets the scenario as a query parameter. Every download URL it hands out is a github.com
  * one, as the real API's are, so the app's prefix check on download URLs passes.
+ *
+ * With `assets`, it serves real build files instead: the newest release, tagged `latest`,
+ * carries each file under its asset name with its true size and sha256 digest (or a wrong
+ * digest for `badDigest`), and a download answers 302 to a second loopback host name, as
+ * GitHub sends assets on to its objects host. Paths are served bare (`/repos/...`), as the
+ * Electron seam asks, and under the host (`/api.github.com/repos/...`), as the Tauri parity
+ * build asks.
  */
 export const SCENARIOS = [
   "up-to-date",
@@ -153,26 +162,108 @@ export function releasesFor(scenario: Scenario) {
 
 export interface FakeGithub {
   url: string;
+  /** Every request path, in order, so a lane can show what the app asked for. */
+  requests: string[];
   close(): void;
 }
 
-export function startFakeGithub(options: { scenario?: Scenario; port?: number } = {}): FakeGithub {
+export interface ServedAsset {
+  name: string;
+  file: string;
+}
+
+export interface ReleaseOptions {
+  /** The newest release's tag, without the v. */
+  latest: string;
+  /** The tags below it, newest first. */
+  older?: string[];
+  assets: ServedAsset[];
+  badDigest?: boolean;
+}
+
+const sha256 = (bytes: Uint8Array) => new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
+
+/** A release page whose newest release carries real files. */
+export function releasesWithAssets(options: ReleaseOptions) {
+  const tags = [options.latest, ...(options.older ?? ["1.2.1", "1.2.0", "1.1.0"])];
+  return releaseList(tags).map((release, index) => {
+    const assets =
+      index === 0
+        ? options.assets.map(({ name, file }) => {
+            const bytes = new Uint8Array(fs.readFileSync(file));
+            const digest = options.badDigest ? "0".repeat(64) : sha256(bytes);
+            return {
+              name,
+              size: bytes.length,
+              digest: `sha256:${digest}`,
+              browser_download_url: `${REPO_URL}/releases/download/v${release.tag}/${name}`,
+            };
+          })
+        : [];
+    return {
+      tag_name: `v${release.tag}`,
+      name: `Better Mayhem Tracker ${release.tag}`,
+      draft: false,
+      prerelease: false,
+      published_at: release.date,
+      html_url: `${REPO_URL}/releases/tag/v${release.tag}`,
+      body: release.body,
+      assets,
+    };
+  });
+}
+
+const HOST_PREFIXES = ["", "/api.github.com", "/github.com"];
+
+function stripHost(pathname: string): string {
+  for (const prefix of HOST_PREFIXES.slice(1)) {
+    if (pathname.startsWith(`${prefix}/`)) return pathname.slice(prefix.length);
+  }
+  return pathname;
+}
+
+export function startFakeGithub(
+  options: { scenario?: Scenario; port?: number; release?: ReleaseOptions } = {},
+): FakeGithub {
+  const requests: string[] = [];
+  const served = new Map((options.release?.assets ?? []).map((asset) => [asset.name, asset.file]));
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: options.port ?? 0,
     fetch(request) {
       const url = new URL(request.url);
-      if (url.pathname === RELEASES_PATH) {
+      requests.push(url.pathname + url.search);
+      const pathname = stripHost(url.pathname);
+      if (pathname === RELEASES_PATH) {
+        if (options.release) return Response.json(releasesWithAssets(options.release));
         const asked = url.searchParams.get("scenario") ?? options.scenario ?? "up-to-date";
         if (!isScenario(asked)) return new Response(`unknown scenario ${asked}`, { status: 400 });
         return Response.json(releasesFor(asked));
       }
-      if (url.pathname.startsWith(DOWNLOAD_PATH)) return new Response(PAYLOAD);
+      if (pathname.startsWith(DOWNLOAD_PATH)) {
+        if (!options.release) return new Response(PAYLOAD);
+        const name = pathname.split("/").pop()!;
+        if (!served.has(name)) return new Response("not found", { status: 404 });
+        const objects = `http://localhost:${server.port}/objects/${encodeURIComponent(name)}`;
+        return new Response(null, { status: 302, headers: { location: objects } });
+      }
+      if (pathname.startsWith("/objects/")) {
+        const file = served.get(decodeURIComponent(pathname.slice("/objects/".length)));
+        if (!file) return new Response("not found", { status: 404 });
+        const bytes = fs.readFileSync(file);
+        return new Response(bytes, {
+          headers: {
+            "content-type": "application/octet-stream",
+            "content-length": String(bytes.length),
+          },
+        });
+      }
       return new Response("not found", { status: 404 });
     },
   });
   return {
     url: `http://127.0.0.1:${server.port}`,
+    requests,
     close: () => void server.stop(true),
   };
 }
@@ -186,8 +277,15 @@ if (import.meta.main) {
     process.exit(2);
   }
   const port = value("--port");
-  const server = startFakeGithub({ scenario, port: port ? Number(port) : undefined });
-  console.log(`ready ${server.url} scenario=${scenario}`);
+  const assets = args.flatMap((arg, i) => {
+    if (args[i - 1] !== "--asset") return [];
+    const [name, file] = arg.split("=", 2);
+    return [{ name: name!, file: file! }];
+  });
+  const latest = value("--latest");
+  const release = latest ? { latest, assets, badDigest: args.includes("--bad-digest") } : undefined;
+  const server = startFakeGithub({ scenario, port: port ? Number(port) : undefined, release });
+  console.log(`ready ${server.url} ${latest ? `latest=v${latest}` : `scenario=${scenario}`}`);
   process.on("SIGINT", () => process.exit(0));
   process.on("SIGTERM", () => process.exit(0));
 }
