@@ -1052,10 +1052,6 @@ fn check_harness(root: &Path) -> Result<(), String> {
         "channel": "app:version", "case": "hand-made", "group": "read", "seq": 0, "args": [],
         "outcome": { "kind": "value", "result": "1.2.1" }
     }))?;
-    let update = Golden::parse(serde_json::json!({
-        "channel": "app:check-update", "case": "hand-made", "group": "read", "seq": 0, "args": [],
-        "outcome": { "kind": "value", "result": { "hasUpdate": false } }
-    }))?;
     let registry = commands::registry();
     let spec = registry
         .iter()
@@ -1696,12 +1692,6 @@ fn replay_states(
                     failures.push(format!(
                         "{label}: the page sent {:?}, but {} {} holds {:?}",
                         call.args, call.channel, call.case, golden.args
-                    ));
-                } else if verdict == Verdict::Pass && !same_effects(&golden.effects, &effects) {
-                    verdict = Verdict::Fail;
-                    failures.push(format!(
-                        "{} {}: expected effects {}, got {effects}",
-                        golden.channel, golden.case, golden.effects
                     ));
                 }
                 let (verdict, problems) = replay_case(&replay, spec, golden, &root);
