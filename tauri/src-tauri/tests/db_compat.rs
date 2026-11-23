@@ -12,7 +12,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use bmt_lib::db::{Database, migrations, payloads};
+use bmt_lib::db::{Database, filters, migrations, payloads, settings};
 use rusqlite::Connection;
 use rusqlite::types::Value as Sql;
 use serde_json::{Value, json};
@@ -1398,6 +1398,102 @@ fn numeric_names_store_as_better_sqlite3_binds_them() {
         Ok(())
     })
     .unwrap();
+}
+
+/// Rebuilds the settings table with an untyped value column, so it holds
+/// integers and reals as they are, as a database edited by hand can.
+const SETTINGS_OF_ANY_TYPE: &str = "
+    BEGIN;
+    CREATE TABLE settings_any (key TEXT PRIMARY KEY, value NOT NULL);
+    INSERT INTO settings_any SELECT key, value FROM settings;
+    DROP TABLE settings;
+    ALTER TABLE settings_any RENAME TO settings;
+    COMMIT;
+";
+
+/// What trunk Electron answered for a setting stored as a blob, an integer,
+/// a real and text (`electron-settings.json`, from `probe-fix2.ts`):
+/// settings:get hands the page the value as it is, and `getHiddenQueues`
+/// throws on any truthy value that is not a string.
+#[test]
+fn settings_of_every_type_read_as_electron_reads_them() {
+    let electron: Value = serde_json::from_slice(
+        &std::fs::read(manifest_dir().join("tests/fixtures/electron-settings.json")).unwrap(),
+    )
+    .unwrap();
+    let dir = scratch("typed-settings");
+    let db = fresh(&dir);
+    db.with(|conn| {
+        conn.execute_batch(SETTINGS_OF_ANY_TYPE)?;
+        let store = |key: &str, sql: &str| {
+            conn.execute(
+                &format!("INSERT OR REPLACE INTO settings (key, value) VALUES (?, {sql})"),
+                [key],
+            )
+        };
+        for case in electron["settings"].as_array().unwrap() {
+            store("remember_filters", case["sql"].as_str().unwrap())?;
+            let ours = settings::get_setting(conn, "remember_filters")
+                .map(|v| serde_json::to_value(v).unwrap())
+                .map_err(|e| e.to_string());
+            assert_eq!(ours, Ok(case["wire"].clone()), "{}", case["name"]);
+        }
+        for case in electron["hidden_queues"].as_array().unwrap() {
+            store("hidden_queues", case["sql"].as_str().unwrap())?;
+            let ours = filters::apply_queue_filter(conn, &mut filters::Where::default(), None, "g")
+                .map_err(|e| match bmt_lib::db::js::caught(&e) {
+                    Some(thrown) => thrown.to_string(),
+                    None => e.to_string(),
+                })
+                .err();
+            assert_eq!(ours.as_deref(), case["threw"].as_str(), "{}", case["name"]);
+        }
+        Ok(())
+    })
+    .unwrap();
+}
+
+/// T17's verifier stored `augment_slots` as a blob. Electron opens the
+/// database as it is: `!== "6"` holds, so it backfills the slots and writes
+/// the setting back as text (`probe-fix2.ts`: 669 games, `'6'`, 2,549 game
+/// augments).
+#[test]
+fn a_blob_setting_opens_as_electron_opens_it() {
+    let blob_slots = "UPDATE settings SET value = CAST(value AS BLOB) WHERE key = 'augment_slots'";
+    let read_back = |conn: &Connection| -> rusqlite::Result<(String, String, i64, i64)> {
+        conn.query_row(
+            "SELECT typeof(value), quote(value), (SELECT COUNT(*) FROM games), (SELECT COUNT(*) FROM game_augments) FROM settings WHERE key = 'augment_slots'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+    };
+    let dir = scratch("blob-setting-fresh");
+    let db = fresh(&dir);
+    db.with(|conn| conn.execute(blob_slots, [])).unwrap();
+    db.close();
+    db.reopen(NOW_MS).unwrap();
+    assert_eq!(
+        db.with(read_back).unwrap(),
+        ("text".into(), "'6'".into(), 0, 0)
+    );
+
+    let dir = scratch("blob-setting");
+    let Some(fixture) = fixture_copy(&dir) else {
+        return;
+    };
+    std::fs::rename(&fixture, dir.join("matches.db")).unwrap();
+    Connection::open(dir.join("matches.db"))
+        .unwrap()
+        .execute(blob_slots, [])
+        .unwrap();
+    keep("blob-setting-source", &dir);
+    let db = Database::open(&dir, NOW_MS).unwrap();
+    assert_eq!(
+        db.with(read_back).unwrap(),
+        ("text".into(), "'6'".into(), 669, 2549)
+    );
+    db.close();
+    keep("blob-setting-rust", &dir);
 }
 
 /// Number formatting, `JSON.stringify(JSON.parse(text))` and `Number(text)`

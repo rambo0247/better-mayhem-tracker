@@ -1,0 +1,168 @@
+{
+ "about": "What trunk Electron 1.2.1 (Electron 44.4.5) answered for each stored type, from probe-fix2.ts. settings: the page's settings:get answer, and as wire the JSON the port sends for it, a Uint8Array as {\"$bytes\": base64} as T05's goldens record it. hidden_queues: what db:match-history answered with that hidden_queues value.",
+ "versions": {
+  "toNumber": 30023,
+  "parseInt": 12032,
+  "frames": 9604,
+  "node": "24.21.0",
+  "v8": "15.2.124.28-electron.0",
+  "electron": "44.4.5"
+ },
+ "settings": [
+  {
+   "name": "blob",
+   "sql": "x'74727565'",
+   "stored": "blob",
+   "answer": {
+    "type": "object",
+    "constructor": "Uint8Array",
+    "value": [
+     116,
+     114,
+     117,
+     101
+    ]
+   },
+   "wire": {
+    "$bytes": "dHJ1ZQ=="
+   }
+  },
+  {
+   "name": "empty-blob",
+   "sql": "x''",
+   "stored": "blob",
+   "answer": {
+    "type": "object",
+    "constructor": "Uint8Array",
+    "value": []
+   },
+   "wire": {
+    "$bytes": ""
+   }
+  },
+  {
+   "name": "integer",
+   "sql": "42",
+   "stored": "integer",
+   "answer": {
+    "type": "number",
+    "constructor": "Number",
+    "value": 42
+   },
+   "wire": 42
+  },
+  {
+   "name": "zero",
+   "sql": "0",
+   "stored": "integer",
+   "answer": {
+    "type": "number",
+    "constructor": "Number",
+    "value": 0
+   },
+   "wire": 0
+  },
+  {
+   "name": "big-integer",
+   "sql": "9007199254740993",
+   "stored": "integer",
+   "answer": {
+    "type": "number",
+    "constructor": "Number",
+    "value": 9007199254740992
+   },
+   "wire": 9007199254740992
+  },
+  {
+   "name": "real",
+   "sql": "1.5",
+   "stored": "real",
+   "answer": {
+    "type": "number",
+    "constructor": "Number",
+    "value": 1.5
+   },
+   "wire": 1.5
+  },
+  {
+   "name": "text",
+   "sql": "'true'",
+   "stored": "text",
+   "answer": {
+    "type": "string",
+    "constructor": "String",
+    "value": "true"
+   },
+   "wire": "true"
+  },
+  {
+   "name": "text-number",
+   "sql": "'42'",
+   "stored": "text",
+   "answer": {
+    "type": "string",
+    "constructor": "String",
+    "value": "42"
+   },
+   "wire": "42"
+  }
+ ],
+ "hidden_queues": [
+  {
+   "name": "blob",
+   "sql": "x'74727565'",
+   "stored": "blob",
+   "threw": "TypeError: raw.split is not a function"
+  },
+  {
+   "name": "empty-blob",
+   "sql": "x''",
+   "stored": "blob",
+   "threw": "TypeError: raw.split is not a function"
+  },
+  {
+   "name": "integer",
+   "sql": "42",
+   "stored": "integer",
+   "threw": "TypeError: raw.split is not a function"
+  },
+  {
+   "name": "zero",
+   "sql": "0",
+   "stored": "integer",
+   "threw": null
+  },
+  {
+   "name": "big-integer",
+   "sql": "9007199254740993",
+   "stored": "integer",
+   "threw": "TypeError: raw.split is not a function"
+  },
+  {
+   "name": "real",
+   "sql": "1.5",
+   "stored": "real",
+   "threw": "TypeError: raw.split is not a function"
+  },
+  {
+   "name": "text",
+   "sql": "'true'",
+   "stored": "text",
+   "threw": null
+  },
+  {
+   "name": "text-number",
+   "sql": "'42'",
+   "stored": "text",
+   "threw": null
+  }
+ ],
+ "augment_slots_blob": {
+  "games": 669,
+  "augmentSlots": {
+   "t": "text",
+   "q": "'6'"
+  },
+  "gameAugments": 2549
+ }
+}
