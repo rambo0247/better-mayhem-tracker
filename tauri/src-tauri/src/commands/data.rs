@@ -103,6 +103,14 @@ pub struct RepairResult {
     pub rebuilt_games: i64,
 }
 
+/// A `Ctx` that blocking work can own.
+fn owned<R: Runtime>(ctx: &Ctx<R>) -> Ctx<R> {
+    Ctx {
+        app: ctx.app.clone(),
+        window: ctx.window.clone(),
+    }
+}
+
 /// The dialogs this app shows: the OS's unless the app manages a scripted
 /// [`Dialogs`], as golden replay and parity lanes do.
 fn dialogs<R: Runtime>(ctx: &Ctx<R>) -> &Dialogs {
@@ -177,9 +185,15 @@ pub async fn export_data<R: Runtime>(ctx: Ctx<R>) -> CommandResult<ExportDataRes
             error: None,
         });
     };
-    let written = db::of(&ctx)
-        .map_err(|err| err.message)
-        .and_then(|db| transfer::write_export_to(&db, &path));
+    let written = {
+        let (owned, path) = (owned(&ctx), path.clone());
+        ctx.blocking(move || {
+            Ok(db::of(&owned)
+                .map_err(|err| err.message)
+                .and_then(|db| transfer::write_export_to(&db, &path)))
+        })
+        .await?
+    };
     Ok(match written {
         Ok(games) => ExportDataResult {
             success: true,
@@ -203,6 +217,39 @@ pub async fn export_data<R: Runtime>(ctx: Ctx<R>) -> CommandResult<ExportDataRes
 /// `importing` in `import.ts`: one import at a time.
 static IMPORTING: AtomicBool = AtomicBool::new(false);
 
+/// The one import running, cleared when it ends however it ends, a panic
+/// included, as `importing`'s `finally` clears it.
+struct Importing(());
+
+impl Importing {
+    fn start() -> Option<Self> {
+        (!IMPORTING.swap(true, Ordering::SeqCst)).then_some(Self(()))
+    }
+}
+
+impl Drop for Importing {
+    fn drop(&mut self) {
+        IMPORTING.store(false, Ordering::SeqCst);
+    }
+}
+
+/// Runs `work` as the one import, off the async workers.
+async fn exclusively<R: Runtime>(
+    ctx: &Ctx<R>,
+    work: impl FnOnce() -> Result<i64, ImportError> + Send + 'static,
+) -> CommandResult<Result<i64, ImportError>> {
+    let Some(importing) = Importing::start() else {
+        return Ok(Err(ImportError::Thrown(
+            "An import is already running".into(),
+        )));
+    };
+    ctx.blocking(move || {
+        let _importing = importing;
+        Ok(work())
+    })
+    .await
+}
+
 pub async fn import_data<R: Runtime>(ctx: Ctx<R>) -> CommandResult<ImportDataResult> {
     let options = OpenDialog {
         title: "Import Better Mayhem Tracker Data".into(),
@@ -218,12 +265,9 @@ pub async fn import_data<R: Runtime>(ctx: Ctx<R>) -> CommandResult<ImportDataRes
     };
     // Anything can be chosen in that dialog, so unreadable files, malformed
     // JSON and well-formed JSON that isn't a backup all come back as messages
-    let outcome = if IMPORTING.swap(true, Ordering::SeqCst) {
-        Err(ImportError::Thrown("An import is already running".into()))
-    } else {
-        let outcome = import_file(&ctx, &path);
-        IMPORTING.store(false, Ordering::SeqCst);
-        outcome
+    let outcome = {
+        let owned = owned(&ctx);
+        exclusively(&ctx, move || import_file(&owned, &path)).await?
     };
     Ok(match outcome {
         Ok(imported) => ImportDataResult {
@@ -267,15 +311,20 @@ fn import_file<R: Runtime>(ctx: &Ctx<R>, path: &Path) -> Result<i64, ImportError
 }
 
 pub async fn repair_puuids<R: Runtime>(ctx: Ctx<R>) -> CommandResult<RepairResult> {
-    let db = db::of(&ctx)?;
-    // Repair rescoring needs champion classes; the cache stands in for
-    // waitForChampionData until Data Dragon is ported
-    let champions = champion_classes(&db);
-    // A repair reassigns game ownership and rewrites every derived stat, so
-    // there is no undo for it short of the snapshot taken here
-    backup_quietly(&ctx, &db, Reason::PreRepair);
-    let clock = *ctx.app.state::<super::Clock>();
-    db.with(|conn| repair::repair_puuids(conn, &champions, || clock.now_ms()))
+    let owned = owned(&ctx);
+    ctx.blocking(move || {
+        let ctx = owned;
+        let db = db::of(&ctx)?;
+        // Repair rescoring needs champion classes; the cache stands in for
+        // waitForChampionData until Data Dragon is ported
+        let champions = champion_classes(&db);
+        // A repair reassigns game ownership and rewrites every derived stat,
+        // so there is no undo for it short of the snapshot taken here
+        backup_quietly(&ctx, &db, Reason::PreRepair);
+        let clock = *ctx.app.state::<super::Clock>();
+        db.with(|conn| repair::repair_puuids(conn, &champions, || clock.now_ms()))
+    })
+    .await
 }
 
 #[cfg(test)]
@@ -286,6 +335,66 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use tauri::Listener;
     use tauri::test::{INVOKE_KEY, mock_builder, mock_context, noop_assets};
+
+    fn mock_ctx() -> Ctx<tauri::test::MockRuntime> {
+        let app = mock_builder()
+            .build(mock_context(noop_assets()))
+            .expect("build the mock app");
+        let window =
+            tauri::WebviewWindowBuilder::new(&app, crate::WINDOW_LABEL, Default::default())
+                .build()
+                .expect("build the mock window");
+        Ctx {
+            app: app.handle().clone(),
+            window,
+        }
+    }
+
+    /// `importing` is cleared in a `finally`, so an import that throws, or
+    /// here panics, never leaves every later import refused.
+    #[test]
+    fn one_import_runs_at_a_time_and_a_panic_ends_it() {
+        let ctx = mock_ctx();
+        let (started, wait) = std::sync::mpsc::channel();
+        let (release, held) = std::sync::mpsc::channel::<()>();
+        let first = tauri::async_runtime::spawn({
+            let ctx = owned(&ctx);
+            async move {
+                exclusively(&ctx, move || {
+                    started.send(()).expect("say it started");
+                    held.recv().expect("wait to be released");
+                    Ok(1)
+                })
+                .await
+            }
+        });
+        wait.recv().expect("the first import starts");
+        assert_eq!(
+            tauri::async_runtime::block_on(exclusively(&ctx, || Ok(2))),
+            Ok(Err(ImportError::Thrown(
+                "An import is already running".into()
+            )))
+        );
+        release.send(()).expect("release the first");
+        assert_eq!(
+            tauri::async_runtime::block_on(first).expect("the first import joins"),
+            Ok(Ok(1))
+        );
+
+        let hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let panicked =
+            tauri::async_runtime::block_on(exclusively(&ctx, || panic!("index out of bounds")));
+        std::panic::set_hook(hook);
+        assert_eq!(
+            panicked,
+            Err(crate::commands::CommandError::thrown("index out of bounds"))
+        );
+        assert_eq!(
+            tauri::async_runtime::block_on(exclusively(&ctx, || Ok(3))),
+            Ok(Ok(3))
+        );
+    }
 
     #[test]
     fn default_names_take_the_utc_date() {
