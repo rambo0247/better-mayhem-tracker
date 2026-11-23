@@ -297,6 +297,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # WebView2 takes its time zone from the system, not from TZ as Electron does
+      - name: Run in the goldens' time zone
+        shell: pwsh
+        run: tzutil /s "Eastern Standard Time"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
