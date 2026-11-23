@@ -18,13 +18,27 @@ export const PATTERNS = [
 export type Pattern = (typeof PATTERNS)[number];
 export type Counts = Record<Pattern, number>;
 
+// React 19's use(promise or context) is a bare `use(` call
 const REACT_HOOKS =
-  /\buse(?:State|Effect|LayoutEffect|InsertionEffect|Memo|Callback|Ref|Context|Reducer|SyncExternalStore|Id|Transition|DeferredValue|ImperativeHandle)\b/g;
+  /\buse(?:State|Effect|LayoutEffect|InsertionEffect|Memo|Callback|Ref|Context|Reducer|SyncExternalStore|Id|Transition|DeferredValue|ImperativeHandle|Optimistic|ActionState|FormStatus)\b|\buse(?=\s*\()/g;
 
-// A component whose parameter is a destructuring pattern: `function Card({`,
-// `const Card = ({`, `export default function ({`
-const DESTRUCTURED =
-  /(?:\bfunction(?:\s+[A-Z]\w*)?\s*(?:<[^>]*>)?\s*\(\s*\{|\bconst\s+[A-Z]\w*\s*=\s*\(\s*\{)/g;
+// A type annotation or type parameters, as they sit between a name and `=`
+// or before a parameter list
+const TYPE = String.raw`(?:\s*:[^=;]*?)?`;
+const GENERIC = String.raw`(?:<[^>]*>\s*)?`;
+
+// Props destructured where a component takes or reads them: `function Card({`,
+// `const Card = ({`, `const Card: Component<P> = <T,>({`, `export default ({`,
+// and `const { title } = props` in the body
+const DESTRUCTURED = new RegExp(
+  [
+    String.raw`\bfunction(?:\s+[A-Z]\w*)?\s*${GENERIC}\(\s*\{`,
+    String.raw`\bconst\s+[A-Z]\w*${TYPE}\s*=\s*(?:async\s*)?${GENERIC}\(\s*\{`,
+    String.raw`\bexport\s+default\s+(?:async\s*)?${GENERIC}\(\s*\{`,
+    String.raw`\b(?:const|let|var)\s*\{[^}]*\}\s*=\s*props\b`,
+  ].join("|"),
+  "g",
+);
 
 // Text-like inputs, where Solid's onChange is the commit event and React's is
 // every keystroke
@@ -39,8 +53,9 @@ const TEXT_INPUT_TYPES = new Set([
   "tel",
 ]);
 
+// Matched with hyphens dropped, so `marginTop` and `"margin-top"` both count
 const SIZE_KEYS =
-  /^(?:width|height|min-?width|max-?width|min-?height|max-?height|top|left|right|bottom|inset|margin\w*|padding\w*|gap|font-?size|border-?radius|flex-?basis)$/i;
+  /^(?:width|height|minwidth|maxwidth|minheight|maxheight|top|left|right|bottom|inset\w*|margin\w*|padding\w*|gap|rowgap|columngap|fontsize|border\w*radius|border\w*width|flexbasis)$/i;
 
 // The end of the JSX tag that starts at `start`, skipping `>` inside braces and strings
 function tagEnd(source: string, start: number): number {
@@ -126,6 +141,60 @@ function entries(object: string): { key: string; value: string }[] {
   return out;
 }
 
+interface FunctionBody {
+  start: number;
+  end: number;
+  component: boolean;
+}
+
+// The block body of every function and arrow, and whether it is a component:
+// named with a capital (`function Card`, `const Card = () => {`) or the
+// default export. Unnamed arrows (callbacks) are not.
+function functionBodies(source: string): FunctionBody[] {
+  const bodies: FunctionBody[] = [];
+  const add = (open: number, component: boolean) => {
+    const body = braced(source, open);
+    bodies.push({ start: open, end: open + body.length + 1, component });
+  };
+  for (const m of source.matchAll(/\bfunction\b\s*([A-Za-z_$][\w$]*)?\s*(?:<[^>]*>)?\s*\(/g)) {
+    const params = source.indexOf("(", m.index + 8);
+    const close = params + parenthesised(source, params).length + 1;
+    const open = source.indexOf("{", close);
+    if (open < 0) continue;
+    const component = m[1]
+      ? /^[A-Z]/.test(m[1])
+      : /\bexport\s+default\s*$/.test(source.slice(0, m.index));
+    add(open, component);
+  }
+  const head = new RegExp(
+    String.raw`(?:\bconst\s+([A-Za-z_$][\w$]*)${TYPE}\s*=|\b(export\s+default))\s*(?:async\s*)?${GENERIC}(?:\([^()]*(?:\([^()]*\)[^()]*)*\)|[A-Za-z_$][\w$]*)${TYPE}\s*$`,
+  );
+  for (const m of source.matchAll(/=>\s*\{/g)) {
+    const before = source.slice(Math.max(0, m.index - 400), m.index);
+    const named = head.exec(before);
+    const component = !!named && (named[2] !== undefined || /^[A-Z]/.test(named[1]!));
+    add(source.indexOf("{", m.index), component);
+  }
+  return bodies;
+}
+
+// An early `return null` (or `return (null)`) whose nearest function is a
+// component: Solid runs a component once, so it renders nothing for good.
+// A helper returning null is fine.
+function componentReturnNull(source: string): number {
+  const bodies = functionBodies(source);
+  let count = 0;
+  for (const m of source.matchAll(/\breturn\s*(?:\(\s*null\s*\)|null)\s*(?:;|$|\n|\})/gm)) {
+    const inside = bodies.filter((b) => b.start < m.index && m.index < b.end);
+    const nearest = inside.reduce<FunctionBody | null>(
+      (best, b) => (!best || b.start > best.start ? b : best),
+      null,
+    );
+    if (nearest?.component) count++;
+  }
+  return count;
+}
+
 function useEffectWithEmptyDeps(source: string): number {
   let count = 0;
   for (const match of source.matchAll(/\buseEffect\s*\(/g)) {
@@ -140,14 +209,15 @@ export function countReactIsms(source: string): Counts {
   return {
     "destructured props": [...source.matchAll(DESTRUCTURED)].length,
     "onChange on text inputs": textInputOnChange(source),
-    "return null": [...source.matchAll(/\breturn\s+null\s*;/g)].length,
+    "return null": componentReturnNull(source),
     "React hooks": [...source.matchAll(REACT_HOOKS)].length,
     "useEffect with []": useEffectWithEmptyDeps(source),
     className: [...source.matchAll(/\bclassName\b/g)].length,
     "camelCase style keys": styles.filter((s) => /^[a-z]+[A-Z]/.test(s.key)).length,
     // React appends px to a number; Solid writes it as given, so a size must be a string
-    "numeric style sizes": styles.filter((s) => SIZE_KEYS.test(s.key) && !/^["'`]/.test(s.value))
-      .length,
+    "numeric style sizes": styles.filter(
+      (s) => SIZE_KEYS.test(s.key.replace(/-/g, "")) && !/^["'`]/.test(s.value),
+    ).length,
   };
 }
 
