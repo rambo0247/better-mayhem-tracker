@@ -3,15 +3,14 @@
 //! through here, so the data version and the locale rule live in one place.
 //!
 //! Electron's main process uses its ICU default locale. Under Finder that is
-//! en-US, and a terminal launch with `LANG=da_DK.UTF-8` makes it da-DK. A
-//! locale argument of `None` here means the en-US default, which is ICU's
-//! root order for collation and writes integers as en-US does.
+//! en-US, and a terminal launch with `LANG=da_DK.UTF-8` makes it da-DK.
+//! Collation is root only, the order that en-US default gives. A locale
+//! argument of `None` writes integers as en-US does.
 
 use std::cmp::Ordering;
-use std::sync::LazyLock;
 
+use icu_collator::CollatorBorrowed;
 use icu_collator::options::CollatorOptions;
-use icu_collator::{Collator, CollatorBorrowed, CollatorPreferences};
 use icu_decimal::input::Decimal;
 use icu_decimal::options::DecimalFormatterOptions;
 use icu_decimal::{DecimalFormatter, DecimalFormatterPreferences};
@@ -24,21 +23,11 @@ pub fn system_locale() -> Option<String> {
     None
 }
 
-/// A collator for a BCP 47 tag, with `Intl.Collator`'s default options.
-/// `None` and any tag that does not parse give the root collator.
-pub fn collator(locale: Option<&str>) -> CollatorBorrowed<'static> {
-    let prefs = locale
-        .and_then(|tag| tag.parse::<Locale>().ok())
-        .map(|locale| CollatorPreferences::from(&locale))
-        .unwrap_or_default();
-    Collator::try_new(prefs, CollatorOptions::default())
-        .expect("collation data for every locale is compiled in")
-}
-
 /// `a.localeCompare(b)` with no locale argument, as Electron answers it for
-/// an app started from Finder.
+/// an app started from Finder. `new_root` links only the root collation, where
+/// `Collator::try_new` would link every locale's tailoring, about 1 MB.
 pub fn locale_compare(a: &str, b: &str) -> Ordering {
-    static ROOT: LazyLock<CollatorBorrowed<'static>> = LazyLock::new(|| collator(None));
+    static ROOT: CollatorBorrowed<'static> = CollatorBorrowed::new_root(CollatorOptions::default());
     ROOT.compare(a, b)
 }
 
@@ -94,19 +83,6 @@ mod tests {
             );
             assert_eq!(locale_compare(a, b) as i32, want, "{a:?} against {b:?}");
         }
-    }
-
-    #[test]
-    fn a_locale_tailors_the_order() {
-        assert_eq!(
-            collator(Some("da-DK")).compare("aa", "b"),
-            Ordering::Greater
-        );
-        assert_eq!(collator(Some("en-US")).compare("aa", "b"), Ordering::Less);
-        assert_eq!(
-            collator(Some("not a tag")).compare("aa", "b"),
-            Ordering::Less
-        );
     }
 
     #[test]
