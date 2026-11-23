@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "bun scripts/react-isms.ts && vite build",
+    "react-isms": "bun scripts/react-isms.ts",
+    "react-snapshots": "TZ=Etc/UTC bun --tsconfig-override ../tsconfig.web.json scripts/react-snapshots.ts",
     "tauri": "bunx tauri",
     "lint": "bun lint --flavor eslint --max-warnings 0",
     "fmt": "bun fmt",
     "fmt:check": "bun fmt --check",
     "typecheck": "bunx tsc --noEmit",
-    "test": "bun test",
+    "test": "bun test && SOLID_BUILD=production bun test",
     "deps:report": "bun scripts/deps-report.ts"
   },
   "dependencies": {
@@ -28,6 +30,7 @@
     "@tauri-apps/cli": "3.0.0-alpha.6",
     "@types/bun": "1.4.5",
     "eslint-plugin-solid": "0.20.1",
+    "happy-dom": "21.0.4",
     "tailwindcss": "4.3.5",
     "typescript": "7.1.0-dev.20261121.1",
     "vite": "8.4.0-beta.1"

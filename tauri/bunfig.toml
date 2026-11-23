@@ -44,3 +44,6 @@ correctness = "error"
 [fmt]
 printWidth = 100
 ignorePatterns = ["dist/", "src-tauri/target/", "src-tauri/gen/"]
+
+[test]
+preload = ["./test/setup.ts"]

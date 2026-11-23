@@ -15,5 +15,5 @@
     "resolveJsonModule": true,
     "paths": { "@shared/*": ["../src/shared/*"] }
   },
-  "include": ["src", "lint", "scripts", "vite.config.ts"]
+  "include": ["src", "lint", "scripts", "test", "vite.config.ts"]
 }
