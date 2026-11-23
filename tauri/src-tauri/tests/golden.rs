@@ -32,6 +32,7 @@ use std::time::{Duration, SystemTime};
 use bmt_lib::Host;
 use bmt_lib::backup::Backups;
 use bmt_lib::commands::{self, Clock, CommandError, CommandSpec, EffectRecorder, GoldenCase};
+use bmt_lib::dialogs::Dialogs;
 use bmt_lib::js_arg::{Js, JsValue, NON_FINITE_KEY};
 use bmt_lib::replay::{Recording, require_recording_env};
 use bmt_lib::security::{Effect, Effects};
@@ -536,21 +537,41 @@ fn effect_differences(golden: &Golden, recorded: Vec<Value>, root: &Path) -> Opt
 /// the seam's `{ api, args }` shape. A mock app built on something other than
 /// `Host::replay` has none.
 fn os_effects(app: &MockApp) -> Vec<Value> {
-    let Some(effects) = app.try_state::<Effects>() else {
-        return Vec::new();
-    };
-    effects
-        .take()
-        .into_iter()
-        .map(|effect| match effect {
-            Effect::OpenExternal(url) => {
-                serde_json::json!({ "api": "shell.openExternal", "args": [url] })
-            }
-            Effect::OpenPath(path) => {
-                serde_json::json!({ "api": "shell.openPath", "args": [path.to_string_lossy()] })
-            }
+    let dialogs = app
+        .try_state::<Dialogs>()
+        .map(|dialogs| {
+            dialogs
+                .take()
+                .iter()
+                .map(|shown| shown.seam_record())
+                .collect()
         })
-        .collect()
+        .unwrap_or_default();
+    let Some(effects) = app.try_state::<Effects>() else {
+        return dialogs;
+    };
+    let mut recorded: Vec<Value> = dialogs;
+    recorded.extend(effects.take().into_iter().map(|effect| match effect {
+        Effect::OpenExternal(url) => {
+            serde_json::json!({ "api": "shell.openExternal", "args": [url] })
+        }
+        Effect::OpenPath(path) => {
+            serde_json::json!({ "api": "shell.openPath", "args": [path.to_string_lossy()] })
+        }
+    }));
+    recorded
+}
+
+/// An answer with the data folder written as `$RUN`, as Electron's seam writes
+/// its run folder, so a path a body answers compares with the golden's.
+fn redact_run(answer: Answer, root: &Path) -> Answer {
+    let root = serde_json::to_string(&root.to_string_lossy()).expect("a path is text");
+    let root = root.trim_matches('"').to_owned();
+    let redact = |value: Value| -> Value {
+        let text = value.to_string().replace(&root, RUN);
+        serde_json::from_str(&text).expect("still JSON")
+    };
+    answer.map(redact).map_err(redact)
 }
 
 /// Replays one case: its outcome, and once that passes, its events, files
@@ -576,7 +597,10 @@ fn replay_case(
     replay.app.state::<EffectRecorder>().take();
     os_effects(&replay.app);
     let before = listing(root);
-    let answer = call(&replay.window, spec.channel, spec.named_args(&golden.args));
+    let answer = redact_run(
+        call(&replay.window, spec.channel, spec.named_args(&golden.args)),
+        root,
+    );
     let pushed = replay.events.take();
     let mut effects = replay.app.state::<EffectRecorder>().take();
     effects.extend(os_effects(&replay.app));
