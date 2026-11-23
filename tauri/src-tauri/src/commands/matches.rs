@@ -1,12 +1,16 @@
 //! The match list, its filters and sessions, one match's detail, favorites,
 //! and the tracked accounts. Ported by T13.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 use tauri::Runtime;
 use ts_rs::TS;
 
 use super::types::{MatchDetail, MatchPage, MatchScope};
-use super::{CommandError, CommandResult, Ctx};
+use super::{CommandError, CommandResult, Ctx, Domain};
+
+pub struct Hooks;
+impl Domain for Hooks {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -37,7 +41,8 @@ pub enum MultikillType {
     Pentas,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+/// Reads leniently where Electron does: see the `Deserialize` impl below.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct MatchFilters {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -67,6 +72,51 @@ pub struct MatchFilters {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub favorites: Option<bool>,
+}
+
+/// What a caller may send for [`MatchFilters`]. The page restores filters
+/// from localStorage unchecked (viewState.ts:22-33), so a stale `sort`,
+/// `sortDir` or `multikills` must read as Electron reads it, not reject.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SentMatchFilters {
+    champion_id: Option<i64>,
+    patch: Option<String>,
+    queue: Option<i64>,
+    account: Option<String>,
+    season: Option<String>,
+    sort: Option<Value>,
+    sort_dir: Option<Value>,
+    multikills: Option<Value>,
+    favorites: Option<bool>,
+}
+
+impl<'de> Deserialize<'de> for MatchFilters {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let sent = SentMatchFilters::deserialize(deserializer)?;
+        Ok(Self {
+            champion_id: sent.champion_id,
+            patch: sent.patch,
+            queue: sent.queue,
+            account: sent.account,
+            season: sent.season,
+            // Unknown sorts by date, the default (matches.ts:65)
+            sort: sent.sort.and_then(|v| serde_json::from_value(v).ok()),
+            // Anything but "asc" sorts descending, the default (matches.ts:66)
+            sort_dir: sent.sort_dir.and_then(|v| serde_json::from_value(v).ok()),
+            // Unknown kinds are dropped (matches.ts:122-124)
+            multikills: match sent.multikills {
+                Some(Value::Array(items)) => Some(
+                    items
+                        .into_iter()
+                        .filter_map(|item| serde_json::from_value(item).ok())
+                        .collect(),
+                ),
+                _ => None,
+            },
+            favorites: sent.favorites,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -165,4 +215,32 @@ pub async fn get_all_summoner_puuids<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<
 
 pub async fn get_profile<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<Profile> {
     Err(CommandError::not_ported())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn filters(json: &str) -> MatchFilters {
+        serde_json::from_str(json).expect("filters Electron accepts")
+    }
+
+    #[test]
+    fn stale_filter_values_fall_back_as_electron_does() {
+        let read = filters(
+            r#"{ "sort": "rank", "sortDir": "ASC", "multikills": ["pentas", "hexas", 3] }"#,
+        );
+        assert_eq!(read.sort, None, "an unknown sort is the date default");
+        assert_eq!(
+            read.sort_dir, None,
+            "an unknown direction is the descending default"
+        );
+        assert_eq!(read.multikills, Some(vec![MultikillType::Pentas]));
+        let known = filters(r#"{ "sort": "damageDealt", "sortDir": "asc", "multikills": [] }"#);
+        assert_eq!(known.sort, Some(MatchSort::DamageDealt));
+        assert_eq!(known.sort_dir, Some(MatchSortDir::Asc));
+        assert_eq!(known.multikills, Some(vec![]));
+        assert_eq!(filters(r#"{ "multikills": null }"#).multikills, None);
+        assert_eq!(filters("{}"), MatchFilters::default());
+    }
 }
