@@ -23,6 +23,7 @@ use crate::assets::{
     Fetched, Flights, GameAssets, Web, WebAnswer, game_asset_url, game_data_path, js_number_string,
     js_string, js_truthy, log, log_error,
 };
+use crate::db::scoring::ChampionClasses;
 
 const VERSIONS: &str = "https://ddragon.leagueoflegends.com/api/versions.json";
 const DDRAGON_CDN: &str = "https://ddragon.leagueoflegends.com/cdn";
@@ -98,13 +99,6 @@ pub type ChampionData = JsObject<ChampionInfo>;
 pub type AugmentData = BTreeMap<i64, AugmentInfo>;
 pub type ItemData = BTreeMap<i64, ItemInfo>;
 pub type SummonerSpellData = BTreeMap<i64, SummonerSpellInfo>;
-
-/// What scoring reads: `getChampionClasses()` and `getChampionDataVersion()`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ChampionClasses {
-    pub version: String,
-    pub classes: HashMap<i64, String>,
-}
 
 /// Tooltip text, bundled rather than fetched: cherry-augments.json carries an
 /// augment's name, rarity and art but no description, and the game data that
@@ -1240,6 +1234,17 @@ fn split_patch(patch: &str) -> (f64, f64) {
         parts.next().unwrap_or(f64::NAN),
         parts.next().unwrap_or(f64::NAN),
     )
+}
+
+/// Scoring's champion data: what T20's sync reads at every insert.
+impl crate::lcu::sync::Champions for Dragon {
+    fn classes(&self) -> ChampionClasses {
+        self.champion_classes()
+    }
+
+    fn wait_for_champion_data(&self) -> BoxFuture<'_, ()> {
+        Box::pin(Dragon::wait_for_champion_data(self))
+    }
 }
 
 #[cfg(test)]

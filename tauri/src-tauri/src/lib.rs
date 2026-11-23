@@ -313,6 +313,7 @@ pub fn run() {
             if let Some((game_assets, dragon)) = game_data {
                 app.manage(game_assets.clone());
                 app.manage(dragon.clone());
+                app.manage::<Arc<dyn lcu::sync::Champions>>(Arc::new(dragon.clone()));
                 // Registered before any command can wait on it
                 drop(dragon.load_champion_data());
                 tauri::async_runtime::spawn(async move {
