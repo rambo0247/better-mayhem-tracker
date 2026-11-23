@@ -8,7 +8,7 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 2]);
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "bmt-fake-dragon-"));
-const put = (patch: string, gamePath: string, bytes: Buffer | string) => {
+const put = (patch: string, gamePath: string, bytes: Uint8Array) => {
   fs.mkdirSync(path.join(root, "asset-cache", patch), { recursive: true });
   fs.writeFileSync(path.join(root, "asset-cache", patch, cacheName(gamePath)), bytes);
 };
@@ -16,7 +16,7 @@ put("16.22", "v1/champion-icons/1.png", PNG);
 put("16.23", "v1/champion-icons/1.png", PNG);
 put("16.23", "assets/items/icons2d/1001.png", PNG);
 put("16.23", "splash/266.jpg", JPEG);
-put("16.23", "v1/items.json", '[{"id":1001}]');
+put("16.23", "v1/items.json", new TextEncoder().encode('[{"id":1001}]'));
 fs.mkdirSync(path.join(root, "data"));
 fs.writeFileSync(
   path.join(root, "data", "champion-cache.json"),

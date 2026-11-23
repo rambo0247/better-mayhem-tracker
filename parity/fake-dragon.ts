@@ -72,10 +72,12 @@ export function startFakeDragon(options: { source: string; port?: number }): Fak
   const modes = new Map<string, HostMode>();
   const requests: FakeRequest[] = [];
 
-  const file = (branch: string, gamePath: string) => {
+  const notFound = () => new Response("", { status: 404 });
+  const file = (branch: string, gamePath: string): Response => {
     const patch = branch === "latest" ? latest : isPatch(branch) ? branch : null;
     const copy = patch && path.join(cache, patch, cacheName(gamePath));
-    return copy && fs.existsSync(copy) ? copy : null;
+    if (!copy || !fs.existsSync(copy)) return notFound();
+    return new Response(fs.readFileSync(copy), { headers: { "Content-Type": contentType(copy) } });
   };
 
   // champion.json, rebuilt from the cache Electron wrote from it
@@ -97,13 +99,13 @@ export function startFakeDragon(options: { source: string; port?: number }): Fak
     ),
   });
 
-  const route = (host: string, rest: string): Response | string | null => {
+  const route = (host: string, rest: string): Response => {
     if (host === DDRAGON) {
       if (rest === "api/versions.json") return Response.json([champions.version]);
       if (rest === `cdn/${champions.version}/data/en_US/champion.json`) {
         return Response.json(championJson());
       }
-      return null;
+      return notFound();
     }
     if (host === CDRAGON) {
       if (rest === "latest/content-metadata.json") {
@@ -119,13 +121,13 @@ export function startFakeDragon(options: { source: string; port?: number }): Fak
       const tail = rest.slice(slash);
       if (tail.startsWith(GAME_DATA)) return file(branch, tail.slice(GAME_DATA.length));
       if (tail.startsWith("/game/")) return file(branch, tail.slice("/game/".length));
-      return null;
+      return notFound();
     }
     if (host === CDRAGON_CDN) {
       const splash = rest.match(/^latest\/champion\/([0-9]+)\/splash-art\/centered$/);
-      return splash ? file("latest", `splash/${splash[1]}.jpg`) : null;
+      return splash ? file("latest", `splash/${splash[1]}.jpg`) : notFound();
     }
-    return null;
+    return notFound();
   };
 
   const server = Bun.serve({
@@ -137,12 +139,7 @@ export function startFakeDragon(options: { source: string; port?: number }): Fak
       const rest = parts.join("/");
       const answer = (): Response => {
         if (modes.get(host) === "503") return new Response("", { status: 503 });
-        const found = route(host, rest);
-        if (found === null) return new Response("", { status: 404 });
-        if (typeof found !== "string") return found;
-        return new Response(fs.readFileSync(found), {
-          headers: { "Content-Type": contentType(found) },
-        });
+        return route(host, rest);
       };
       const response = answer();
       requests.push({
