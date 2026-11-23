@@ -862,11 +862,12 @@ async fn fetch_to_file(
 
 pub const WINDOWS_EXE_NAME: &str = crate::install_location::WINDOWS_EXE_NAME;
 
-/// `applyWindowsUpdate`'s `update.cmd`, byte for byte. It stages the new exe
-/// beside the old one, waits for the old one to unlock by deleting it until it
-/// is gone, moves the new one into place under the release's name, and
-/// relaunches. 1.2.1 does not check `move`'s errorlevel: a `move` that fails
-/// after the delete leaves no exe. Kept, for parity, and flagged in the record.
+/// `applyWindowsUpdate`'s `update.cmd`. It stages the new exe beside the old
+/// one, waits for the old one to unlock by deleting it until it is gone, moves
+/// the new one into place under the release's name, and relaunches. 1.2.1
+/// trusts the `move`, so one that fails after the delete leaves no exe. This
+/// one keeps a copy of the old exe until the move succeeds, and puts it back
+/// and starts it when the move fails.
 pub fn windows_swap_script(
     current_exe: &str,
     new_exe: &str,
@@ -881,9 +882,12 @@ pub fn windows_swap_script(
     let (current, new, tmp) = (current_exe, new_exe, tmp_dir);
     let target = windows_target(current_exe);
     let staged = format!("{target}.new");
+    let backup = format!("{current}.old");
     [
         "@echo off".to_owned(),
         format!(r#"copy /y "{new}" "{staged}" >nul 2>&1"#),
+        "if errorlevel 1 goto fail".to_owned(),
+        format!(r#"copy /y "{current}" "{backup}" >nul 2>&1"#),
         "if errorlevel 1 goto fail".to_owned(),
         "set tries=0".to_owned(),
         ":wait".to_owned(),
@@ -893,10 +897,16 @@ pub fn windows_swap_script(
         format!(r#"del /f "{current}" >nul 2>&1"#),
         format!(r#"if exist "{current}" goto wait"#),
         format!(r#"move /y "{staged}" "{target}" >nul 2>&1"#),
+        "if errorlevel 1 goto restore".to_owned(),
+        format!(r#"del /f "{backup}" >nul 2>&1"#),
         format!(r#"start "" "{target}"{relaunch}"#),
         "goto cleanup".to_owned(),
+        ":restore".to_owned(),
+        format!(r#"move /y "{backup}" "{current}" >nul 2>&1"#),
         ":fail".to_owned(),
         format!(r#"del /f "{staged}" >nul 2>&1"#),
+        // A failed restore leaves the copy as the only old exe
+        format!(r#"if exist "{current}" del /f "{backup}" >nul 2>&1"#),
         format!(r#"start "" "{current}"{relaunch}"#),
         ":cleanup".to_owned(),
         format!(r#"rd /s /q "{tmp}""#),
@@ -1670,43 +1680,260 @@ mod tests {
         assert_eq!(launch_version_change(Some(""), "1.3.0"), (None, true));
     }
 
+    /// The few `cmd.exe` commands `update.cmd` uses, over a folder of named
+    /// files: a delete of a running exe fails, a copy reads it anyway, and
+    /// `del` leaves the errorlevel as it was.
+    struct Cmd {
+        files: std::collections::BTreeMap<String, &'static str>,
+        /// How many more deletes of each path fail, as while the app runs
+        running: HashMap<String, u32>,
+        /// A file `move` can't take, as one a virus scanner holds open
+        held: Option<String>,
+        started: Vec<String>,
+        errorlevel: i32,
+        tries: i64,
+    }
+
+    impl Cmd {
+        fn new(files: &[(&str, &'static str)]) -> Self {
+            Self {
+                files: files.iter().map(|(p, c)| (p.to_string(), *c)).collect(),
+                running: HashMap::new(),
+                held: None,
+                started: Vec::new(),
+                errorlevel: 0,
+                tries: 0,
+            }
+        }
+
+        fn words(line: &str) -> Vec<String> {
+            let mut words = Vec::new();
+            let mut word: Option<String> = None;
+            let mut quoted = false;
+            for c in line.chars() {
+                match c {
+                    '"' => {
+                        quoted = !quoted;
+                        word.get_or_insert_with(String::new);
+                    }
+                    ' ' if !quoted => words.extend(word.take()),
+                    c => word.get_or_insert_with(String::new).push(c),
+                }
+            }
+            words.extend(word);
+            words.retain(|w| w != ">nul" && w != "2>&1");
+            words
+        }
+
+        fn run(&mut self, script: &str) {
+            let lines: Vec<&str> = script.split("\r\n").collect();
+            let mut at = 0;
+            for _ in 0..10_000 {
+                let Some(line) = lines.get(at) else {
+                    return;
+                };
+                let line = line.replace("%tries%", &self.tries.to_string());
+                at += 1;
+                if let Some(label) = self.exec(&Self::words(&line)) {
+                    at = lines
+                        .iter()
+                        .position(|l| *l == format!(":{label}"))
+                        .unwrap_or_else(|| panic!("no label {label}"));
+                }
+            }
+            panic!("update.cmd never ended");
+        }
+
+        /// The label a `goto` jumps to.
+        fn exec(&mut self, w: &[String]) -> Option<String> {
+            let w: Vec<&str> = w.iter().map(String::as_str).collect();
+            match w.as_slice() {
+                [] | ["@echo", "off"] => None,
+                [label] if label.starts_with(':') => None,
+                ["goto", label] => Some(label.to_string()),
+                ["if", "errorlevel", n, rest @ ..] => {
+                    (self.errorlevel >= n.parse().unwrap()).then(|| self.exec_rest(rest))?
+                }
+                ["if", "exist", path, rest @ ..] => self
+                    .files
+                    .contains_key(*path)
+                    .then(|| self.exec_rest(rest))?,
+                ["if", a, "gtr", b, rest @ ..] => (a.parse::<i64>().unwrap() > b.parse().unwrap())
+                    .then(|| self.exec_rest(rest))?,
+                ["set", "tries=0"] => {
+                    self.tries = 0;
+                    None
+                }
+                ["set", "/a", "tries+=1"] => {
+                    self.tries += 1;
+                    None
+                }
+                ["ping", ..] => {
+                    self.errorlevel = 0;
+                    None
+                }
+                ["copy", "/y", from, to] => {
+                    self.errorlevel = match self.files.get(*from) {
+                        Some(content) => {
+                            self.files.insert(to.to_string(), content);
+                            0
+                        }
+                        None => 1,
+                    };
+                    None
+                }
+                ["move", "/y", from, to] => {
+                    self.errorlevel = match self.files.get(*from).copied() {
+                        Some(content) if self.held.as_deref() != Some(*from) => {
+                            self.files.remove(*from);
+                            self.files.insert(to.to_string(), content);
+                            0
+                        }
+                        _ => 1,
+                    };
+                    None
+                }
+                ["del", "/f", path] => {
+                    match self.running.get_mut(*path) {
+                        Some(left) if *left > 0 => *left -= 1,
+                        _ => {
+                            self.files.remove(*path);
+                        }
+                    }
+                    None
+                }
+                ["start", "", path, args @ ..] => {
+                    let shown = std::iter::once(*path)
+                        .chain(args.iter().copied())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    self.started.push(match self.files.contains_key(*path) {
+                        true => shown,
+                        false => format!("nothing at {shown}"),
+                    });
+                    None
+                }
+                ["rd", "/s", "/q", dir] => {
+                    let inside = format!("{dir}\\");
+                    self.files.retain(|path, _| !path.starts_with(&inside));
+                    None
+                }
+                other => panic!("update.cmd runs {other:?}"),
+            }
+        }
+
+        fn exec_rest(&mut self, rest: &[&str]) -> Option<String> {
+            self.exec(&rest.iter().map(|w| w.to_string()).collect::<Vec<_>>())
+        }
+    }
+
+    const CURRENT: &str = r"C:\Users\me\Apps\BMT 1.2.1.exe";
+    const TARGET: &str = r"C:\Users\me\Apps\BetterMayhemTracker.exe";
+    const NEW: &str = r"C:\Temp\better-mayhem-update-AbC123\better-mayhem-tracker-update.exe";
+    const TMP: &str = r"C:\Temp\better-mayhem-update-AbC123";
+
+    /// Runs `update.cmd` over the old exe and the download, the old app
+    /// holding its exe for its first two deletes.
+    fn swap(current: &str, setup: impl FnOnce(&mut Cmd)) -> Cmd {
+        let mut cmd = Cmd::new(&[(current, "old"), (NEW, "new")]);
+        cmd.running.insert(current.into(), 2);
+        setup(&mut cmd);
+        cmd.run(&windows_swap_script(current, NEW, TMP, true));
+        cmd
+    }
+
+    fn files(cmd: &Cmd) -> Vec<(&str, &str)> {
+        cmd.files.iter().map(|(p, c)| (p.as_str(), *c)).collect()
+    }
+
     #[test]
-    fn the_windows_script_matches_electrons() {
-        let script = windows_swap_script(
-            r"C:\Users\me\Apps\BMT 1.2.1.exe",
-            r"C:\Temp\better-mayhem-update-AbC123\better-mayhem-tracker-update.exe",
-            r"C:\Temp\better-mayhem-update-AbC123",
+    fn the_windows_swap_installs_the_new_exe_under_the_release_name() {
+        let cmd = swap(CURRENT, |_| {});
+        assert_eq!(files(&cmd), [(TARGET, "new")]);
+        assert_eq!(cmd.started, [format!("{TARGET} --hidden")]);
+        let cmd = swap(TARGET, |_| {});
+        assert_eq!(files(&cmd), [(TARGET, "new")]);
+        let mut shown = Cmd::new(&[(CURRENT, "old"), (NEW, "new")]);
+        shown.run(&windows_swap_script(CURRENT, NEW, TMP, false));
+        assert_eq!(shown.started, [TARGET]);
+    }
+
+    /// 1.2.1's script deletes the old exe and then trusts the move, so a
+    /// failed move left no app to start.
+    #[test]
+    fn a_failed_move_puts_the_old_exe_back_and_starts_it() {
+        for current in [CURRENT, TARGET] {
+            let cmd = swap(current, |cmd| cmd.held = Some(format!("{TARGET}.new")));
+            assert_eq!(files(&cmd), [(current, "old")], "{current}");
+            assert_eq!(cmd.started, [format!("{current} --hidden")], "{current}");
+        }
+    }
+
+    #[test]
+    fn an_app_that_never_exits_or_a_missing_download_keeps_the_old_exe() {
+        let cmd = swap(CURRENT, |cmd| {
+            cmd.running.insert(CURRENT.into(), u32::MAX);
+        });
+        assert_eq!((files(&cmd), cmd.tries), (vec![(CURRENT, "old")], 121));
+        assert_eq!(cmd.started, [format!("{CURRENT} --hidden")]);
+        let cmd = swap(CURRENT, |cmd| {
+            cmd.files.remove(NEW);
+        });
+        assert_eq!(files(&cmd), [(CURRENT, "old")]);
+        assert_eq!(cmd.started, [format!("{CURRENT} --hidden")]);
+    }
+
+    /// The same swap under the real `cmd.exe`, with the release name held
+    /// open so `move` can't replace it. The old exe is a copy of
+    /// `hostname.exe`, which the relaunch runs and which exits at once.
+    #[cfg(windows)]
+    #[test]
+    fn on_windows_a_failed_move_puts_the_old_exe_back() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let root = std::env::temp_dir().join(format!("bmt-swap-{}", std::process::id()));
+        let (apps, tmp) = (root.join("Apps"), root.join("update"));
+        std::fs::create_dir_all(&apps).unwrap();
+        std::fs::create_dir_all(&tmp).unwrap();
+        let hostname =
+            Path::new(&std::env::var("SystemRoot").unwrap()).join(r"System32\hostname.exe");
+        let current = apps.join("BMT 1.2.1.exe");
+        std::fs::copy(&hostname, &current).unwrap();
+        let new = tmp.join("better-mayhem-tracker-update.exe");
+        std::fs::write(&new, b"new").unwrap();
+        let target = apps.join(WINDOWS_EXE_NAME);
+        std::fs::write(&target, b"held").unwrap();
+        let held = std::fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(&target)
+            .unwrap();
+        let script = root.join("update.cmd");
+        let text = windows_swap_script(
+            &current.to_string_lossy(),
+            &new.to_string_lossy(),
+            &tmp.to_string_lossy(),
             true,
         );
-        // updater.ts's lines for the same inputs, joined with CRLF
-        let current = r"C:\Users\me\Apps\BMT 1.2.1.exe";
-        let target = r"C:\Users\me\Apps\BetterMayhemTracker.exe";
-        let new = r"C:\Temp\better-mayhem-update-AbC123\better-mayhem-tracker-update.exe";
-        let tmp = r"C:\Temp\better-mayhem-update-AbC123";
-        let expected = [
-            "@echo off".to_owned(),
-            format!("copy /y \"{new}\" \"{target}.new\" >nul 2>&1"),
-            "if errorlevel 1 goto fail".into(),
-            "set tries=0".into(),
-            ":wait".into(),
-            "set /a tries+=1".into(),
-            "if %tries% gtr 120 goto fail".into(),
-            "ping -n 2 127.0.0.1 >nul".into(),
-            format!("del /f \"{current}\" >nul 2>&1"),
-            format!("if exist \"{current}\" goto wait"),
-            format!("move /y \"{target}.new\" \"{target}\" >nul 2>&1"),
-            format!("start \"\" \"{target}\" --hidden"),
-            "goto cleanup".into(),
-            ":fail".into(),
-            format!("del /f \"{target}.new\" >nul 2>&1"),
-            format!("start \"\" \"{current}\" --hidden"),
-            ":cleanup".into(),
-            format!("rd /s /q \"{tmp}\""),
-            String::new(),
-        ]
-        .join("\r\n");
-        assert_eq!(script, expected);
-        assert!(!windows_swap_script("a.exe", "b", "t", false).contains("--hidden"));
+        std::fs::write(&script, text).unwrap();
+        let ran = std::process::Command::new("cmd.exe")
+            .arg("/c")
+            .arg(&script)
+            .status()
+            .unwrap();
+        drop(held);
+        assert!(ran.success(), "{ran}");
+        assert_eq!(
+            std::fs::read(&current).unwrap(),
+            std::fs::read(&hostname).unwrap()
+        );
+        assert_eq!(std::fs::read(&target).unwrap(), b"held");
+        let mut left: Vec<_> = std::fs::read_dir(&apps)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        left.sort();
+        assert_eq!(left, ["BMT 1.2.1.exe", WINDOWS_EXE_NAME]);
+        assert!(!tmp.exists(), "temp folder removed");
     }
 
     // -----------------------------------------------------------------------
