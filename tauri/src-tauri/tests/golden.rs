@@ -178,6 +178,103 @@ fn replay(
     (classify(&golden.outcome, &answer), answer)
 }
 
+/// The first JSON path where two canonical values differ, or None when equal.
+fn first_difference(path: &str, a: &Value, b: &Value) -> Option<String> {
+    match (a, b) {
+        (Value::Object(x), Value::Object(y)) => {
+            for key in x.keys().chain(y.keys()) {
+                let here = format!("{path}.{key}");
+                match (x.get(key), y.get(key)) {
+                    (Some(l), Some(r)) => {
+                        if let Some(found) = first_difference(&here, l, r) {
+                            return Some(found);
+                        }
+                    }
+                    (Some(_), None) => return Some(format!("{here}: dropped by the Rust type")),
+                    (None, Some(_)) => return Some(format!("{here}: added by the Rust type")),
+                    (None, None) => {}
+                }
+            }
+            None
+        }
+        (Value::Array(x), Value::Array(y)) if x.len() == y.len() => x
+            .iter()
+            .zip(y)
+            .enumerate()
+            .find_map(|(i, (l, r))| first_difference(&format!("{path}[{i}]"), l, r)),
+        _ if canonical(a) == canonical(b) => None,
+        _ => Some(format!(
+            "{path}: Electron sent {a}, the Rust type writes {b}"
+        )),
+    }
+}
+
+/// Reads each value Electron sent, arguments, results and event payloads, as
+/// its Rust type and writes it back. Any change is a contract defect: a field
+/// renamed, an absent key turned null, a fraction in an integer field.
+fn wire_shapes(dir: &Path, goldens: &[Golden], registry: &[CommandSpec]) -> (usize, Vec<String>) {
+    let mut checked = 0;
+    let mut problems = Vec::new();
+    let mut check = |label: String, roundtrip: fn(Value) -> Result<Value, String>, sent: &Value| {
+        checked += 1;
+        match roundtrip(sent.clone()) {
+            Ok(written) => {
+                if let Some(found) = first_difference("", &canonical(sent), &canonical(&written)) {
+                    problems.push(format!("{label}{found}"));
+                }
+            }
+            Err(error) => {
+                problems.push(format!("{label}: does not read as its Rust type: {error}"))
+            }
+        }
+    };
+    for golden in goldens {
+        let Some(spec) = registry.iter().find(|c| c.channel == golden.channel) else {
+            continue;
+        };
+        for (arg, value) in spec.args.iter().zip(&golden.args) {
+            check(
+                format!("{} {} argument {}", golden.channel, golden.case, arg.name),
+                arg.ty.roundtrip,
+                value,
+            );
+        }
+        if golden.outcome.get("kind").and_then(Value::as_str) == Some("value") {
+            let result = golden.outcome.get("result").cloned().unwrap_or(Value::Null);
+            check(
+                format!("{} {} result", golden.channel, golden.case),
+                spec.ret.roundtrip,
+                &result,
+            );
+        }
+    }
+    let events = bmt_lib::events::event_specs();
+    let mut unknown_events = Vec::new();
+    for file in std::fs::read_dir(dir.join("events"))
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
+        let text = std::fs::read_to_string(file.path()).unwrap_or_default();
+        for line in text.lines().filter(|l| !l.trim().is_empty()) {
+            let record: Value = serde_json::from_str(line).expect("an event line is JSON");
+            let name = record
+                .get("event")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let Some(payload) = record.get("payload") else {
+                continue;
+            };
+            match events.iter().find(|e| e.name == name) {
+                Some(spec) => check(format!("event {name}"), spec.payload.roundtrip, payload),
+                None => unknown_events.push(format!("event {name}: not in the contract")),
+            }
+        }
+    }
+    problems.extend(unknown_events);
+    (checked, problems)
+}
+
 fn read_goldens(dir: &Path) -> Vec<Golden> {
     let mut out = Vec::new();
     let Ok(channels) = std::fs::read_dir(dir.join("ipc")) else {
@@ -392,6 +489,21 @@ fn main() -> ExitCode {
     let registry = commands::registry();
     let mut verdicts: BTreeMap<&str, Vec<(String, Verdict)>> = BTreeMap::new();
     let mut failures = Vec::new();
+
+    if !goldens.is_empty() {
+        let (checked, problems) = wire_shapes(&dir, &goldens, &registry);
+        println!(
+            "wire shapes: {checked} values Electron sent read and write back {}",
+            if problems.is_empty() {
+                "unchanged".to_string()
+            } else {
+                format!("with {} differences", problems.len())
+            }
+        );
+        for problem in problems {
+            failures.push(format!("wire shape: {problem}"));
+        }
+    }
 
     if goldens.is_empty() {
         println!(

@@ -29,6 +29,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
 use ts_rs::{Config, TS, TypeVisitor};
 
@@ -130,12 +131,15 @@ pub struct TypeSpec {
     /// `()`, which the bindings print as `void`, as `api.ts` does.
     pub unit: bool,
     pub visit: fn(&mut TypeCollector),
+    /// Reads JSON as this type and writes it back, which shows whether a value
+    /// Electron sent survives the Rust type: names, nulls, absent keys, integers.
+    pub roundtrip: fn(serde_json::Value) -> Result<serde_json::Value, String>,
 }
 
 impl TypeSpec {
     pub fn of<T>() -> Self
     where
-        T: TS + 'static,
+        T: TS + Serialize + DeserializeOwned + 'static,
         T::OptionInnerType: TS,
     {
         Self {
@@ -144,6 +148,10 @@ impl TypeSpec {
             optional: T::IS_OPTION,
             unit: TypeId::of::<T>() == TypeId::of::<()>(),
             visit: |collector| collector.visit::<T>(),
+            roundtrip: |value| {
+                let typed: T = serde_json::from_value(value).map_err(|e| e.to_string())?;
+                serde_json::to_value(typed).map_err(|e| e.to_string())
+            },
         }
     }
 }
