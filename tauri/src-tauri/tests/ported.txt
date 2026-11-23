@@ -11,6 +11,8 @@ db:champion-item-stats
 db:champion-match-history
 db:champion-stats
 db:dashboard
+db:game-card
+db:game-recap
 db:global-champion-detail
 db:global-stats
 db:match-detail
@@ -19,6 +21,8 @@ db:match-history
 db:match-sessions
 db:profile
 db:records
+db:season-recap
+db:seasons
 db:stored-queues
 db:teammate-detail
 db:teammate-group-detail
