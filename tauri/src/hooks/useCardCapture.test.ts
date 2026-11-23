@@ -139,3 +139,68 @@ test("the lookup grace lapses after three seconds", () => {
   flush();
   expect(overdue()).toBe(true);
 });
+
+// The Tauri globals @tauri-apps/api reads, swapped in for one test and put back after
+function withTauri(
+  isTauri: boolean,
+  run: (sent: { cmd: string; args: unknown }[]) => Promise<void> | void,
+) {
+  const sent: { cmd: string; args: unknown }[] = [];
+  const page = window as unknown as Record<string, unknown>;
+  const global = globalThis as unknown as Record<string, unknown>;
+  const saved = { internals: page.__TAURI_INTERNALS__, isTauri: global.isTauri };
+  page.__TAURI_INTERNALS__ = {
+    invoke: async (cmd: string, args: unknown) => void sent.push({ cmd, args }),
+    metadata: { currentWindow: { label: "card-7" }, currentWebview: { label: "card-7" } },
+  };
+  global.isTauri = isTauri;
+  return Promise.resolve(run(sent)).finally(() => {
+    page.__TAURI_INTERNALS__ = saved.internals;
+    global.isTauri = saved.isTauri;
+  });
+}
+
+test("in a Tauri webview, reports each status to Rust as card:status with its label", () =>
+  withTauri(true, (sent) => {
+    const page = card({ images: [fakeImage("a.png", true)], height: 951 });
+    page.draw();
+    tick(POLL * 2);
+    expect(status()).toEqual({ state: "ready", height: 951 });
+    expect(sent).toEqual([
+      {
+        cmd: "plugin:event|emit",
+        args: {
+          event: "card:status",
+          payload: {
+            state: "ready",
+            height: 951,
+            label: "card-7",
+            innerWidth: window.innerWidth,
+            dpr: window.devicePixelRatio,
+            visibility: document.visibilityState,
+          },
+        },
+      },
+    ]);
+  }));
+
+test("an error goes to Rust too", () =>
+  withTauri(true, (sent) => {
+    card({ images: [] }).fail("That game isn't in the database");
+    expect(sent.map((s) => (s.args as { payload: unknown }).payload)).toEqual([
+      expect.objectContaining({
+        state: "error",
+        error: "That game isn't in the database",
+        label: "card-7",
+      }),
+    ]);
+  }));
+
+test("outside Tauri, only the global is published", () =>
+  withTauri(false, (sent) => {
+    const page = card({ images: [], height: 10 });
+    page.draw();
+    tick(POLL * 2);
+    expect(status()).toEqual({ state: "ready", height: 10 });
+    expect(sent).toEqual([]);
+  }));

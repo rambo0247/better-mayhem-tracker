@@ -24,6 +24,10 @@ pub mod dialogs;
 #[allow(dead_code)]
 mod dragon;
 pub mod events;
+// export:card-image and export:copy-card-image reach it once T25's restack
+// wires T08's export bodies to it
+#[allow(dead_code)]
+mod export_image;
 pub mod import;
 pub mod install_location;
 pub mod intl;
@@ -363,6 +367,8 @@ pub fn run() {
     // launch leaves the app the user is in active
     #[cfg(target_os = "macos")]
     let builder = builder.activate_ignoring_other_apps(!hidden);
+    #[cfg(windows)]
+    let builder = builder.plugin(tauri_plugin_clipboard_manager::init());
     #[cfg(feature = "parity-driver")]
     let builder = parity_driver::install(builder);
     // A lane answers the export and import dialogs from a file it writes
@@ -406,6 +412,10 @@ pub fn run() {
             parity_driver::prepare(app);
             #[cfg(feature = "parity-driver")]
             parity_shell::install_stand_ins(app.handle());
+            #[cfg(feature = "parity-driver")]
+            if let Some(lookup) = export_image::parity_match_lookup() {
+                app.manage(lookup);
+            }
             if let Some((game_assets, dragon)) = game_data {
                 app.manage(game_assets.clone());
                 app.manage(dragon.clone());

@@ -78,6 +78,7 @@ jiff = "=1.0.2"
 indexmap = "=2.14.2"
 base64 = "=0.23.1"
 futures-util = "=0.3.34"
+png = "=0.18.1"
 regex = "=1.13.2"
 # sha256 for update downloads, and mkdtemp's random suffix; rustls already builds it
 ring = "=0.17.14"
@@ -107,7 +108,7 @@ tokio-rustls = { version = "=0.26.6", default-features = false, features = [
   "tls12",
 ] }
 
-# Webview snapshots, for the parity driver and later for card export
+# Webview snapshots, for the parity driver and card export
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "=0.6.2"
 objc2 = "=0.6.5"
@@ -125,11 +126,20 @@ objc2-app-kit = { version = "=0.3.2", features = [
   "NSImageRep",
   "NSMenu",
   "NSMenuItem",
+  "NSPasteboard",
+  "NSPasteboardItem",
   "NSResponder",
   "NSView",
   "NSWindow",
+  "objc2-core-graphics",
 ] }
-objc2-core-foundation = { version = "=0.3.2", features = ["CFCGTypes", "CFLocale", "CFRunLoop", "CFString", "block2"] }
+objc2-core-foundation = { version = "=0.3.2", features = ["CFCGTypes", "CFData", "CFLocale", "CFRunLoop", "CFString", "block2"] }
+objc2-core-graphics = { version = "=0.3.2", features = [
+  "CGColorSpace",
+  "CGContext",
+  "CGDataProvider",
+  "CGImage",
+] }
 objc2-foundation = { version = "=0.3.2", features = [
   "NSAppleEventDescriptor",
   "NSData",
@@ -157,6 +167,7 @@ libc = "=0.2.191"
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "=0.61.2", features = ["Wdk_System_SystemServices", "Win32_Foundation", "Win32_Globalization", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_DataExchange", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
 tauri-plugin-single-instance = "=3.0.0-alpha.3"
+tauri-plugin-clipboard-manager = "=3.0.0-alpha.3"
 webview2-com = "=0.39.1"
 windows-core = "=0.62.2"
 # The Run value, the Start Menu shortcut, and the process's AppUserModelID

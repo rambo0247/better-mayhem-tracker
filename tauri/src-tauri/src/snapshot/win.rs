@@ -4,9 +4,12 @@ use std::rc::Rc;
 use base64::Engine as _;
 use tauri::WebviewWindow;
 use webview2_com::CallDevToolsProtocolMethodCompletedHandler;
-use windows_core::HSTRING;
+use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller3;
+use windows_core::{HSTRING, Interface};
 
-use super::{Snapshot, SnapshotOptions, SnapshotResult};
+use super::{
+    CardResult, CardScale, CardShot, Snapshot, SnapshotOptions, SnapshotResult, bitmap_from_png,
+};
 
 /// Calls a Chrome DevTools Protocol method on the window's WebView2 and hands
 /// `done` the JSON result. This is the channel Playwright drives Chromium on.
@@ -65,6 +68,67 @@ pub fn snapshot(
         r#"{"format":"png","captureBeyondViewport":false,"fromSurface":true}"#.into(),
         move |result| {
             done(result.and_then(|json| decode(&json, backing_scale)));
+        },
+    )
+}
+
+/// Electron's arrangement: device scale 1 times page zoom `scale`, so the page
+/// lays out in `width / scale` CSS px of a window `width` physical px wide and
+/// `devicePixelRatio` is `scale`, whatever the monitor's DPI. Monitor scale
+/// detection goes off first, so a later DPI change cannot undo the rest.
+pub fn prepare_card_scale(
+    window: &WebviewWindow,
+    scale: f64,
+    done: impl FnOnce(Result<CardScale, String>) + Send + 'static,
+) -> tauri::Result<()> {
+    window.with_webview(move |platform| {
+        let Some(webview) = platform.downcast_ref::<tauri_runtime_wry::Webview>() else {
+            return done(Err("the webview is not a wry webview".into()));
+        };
+        let controller = webview.controller();
+        // SAFETY: wry's controller is live, and this closure runs on the main thread
+        let result = unsafe {
+            controller
+                .cast::<ICoreWebView2Controller3>()
+                .and_then(|c3| {
+                    c3.SetShouldDetectMonitorScaleChanges(false)?;
+                    c3.SetRasterizationScale(1.0)
+                })
+                .and_then(|()| controller.SetZoomFactor(scale))
+        };
+        done(
+            result
+                .map(|()| CardScale::Exact(scale))
+                .map_err(|error| format!("could not set the card's scale: {error}")),
+        );
+    })
+}
+
+/// The card's CSS px rect at the zoom `prepare_card_scale` set. The clip is in
+/// CSS px and comes back at the page's device ratio, and `captureBeyondViewport`
+/// takes rows below the window too.
+pub fn card_snapshot(
+    window: &WebviewWindow,
+    shot: CardShot,
+    done: impl FnOnce(CardResult) + Send + 'static,
+) -> tauri::Result<()> {
+    let params = serde_json::json!({
+        "format": "png",
+        "fromSurface": true,
+        "captureBeyondViewport": true,
+        "clip": { "x": 0, "y": 0, "width": shot.width, "height": shot.height, "scale": 1 },
+    });
+    let scale = shot.rendered.rendered();
+    cdp(
+        window,
+        "Page.captureScreenshot",
+        params.to_string(),
+        move |result| {
+            done(
+                result
+                    .and_then(|json| decode(&json, scale))
+                    .and_then(|shot| bitmap_from_png(&shot.png)),
+            );
         },
     )
 }

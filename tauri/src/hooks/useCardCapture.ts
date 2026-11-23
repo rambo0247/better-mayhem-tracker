@@ -1,4 +1,7 @@
 import { createEffect, createMemo, createSignal, onSettled, type Accessor } from "solid-js";
+import { isTauri } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { CARD_STATUS_KEY, type CardStatus } from "@shared/card";
 
 // How often the settle check looks at the card, and how long it keeps looking
@@ -12,8 +15,22 @@ const SETTLE_TIMEOUT_MS = 10_000;
 // champions by id beats a card that never gets drawn.
 const LOOKUP_GRACE_MS = 3_000;
 
+// The event the capture window's Rust side waits on. The global stays too: the parity
+// driver and the tests read it.
+export const CARD_STATUS_EVENT = "card:status";
+
 function publish(status: CardStatus) {
   (window as unknown as Record<string, CardStatus>)[CARD_STATUS_KEY] = status;
+  if (!isTauri()) return;
+  // The layout width and scale ride along so Rust can tell a card laid out at the
+  // wrong size from a good one before it takes the picture
+  emit(CARD_STATUS_EVENT, {
+    ...status,
+    label: getCurrentWebview().label,
+    innerWidth: window.innerWidth,
+    dpr: window.devicePixelRatio,
+    visibility: document.visibilityState,
+  }).catch((err: unknown) => console.error(`Could not send ${CARD_STATUS_EVENT}:`, err));
 }
 
 /**
