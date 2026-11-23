@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { takeCaptureLock } from "../capture.ts";
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { isUnderRealFolder, realDataRoots } from "../lib/real-folder.ts";
 import { SNAPSHOT_DIRS } from "../lib/data.ts";
+import { waitForNoGame } from "../lib/no-game.ts";
 import {
   assertNoEscapingLinks,
   assertRunFolderPinned,
@@ -157,6 +158,13 @@ describe("main-process faults under the seam", () => {
   const installed = path.resolve(import.meta.dir, "../../node_modules/electron/index.js");
   const binary = fs.existsSync(installed) ? (require(installed) as string) : "";
   const hasElectron = process.platform === "darwin" && binary !== "" && fs.existsSync(binary);
+
+  beforeAll(
+    async () => {
+      if (hasElectron) await waitForNoGame();
+    },
+    2 * 60 * 60_000,
+  );
 
   function fakeApp(main: string) {
     const dir = scratch();
