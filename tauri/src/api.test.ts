@@ -142,6 +142,41 @@ describe("createApi events", () => {
   });
 });
 
+describe("tauriTransport, answers JSON cannot carry", () => {
+  const answering = (result: unknown) => {
+    globalThis.window = {
+      __BMT_BOOT__: { platform: "darwin", locale: null },
+      __TAURI_INTERNALS__: { invoke: () => Promise.resolve(result) },
+    } as never;
+  };
+  afterEach(() => {
+    globalThis.window = pageWindow;
+  });
+
+  test("a blob setting reaches the page as the Uint8Array Electron hands it", async () => {
+    answering({ $bytes: "AAEC/w==" });
+    const value: unknown = await createApi(tauriTransport).getSetting("x");
+    expect(value).toBeInstanceOf(Uint8Array);
+    expect([...(value as Uint8Array)]).toEqual([0, 1, 2, 255]);
+  });
+
+  test("a non-finite number in an answer reads back as the number, nested ones included", async () => {
+    answering({ champion_id: { $bmtNum: "NaN" }, rows: [{ $bmtNum: "-Infinity" }, 3] });
+    const value = (await createApi(tauriTransport).getGlobalChampionDetail(1)) as unknown as {
+      champion_id: number;
+      rows: number[];
+    };
+    expect(value.champion_id).toBeNaN();
+    expect(value.rows).toEqual([-Infinity, 3]);
+  });
+
+  test("an object with other keys beside the sentinel stays an object", async () => {
+    answering({ $bytes: "AA==", other: 1 });
+    const value: unknown = await createApi(tauriTransport).getSetting("x");
+    expect(value).toEqual({ $bytes: "AA==", other: 1 });
+  });
+});
+
 describe("tauriTransport, numbers JSON cannot carry", () => {
   let sent: string[];
   beforeEach(() => {

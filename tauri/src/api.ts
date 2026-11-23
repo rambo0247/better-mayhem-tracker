@@ -90,10 +90,35 @@ export function encodeNonFinite(value: unknown): unknown {
   return value;
 }
 
+/** db/js.rs's `Cell` writes a blob as `{ $bytes: base64 }`. */
+const BYTES_KEY = "$bytes";
+
+/**
+ * The answer side of [`encodeNonFinite`]: a non-finite number Rust wrote as `{ $bmtNum }`
+ * becomes the number, and a blob written as `{ $bytes }` the Uint8Array Electron's IPC hands
+ * the page for a Buffer. An object with any other key stays as it is.
+ */
+export function decodeAnswer(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(decodeAnswer);
+  if (typeof value !== "object" || value === null) return value;
+  const entries = Object.entries(value);
+  if (entries.length === 1) {
+    const [key, inner] = entries[0]!;
+    if (key === NON_FINITE_KEY && typeof inner === "string") return Number(inner);
+    if (key === BYTES_KEY && typeof inner === "string") {
+      return Uint8Array.from(atob(inner), (c) => c.charCodeAt(0));
+    }
+  }
+  return Object.fromEntries(entries.map(([k, v]) => [k, decodeAnswer(v)]));
+}
+
 export const tauriTransport: Transport = <T>(channel: string, args: Record<string, unknown>) =>
-  invoke<T>(channel, encodeNonFinite(args) as Record<string, unknown>).catch((reason: unknown) => {
-    throw invokeError(channel, reason);
-  });
+  invoke<T>(channel, encodeNonFinite(args) as Record<string, unknown>).then(
+    (answer) => decodeAnswer(answer) as T,
+    (reason: unknown) => {
+      throw invokeError(channel, reason);
+    },
+  );
 
 type Unsubscribe = () => void;
 
