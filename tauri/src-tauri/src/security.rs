@@ -33,16 +33,7 @@ impl Effects {
 
     fn perform(&self, effect: Effect) {
         match self {
-            Effects::System => {
-                let result = match &effect {
-                    Effect::OpenExternal(url) => tauri_plugin_opener::open_url(url, None::<&str>),
-                    Effect::OpenPath(path) => tauri_plugin_opener::open_path(path, None::<&str>),
-                };
-                // Electron's shell calls resolve or reject with nobody waiting
-                if let Err(err) = result {
-                    log::error(format!("Failed to open {effect:?}: {err}"));
-                }
-            }
+            Effects::System => in_background(effect, open_with_os),
             Effects::Recorded(list) => list.lock().unwrap_or_else(|p| p.into_inner()).push(effect),
         }
     }
@@ -63,20 +54,50 @@ impl Effects {
     }
 }
 
+/// The opener waits for the OS (`/usr/bin/open` on macOS) to finish, and a
+/// navigation handler runs on the main thread, so the call happens on its
+/// own thread. Electron's shell calls resolve or reject with nobody waiting.
+fn in_background(effect: Effect, open: fn(&Effect) -> Result<(), String>) {
+    let spawned = std::thread::Builder::new()
+        .name("open-external".into())
+        .spawn(move || {
+            if let Err(err) = open(&effect) {
+                log::error(format!("Failed to open {effect:?}: {err}"));
+            }
+        });
+    if let Err(err) = spawned {
+        log::error(format!("Failed to start the opener thread: {err}"));
+    }
+}
+
+fn open_with_os(effect: &Effect) -> Result<(), String> {
+    match effect {
+        Effect::OpenExternal(url) => tauri_plugin_opener::open_url(url, None::<&str>),
+        Effect::OpenPath(path) => tauri_plugin_opener::open_path(path, None::<&str>),
+    }
+    .map_err(|err| err.to_string())
+}
+
 /// A URL can name any protocol the OS will launch, `file:`, a UNC path,
-/// `ms-msdt:`. Everything this app opens is a web page, so only those pass.
-pub fn is_allowed_external_url(url: &str) -> bool {
-    Url::parse(url).is_ok_and(|u| matches!(u.scheme(), "https" | "http"))
+/// `ms-msdt:`. Everything this app opens is a web page, so only those pass,
+/// parsed the way the URL standard parses them.
+fn web_page(url: &str) -> Option<Url> {
+    Url::parse(url)
+        .ok()
+        .filter(|u| matches!(u.scheme(), "https" | "http"))
 }
 
 /// `openExternalUrl`: hands a web page to the default browser, refusing
-/// anything else with Electron's warning.
+/// anything else with Electron's warning. The browser gets the parsed URL,
+/// as Electron's `shell.openExternal` hands the OS its GURL spelling, so
+/// `" https://x"` or `"https:\\\\x"` opens `https://x/` and never reaches
+/// the OS as a string it would read another way.
 pub fn open_external_url(effects: &Effects, url: &str) -> bool {
-    if !is_allowed_external_url(url) {
+    let Some(page) = web_page(url) else {
         log::warn(format!("Refused to open external URL: {url}"));
         return false;
-    }
-    effects.perform(Effect::OpenExternal(url.to_owned()));
+    };
+    effects.perform(Effect::OpenExternal(page.into()));
     true
 }
 
@@ -134,37 +155,121 @@ pub fn harden<'a, R: Runtime, M: Manager<R>>(
 mod tests {
     use super::*;
 
+    /// What reaches the browser for each URL a page can send, `None` for a
+    /// refusal. The expected text is the WHATWG parse Node 24 gives
+    /// (`new URL(u).href`), which is what Electron's GURL hands the OS for
+    /// these inputs.
     #[test]
-    fn only_web_pages_leave_the_app() {
-        for url in [
-            "https://github.com/rambo0247/better-mayhem-tracker/releases",
-            "http://example.com/",
-            "HTTPS://EXAMPLE.COM",
-        ] {
-            assert!(is_allowed_external_url(url), "{url}");
-        }
-        for url in [
-            "file:///etc/passwd",
-            "ms-msdt:/id",
-            "javascript:alert(1)",
-            "//server/share",
-            "",
-            "not a url",
-        ] {
-            assert!(!is_allowed_external_url(url), "{url}");
+    fn the_browser_gets_the_parsed_url() {
+        let corpus: &[(&str, Option<&str>)] = &[
+            (
+                "https://github.com/rambo0247/better-mayhem-tracker/releases",
+                Some("https://github.com/rambo0247/better-mayhem-tracker/releases"),
+            ),
+            ("http://example.com/", Some("http://example.com/")),
+            ("HTTPS://EXAMPLE.COM", Some("https://example.com/")),
+            (" https://example.com", Some("https://example.com/")),
+            ("\thttps://example.com", Some("https://example.com/")),
+            ("h\tttps://example.com", Some("https://example.com/")),
+            ("https://example.com\n", Some("https://example.com/")),
+            ("\u{0}https://example.com", Some("https://example.com/")),
+            ("\u{1f}https://example.com", Some("https://example.com/")),
+            ("https:example.com", Some("https://example.com/")),
+            ("https:\\\\evil.com", Some("https://evil.com/")),
+            ("https:/\\evil.com", Some("https://evil.com/")),
+            ("https:///evil.com", Some("https://evil.com/")),
+            ("https://user@evil.com", Some("https://user@evil.com/")),
+            ("https://example.com/\u{0}", Some("https://example.com/")),
+            (
+                "https://\u{43f}\u{440}\u{438}\u{43c}\u{435}\u{440}.\u{440}\u{444}/",
+                Some("https://xn--e1afmkfd.xn--p1ai/"),
+            ),
+            ("http://0x7f.1/", Some("http://127.0.0.1/")),
+            ("https://ex\u{ad}ample.com", Some("https://example.com/")),
+            ("javascript:alert(1)", None),
+            ("JAVASCRIPT:alert(1)", None),
+            ("file:///etc/passwd", None),
+            ("FILE:///C:/Windows/System32/calc.exe", None),
+            ("ms-msdt:/id", None),
+            ("vscode://file/etc/passwd", None),
+            ("tauri://localhost/", None),
+            ("data:text/html,<script>alert(1)</script>", None),
+            ("blob:https://x/uuid", None),
+            ("view-source:https://x", None),
+            ("about:blank", None),
+            ("ftp://x", None),
+            ("//server/share", None),
+            ("\\\\server\\share", None),
+            ("C:\\Windows\\System32\\calc.exe", None),
+            ("https://", None),
+            ("https://%zz", None),
+            ("https://exa mple.com", None),
+            ("https://example.com:99999", None),
+            ("", None),
+            ("not a url", None),
+        ];
+        for (url, expected) in corpus {
+            let effects = Effects::recorded();
+            let opened = open_external_url(&effects, url);
+            let handed = effects.take();
+            match expected {
+                Some(page) => {
+                    assert!(opened, "{url:?}");
+                    assert_eq!(
+                        handed,
+                        vec![Effect::OpenExternal((*page).into())],
+                        "{url:?}"
+                    );
+                }
+                None => {
+                    assert!(!opened, "{url:?}");
+                    assert!(handed.is_empty(), "{url:?}");
+                }
+            }
         }
     }
 
+    /// The opener blocks until the test lets it go; the call must return
+    /// first, as a navigation handler on the main thread has to.
     #[test]
-    fn a_refused_url_is_never_handed_on() {
-        let effects = Effects::recorded();
-        assert!(!open_external_url(&effects, "file:///etc/passwd"));
-        assert!(open_external_url(&effects, "https://example.com/"));
+    fn opening_returns_before_the_os_does() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+        static RELEASE: Mutex<Option<mpsc::Receiver<()>>> = Mutex::new(None);
+        static OPENED: Mutex<Option<mpsc::Sender<Effect>>> = Mutex::new(None);
+        fn blocking_open(effect: &Effect) -> Result<(), String> {
+            let release = RELEASE.lock().unwrap().take().expect("one open");
+            release.recv().map_err(|e| e.to_string())?;
+            OPENED
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .send(effect.clone())
+                .unwrap();
+            Ok(())
+        }
+        let (release, waiting) = mpsc::channel();
+        let (opened_tx, opened) = mpsc::channel();
+        *RELEASE.lock().unwrap() = Some(waiting);
+        *OPENED.lock().unwrap() = Some(opened_tx);
+        let (returned_tx, returned) = mpsc::channel();
+        std::thread::spawn(move || {
+            in_background(
+                Effect::OpenExternal("https://example.com/".into()),
+                blocking_open,
+            );
+            returned_tx.send(()).unwrap();
+        });
+        returned
+            .recv_timeout(Duration::from_secs(5))
+            .expect("the call should return while the opener still waits");
+        assert!(opened.try_recv().is_err(), "the opener has not finished");
+        release.send(()).unwrap();
         assert_eq!(
-            effects.take(),
-            vec![Effect::OpenExternal("https://example.com/".into())]
+            opened.recv_timeout(Duration::from_secs(5)).unwrap(),
+            Effect::OpenExternal("https://example.com/".into())
         );
-        assert!(effects.take().is_empty());
     }
 
     #[test]
