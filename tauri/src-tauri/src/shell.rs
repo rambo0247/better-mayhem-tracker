@@ -6,7 +6,13 @@
 //! `minimize_to_tray`, T20 runs the final fetch and stops polling, T11, T17,
 //! and T21 close what they opened, and T24 listens for the window being put
 //! away and quits through [`request_quit`].
+//!
+//! Every way out runs the same quit: tray Quit, Cmd+Q, a close with the
+//! setting off, the Dock's Quit and logout (AppKit's `terminate:`), and
+//! SIGTERM, SIGINT, and SIGHUP or the Windows console's close, as Electron's
+//! `app.quit()` runs for each.
 
+use std::ffi::{OsStr, OsString};
 use std::future::Future;
 use std::hash::{Hash, Hasher};
 use std::pin::Pin;
@@ -83,6 +89,9 @@ pub struct Shell {
     launched_hidden: bool,
     maximized: AtomicBool,
     minimized: AtomicBool,
+    /// AppKit was told `NSTerminateLater` and waits for the quit's answer.
+    #[cfg(target_os = "macos")]
+    appkit_waiting: AtomicBool,
     log: fn(&str),
     hooks: Mutex<Hooks>,
 }
@@ -94,6 +103,8 @@ impl Shell {
             launched_hidden,
             maximized: AtomicBool::new(false),
             minimized: AtomicBool::new(false),
+            #[cfg(target_os = "macos")]
+            appkit_waiting: AtomicBool::new(false),
             log,
             hooks: Mutex::new(Hooks::default()),
         }
@@ -171,24 +182,32 @@ pub fn show_main<R: Runtime>(app: &AppHandle<R>, restore: bool) {
 /// exit 0. A second call while the fetch runs skips the rest of the wait, as
 /// a second `before-quit` does in Electron.
 pub fn request_quit<R: Runtime>(app: &AppHandle<R>) {
-    let shell = app.state::<Shell>();
-    match shell.begin_quit() {
+    match app.state::<Shell>().begin_quit() {
         QuitStep::Nothing => {}
         QuitStep::Finish => exit(app),
-        QuitStep::Fetch(fetch) => {
-            let app = app.clone();
-            tauri::async_runtime::spawn(async move {
-                app.state::<Shell>().settle_fetch(fetch).await;
-                exit(&app);
-            });
-        }
+        QuitStep::Fetch(fetch) => fetch_then_exit(app, fetch),
     }
 }
 
+fn fetch_then_exit<R: Runtime>(app: &AppHandle<R>, fetch: FinalFetch) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        app.state::<Shell>().settle_fetch(fetch).await;
+        exit(&app);
+    });
+}
+
 fn exit<R: Runtime>(app: &AppHandle<R>) {
-    if app.state::<Shell>().finish() {
-        app.exit(0);
+    let shell = app.state::<Shell>();
+    if !shell.finish() {
+        return;
     }
+    #[cfg(target_os = "macos")]
+    if shell.appkit_waiting.swap(false, Ordering::SeqCst) {
+        appkit::let_terminate();
+        return;
+    }
+    app.exit(0);
 }
 
 /// The fetch has no timeout of its own, and a client that stops answering
@@ -326,21 +345,221 @@ pub fn single_instance<R: Runtime>() -> TauriPlugin<R> {
     tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app, true))
 }
 
-/// Electron's lock is per user data folder, so lanes on their own data never
-/// see each other. The plugin keys its lock on the identifier, so a data root
-/// override scopes the identifier to that root. A driver build with no root
-/// takes its own process id, so it can never hand over to another lane.
-pub fn scope_identifier(identifier: &str, data_root: Option<&std::ffi::OsStr>) -> String {
+/// Electron's lock is per user data folder, and the plugin keys its lock on
+/// the identifier. On macOS and Linux that lock is a socket in the shared
+/// `/tmp`, so the identifier carries the user id: another user's lock is never
+/// this user's. A lane's data root override scopes it to that root, and a
+/// driver build with no root takes its own process id, so lanes never hand
+/// over to each other.
+pub fn scope_identifier(identifier: &str, uid: Option<u32>, data_root: Option<&OsStr>) -> String {
+    let mut scoped = identifier.to_owned();
+    if let Some(uid) = uid {
+        scoped.push_str(&format!(".u{uid}"));
+    }
     match data_root {
         Some(root) => {
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             root.hash(&mut hasher);
-            format!("{identifier}.{:016x}", hasher.finish())
+            scoped.push_str(&format!(".{:016x}", hasher.finish()));
         }
         None if cfg!(feature = "parity-driver") => {
-            format!("{identifier}.pid{}", std::process::id())
+            scoped.push_str(&format!(".pid{}", std::process::id()));
         }
-        None => identifier.to_owned(),
+        None => {}
+    }
+    scoped
+}
+
+pub fn user_id() -> Option<u32> {
+    #[cfg(unix)]
+    {
+        // SAFETY: getuid has no preconditions and cannot fail
+        Some(unsafe { libc::getuid() })
+    }
+    #[cfg(not(unix))]
+    {
+        None
+    }
+}
+
+/// The lane override of the data root. Only lane builds compile the read: a
+/// release build has no override, as Electron 1.2.1 has none, so no process
+/// environment can move a player's lock.
+#[cfg(all(
+    any(debug_assertions, feature = "parity-driver"),
+    not(bmt_release_profile)
+))]
+pub fn data_root_override() -> Option<OsString> {
+    std::env::var_os("BMT_DATA_ROOT")
+}
+
+#[cfg(not(all(
+    any(debug_assertions, feature = "parity-driver"),
+    not(bmt_release_profile)
+)))]
+pub fn data_root_override() -> Option<OsString> {
+    None
+}
+
+/// Electron quits through `app.quit()` on SIGTERM, SIGINT, and SIGHUP, and
+/// exits 0 once `will-quit` has run, so a stopped app closes its database
+/// the same way a Quit does.
+pub fn quit_on_signals<R: Runtime>(app: &AppHandle<R>) {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        for kind in [
+            SignalKind::terminate(),
+            SignalKind::interrupt(),
+            SignalKind::hangup(),
+        ] {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                match signal(kind) {
+                    Ok(mut signals) => {
+                        while signals.recv().await.is_some() {
+                            request_quit(&app);
+                        }
+                    }
+                    Err(error) => eprintln!("Could not listen for signal {kind:?}: {error}"),
+                }
+            });
+        }
+    }
+    // The console's Ctrl+C, its close button, logoff, and shutdown. Windows
+    // ends the process a few seconds after a close, whatever the quit is doing.
+    #[cfg(windows)]
+    {
+        use tokio::signal::windows;
+        macro_rules! quit_on {
+            ($($listen:ident),+) => {$(
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    match windows::$listen() {
+                        Ok(mut events) => {
+                            while events.recv().await.is_some() {
+                                request_quit(&app);
+                            }
+                        }
+                        Err(error) => {
+                            eprintln!("Could not listen for {}: {error}", stringify!($listen))
+                        }
+                    }
+                });
+            )+};
+        }
+        quit_on!(ctrl_c, ctrl_close, ctrl_logoff, ctrl_shutdown);
+    }
+}
+
+/// The Dock's Quit, the app's Quit in the Dock menu, and logout send AppKit's
+/// `terminate:`, which tao's delegate answers by ending the process at once.
+/// Electron runs `before-quit` for them, so this answers
+/// `applicationShouldTerminate:` with the same quit, waiting with
+/// `NSTerminateLater` while the final fetch runs.
+#[cfg(target_os = "macos")]
+pub fn quit_on_terminate<R: Runtime>(app: &AppHandle<R>) {
+    use objc2_app_kit::NSApplicationTerminateReply as Reply;
+    let app = app.clone();
+    appkit::answer_terminate(move || {
+        let shell = app.state::<Shell>();
+        match shell.begin_quit() {
+            QuitStep::Nothing => Reply::TerminateNow,
+            QuitStep::Finish => {
+                shell.finish();
+                Reply::TerminateNow
+            }
+            QuitStep::Fetch(fetch) => {
+                shell.appkit_waiting.store(true, Ordering::SeqCst);
+                fetch_then_exit(&app, fetch);
+                Reply::TerminateLater
+            }
+        }
+    });
+}
+
+#[cfg(target_os = "macos")]
+mod appkit {
+    use std::sync::OnceLock;
+
+    use block2::RcBlock;
+    use objc2::runtime::{AnyClass, AnyObject, Imp, Sel};
+    use objc2::{MainThreadMarker, sel};
+    use objc2_app_kit::{NSApplication, NSApplicationTerminateReply};
+    use objc2_core_foundation::{CFRunLoop, kCFRunLoopCommonModes};
+
+    type Answer = Box<dyn Fn() -> NSApplicationTerminateReply + Send + Sync>;
+
+    static ANSWER: OnceLock<Answer> = OnceLock::new();
+
+    extern "C-unwind" fn should_terminate(
+        _delegate: *mut AnyObject,
+        _cmd: Sel,
+        _sender: *mut AnyObject,
+    ) -> NSApplicationTerminateReply {
+        ANSWER
+            .get()
+            .map_or(NSApplicationTerminateReply::TerminateNow, |answer| answer())
+    }
+
+    /// Adds `applicationShouldTerminate:` to tao's delegate class, which has
+    /// none, through the public Objective-C runtime.
+    pub fn answer_terminate(
+        answer: impl Fn() -> NSApplicationTerminateReply + Send + Sync + 'static,
+    ) {
+        if ANSWER.set(Box::new(answer)).is_err() {
+            return;
+        }
+        let mtm = MainThreadMarker::new().expect("setup runs on the main thread");
+        let Some(delegate) = NSApplication::sharedApplication(mtm).delegate() else {
+            eprintln!("No app delegate, so the Dock's Quit skips the final fetch");
+            return;
+        };
+        let delegate: &AnyObject = delegate.as_ref();
+        let class: *const AnyClass = delegate.class();
+        // SAFETY: the signature matches `- (NSApplicationTerminateReply)
+        // applicationShouldTerminate:(NSApplication *)sender` ("Q@:@"), and the
+        // class is the live delegate's own
+        let added = unsafe {
+            let imp: Imp = std::mem::transmute::<
+                extern "C-unwind" fn(
+                    *mut AnyObject,
+                    Sel,
+                    *mut AnyObject,
+                ) -> NSApplicationTerminateReply,
+                Imp,
+            >(should_terminate);
+            objc2::ffi::class_addMethod(
+                class.cast_mut(),
+                sel!(applicationShouldTerminate:),
+                imp,
+                c"Q@:@".as_ptr(),
+            )
+        };
+        if !added.as_bool() {
+            eprintln!("The app delegate already answers applicationShouldTerminate:");
+        }
+    }
+
+    /// Answers the waiting `terminate:` with yes, from the main run loop but
+    /// outside tao's event handler: AppKit ends the process inside the reply,
+    /// through tao's `applicationWillTerminate:`, which takes the handler's
+    /// lock. AppKit runs the run loop in its modal panel mode while it waits,
+    /// one of the common modes.
+    pub fn let_terminate() {
+        let Some(main) = CFRunLoop::main() else {
+            return;
+        };
+        let block = RcBlock::new(|| {
+            let mtm = MainThreadMarker::new().expect("the main run loop runs on the main thread");
+            NSApplication::sharedApplication(mtm).replyToApplicationShouldTerminate(true);
+        });
+        // SAFETY: CFRunLoopPerformBlock and CFRunLoopWakeUp may be called from
+        // any thread, and the common modes constant is a valid mode
+        unsafe {
+            main.perform_block(kCFRunLoopCommonModes.map(|mode| &**mode), Some(&block));
+        }
+        main.wake_up();
     }
 }
 
@@ -395,22 +614,49 @@ mod tests {
         assert!(!launched_hidden(Vec::<String>::new()));
     }
 
+    const BASE: &str = "com.better-mayhem-tracker.app";
+
     #[test]
     fn identifier_is_scoped_to_the_data_root() {
-        let base = "com.better-mayhem-tracker.app";
-        let a = scope_identifier(base, Some("/tmp/run-a".as_ref()));
-        let b = scope_identifier(base, Some("/tmp/run-b".as_ref()));
+        let a = scope_identifier(BASE, Some(501), Some("/tmp/run-a".as_ref()));
+        let b = scope_identifier(BASE, Some(501), Some("/tmp/run-b".as_ref()));
         assert_ne!(a, b);
-        assert_eq!(a, scope_identifier(base, Some("/tmp/run-a".as_ref())));
-        assert!(a.starts_with("com.better-mayhem-tracker.app."));
-        // The plugin's socket path must stay under 100 bytes
-        assert!(format!("/tmp/{}_si.sock", a.replace(['.', '-'], "_")).len() < 100);
+        assert_eq!(
+            a,
+            scope_identifier(BASE, Some(501), Some("/tmp/run-a".as_ref()))
+        );
+        assert!(a.starts_with("com.better-mayhem-tracker.app.u501."));
+        // The plugin's socket path must stay under 100 bytes, with the widest uid
+        let widest = scope_identifier(BASE, Some(u32::MAX), Some("/tmp/run-a".as_ref()));
+        assert!(format!("/tmp/{}_si.sock", widest.replace(['.', '-'], "_")).len() < 100);
+    }
+
+    #[test]
+    fn each_user_gets_their_own_lock() {
+        let root = Some("/Users/shared/run".as_ref());
+        assert_ne!(
+            scope_identifier(BASE, Some(501), root),
+            scope_identifier(BASE, Some(502), root)
+        );
     }
 
     #[cfg(not(feature = "parity-driver"))]
     #[test]
-    fn identifier_without_a_root_is_unchanged() {
-        assert_eq!(scope_identifier("com.x.app", None), "com.x.app");
+    fn identifier_without_a_root_is_per_user_only() {
+        assert_eq!(scope_identifier(BASE, None, None), BASE);
+        assert_eq!(
+            scope_identifier(BASE, Some(501), None),
+            "com.better-mayhem-tracker.app.u501"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_user_id_is_this_process_user() {
+        let home = std::env::var_os("HOME").expect("HOME is set");
+        use std::os::unix::fs::MetadataExt;
+        let owner = std::fs::metadata(home).expect("home exists").uid();
+        assert_eq!(user_id(), Some(owner));
     }
 
     static LINES: Mutex<Vec<String>> = Mutex::new(Vec::new());
