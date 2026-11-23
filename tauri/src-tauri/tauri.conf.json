@@ -1,6 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/3",
   "productName": "Better Mayhem Tracker",
+  "mainBinaryName": "Better Mayhem Tracker",
   "version": "../../package.json",
   "identifier": "com.better-mayhem-tracker.app",
   "build": {

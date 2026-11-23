@@ -19,11 +19,46 @@ export type Renderer = "electron" | "solid";
 
 const READY_LINE = new RegExp(`${SENTINEL} listening 127\\.0\\.0\\.1:(\\d+)`);
 
-/** The debug build with `--features parity-driver`. */
-export function tauriBinary(repo: string = REPO_DIR): string {
-  const exe = process.platform === "win32" ? ".exe" : "";
-  const target = process.env.CARGO_TARGET_DIR ?? path.join(repo, "tauri", "src-tauri", "target");
-  return path.join(target, "debug", `better-mayhem-tracker-tauri${exe}`);
+/**
+ * The names a debug build goes by. `tauri build` moves cargo's output to
+ * `mainBinaryName`, and a plain `cargo build` leaves cargo's name.
+ */
+export function tauriBinaryNames(platform: NodeJS.Platform = process.platform): string[] {
+  const exe = platform === "win32" ? ".exe" : "";
+  return [`Better Mayhem Tracker${exe}`, `better-mayhem-tracker-tauri${exe}`];
+}
+
+export interface TauriBinaryOptions {
+  platform?: NodeJS.Platform;
+  targetDir?: string;
+  log?: (line: string) => void;
+}
+
+/** The debug build with `--features parity-driver`, under whichever name exists, the newer when both do. */
+export function tauriBinary(repo: string = REPO_DIR, options: TauriBinaryOptions = {}): string {
+  const target =
+    options.targetDir ??
+    process.env.CARGO_TARGET_DIR ??
+    path.join(repo, "tauri", "src-tauri", "target");
+  const candidates = tauriBinaryNames(options.platform).map((name) =>
+    path.join(target, "debug", name),
+  );
+  const found = candidates.flatMap((file) => {
+    const stat = fs.statSync(file, { throwIfNoEntry: false });
+    return stat ? [{ file, mtime: stat.mtimeMs }] : [];
+  });
+  const [first, second] = found;
+  if (!first) {
+    throw new Error(
+      `Neither ${candidates.join(" nor ")} exists. Run \`CI=true bun run tauri build --debug --no-bundle --features parity-driver\` in tauri/.`,
+    );
+  }
+  if (!second) return first.file;
+  const newer = second.mtime > first.mtime ? second : first;
+  (options.log ?? console.log)(
+    `Both ${first.file} and ${second.file} exist; using the newer ${newer.file}`,
+  );
+  return newer.file;
 }
 
 export const PRODUCTION_IDENTIFIER = "com.better-mayhem-tracker.app";

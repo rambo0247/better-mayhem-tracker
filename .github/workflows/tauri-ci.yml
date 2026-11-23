@@ -123,7 +123,7 @@ jobs:
       # the parity driver prints "refused to start" too
       - name: Check the debug build refuses the real data folder
         run: |
-          exe=src-tauri/target/debug/better-mayhem-tracker-tauri
+          exe="src-tauri/target/debug/Better Mayhem Tracker"
           if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
           code=0
           env -u BMT_DATA_ROOT "$exe" > guard.log 2>&1 || code=$?
@@ -136,7 +136,7 @@ jobs:
 
       - name: Launch the debug build and read its window
         run: |
-          exe=src-tauri/target/debug/better-mayhem-tracker-tauri
+          exe="src-tauri/target/debug/Better Mayhem Tracker"
           if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
           BMT_DATA_ROOT="$RUNNER_TEMP/bmt-data" "$exe" > window.log 2>&1 &
           pid=$!
@@ -153,7 +153,7 @@ jobs:
       - name: Build release and check it holds no parity driver
         run: |
           bun run tauri build --no-bundle
-          exe=src-tauri/target/release/better-mayhem-tracker-tauri
+          exe="src-tauri/target/release/Better Mayhem Tracker"
           if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
           ls -l "$exe"
           # BMT_DATA_ROOT too: a release build must not be redirectable away
@@ -254,7 +254,7 @@ jobs:
       - name: Build with the parity driver and find its sentinel
         run: |
           bun run tauri build --debug --no-bundle --features parity-driver
-          exe=src-tauri/target/debug/better-mayhem-tracker-tauri
+          exe="src-tauri/target/debug/Better Mayhem Tracker"
           if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
           grep -a -q bmt-parity-driver-v1 "$exe"
           echo "driver build: bmt-parity-driver-v1 found"
