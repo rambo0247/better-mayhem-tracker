@@ -4,9 +4,8 @@
 //! whichever is in place, putting the old one back if the swap fails. An app
 //! that never exits is left alone.
 //!
-//! Paths are macOS paths held as text and joined with `/`, as Node's
-//! `path.join` does there, so the script is the same on every host that
-//! builds or tests it.
+//! Paths are macOS paths held as text, so the script is the same on every
+//! host that builds or tests it.
 
 pub struct MacSwap {
     /// The process to wait out before touching its bundle.
@@ -22,20 +21,6 @@ pub struct MacSwap {
     /// The download's temp folder, removed last.
     pub tmp_dir: String,
     pub relaunch_args: Vec<String>,
-}
-
-/// `path.posix.join(dir, name)` for a `name` with no `/` in it.
-pub fn mac_join(dir: &str, name: &str) -> String {
-    format!("{}/{name}", dir.trim_end_matches('/'))
-}
-
-/// `path.posix.dirname(path)` for an absolute path.
-pub fn mac_parent(path: &str) -> &str {
-    let path = path.trim_end_matches('/');
-    match path.rfind('/') {
-        Some(0) | None => "/",
-        Some(at) => &path[..at],
-    }
 }
 
 /// Single-quoted for sh, which takes everything literally inside but a quote.
@@ -87,6 +72,12 @@ pub fn mac_swap_script(swap: &MacSwap) -> String {
 mod tests {
     use super::*;
 
+    /// `path.posix.join(dir, name)` for a `name` with no `/` in it, so the
+    /// expected paths read as macOS writes them on any host.
+    fn mac_join(dir: &str, name: &str) -> String {
+        format!("{}/{name}", dir.trim_end_matches('/'))
+    }
+
     /// `macSwapScript`'s output for these inputs, written by
     /// `src/main/mac-update-script.ts` under bun.
     fn electron(name: &str) -> String {
@@ -125,14 +116,5 @@ mod tests {
             relaunch_args: Vec::new(),
         };
         assert_eq!(mac_swap_script(&swap), electron("plain"));
-    }
-
-    #[test]
-    fn joins_and_parents_as_node_posix_path_does() {
-        assert_eq!(mac_join("/Applications", "B.app"), "/Applications/B.app");
-        assert_eq!(mac_join("/", ".B.app.update"), "/.B.app.update");
-        assert_eq!(mac_parent("/Applications/B.app"), "/Applications");
-        assert_eq!(mac_parent("/Applications/B.app/"), "/Applications");
-        assert_eq!(mac_parent("/B.app"), "/");
     }
 }
