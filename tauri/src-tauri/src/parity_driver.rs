@@ -621,6 +621,7 @@ fn dispatch(window: &WebviewWindow, body: &Value) -> Result<Response, String> {
         }
         "resize" => {
             let (width, height) = (number(body, "width")?, number(body, "height")?);
+            platform::set_page_height(window, None)?;
             let (x, y) = WINDOW_POSITION;
             window
                 .set_position(LogicalPosition::new(x, y))
@@ -638,6 +639,10 @@ fn dispatch(window: &WebviewWindow, body: &Value) -> Result<Response, String> {
             let scale = body["scale"].as_f64().unwrap_or(2.0);
             let emulated = platform::emulate_viewport(window, width, height, scale)?;
             Ok(Response::json(200, &json!({ "emulated": emulated })))
+        }
+        "page-height" => {
+            let (width, height) = platform::set_page_height(window, body["height"].as_f64())?;
+            Ok(Response::json(200, &json!({ "frame": [width, height] })))
         }
         "navigate" | "reload" => {
             let before = loads_so_far();
@@ -926,7 +931,7 @@ fn serve_asset(uri: &tauri::http::Uri) -> tauri::http::Response<Cow<'static, [u8
 
 #[cfg(target_os = "macos")]
 mod mac {
-    use std::sync::mpsc;
+    use std::sync::{Mutex, mpsc};
     use std::time::Duration;
 
     use block2::RcBlock;
@@ -934,7 +939,7 @@ mod mac {
     use objc2::runtime::{AnyObject, NSObjectProtocol};
     use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSWindowOcclusionState};
     use objc2_foundation::{
-        NSActivityOptions, NSEdgeInsets, NSError, NSPoint, NSProcessInfo, NSString,
+        NSActivityOptions, NSEdgeInsets, NSError, NSPoint, NSProcessInfo, NSRect, NSSize, NSString,
     };
     use objc2_web_kit::{WKContentWorld, WKWebView};
     use tauri::WebviewWindow;
@@ -1179,6 +1184,55 @@ mod mac {
         Ok(false)
     }
 
+    /// The frame the window gave the webview, kept while the webview is grown past it.
+    static WINDOW_FRAME: Mutex<Option<NSRect>> = Mutex::new(None);
+
+    /// macOS keeps a window on its screen, so a card taller than the screen would lay out
+    /// and snapshot short. This grows the webview past the window's bottom edge until the
+    /// page is `height` CSS px tall. `None` gives the webview back the window's frame.
+    pub fn set_page_height(
+        window: &WebviewWindow,
+        height: Option<f64>,
+    ) -> Result<(f64, f64), String> {
+        on_webview(
+            window,
+            Duration::from_secs(5),
+            "the webview frame",
+            move |web, _mtm, tx| {
+                let mut saved = WINDOW_FRAME
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                let frame = match height {
+                    None => {
+                        if let Some(frame) = saved.take() {
+                            web.setFrame(frame);
+                        }
+                        web.frame()
+                    }
+                    Some(height) => {
+                        let base = *saved.get_or_insert_with(|| web.frame());
+                        let tall = height + top_inset(web);
+                        // SAFETY: on the main thread, and the superview outlives this call
+                        let superview = unsafe { web.superview() };
+                        let flipped = superview.is_some_and(|view| view.isFlipped());
+                        let y = if flipped {
+                            base.origin.y
+                        } else {
+                            base.origin.y + base.size.height - tall
+                        };
+                        let frame = NSRect::new(
+                            NSPoint::new(base.origin.x, y),
+                            NSSize::new(base.size.width, tall),
+                        );
+                        web.setFrame(frame);
+                        frame
+                    }
+                };
+                let _ = tx.send(Ok((frame.size.width, frame.size.height)));
+            },
+        )
+    }
+
     pub fn top_inset_of(window: &WebviewWindow) -> Result<f64, String> {
         on_webview(
             window,
@@ -1328,6 +1382,24 @@ mod win {
         Ok(0.0)
     }
 
+    /// The viewport emulation already sets any height, so the frame never grows.
+    pub fn set_page_height(
+        window: &WebviewWindow,
+        height: Option<f64>,
+    ) -> Result<(f64, f64), String> {
+        match height {
+            None => {
+                let scale = window.scale_factor().map_err(|e| e.to_string())?;
+                let size = window
+                    .inner_size()
+                    .map_err(|e| e.to_string())?
+                    .to_logical::<f64>(scale);
+                Ok((size.width, size.height))
+            }
+            Some(_) => Err("WebView2 sets the page height through viewport emulation".into()),
+        }
+    }
+
     /// What Playwright does for a viewport and device scale: a window of that size at scale 2
     /// is larger than a CI runner's screen, and the OS would shrink it.
     pub fn emulate_viewport(
@@ -1389,6 +1461,12 @@ mod other {
     }
     pub fn emulate_viewport(_: &WebviewWindow, _: f64, _: f64, _: f64) -> Result<bool, String> {
         Ok(false)
+    }
+    pub fn set_page_height(_: &WebviewWindow, height: Option<f64>) -> Result<(f64, f64), String> {
+        match height {
+            None => Ok((0.0, 0.0)),
+            Some(_) => Err(NONE.into()),
+        }
     }
 }
 

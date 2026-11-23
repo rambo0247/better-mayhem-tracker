@@ -65,6 +65,24 @@ Client states live in `states-client.ts`. Rows with `empty` run on a copy of the
 - Same engine: pixelmatch `threshold` 0.03, `includeAA` on, zero differing pixels.
 - Cross engine: the layout gate (same element count, every box within 1 CSS px), then pixelmatch `threshold` 0.1, `includeAA` off, at most 0.3% of the page, and no 64 by 64 CSS px tile above 8%. A declared blur region is judged by the tile rule at threshold 0.2 and left out of the page count.
 
+## Engine-difference register
+
+Differences between Chromium and WebKit that the cross-engine layout gate leaves out. Each is invisible on the page, the root approved it, and `test/register.test.ts` holds negative controls showing that a real shift of the same boxes still fails.
+
+### A. SVG paint-server content
+
+- Where: `trends-default` and `trends-weekly`, the `<rect>` inside the chart's `<pattern>` in `<defs>`.
+- Measured: WebKit gives it a box at 263, 507, 2 by 6 CSS px. Chromium gives it none. So WebKit's walk has 926 elements against Chromium's 925, and every later path is off by one.
+- Rule: `geometry.js` skips SVG `defs`, `pattern`, `clipPath`, `mask`, `symbol`, `marker`, `linearGradient`, `radialGradient` and `filter`, with their descendants. They paint nothing where they sit. An HTML element with one of those names is kept.
+- Controls: a bar the chart fills from that `<pattern>` (563.32, 647, 31.36 by 12), and one it fills from a gradient, each moved 2 px in x or y still fail. They sit outside `<defs>`, so the walk keeps them.
+
+### B. Inline boxes inside an overflowing ellipsis container
+
+- Where: `match-history-narrow-900`, the truncated friend name's `bdi`.
+- Measured: Chromium's box is 187, 192.75, 124.44 by 26.5, covering the text and the ellipsis. WebKit's is 187, 192.8, 119.48 by 26.4, the width of the text run (a `Range` over it measures 119.48 in both engines). The `.truncate` container is 126.6 wide in Chromium and 126.59 in WebKit.
+- Rule: `geometry.js` marks a row `"ellipsis"` when an ancestor has `text-overflow: ellipsis`, an `overflow-x` other than `visible`, and `scrollWidth > clientWidth`. When both engines mark a row, the gate compares its x, y and height and not its width, and counts it in `widthExempt`. The container itself is compared in full.
+- Controls: the `bdi` moved 2 px in x, in y, or grown 2 px in height each fail. The container 2 px narrower fails. A row that only one engine marks is compared on width.
+
 ## Determinism
 
 `run-electron.ts` passes `--force-device-scale-factor=2`, `--force-color-profile=srgb`, `--lang=en-US`, `TZ=America/New_York`, freezes the renderer clock with `context.clock.setFixedTime` and the main-process clock in the seam, aborts renderer `http` and `https`, and blocks main-process network except loopback. `settle.ts` waits for fonts, decoded images, a client status past "Connecting...", and 1.2 s of unchanged DOM, then kills animation and parks the mouse. Each state starts from cleared `localStorage` and a reload, and restores any setting it changed.
@@ -77,13 +95,14 @@ Build the driver into a debug binary first. It is a Cargo feature that a release
 cd tauri && CI=true bun run tauri build --debug --no-bundle --features parity-driver
 ```
 
-`run-tauri.ts` launches `tauri/src-tauri/target/debug/better-mayhem-tracker-tauri` (or `$CARGO_TARGET_DIR/debug/...`, or `--binary`) with a fresh token. The driver listens on `127.0.0.1`, refuses any request without the token or from another host, keeps the page on the origin it opened at, and offers primitives: `eval` (awaits promises), `mouse` and `key` (native events sent to the webview, so the window is never made key and the app never activates), `wheel`, `resize`, `navigate`, `reload`, `snapshot` (the webview's own pixels, converted to sRGB), `info`, `quit`. Selector rules, settle, and states stay in TypeScript, shared with Electron.
+`run-tauri.ts` launches `tauri/src-tauri/target/debug/better-mayhem-tracker-tauri` (or `$CARGO_TARGET_DIR/debug/...`, or `--binary`) with a fresh token. The driver listens on `127.0.0.1`, refuses any request without the token or from another host, keeps the page on the origin it opened at, and offers primitives: `eval` (awaits promises), `mouse` and `key` (native events sent to the webview, so the window is never made key and the app never activates), `wheel`, `resize`, `page-height`, `navigate`, `reload`, `snapshot` (the webview's own pixels, converted to sRGB), `info`, `quit`. Selector rules, settle, and states stay in TypeScript, shared with Electron.
 
 - `--renderer electron` loads `out/renderer` from a `parity:` scheme (`http://parity.localhost` on Windows), serves the data's asset cache under `asset:` the way Electron's cache files it, and installs `replay-api.js`, which answers `window.api` from `parity/out/golden` (T05's format, `goldens/FORMAT.md`). Matching follows FORMAT.md: equal canonical arguments, the lowest `seq` on a tie, write groups in `seq` order behind one cursor per channel, then the `default` case. A call answered by `default` is a miss, and a call with no golden throws `ReplayMiss`. Each state's misses and calls are in its `.meta.json`, and capture fails a state with a miss its row does not declare in `replayMisses`. A setting written with a golden is read back, across the reload each state does.
 - The page clock is frozen at the same instant as Electron's, `TZ` is `America/New_York`, and macOS gets `-AppleLanguages (en-US)`. WebView2 gets the same Chromium switches as Electron: device scale 2, sRGB, `--disable-gpu`, `--lang=en-US`.
 - On macOS the driver build is an accessory app: no Dock icon, never focused, never activated. Its window sits at 40,40 like Electron's and floats above other windows while the app runs, because WebKit stops painting a covered window. So the app runs only while it captures: `capture.ts` closes it before it waits out a League game and relaunches after, and `run-tauri.ts` closes it when a game starts. It holds off App Nap and idle display sleep until it exits.
 - Every capture records the boxes of elements with a `backdrop-filter` as blur regions, which WebKit's snapshots do not draw, and the cross-engine report judges them by the 0.2 threshold tile rule.
 - On macOS 26 the webview loses 32 px of its frame to the title bar, so `TauriEngine.resizeWindow` sizes the window by what the page reports, and snapshots take exactly the viewport.
+- macOS keeps a window on its screen, so a card taller than the screen (the season cards are 1788 and 1742 CSS px) would lay out and snapshot short. When the window stops short of the asked height, the driver's `page-height` primitive grows the webview past the window's bottom edge until the page has the full height, and the next `resize` gives it back the window's frame. The capture records the clamp in `.meta.json`.
 
 ## Windows
 

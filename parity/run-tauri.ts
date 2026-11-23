@@ -398,9 +398,10 @@ export class TauriEngine implements Engine {
   /** Last snapshot's facts, recorded with each capture. */
   lastSnapshot?: { width: number; height: number; sourceColorSpace: string; backingScale: number };
 
-  async screenshot(file: string) {
+  async screenshot(file: string, options: { fullPage?: boolean } = {}) {
+    const size = options.fullPage ? await this.growToFullPage() : this.viewport;
     const response = await this.driver
-      .call("snapshot", { scale: 2, ...this.viewport })
+      .call("snapshot", { scale: 2, ...size })
       .catch(async (error) => {
         const { occluded } = await this.driver.json<{ occluded: boolean }>("info");
         // WebKit paints no window that is covered or on a sleeping display
@@ -475,6 +476,29 @@ export class TauriEngine implements Engine {
     // The OS keeps a window on its screen; Electron's runner accepts the same clamp unchecked
     this.clamped = { asked: [width, height], seen };
     this.viewport = { width: seen[0], height: seen[1] };
+  }
+
+  /**
+   * Playwright's fullPage: a page taller than the viewport is shot at its scroll height. The
+   * window cannot grow past the screen, so the webview grows past the window's bottom edge,
+   * and the next resize gives it back the window's frame.
+   */
+  private async growToFullPage() {
+    const height = await this.evaluate(() => document.documentElement.scrollHeight);
+    if (height <= this.viewport.height) return this.viewport;
+    await this.driver.call("page-height", { height });
+    const deadline = Date.now() + 2000;
+    let seen = await this.evaluate(() => [innerWidth, innerHeight] as [number, number]);
+    while (seen[1] !== height && Date.now() < deadline) {
+      await Bun.sleep(50);
+      seen = await this.evaluate(() => [innerWidth, innerHeight] as [number, number]);
+    }
+    if (seen[0] !== this.viewport.width || seen[1] !== height) {
+      throw new Error(
+        `the page is ${height} CSS px tall, and the grown webview shows ${seen[0]}x${seen[1]}`,
+      );
+    }
+    return { width: seen[0], height };
   }
 }
 

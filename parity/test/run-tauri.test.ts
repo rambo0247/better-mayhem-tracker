@@ -134,12 +134,20 @@ describe.skipIf(process.platform === "win32")("launching", () => {
  * A window whose page loses a strip to the title bar and whose screen stops it at a
  * maximum height, answering the driver calls `resizeWindow` makes.
  */
-function fakeWindow(options: { inset: number; maxWindowHeight: number; maxWindowWidth?: number }) {
+function fakeWindow(options: {
+  inset: number;
+  maxWindowHeight: number;
+  maxWindowWidth?: number;
+  documentHeight?: number;
+  webviewGrows?: boolean;
+}) {
   const window = { width: 1280, height: 820 };
   const resizes: [number, number][] = [];
+  const snapshots: Record<string, unknown>[] = [];
+  let grownPage: number | undefined;
   const page = () => [
     Math.min(window.width, options.maxWindowWidth ?? Infinity),
-    Math.min(window.height, options.maxWindowHeight) - options.inset,
+    grownPage ?? Math.min(window.height, options.maxWindowHeight) - options.inset,
   ];
   const driver = {
     port: 0,
@@ -147,10 +155,22 @@ function fakeWindow(options: { inset: number; maxWindowHeight: number; maxWindow
       if (op === "resize") {
         window.width = body.width as number;
         window.height = body.height as number;
+        grownPage = undefined;
         resizes.push([window.width, window.height]);
         return Response.json({});
       }
-      if (op === "eval") return Response.json(page());
+      if (op === "page-height") {
+        if (options.webviewGrows !== false) grownPage = body.height as number;
+        return Response.json({});
+      }
+      if (op === "snapshot") {
+        snapshots.push(body);
+        return new Response(new Uint8Array(0));
+      }
+      if (op === "eval") {
+        const asksScroll = String(body.expression).includes("scrollHeight");
+        return Response.json(asksScroll ? (options.documentHeight ?? page()[1]) : page());
+      }
       throw new Error(`unexpected ${op}`);
     },
     async json(op: string) {
@@ -158,7 +178,7 @@ function fakeWindow(options: { inset: number; maxWindowHeight: number; maxWindow
       throw new Error(`unexpected ${op}`);
     },
   };
-  return { engine: new TauriEngine(driver as unknown as TauriDriver), resizes };
+  return { engine: new TauriEngine(driver as unknown as TauriDriver), resizes, snapshots };
 }
 
 describe("steering the Tauri window by the page's size", () => {
@@ -173,8 +193,47 @@ describe("steering the Tauri window by the page's size", () => {
 
   test("records a screen clamp instead of failing", async () => {
     const { engine } = fakeWindow({ inset: 32, maxWindowHeight: 1410 });
-    await engine.resizeWindow(1200, 1600);
-    expect(engine.clamped).toEqual({ asked: [1200, 1600], seen: [1200, 1378] });
+    await engine.resizeWindow(1200, 1742);
+    expect(engine.clamped).toEqual({ asked: [1200, 1742], seen: [1200, 1378] });
+  });
+
+  test("a full-page shot of a page taller than the screen grows the webview to its scroll height", async () => {
+    const dir = scratch();
+    const { engine, snapshots } = fakeWindow({
+      inset: 32,
+      maxWindowHeight: 1410,
+      documentHeight: 1741,
+    });
+    await engine.resizeWindow(1200, 1742);
+    await engine.screenshot(path.join(dir, "card.png"), { fullPage: true });
+    expect(snapshots.at(-1)).toEqual({ scale: 2, width: 1200, height: 1741 });
+    await engine.screenshot(path.join(dir, "viewport.png"));
+    expect(snapshots.at(-1)).toEqual({ scale: 2, width: 1200, height: 1378 });
+    await engine.resizeWindow(1200, 820);
+    expect(await engine.evaluate(() => [innerWidth, innerHeight])).toEqual([1200, 820]);
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  test("a full-page shot of a page that fits takes the viewport", async () => {
+    const dir = scratch();
+    const { engine, snapshots } = fakeWindow({ inset: 32, maxWindowHeight: 5000 });
+    await engine.resizeWindow(1200, 956);
+    await engine.screenshot(path.join(dir, "card.png"), { fullPage: true });
+    expect(snapshots.at(-1)).toEqual({ scale: 2, width: 1200, height: 956 });
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  test("a full-page shot fails when the grown webview still shows a short page", async () => {
+    const { engine } = fakeWindow({
+      inset: 32,
+      maxWindowHeight: 1410,
+      documentHeight: 1741,
+      webviewGrows: false,
+    });
+    await engine.resizeWindow(1200, 1742);
+    await expect(
+      engine.screenshot(path.join(scratch(), "x.png"), { fullPage: true }),
+    ).rejects.toThrow(/the page is 1741 CSS px tall, and the grown webview shows 1200x1378/);
   });
 
   test("fails when the width cannot be reached", async () => {

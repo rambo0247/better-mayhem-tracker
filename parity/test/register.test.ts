@@ -79,7 +79,7 @@ describe("rule A: SVG paint-server content", () => {
                 ),
               ],
             ),
-            new FakeSvgElement("rect", [283.32, 601.22, 31.36, 57.78]),
+            new FakeSvgElement("rect", [563.32, 647, 31.36, 12]),
           ],
         ),
       ],
