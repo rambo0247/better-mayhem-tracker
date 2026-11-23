@@ -421,53 +421,9 @@ pub fn get_champion_match_history(
     match_page(conn, &w, "g.game_creation DESC", limit, offset)
 }
 
-/// `Number(text)`: whitespace trims, blank is 0, `Infinity` and the `0x`,
-/// `0o` and `0b` forms read as JavaScript reads them, and anything else that
-/// is not a plain decimal is NaN. Rust's own parse also takes `inf`, `nan`,
-/// and a sign inside a radix literal, which `Number` does not.
-fn js_number(text: &str) -> f64 {
-    let t = text.trim_matches(|c: char| (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}');
-    if t.is_empty() {
-        return 0.0;
-    }
-    for (prefixes, radix) in [(["0x", "0X"], 16), (["0o", "0O"], 8), (["0b", "0B"], 2)] {
-        if let Some(digits) = prefixes.iter().find_map(|p| t.strip_prefix(p)) {
-            if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
-                return f64::NAN;
-            }
-            return digits.chars().fold(0.0, |n, c| {
-                n * f64::from(radix) + f64::from(c.to_digit(radix).unwrap_or(0))
-            });
-        }
-    }
-    let unsigned = t.strip_prefix(['+', '-']).unwrap_or(t);
-    if unsigned == "Infinity" {
-        return if t.starts_with('-') {
-            f64::NEG_INFINITY
-        } else {
-            f64::INFINITY
-        };
-    }
-    let (mantissa, exponent) = match unsigned.split_once(['e', 'E']) {
-        Some((m, e)) => (m, Some(e)),
-        None => (unsigned, None),
-    };
-    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
-    let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
-    let mantissa_ok = (digits(whole) || whole.is_empty())
-        && (digits(fraction) || fraction.is_empty())
-        && !(whole.is_empty() && fraction.is_empty());
-    let exponent_ok = exponent.is_none_or(|e| digits(e.strip_prefix(['+', '-']).unwrap_or(e)));
-    if mantissa_ok && exponent_ok {
-        t.parse().unwrap_or(f64::NAN)
-    } else {
-        f64::NAN
-    }
-}
-
 /// `Number` of a patch component, where a missing one is `undefined`: NaN.
 fn patch_part(text: Option<&str>) -> f64 {
-    text.map_or(f64::NAN, js_number)
+    text.map_or(f64::NAN, js::string_to_number)
 }
 
 /// The patch dropdown's comparator, `bMajor - aMajor || bMinor - aMinor`.
@@ -1311,50 +1267,6 @@ mod tests {
         assert!(options.has_favorites);
         let names: Vec<_> = options.accounts.iter().map(|a| a.puuid.as_str()).collect();
         assert_eq!(names, ["p2", "p1"]);
-    }
-
-    #[test]
-    fn number_reads_text_as_javascript_does() {
-        let cases: [(&str, f64); 31] = [
-            ("", 0.0),
-            ("  ", 0.0),
-            ("16", 16.0),
-            ("0x10", 16.0),
-            ("0X1f", 31.0),
-            ("0o17", 15.0),
-            ("0b101", 5.0),
-            ("Infinity", f64::INFINITY),
-            ("-Infinity", f64::NEG_INFINITY),
-            ("+Infinity", f64::INFINITY),
-            ("1e3", 1000.0),
-            ("1E3", 1000.0),
-            (".5", 0.5),
-            ("5.", 5.0),
-            ("+.5e-3", 0.0005),
-            ("\u{a0}16", 16.0),
-            ("\u{feff}7", 7.0),
-            (" 7\n", 7.0),
-            ("0x1fffffffffffff", 9_007_199_254_740_991.0),
-            ("0x", f64::NAN),
-            ("0xg", f64::NAN),
-            ("-0x1", f64::NAN),
-            ("+0x1", f64::NAN),
-            ("0x+1", f64::NAN),
-            ("infinity", f64::NAN),
-            ("inf", f64::NAN),
-            ("nan", f64::NAN),
-            ("1e", f64::NAN),
-            ("1_6", f64::NAN),
-            ("\u{85}6", f64::NAN),
-            ("1e1e1", f64::NAN),
-        ];
-        for (text, want) in cases {
-            let got = js_number(text);
-            assert!(
-                got == want || (got.is_nan() && want.is_nan()),
-                "Number({text:?}) is {want}, read as {got}"
-            );
-        }
     }
 
     fn sorted_patches(input: &[&str]) -> Vec<String> {
