@@ -3,7 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { channelDirName, channelFromDirName } from "../golden-format.ts";
-import { IPC_CASES } from "../ipc-cases.ts";
+import { IPC_CASES, SEAM_STAMP } from "../ipc-cases.ts";
+import { FIXED_TIME, TIME_ZONE } from "../run-electron.ts";
 import {
   channelMedians,
   checkCoverage,
@@ -52,6 +53,41 @@ describe("the case table", () => {
       expect(seen.has(key)).toBe(false);
       seen.add(key);
       expect(testCase.id).toMatch(/^[a-z0-9-]+$/);
+    }
+  });
+
+  test("SEAM_STAMP is the frozen clock's backup stamp", () => {
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: TIME_ZONE,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+        .formatToParts(FIXED_TIME)
+        .map((p) => [p.type, p.value]),
+    );
+    expect(SEAM_STAMP).toBe(
+      `${parts.year}-${parts.month}-${parts.day}T${parts.hour}-${parts.minute}-${parts.second}`,
+    );
+  });
+
+  test("a call that takes a snapshot reads it back", () => {
+    const snapshots: Record<string, string> = {
+      "restoreBackup/restore": "pre-restore",
+      "importData/same-file": "pre-import",
+      "repairPuuids/run": "pre-repair",
+    };
+    for (const [key, reason] of Object.entries(snapshots)) {
+      const testCase = IPC_CASES.find((c) => `${c.method}/${c.id}` === key);
+      const outcome = { kind: "value", result: null } as const;
+      expect(testCase?.files?.({} as never, outcome)).toEqual([
+        `$RUN/backups/matches-${SEAM_STAMP}-${reason}.db`,
+      ]);
     }
   });
 

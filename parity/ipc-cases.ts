@@ -42,6 +42,12 @@ export interface IpcCase {
   prepare?: (run: string) => void;
 }
 
+/** `FIXED_TIME` as the backups module stamps a file name, in the seam's time zone. */
+export const SEAM_STAMP = "2026-11-22T21-00-00";
+
+/** The snapshot a backup with `reason` writes under the frozen clock. */
+const snapshot = (reason: string) => () => [`$RUN/backups/matches-${SEAM_STAMP}-${reason}.db`];
+
 const READ = "read";
 const list: IpcCase[] = [];
 
@@ -317,14 +323,21 @@ write(BAK, "createBackup", "create", "a manual backup", () => [], {
 });
 write(BAK, "listBackups", "after", "the new backup is listed");
 write(BAK, "getMatchDetail", "pre-restore", "a game before the restore", (v) => [v.gameId]);
-write(BAK, "restoreBackup", "restore", "restore the backup just made", (_v, prior) => {
-  const created = prior.create;
-  const file =
-    created?.kind === "value"
-      ? (created.result as { backup?: { file?: string } }).backup?.file
-      : "";
-  return [file ?? ""];
-});
+write(
+  BAK,
+  "restoreBackup",
+  "restore",
+  "restore the backup just made",
+  (_v, prior) => {
+    const created = prior.create;
+    const file =
+      created?.kind === "value"
+        ? (created.result as { backup?: { file?: string } }).backup?.file
+        : "";
+    return [file ?? ""];
+  },
+  { files: snapshot("pre-restore") },
+);
 write(BAK, "listBackups", "after-restore", "restore adds a pre-restore snapshot");
 write(BAK, "restoreBackup", "missing", "a backup file that does not exist", () => [
   "no-such-backup.db",
@@ -347,6 +360,7 @@ write(DATA, "importData", "cancelled", "the open dialog is dismissed", () => [],
 });
 write(DATA, "importData", "same-file", "import the file just exported", () => [], {
   dialogs: { open: "$RUN/export.json" },
+  files: snapshot("pre-import"),
 });
 write(DATA, "importData", "not-json", "a file that is not JSON", () => [], {
   dialogs: { open: "$RUN/not-json.json" },
@@ -360,7 +374,9 @@ write(DATA, "getMatchHistory", "after-imports", "the list after the imports", ()
 
 const REPAIR = "repair";
 write(REPAIR, "getAllSummonerPuuids", "before", "accounts before the repair");
-write(REPAIR, "repairPuuids", "run", "repair on the fixture");
+write(REPAIR, "repairPuuids", "run", "repair on the fixture", () => [], {
+  files: snapshot("pre-repair"),
+});
 write(REPAIR, "getAllSummonerPuuids", "after", "accounts after the repair");
 write(REPAIR, "listBackups", "after-repair", "the repair takes a pre-repair snapshot");
 
