@@ -11,6 +11,9 @@
 //! database is copied to a temp folder before it opens. Without
 //! `BMT_GOLDEN_DATA` only the backfill folders run.
 
+// clippy.toml keeps wall-clock reads out of command bodies; this test times its own runs
+#![allow(clippy::disallowed_methods)]
+
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Instant;
