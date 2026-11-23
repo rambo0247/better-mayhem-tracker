@@ -1,7 +1,9 @@
 //! One process, two apps, two data roots: `app_builder` reads
 //! `BMT_DATA_ROOT` each time it builds, as golden replay relies on per group.
 //! Its own test binary, since setting the environment is only sound while no
-//! other thread reads it.
+//! other thread reads it. A release build has no override, so no test.
+
+#![cfg(not(bmt_release_profile))]
 
 use bmt_lib::paths::{Paths, ROOT_OVERRIDE};
 use bmt_lib::security::Effects;
