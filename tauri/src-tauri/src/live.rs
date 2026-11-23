@@ -303,6 +303,9 @@ impl HttpGameApi {
             reqwest::Client::builder()
                 .tls_backend_preconfigured(tls)
                 .http1_only()
+                // A connection the game closed while idle fails the next
+                // request, and the updater reads a failure as a game running
+                .pool_max_idle_per_host(0)
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(REQUEST_TIMEOUT)
@@ -2508,6 +2511,54 @@ mod tests {
             }
         });
         port
+    }
+
+    /// A game that keeps a connection open after its answer, then drops it
+    /// when the next request arrives, as a server whose keep-alive ran out
+    /// does. A request on that connection would never reach the game.
+    #[tokio::test]
+    async fn each_request_to_the_game_opens_its_own_connection() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+        let key = rustls::pki_types::PrivateKeyDer::Pkcs8(cert.signing_key.serialize_der().into());
+        let config = rustls::ServerConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_no_client_auth()
+        .with_single_cert(vec![cert.cert.der().clone()], key)
+        .unwrap();
+        let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(config));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            while let Ok((tcp, _)) = listener.accept().await {
+                let acceptor = acceptor.clone();
+                tokio::spawn(async move {
+                    let Ok(mut tls) = acceptor.accept(tcp).await else {
+                        return;
+                    };
+                    let mut buf = [0u8; 4096];
+                    let _ = tls.read(&mut buf).await;
+                    let body = r#"{"gameTime": 1.5}"#;
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
+                        body.len()
+                    );
+                    let _ = tls.write_all(response.as_bytes()).await;
+                    let _ = tls.read(&mut buf).await;
+                });
+            }
+        });
+        let game = HttpGameApi::new(GameApiTarget::Port(port));
+        for poll in 1..=3 {
+            assert_eq!(
+                game.get(GAME_STATS_PATH).await,
+                Ok(json!({"gameTime": 1.5})),
+                "poll {poll}"
+            );
+        }
     }
 
     #[tokio::test]
