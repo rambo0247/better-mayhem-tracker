@@ -490,6 +490,27 @@ mod tests {
         assert_eq!(participant_rows_from_raw(None), Ok(vec![]));
     }
 
+    /// Each text and what Node's `JSON.stringify(JSON.parse(text))` prints:
+    /// the parse must land on the same double, so it must be correctly
+    /// rounded (the verifier's fuzz and hostile V0 lane).
+    #[test]
+    fn floats_parse_to_the_double_json_parse_gives() {
+        let cases = [
+            ("[9.241516992974401e+110]", "[9.241516992974401e+110]"),
+            ("[0.45454545454545453]", "[0.45454545454545453]"),
+            ("[1.0063725663392093e+82]", "[1.0063725663392093e+82]"),
+            ("[-3.8017925100238707e+197]", "[-3.8017925100238707e+197]"),
+            ("[-3.652336815595322e+125]", "[-3.652336815595322e+125]"),
+            ("[9.24151699297440102308e+110]", "[9.241516992974401e+110]"),
+            ("[2.04730697123433796357e+192]", "[2.047306971234338e+192]"),
+            ("[123456789012345678901234567890]", "[1.2345678901234568e+29]"),
+        ];
+        for (text, node) in cases {
+            let parsed = unpack_raw(Some(&gzip(text.as_bytes()))).unwrap();
+            assert_eq!(js::stringify(&parsed), node, "{text}");
+        }
+    }
+
     #[test]
     fn payloads_round_trip() {
         let raw = json!({ "gameId": 7, "b": [1.5, "x"], "a": null });
