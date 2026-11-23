@@ -274,6 +274,16 @@ fn wait_for_load_after(before: u64, timeout: Duration) -> Result<(), String> {
     Ok(())
 }
 
+/// Every asset answer but a 200, and the first few 200s, so a run's tauri.log
+/// shows whether the page's images reached the scheme and what they got.
+pub fn log_asset(uri: &tauri::http::Uri, status: u16) {
+    static SERVED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let quiet = status == 200 && SERVED.fetch_add(1, std::sync::atomic::Ordering::Relaxed) >= 10;
+    if !quiet {
+        eprintln!("{SENTINEL} asset {status} {uri}");
+    }
+}
+
 fn loads_so_far() -> u64 {
     *LOADS.0.lock().expect("load counter")
 }

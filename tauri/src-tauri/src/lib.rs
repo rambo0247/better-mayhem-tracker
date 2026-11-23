@@ -274,7 +274,10 @@ pub fn run() {
                     return;
                 };
                 tauri::async_runtime::spawn(async move {
-                    responder.respond(assets.serve(request.method(), request.uri()).await);
+                    let response = assets.serve(request.method(), request.uri()).await;
+                    #[cfg(feature = "parity-driver")]
+                    parity_driver::log_asset(request.uri(), response.status().as_u16());
+                    responder.respond(response);
                 });
             },
         );
