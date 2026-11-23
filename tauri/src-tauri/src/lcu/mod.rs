@@ -1212,6 +1212,12 @@ mod tests {
     #[ignore = "needs a running parity fake client"]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn against_the_parity_fake_client() {
+        fn epoch_ms() -> u128 {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock after 1970")
+                .as_millis()
+        }
         struct Printer(std::time::Instant);
         impl Hooks for Printer {
             fn on_poll<'a>(&'a self, lcu: &'a Lcu) -> BoxFuture<'a, Result<(), LcuError>> {
@@ -1219,7 +1225,8 @@ mod tests {
             }
             fn on_event(&self, _lcu: &Lcu, event: &Value) {
                 println!(
-                    "{:>6} ms event {} {}",
+                    "{} {:>6} ms event {} {}",
+                    epoch_ms(),
                     self.0.elapsed().as_millis(),
                     event["eventType"].as_str().unwrap_or_default(),
                     event["uri"].as_str().unwrap_or_default()
@@ -1238,7 +1245,8 @@ mod tests {
             hooks: Arc::new(Printer(started)),
             emit: Box::new(move |status| {
                 println!(
-                    "{:>6} ms status {}",
+                    "{} {:>6} ms status {}",
+                    epoch_ms(),
                     started.elapsed().as_millis(),
                     status.as_str()
                 )
