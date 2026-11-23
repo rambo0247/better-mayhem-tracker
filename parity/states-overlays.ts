@@ -200,7 +200,8 @@ const hovers: StateRow[] = [
   hoverState("overlay-hover-item", ITEM, TOOLTIP),
   {
     ...hoverState("overlay-hover-flips-above", `${ITEM} >> nth=-1`, TOOLTIP),
-    viewport: { width: 1280, height: 520 },
+    // The window's minimum height, which both apps hold to, leaves no room below the last item
+    viewport: { width: 1280, height: 600 },
   },
   hoverState("overlay-score-breakdown", `${PLAYER_ROW} .cursor-help`, ".menu.fixed.z-50"),
   overlay("overlay-hover-nav-link", "/", FIRST_MATCH_ROW, {
