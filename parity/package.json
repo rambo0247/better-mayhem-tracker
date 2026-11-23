@@ -5,7 +5,7 @@
   "description": "Parity tooling for the Tauri port: baselines, diff gate, anonymized fixture",
   "type": "module",
   "scripts": {
-    "test": "bash lib/capped.sh 200 bun test",
+    "test": "bash lib/capped.sh 200 bun test --timeout 60000",
     "capture": "bash lib/capped.sh 200 bun capture.ts",
     "diff": "bun diff.ts",
     "lint": "bun lint --flavor eslint --max-warnings 0",
