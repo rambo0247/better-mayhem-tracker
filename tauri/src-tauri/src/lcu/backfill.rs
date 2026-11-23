@@ -680,49 +680,96 @@ fn iso_string(ms: f64) -> String {
 pub struct HttpSgp {
     /// Or why it could not be built, which every request then fails with
     client: Result<reqwest::Client, String>,
+    /// `BMT_PARITY_SGP_URL`, read once at launch as the seam reads it
+    #[cfg(feature = "parity-ca")]
+    fake: Option<String>,
 }
 
 #[cfg(feature = "parity-ca")]
 pub const PARITY_SGP_URL_ENV: &str = "BMT_PARITY_SGP_URL";
 
 impl HttpSgp {
+    #[cfg(not(feature = "parity-ca"))]
     pub fn new() -> Self {
+        Self {
+            client: Self::client(),
+        }
+    }
+
+    #[cfg(feature = "parity-ca")]
+    pub fn new() -> Self {
+        Self::with_fake(std::env::var(PARITY_SGP_URL_ENV).ok())
+    }
+
+    #[cfg(feature = "parity-ca")]
+    fn with_fake(fake: Option<String>) -> Self {
+        Self {
+            client: Self::client(),
+            fake: fake.filter(|u| !u.is_empty()),
+        }
+    }
+
+    fn client() -> Result<reqwest::Client, String> {
         let client = super::tls::public_config()
             .map_err(|err| err.to_string())
             .and_then(|tls| {
-                reqwest::Client::builder()
+                let builder = reqwest::Client::builder()
                     .tls_backend_preconfigured(tls)
-                    .no_proxy()
-                    .build()
-                    .map_err(|err| err.to_string())
+                    .no_proxy();
+                // A redirect would carry the request off the fake's origin
+                #[cfg(feature = "parity-ca")]
+                let builder = builder.redirect(reqwest::redirect::Policy::none());
+                builder.build().map_err(|err| err.to_string())
             });
         if let Err(err) = &client {
             log(format!("Match history client failed to build: {err}"));
         }
-        Self { client }
+        client
     }
 
     #[cfg(not(feature = "parity-ca"))]
-    fn route(url: &str) -> Result<String, Thrown> {
+    fn route(&self, url: &str) -> Result<String, Thrown> {
         Ok(url.to_string())
     }
 
     /// The seam's fetch redirect: a `*.pp.sgp.pvp.net` URL keeps its path and
-    /// query on the fake's origin. With no fake named, nothing is sent.
+    /// query on the fake's origin. With no fake named, or one that is not a
+    /// loopback address, nothing is sent.
     #[cfg(feature = "parity-ca")]
-    fn route(url: &str) -> Result<String, Thrown> {
-        let fake = std::env::var(PARITY_SGP_URL_ENV)
-            .ok()
-            .filter(|u| !u.is_empty());
+    fn route(&self, url: &str) -> Result<String, Thrown> {
         let rest = SGP_HOSTS.iter().find_map(|host| url.strip_prefix(host));
-        match (fake, rest) {
-            (Some(fake), Some(rest)) => Ok(format!("{}{rest}", fake.trim_end_matches('/'))),
+        let routed = match (&self.fake, rest) {
+            (Some(fake), Some(rest)) => Some(format!("{}{rest}", fake.trim_end_matches('/'))),
+            _ => None,
+        };
+        match routed {
+            Some(routed) if is_loopback(&routed) => Ok(routed),
             _ => {
                 log(format!("parity: blocked a request to {url}"));
                 Err(Thrown::Error("fetch failed".into()))
             }
         }
     }
+}
+
+/// An http or https URL whose host is a loopback IP literal, with no
+/// userinfo. A name such as `localhost` resolves through files the run does
+/// not control.
+#[cfg(feature = "parity-ca")]
+fn is_loopback(url: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(url) else {
+        return false;
+    };
+    // The parser has already normalized the host, and brackets an IPv6 one
+    let loopback = url
+        .host_str()
+        .map(|host| host.trim_start_matches('[').trim_end_matches(']'))
+        .and_then(|host| host.parse::<std::net::IpAddr>().ok())
+        .is_some_and(|ip| ip.is_loopback());
+    loopback
+        && matches!(url.scheme(), "http" | "https")
+        && url.username().is_empty()
+        && url.password().is_none()
 }
 
 impl Sgp for HttpSgp {
@@ -733,7 +780,7 @@ impl Sgp for HttpSgp {
         timeout: Duration,
     ) -> BoxFuture<'a, Result<SgpResponse, Thrown>> {
         Box::pin(async move {
-            let url = Self::route(url)?;
+            let url = self.route(url)?;
             let Ok(client) = &self.client else {
                 return Err(Thrown::Error("fetch failed".into()));
             };
@@ -1129,5 +1176,116 @@ mod tests {
         assert_eq!(read(json!("NA1_Infinity")), None);
         assert_eq!(read(json!("NA1_abc")), None);
         assert_eq!(read(json!(null)), None);
+    }
+}
+
+/// Loopback listeners only: nothing here can reach another host.
+#[cfg(all(test, feature = "parity-ca"))]
+mod parity_route {
+    use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    const OK: &str = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n[]";
+
+    fn sgp_url() -> String {
+        format!(
+            "{}/match-history-query/v1/products/lol/player/p/SUMMARY?startIndex=0&count=1",
+            SGP_HOSTS[0]
+        )
+    }
+
+    struct Listener {
+        port: u16,
+        hits: Arc<AtomicUsize>,
+    }
+
+    impl Listener {
+        fn hits(&self) -> usize {
+            self.hits.load(Ordering::SeqCst)
+        }
+    }
+
+    /// Answers every request on 127.0.0.1 with `reply`, and counts them.
+    fn listen(reply: String) -> Listener {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let hits = Arc::new(AtomicUsize::new(0));
+        let counted = hits.clone();
+        std::thread::spawn(move || {
+            for mut stream in listener.incoming().flatten() {
+                counted.fetch_add(1, Ordering::SeqCst);
+                let mut request = Vec::new();
+                let mut buf = [0u8; 1024];
+                while !request.windows(4).any(|w| w == b"\r\n\r\n") {
+                    match stream.read(&mut buf) {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => request.extend_from_slice(&buf[..n]),
+                    }
+                }
+                stream.write_all(reply.as_bytes()).ok();
+            }
+        });
+        Listener { port, hits }
+    }
+
+    #[tokio::test]
+    async fn a_redirect_from_the_fake_is_not_followed() {
+        let elsewhere = listen(OK.into());
+        let fake = listen(format!(
+            "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:{}/elsewhere\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            elsewhere.port
+        ));
+        let sgp = HttpSgp::with_fake(Some(format!("http://127.0.0.1:{}", fake.port)));
+        let response = sgp
+            .get(&sgp_url(), "token", Duration::from_secs(5))
+            .await
+            .unwrap();
+        assert_eq!(response.status, 302);
+        assert_eq!(fake.hits(), 1);
+        assert_eq!(elsewhere.hits(), 0);
+    }
+
+    #[tokio::test]
+    async fn a_fake_url_with_userinfo_sends_nothing() {
+        let named = listen(OK.into());
+        let behind = listen(OK.into());
+        for fake in [
+            format!("http://127.0.0.1:{}@127.0.0.1:{}", named.port, behind.port),
+            format!("http://user:secret@127.0.0.1:{}", named.port),
+        ] {
+            let sgp = HttpSgp::with_fake(Some(fake.clone()));
+            let sent = sgp.get(&sgp_url(), "token", Duration::from_secs(5)).await;
+            assert!(sent.is_err(), "{fake} was sent");
+        }
+        assert_eq!(named.hits() + behind.hits(), 0);
+    }
+
+    #[test]
+    fn only_a_loopback_fake_is_routed_to() {
+        for fake in [
+            "http://192.0.2.1:9",
+            "http://localhost:9",
+            "http://127.0.0.1.example.com:9",
+            "https://example.com",
+            "file:///etc/hosts",
+            "127.0.0.1:9",
+        ] {
+            let routed = HttpSgp::with_fake(Some(fake.into())).route(&sgp_url());
+            assert!(routed.is_err(), "{fake} was routed to");
+        }
+        let path = "/match-history-query/v1/products/lol/player/p/SUMMARY?startIndex=0&count=1";
+        for fake in [
+            "http://127.0.0.1:9/",
+            "http://127.0.0.2:9",
+            "http://[::1]:9",
+        ] {
+            let routed = HttpSgp::with_fake(Some(fake.into()))
+                .route(&sgp_url())
+                .unwrap();
+            assert_eq!(routed, format!("{}{path}", fake.trim_end_matches('/')));
+        }
     }
 }
