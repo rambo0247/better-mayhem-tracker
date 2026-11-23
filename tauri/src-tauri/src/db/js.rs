@@ -140,7 +140,7 @@ pub fn nullish<'a>(operands: &[Option<&'a Value>]) -> Option<&'a Value> {
 /// a plain decimal is NaN. Rust's own parse also takes `inf`, `nan` and a
 /// sign inside a radix literal, which `Number` does not. Lifted from T13.
 pub fn string_to_number(text: &str) -> f64 {
-    let t = text.trim_matches(|c: char| (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}');
+    let t = text.trim_matches(is_js_whitespace);
     if t.is_empty() {
         return 0.0;
     }
@@ -182,6 +182,42 @@ pub fn string_to_number(text: &str) -> f64 {
     } else {
         f64::NAN
     }
+}
+
+/// `parseInt(text)` with no radix: leading whitespace, a sign, a `0x` for
+/// hex, then the digits up to the first that isn't one. NaN when there are
+/// none. Lifted from T22.
+pub fn parse_int(text: &str) -> f64 {
+    let text = text.trim_start_matches(is_js_whitespace);
+    let (sign, rest) = match text.as_bytes().first() {
+        Some(b'-') => (-1.0, &text[1..]),
+        Some(b'+') => (1.0, &text[1..]),
+        _ => (1.0, text),
+    };
+    let (radix, rest) = match rest.get(..2) {
+        Some("0x" | "0X") => (16, &rest[2..]),
+        _ => (10, rest),
+    };
+    let digits: Vec<f64> = rest
+        .chars()
+        .map_while(|c| c.to_digit(radix))
+        .map(f64::from)
+        .collect();
+    if digits.is_empty() {
+        return f64::NAN;
+    }
+    let value = if radix == 10 {
+        rest[..digits.len()].parse().unwrap_or(f64::NAN)
+    } else {
+        digits.iter().fold(0.0, |n, d| n * 16.0 + d)
+    };
+    sign * value
+}
+
+/// JavaScript's WhiteSpace and LineTerminator: Unicode's White_Space bar
+/// U+0085, plus U+FEFF.
+fn is_js_whitespace(c: char) -> bool {
+    (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}'
 }
 
 /// The value when it is a JavaScript number.
