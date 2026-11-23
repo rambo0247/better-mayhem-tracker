@@ -274,8 +274,11 @@ pub fn on_window_event<R: Runtime>(window: &Window<R>, event: &WindowEvent) {
                     let _ = window.hide();
                     shell.put_away();
                 }
+                // Electron lets this close go through, so the window is gone
+                // while the final fetch runs
                 CloseDecision::Quit => {
                     api.prevent_close();
+                    let _ = window.hide();
                     request_quit(app);
                 }
                 CloseDecision::Close => {}
