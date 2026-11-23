@@ -2,8 +2,8 @@
 //! as raw f64 bits, then re-ingests every stored payload and compares the
 //! rows it writes with the rows Electron wrote.
 //!
-//! Nothing here is committed data. `BMT_GOLDEN_DATA` names a data folder from
-//! `parity/fixture.ts`; its `player_stats` scores are Electron's, so they are
+//! `BMT_GOLDEN_DATA` names the fixture's data folder, the one holding
+//! `matches.db`, as for `golden.rs`; its `player_stats` scores are Electron's, so they are
 //! the reference. `BMT_SCORE_GOLDEN` names the JSON `parity/score-golden.ts`
 //! wrote, every player's TypeScript score. `BMT_ELECTRON_BACKFILL` lists
 //! folders, each holding `before.db`, the `after.db` Electron's score
@@ -410,8 +410,8 @@ fn main() -> ExitCode {
 
     if let Some(data) = std::env::var_os("BMT_GOLDEN_DATA").map(PathBuf::from) {
         ran = true;
-        let champions = champion_classes(&data.join("data/champion-cache.json"));
-        let (dir, conn) = open_copy(&data.join("data/matches.db"), "fixture");
+        let champions = champion_classes(&data.join("champion-cache.json"));
+        let (dir, conn) = open_copy(&data.join("matches.db"), "fixture");
         stored_scores(&conn, &champions, &mut failures);
         if let Some(golden) = std::env::var_os("BMT_SCORE_GOLDEN") {
             score_golden(Path::new(&golden), &champions, &mut failures);
