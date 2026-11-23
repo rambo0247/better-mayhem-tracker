@@ -119,6 +119,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     args: [
       "--force-device-scale-factor=2",
       "--force-color-profile=srgb",
+      "--disable-gpu",
       "--lang=en-US",
       ...(process.env.PARITY_ELECTRON_ARGS?.split(" ").filter(Boolean) ?? []),
       `--user-data-dir=${userData}`,

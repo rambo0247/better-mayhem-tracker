@@ -1,7 +1,7 @@
 import type { Page } from "playwright";
 
 export const KILL_SWITCH_CSS =
-  "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important;scroll-behavior:auto!important}";
+  "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important;scroll-behavior:auto!important}::-webkit-scrollbar{display:none!important}";
 
 export const QUIET_MS = 1200;
 export const SETTLE_TIMEOUT_MS = 15_000;
