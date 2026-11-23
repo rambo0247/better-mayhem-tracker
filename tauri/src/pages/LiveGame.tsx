@@ -377,9 +377,7 @@ function RecapView(props: {
               </Show>
             </>
           }
-          actions={
-            <Show when={recap()}>{(r) => <ExportActions recap={r()} exporting={exporting} />}</Show>
-          }
+          actions={recap() ? <ExportActions recap={recap()!} exporting={exporting} /> : undefined}
           class="pb-0"
         />
         <Show
