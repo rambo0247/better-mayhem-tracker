@@ -19,7 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CROSS_ENGINE } from "./diff.ts";
 import { PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
-import { selectStates, STATES } from "./states.ts";
+import { selectStates } from "./states.ts";
 
 export const EXPECTED_GOLDEN_CHANNELS = 61;
 /**
@@ -56,6 +56,8 @@ export interface GoldenSummary {
   notPorted: number;
   noGolden: number;
   exitCode: number;
+  /** The harness printed its summary line; a panic before it leaves the counts at zero. */
+  completed: boolean;
   failing: string[];
   log: string;
 }
@@ -163,7 +165,9 @@ export function verdictOf(report: Report): Verdict {
     }
     const golden = run.golden;
     if (!golden) failures.push(`${name}: goldens not replayed`);
-    else if (
+    else if (!golden.completed) {
+      failures.push(`${name}: the golden replay exited ${golden.exitCode} before its summary`);
+    } else if (
       golden.pass !== EXPECTED_GOLDEN_CHANNELS ||
       golden.fail !== 0 ||
       golden.notPorted !== 0 ||
@@ -285,9 +289,11 @@ export function renderReport(report: Report, command: string): string {
     if (!run) continue;
     const g = run.golden;
     lines.push(
-      g
-        ? `- ${PLATFORM_NAMES[run.platform]}: ${g.pass} of ${EXPECTED_GOLDEN_CHANNELS} channels pass, ${g.fail} fail, ${g.notPorted} not ported${g.noGolden ? `, ${g.noGolden} no golden` : ""}.${g.failing.length ? ` Failing: ${g.failing.join(", ")}.` : ""}`
-        : `- ${PLATFORM_NAMES[run.platform]}: not replayed.`,
+      g && !g.completed
+        ? `- ${PLATFORM_NAMES[run.platform]}: the replay exited ${g.exitCode} before its summary line; see \`${g.log}\`.`
+        : g
+          ? `- ${PLATFORM_NAMES[run.platform]}: ${g.pass} of ${EXPECTED_GOLDEN_CHANNELS} channels pass, ${g.fail} fail, ${g.notPorted} not ported${g.noGolden ? `, ${g.noGolden} no golden` : ""}.${g.failing.length ? ` Failing: ${g.failing.join(", ")}.` : ""}`
+          : `- ${PLATFORM_NAMES[run.platform]}: not replayed.`,
     );
   }
   lines.push("");
@@ -398,13 +404,25 @@ export function parseGoldenSummary(log: string, exitCode: number): GoldenSummary
   const failing = [...log.matchAll(/^(\S+)\s+\S+\s+\d+\s+(fail|not ported|no golden)$/gm)].map(
     (row) => `${row[1]} (${row[2]})`,
   );
-  if (!m) return { pass: 0, fail: 0, notPorted: 0, noGolden: 0, exitCode, failing, log };
+  if (!m) {
+    return {
+      pass: 0,
+      fail: 0,
+      notPorted: 0,
+      noGolden: 0,
+      exitCode,
+      completed: false,
+      failing,
+      log,
+    };
+  }
   return {
     pass: Number(m[1]),
     fail: Number(m[2]),
     notPorted: Number(m[3]),
     noGolden: Number(m[4] ?? 0),
     exitCode,
+    completed: true,
     failing,
     log,
   };
@@ -591,12 +609,13 @@ export function stateLines(
       });
       continue;
     }
-    for (const b of c.blurRegions ?? []) {
-      blur.push({
-        state: id,
-        region: `blur ${b.region.x},${b.region.y},${b.region.w},${b.region.h}`,
-      });
-    }
+    // Each engine reports its own boxes for the same element, so one region can appear twice
+    const regions = new Set(
+      (c.blurRegions ?? []).map(
+        ({ region: r }) => `blur ${[r.x, r.y, r.w, r.h].map(Math.round).join(",")}`,
+      ),
+    );
+    for (const region of regions) blur.push({ state: id, region });
     states.push({
       id,
       pass: underE1(c),
@@ -640,11 +659,12 @@ function contactSheet(states: StateLine[], target: string): string | undefined {
   return out.code === 0 ? path.relative(REPO_DIR, target) : undefined;
 }
 
-/** Blur regions and masks need a reason; the state row's `blurReason` carries it. */
-const maskReasons = (): Record<string, string> =>
-  Object.fromEntries(
-    STATES.map((s) => [s.id, String((s as { blurReason?: string }).blurReason ?? "")]),
-  );
+/**
+ * capture.ts makes every element that asks for a backdrop blur a blur region, the one kind of
+ * region the policy judges apart; nothing else in the tree masks a state.
+ */
+export const BLUR_REASON =
+  "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count";
 
 async function runPlatform(argv: string[]) {
   const opt = flags(argv, [
@@ -716,7 +736,6 @@ async function runPlatform(argv: string[]) {
     );
   }
   const { states, blur } = stateLines(expected, { electron: electronDir, tauri: tauriDir });
-  const reasons = maskReasons();
 
   let golden: GoldenSummary | undefined;
   if (!skipGolden) {
@@ -747,17 +766,20 @@ async function runPlatform(argv: string[]) {
     cwd: path.join(REPO_DIR, "tauri"),
     log: path.join(out, `react-isms-${platform}.log`),
   });
+  // Rows are a pattern, then its count in tauri/src, then in the React tree
+  const counts = [...reactIsms.text.matchAll(/^(.+?)\s+(\d+)\s+\d+$/gm)];
+  const found = counts.filter((m) => m[2] !== "0").map((m) => `${m[1]!.trim()} ${m[2]}`);
   checks.push({
     name: "react-isms.ts",
-    pass: reactIsms.code === 0,
-    detail: reactIsms.text.trim().split("\n").slice(-1)[0] ?? "",
+    pass: reactIsms.code === 0 && found.length === 0,
+    detail: `${counts.length} patterns, ${found.length ? `found ${found.join(", ")}` : "every count in tauri/src is 0"}.`,
   });
   const check = (name: string, cmd: string[], cwd: string, log: string) => {
     const result = run(cmd, { cwd, log: path.join(out, `${log}-${platform}.log`) });
     checks.push({
       name,
       pass: result.code === 0,
-      detail: result.text.trim().split("\n").slice(-1)[0] ?? "",
+      detail: `exit ${result.code}, last line: ${result.text.trim().split("\n").slice(-1)[0] ?? ""}`,
     });
   };
   // The Rust contract must equal the committed bindings, and both must equal src/shared/api.ts
@@ -798,7 +820,7 @@ async function runPlatform(argv: string[]) {
       log: path.relative(REPO_DIR, path.join(out, `golden-${platform}.log`)),
     },
     checks,
-    masks: blur.map((b) => ({ ...b, reason: reasons[b.state] ?? "" })),
+    masks: blur.map((b) => ({ ...b, reason: BLUR_REASON })),
     contactSheet: contactSheet(states, path.join(out, `report-${platform}.png`)),
   };
   const file = path.join(out, `report-${platform}.json`);
@@ -840,6 +862,9 @@ function render(argv: string[]) {
     .map((a) => (a.startsWith("--") ? a : path.relative(REPO_DIR, path.resolve(a))))
     .join(" ")}`;
   fs.writeFileSync(out, renderReport(report, command));
+  // The root's format check covers docs/, and oxfmt pads every table cell
+  const oxfmt = path.join(REPO_DIR, "node_modules", ".bin", "oxfmt");
+  if (fs.existsSync(oxfmt)) spawnSync(oxfmt, [out], { cwd: REPO_DIR, stdio: "ignore" });
   const verdict = verdictOf(report);
   console.log(`report: ${verdict.pass ? "PASS" : "FAIL"}, wrote ${path.relative(REPO_DIR, out)}`);
   for (const failure of verdict.failures) console.log(`  ${failure}`);

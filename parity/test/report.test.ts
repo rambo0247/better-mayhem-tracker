@@ -170,6 +170,14 @@ describe("the parity report", () => {
     expect(mac.golden.failing).toEqual(["app:version (fail)"]);
   });
 
+  test("a replay that panics before its summary fails the run as incomplete", () => {
+    const mac = platformRun("mac");
+    mac.golden = parseGoldenSummary("thread 'main' panicked at tests/golden.rs:376:41:\n", 101);
+    expect(verdictOf(report({ mac, win: platformRun("win") })).failures).toEqual([
+      "macOS: the golden replay exited 101 before its summary",
+    ]);
+  });
+
   test("Tauri worse on a metric fails the run", () => {
     const r = report({ mac: platformRun("mac"), win: platformRun("win") });
     r.perf.win = { electron: side(330e6, 900, 94e6), tauri: side(120e6, 950, 5e6) };
