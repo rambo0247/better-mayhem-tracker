@@ -3,6 +3,7 @@
 // 2. Hides League and Riot paths so the client reads as closed.
 // 3. Blocks main-process network except loopback.
 // 4. Freezes the main process clock.
+// 5. Turns an uncaught error into a logged fault in place of Electron's modal dialog.
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -239,6 +240,40 @@ if (process.env.SEAM_FIXED_TIME) {
       return Reflect.get(target, key, receiver);
     },
   });
+}
+
+const fault = (kind, error) => {
+  const text = `${kind} ${error instanceof Error ? error.stack || error.message : String(error)}`;
+  log("fault", text.replaceAll("\n", "\n  "));
+  if (process.env.SEAM_RUN_DIR) {
+    try {
+      realAppendFileSync(
+        path.join(process.env.SEAM_RUN_DIR, "logs", "main.log"),
+        `FATAL ${text}\n`,
+      );
+    } catch {
+      // the run folder has no logs folder yet, and seam.log has the fault
+    }
+  }
+};
+// A listener also stops Electron from opening its "JavaScript error in the main process" dialog.
+process.on("uncaughtException", (error) => fault("uncaughtException", error));
+process.on("unhandledRejection", (reason) => fault("unhandledRejection", reason));
+
+try {
+  const { dialog, BrowserWindow } = require("electron");
+  dialog.showErrorBox = (title, content) => fault("showErrorBox", `${title}: ${content}`);
+  const realEmit = BrowserWindow.prototype.emit;
+  // Electron's own listeners (visibilityChanged) throw when an event reaches a destroyed window.
+  BrowserWindow.prototype.emit = function (name, ...args) {
+    if (name !== "closed" && this.isDestroyed()) {
+      log("dropped-event-on-destroyed-window", String(name));
+      return false;
+    }
+    return realEmit.call(this, name, ...args);
+  };
+} catch {
+  // outside Electron there is no dialog to stub
 }
 
 try {
