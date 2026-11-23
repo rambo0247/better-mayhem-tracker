@@ -9,7 +9,7 @@ import {
   type Engine,
   type Target,
 } from "./drive.ts";
-import { PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
+import { copyDataTree, PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
 import { gameRunning, waitForNoGame } from "./lib/no-game.ts";
 import { claimRunFolder, DEFAULT_VIEWPORT, FIXED_TIME, TIME_ZONE } from "./run-electron.ts";
 import { settle } from "./settle.ts";
@@ -660,9 +660,7 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     );
   }
   const assets = path.join(runDir, "asset-cache");
-  if (dataRoot && fs.existsSync(path.join(dataRoot, "asset-cache"))) {
-    fs.cpSync(path.join(dataRoot, "asset-cache"), assets, { recursive: true });
-  }
+  if (dataRoot) copyDataTree(path.join(dataRoot, "asset-cache"), assets);
 
   let bundle: ReplayBundle | undefined;
   const env: Record<string, string> = {

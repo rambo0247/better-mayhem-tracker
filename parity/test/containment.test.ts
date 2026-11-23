@@ -102,6 +102,33 @@ describe("run folder containment", () => {
     expect(fs.existsSync(path.join(data, "data", "matches.db"))).toBe(true);
   });
 
+  test("prepareRun refuses a symlink deep in backups, and neither carries nor follows it", () => {
+    const dir = scratch();
+    const standIn = path.join(dir, "stand-in-real-folder");
+    fs.mkdirSync(standIn);
+    fs.writeFileSync(path.join(standIn, "matches.db"), "real");
+    const data = scratchData(dir);
+    fs.mkdirSync(path.join(data, "backups", "2026-11-01"), { recursive: true });
+    fs.symlinkSync(standIn, path.join(data, "backups", "2026-11-01", "elsewhere"));
+    const repo = path.join(dir, "repo");
+    fs.mkdirSync(path.join(repo, "out", "main"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "out", "main", "index.js"), "");
+    fs.mkdirSync(path.join(repo, "node_modules"));
+    fs.writeFileSync(
+      path.join(repo, "package.json"),
+      JSON.stringify({ name: "x", version: "1.2.1", main: "./out/main/index.js" }),
+    );
+    const run = path.join(dir, "run");
+    expect(() => prepareRun({ data, runDir: run, repo })).toThrow(
+      /backups\/2026-11-01\/elsewhere is a symlink/,
+    );
+    const carried = fs
+      .readdirSync(run, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isSymbolicLink() && entry.name !== "node_modules");
+    expect(carried).toEqual([]);
+    expect(fs.readFileSync(path.join(standIn, "matches.db"), "utf8")).toBe("real");
+  });
+
   const fixture = fs.existsSync(path.join(SNAPSHOT_DIRS.fixture, "data", "matches.db"));
   test.skipIf(!fixture)(
     "a repo whose out/ is a symlink is copied, not linked, so the app's data root stays in the run folder",

@@ -27,3 +27,20 @@ export function resolveDataRoot(spec: string): string {
   }
   return root;
 }
+
+/**
+ * Copies a data tree, refusing any symlink in it. A link carried into a run folder could
+ * point the app at the real data folder, and following it would read the target instead.
+ */
+export function copyDataTree(from: string, to: string) {
+  if (!fs.existsSync(from)) return;
+  fs.cpSync(from, to, {
+    recursive: true,
+    filter: (source) => {
+      if (fs.lstatSync(source).isSymbolicLink()) {
+        throw new Error(`${source} is a symlink. Data copied into a run folder may hold none.`);
+      }
+      return true;
+    },
+  });
+}

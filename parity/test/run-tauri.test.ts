@@ -80,6 +80,31 @@ describe.skipIf(process.platform === "win32")("launching", () => {
     fs.rmSync(dir, { recursive: true });
   });
 
+  test("a symlink deep in the asset cache is refused, not carried or followed", async () => {
+    const dir = scratch();
+    const standIn = path.join(dir, "stand-in-real-folder");
+    fs.mkdirSync(standIn);
+    fs.writeFileSync(path.join(standIn, "matches.db"), "real");
+    const data = path.join(dir, "source");
+    fs.mkdirSync(path.join(data, "data"), { recursive: true });
+    fs.writeFileSync(path.join(data, "data", "matches.db"), "");
+    fs.mkdirSync(path.join(data, "asset-cache", "champion"), { recursive: true });
+    fs.writeFileSync(path.join(data, "asset-cache", "champion", "1.png"), "png");
+    fs.symlinkSync(standIn, path.join(data, "asset-cache", "champion", "elsewhere"));
+    const binary = path.join(dir, "fake-tauri");
+    fs.writeFileSync(binary, "#!/bin/sh\nexec sleep 300\n", { mode: 0o755 });
+    const run = path.join(dir, "run");
+    await expect(
+      startTauri({ data, renderer: "solid", binary, runDir: run, readyTimeoutMs: 500 }),
+    ).rejects.toThrow(/asset-cache\/champion\/elsewhere is a symlink/);
+    const carried = fs
+      .readdirSync(run, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isSymbolicLink());
+    expect(carried).toEqual([]);
+    expect(fs.readFileSync(path.join(standIn, "matches.db"), "utf8")).toBe("real");
+    fs.rmSync(dir, { recursive: true });
+  });
+
   test("the empty data source starts with no asset cache", async () => {
     const dir = scratch();
     const binary = path.join(dir, "fake-tauri");
