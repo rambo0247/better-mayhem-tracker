@@ -47,7 +47,7 @@ const tick = async () => {
 let initial: ChallengesResult;
 const emitChanged = (result: ChallengesResult) => fake.emit("onChallengesChanged", result);
 
-mock.module("../lib/perf", () => ({ reportFirstContent: () => {} }));
+void mock.module("../lib/perf", () => ({ reportFirstContent: () => {} }));
 
 async function mount() {
   const { render } = await import("@solidjs/web");
