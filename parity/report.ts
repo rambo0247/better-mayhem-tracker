@@ -664,7 +664,7 @@ async function runPlatform(argv: string[]) {
   const out = path.resolve(opt["--out"] ?? path.join(PARITY_DIR, "out", "report"));
   fs.mkdirSync(out, { recursive: true });
   const startedAt = new Date().toISOString();
-  const expected = selectStates("all", process.platform).map((s) => s.id);
+  const expected = selectStates("all").map((s) => s.id);
 
   const electronDir = path.resolve(
     opt["--electron-baseline"] ?? path.join(out, `electron-${platform}`),
@@ -725,8 +725,12 @@ async function runPlatform(argv: string[]) {
         env: {
           BMT_GOLDEN_DIR: goldenDir,
           BMT_GOLDEN_DATA: path.join(dataRoot, "data"),
-          ...(manifest.tz ? { TZ: String(manifest.tz) } : {}),
-          ...(manifest.lang ? { LANG: String(manifest.lang) } : {}),
+          // The harness refuses any zone or locale but the recording's (tauri/src-tauri/src/replay.rs)
+          TZ:
+            process.platform === "win32" && manifest.timeZone === "America/New_York"
+              ? "EST5EDT"
+              : String(manifest.timeZone),
+          LANG: `${String(manifest.locale).replace("-", "_")}.UTF-8`,
         },
         log: path.join(out, `golden-${platform}.log`),
       },
