@@ -498,7 +498,6 @@ mod tests {
         let lost = Confirmation::default();
         let first = import(&paths, 1);
         lost.expect(&first);
-        drop(lost);
         assert!(marker_of(&paths).is_none());
 
         let retry = import(&paths, 2);
