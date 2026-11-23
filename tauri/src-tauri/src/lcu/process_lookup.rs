@@ -38,7 +38,12 @@ impl ProcessSource {
 pub async fn lookup(source: &ProcessSource) -> Result<Credentials, LcuError> {
     match source {
         #[cfg(not(feature = "parity-ca"))]
-        ProcessSource::System => system::lookup().await,
+        ProcessSource::System => {
+            if cfg!(test) {
+                panic!("a test reached the real process list");
+            }
+            system::lookup().await
+        }
         #[cfg(all(debug_assertions, not(feature = "parity-ca")))]
         ProcessSource::Nothing => Err(LcuError::NotFound),
         #[cfg(any(test, feature = "parity-ca"))]

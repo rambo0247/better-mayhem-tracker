@@ -115,19 +115,55 @@ mod parity {
         let Some(path) = std::env::var_os(CA_ENV) else {
             return vec![];
         };
-        let certs = std::fs::read(&path)
-            .map_err(|err| err.to_string())
-            .and_then(|pem| {
-                CertificateDer::pem_slice_iter(&pem)
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(|err| err.to_string())
-            });
-        match certs {
+        match read_certificates(path.as_ref()) {
             Ok(certs) => certs,
             Err(err) => {
                 super::super::log(format!("parity: {CA_ENV} {path:?} unreadable: {err}"));
                 vec![]
             }
+        }
+    }
+
+    /// A file with no certificate in it is as unusable as a missing one, and
+    /// the PEM reader skips what it does not recognize without an error.
+    pub fn read_certificates(
+        path: &std::path::Path,
+    ) -> Result<Vec<CertificateDer<'static>>, String> {
+        let pem = std::fs::read(path).map_err(|err| err.to_string())?;
+        let certs = CertificateDer::pem_slice_iter(&pem)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|err| err.to_string())?;
+        if certs.is_empty() {
+            return Err("no certificate in it".into());
+        }
+        Ok(certs)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::lcu::test_support::TempDir;
+
+        fn read(contents: &[u8]) -> Result<usize, String> {
+            let dir = TempDir::new();
+            let path = dir.path().join("ca.pem");
+            std::fs::write(&path, contents).expect("write");
+            read_certificates(&path).map(|certs| certs.len())
+        }
+
+        #[test]
+        fn only_a_file_with_a_certificate_adds_an_anchor() {
+            let made = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])
+                .expect("self-signed");
+            let cert = made.cert.pem();
+            let key = made.signing_key.serialize_pem();
+            assert_eq!(read(cert.as_bytes()), Ok(1));
+            assert_eq!(read(format!("{key}{cert}").as_bytes()), Ok(1));
+            for unusable in [&b"not a pem at all"[..], key.as_bytes(), b""] {
+                assert_eq!(read(unusable), Err("no certificate in it".to_string()));
+            }
+            let missing = TempDir::new().path().join("absent.pem");
+            assert!(read_certificates(&missing).is_err());
         }
     }
 }

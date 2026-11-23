@@ -221,6 +221,9 @@ impl Discovery {
         match &self.candidates {
             #[cfg(not(feature = "parity-ca"))]
             Candidates::System(roots) => {
+                if cfg!(test) {
+                    panic!("a test reached real install discovery");
+                }
                 lockfile::install_dir_candidates(setting.get().as_deref(), roots)
             }
             #[cfg(any(test, debug_assertions, feature = "parity-ca"))]
@@ -969,6 +972,75 @@ mod tests {
 
     use LcuStatus::*;
 
+    #[cfg(all(debug_assertions, not(feature = "parity-ca")))]
+    #[test]
+    fn from_env_without_the_opt_in_is_off() {
+        assert!(std::env::var_os(ALLOW_REAL_LEAGUE_ENV).is_none());
+        let discovery = Discovery::from_env();
+        assert!(matches!(discovery.candidates, Candidates::Only(None)));
+        assert!(matches!(discovery.process, ProcessSource::Nothing));
+    }
+
+    /// Reads the constants out of the TypeScript the port replaces, so a change
+    /// on either side fails here.
+    #[test]
+    fn the_default_timings_match_the_constants_in_lcu_ts_and_lockfile_ts() {
+        let main = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src/main");
+        let sources = ["lcu.ts", "lockfile.ts"].map(|name| {
+            std::fs::read_to_string(main.join(name)).unwrap_or_else(|err| panic!("{name}: {err}"))
+        });
+        let constant = |name: &str| -> u64 {
+            let pattern = regex::Regex::new(&format!(r"(?m)^const {name} = ([0-9_]+);")).unwrap();
+            let found: Vec<_> = sources
+                .iter()
+                .filter_map(|source| pattern.captures(source))
+                .collect();
+            assert_eq!(
+                found.len(),
+                1,
+                "{name} is declared once in lcu.ts or lockfile.ts"
+            );
+            found[0][1].replace('_', "").parse().expect("a number")
+        };
+        let ms = |name| Duration::from_millis(constant(name));
+        let timing = Timing::default();
+        assert_eq!(timing.connect_interval, ms("CONNECT_INTERVAL_MS"));
+        assert_eq!(timing.poll_interval, ms("POLL_INTERVAL_MS"));
+        assert_eq!(timing.attach_timeout, ms("EOG_ATTACH_TIMEOUT_MS"));
+        assert_eq!(timing.probe_timeout, ms("PROBE_TIMEOUT_MS"));
+        assert_eq!(timing.authenticate_interval, ms("AUTHENTICATE_INTERVAL_MS"));
+        assert_eq!(timing.client_file_timeout, ms("CLIENT_FILE_TIMEOUT_MS"));
+        assert_eq!(timing.file_lookup_ttl, ms("FILE_LOOKUP_TTL_MS"));
+        assert_eq!(
+            timing.client_file_concurrency as u64,
+            constant("CLIENT_FILE_CONCURRENCY")
+        );
+        // Spelled out too, so a change to both sides at once is a deliberate one
+        let ms = |ms| Duration::from_millis(ms);
+        assert_eq!(
+            (
+                timing.connect_interval,
+                timing.poll_interval,
+                timing.attach_timeout,
+                timing.probe_timeout,
+                timing.authenticate_interval,
+                timing.client_file_timeout,
+                timing.file_lookup_ttl,
+                timing.client_file_concurrency,
+            ),
+            (
+                ms(5_000),
+                ms(60_000),
+                ms(15_000),
+                ms(1_000),
+                ms(30_000),
+                ms(5_000),
+                ms(5_000),
+                6
+            )
+        );
+    }
+
     #[test]
     fn friendly_messages_match_lcu_ts() {
         assert_eq!(
@@ -1215,6 +1287,61 @@ mod tests {
         assert_eq!(rig.lcu.live_game_ref(), None);
     }
 
+    /// Puts `restart_connect_loop`'s `set(Disconnected)`, on another thread,
+    /// between the next status check and what the caller does with it. A
+    /// check and set done under one lock hold it off until the set is done.
+    fn restart_inside_the_next_check(lcu: &Lcu) -> Arc<Mutex<Option<std::thread::JoinHandle<()>>>> {
+        let restart = Arc::new(Mutex::new(None));
+        let slot = restart.clone();
+        let other = lcu.clone();
+        lcu.0.status.on_next_check(move || {
+            let (done, finished) = std::sync::mpsc::channel();
+            *slot.lock().unwrap() = Some(std::thread::spawn(move || {
+                other.0.status.set(Disconnected);
+                let _ = done.send(());
+            }));
+            let _ = finished.recv_timeout(Duration::from_millis(300));
+        });
+        restart
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_restart_cannot_land_between_apply_phase_check_and_set() {
+        let ca = TestCa::named("test root");
+        let rig = Rig::new(None, None, &ca);
+        rig.lcu.0.status.set(Connected);
+        let restart = restart_inside_the_next_check(&rig.lcu);
+        rig.lcu.apply_phase(Some(&Value::from("InProgress")));
+        let handle = restart.lock().unwrap().take().expect("the check ran");
+        handle.join().expect("restart");
+        assert_eq!(rig.sent(), [Connected, Ingame, Disconnected]);
+        assert_eq!(rig.lcu.status(), Disconnected);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_restart_cannot_land_between_the_drop_check_and_set() {
+        let ca = TestCa::named("test root");
+        let client = FakeClient::start(&ca.leaf(&["127.0.0.1"])).await;
+        let dir = TempDir::new();
+        client.write_lockfile(dir.path(), "pw");
+        let rig = Rig::new(Some(&dir), None, &ca);
+        // No loops: only the socket's reader can touch the status
+        rig.lcu.0.status.set(Connected);
+        rig.lcu.attach_socket().await.expect("attached");
+        rig.until("the attach phase", |s| s.len() >= 2).await;
+        rig.lcu.0.status.set(Ingame);
+        let before = rig.sent().len();
+
+        let restart = restart_inside_the_next_check(&rig.lcu);
+        client.stop();
+        eventually("the drop check", WAIT, || restart.lock().unwrap().is_some()).await;
+        let handle = restart.lock().unwrap().take().expect("the check ran");
+        tokio::task::spawn_blocking(move || handle.join().expect("restart"))
+            .await
+            .expect("joined");
+        assert_eq!(rig.sent()[before..before + 2], [Connected, Disconnected]);
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn a_socket_that_attaches_after_quit_is_closed_unused() {
         let ca = TestCa::named("test root");
@@ -1247,7 +1374,7 @@ mod tests {
         assert_eq!(rig.sent(), after, "no status after quit");
     }
 
-    #[cfg(not(feature = "parity-ca"))]
+    #[cfg(all(debug_assertions, not(feature = "parity-ca")))]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn a_debug_build_leaves_the_real_client_alone_unless_allowed() {
         assert!(matches!(

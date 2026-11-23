@@ -41,6 +41,10 @@ pub struct StatusCell {
     order: Mutex<()>,
     emit: Emit,
     changes: broadcast::Sender<LcuStatus>,
+    /// Runs once, right after a check reads the status and before whatever the
+    /// caller does about it, so a test can put another task's `set` there.
+    #[cfg(test)]
+    window: Mutex<Option<Box<dyn FnOnce() + Send>>>,
 }
 
 /// Enough for listeners that fall a few transitions behind
@@ -53,11 +57,29 @@ impl StatusCell {
             order: Mutex::new(()),
             emit,
             changes: broadcast::channel(CHANGE_BACKLOG).0,
+            #[cfg(test)]
+            window: Mutex::new(None),
         }
     }
 
     pub fn get(&self) -> LcuStatus {
-        *self.current.lock().expect("status lock")
+        let status = *self.current.lock().expect("status lock");
+        #[cfg(test)]
+        self.run_window();
+        status
+    }
+
+    #[cfg(test)]
+    pub fn on_next_check(&self, hook: impl FnOnce() + Send + 'static) {
+        *self.window.lock().expect("window lock") = Some(Box::new(hook));
+    }
+
+    #[cfg(test)]
+    fn run_window(&self) {
+        let hook = self.window.lock().expect("window lock").take();
+        if let Some(hook) = hook {
+            hook();
+        }
     }
 
     pub fn set(&self, status: LcuStatus) {
@@ -73,6 +95,8 @@ impl StatusCell {
             if !when(*current) {
                 return;
             }
+            #[cfg(test)]
+            self.run_window();
             let changed = *current != status;
             *current = status;
             changed
