@@ -3,10 +3,6 @@ name: Tauri CI
 on:
   push:
     branches: ["**"]
-    paths:
-      - "tauri/**"
-      - "parity/**"
-      - ".github/workflows/tauri-ci.yml"
   workflow_dispatch:
 
 permissions:
