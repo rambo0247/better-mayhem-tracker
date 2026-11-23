@@ -576,6 +576,30 @@ impl Serialize for Cell {
     }
 }
 
+/// The form [`Cell`] serializes to, read back, so a contract result type can
+/// round-trip Electron's recorded answer.
+impl<'de> serde::Deserialize<'de> for Cell {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de::Error;
+        match Value::deserialize(deserializer)? {
+            Value::Null => Ok(Cell::Null),
+            Value::Number(n) => n
+                .as_f64()
+                .map(Cell::Number)
+                .ok_or_else(|| D::Error::custom("a number f64 cannot hold")),
+            Value::String(s) => Ok(Cell::Text(s)),
+            Value::Object(map) if map.len() == 1 => match map.get("$bytes") {
+                Some(Value::String(b64)) => base64::engine::general_purpose::STANDARD
+                    .decode(b64)
+                    .map(Cell::Blob)
+                    .map_err(D::Error::custom),
+                _ => Err(D::Error::custom("an object that is not {\"$bytes\": base64}")),
+            },
+            other => Err(D::Error::custom(format!("not a column value: {other}"))),
+        }
+    }
+}
+
 impl rusqlite::types::FromSql for Cell {
     fn column_result(value: ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         Ok(Cell::read(value))
