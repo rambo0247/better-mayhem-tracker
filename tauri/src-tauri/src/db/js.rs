@@ -284,42 +284,14 @@ fn write_string(out: &mut String, s: &str) {
     out.push('"');
 }
 
-/// `Number.prototype.toString()`, ECMA-262 6.1.6.1.20, from the shortest
-/// digits that round-trip, which Rust's `{:e}` prints. `JSON.stringify`
-/// writes a non-finite number as `null`.
+/// `Number.prototype.toString()`, ECMA-262 6.1.6.1.20, through ryu-js,
+/// which also makes the spec's even choice between two equally near shortest
+/// digit strings. `JSON.stringify` writes a non-finite number as `null`.
 pub fn number_to_string(x: f64) -> String {
     if !x.is_finite() {
         return "null".into();
     }
-    if x == 0.0 {
-        return "0".into();
-    }
-    let sci = format!("{:e}", x.abs());
-    let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
-    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
-    let k = digits.len() as i32;
-    let n = exp.parse::<i32>().unwrap_or(0) + 1;
-    let sign = if x < 0.0 { "-" } else { "" };
-    let body = if k <= n && n <= 21 {
-        format!("{digits}{}", "0".repeat((n - k) as usize))
-    } else if 0 < n && n <= 21 {
-        format!("{}.{}", &digits[..n as usize], &digits[n as usize..])
-    } else if -6 < n && n <= 0 {
-        format!("0.{}{digits}", "0".repeat((-n) as usize))
-    } else {
-        let e = n - 1;
-        let e = if e < 0 {
-            format!("-{}", -e)
-        } else {
-            format!("+{e}")
-        };
-        if k == 1 {
-            format!("{digits}e{e}")
-        } else {
-            format!("{}.{}e{e}", &digits[..1], &digits[1..])
-        }
-    };
-    format!("{sign}{body}")
+    ryu_js::Buffer::new().format_finite(x).to_owned()
 }
 
 #[cfg(test)]
@@ -346,6 +318,21 @@ mod tests {
         ];
         for (x, want) in cases {
             assert_eq!(number_to_string(x), want, "{x:e}");
+        }
+    }
+
+    /// Node's `String(x)` where two shortest digit strings are equally near
+    /// and ECMAScript takes the even one (the T11 Node fuzz).
+    #[test]
+    fn number_ties_round_half_even_as_node_does() {
+        let cases = [
+            (0x423ed40051587400, "132405809496.45312"),
+            (0x3f619a0000000000, "0.0021486282348632812"),
+            (0x3f912a8000000000, "0.016763687133789062"),
+            (0x3fc08e2000000000, "0.12933731079101562"),
+        ];
+        for (bits, node) in cases {
+            assert_eq!(number_to_string(f64::from_bits(bits)), node, "{bits:x}");
         }
     }
 
