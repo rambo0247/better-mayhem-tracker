@@ -90,7 +90,7 @@ export function coverageLine(coverage: Coverage): string {
 
 // --- Talking to the seam ---
 
-interface SeamRecord {
+export interface SeamRecord {
   k: "start" | "end" | "send" | "effect";
   t: number;
   id?: number;
@@ -114,7 +114,7 @@ interface RawResult {
   message?: string;
 }
 
-const drain = (run: RunningElectron) =>
+export const drain = (run: RunningElectron) =>
   run.app.evaluate(() => (globalThis as any).__bmtIpc.drain()) as Promise<SeamRecord[]>;
 
 async function invokeRaw(
@@ -551,7 +551,7 @@ async function recordClientScenario(
 
 // --- Writing ---
 
-function writeJson(file: string, value: unknown, runDir: string) {
+export function writeJson(file: string, value: unknown, runDir: string) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, redact(JSON.stringify(value, null, 2), runDir) + "\n");
 }
@@ -685,6 +685,7 @@ if (import.meta.main) {
   if (!only && !scenario) {
     fs.rmSync(path.join(out, "ipc"), { recursive: true, force: true });
     fs.rmSync(path.join(out, "events"), { recursive: true, force: true });
+    fs.rmSync(path.join(out, "states"), { recursive: true, force: true });
   }
 
   let appVersion = "";

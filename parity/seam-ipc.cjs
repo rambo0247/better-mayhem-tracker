@@ -39,6 +39,14 @@ function toJson(value) {
   return { json: walk(value, "$"), nonFinite };
 }
 
+// The preload forwards every optional parameter, so the page's call to getAugmentStats(26) arrives
+// as (26, undefined, undefined, undefined). The golden holds the arguments that were meaningful.
+function withoutTrailingUndefined(args) {
+  let end = args.length;
+  while (end > 0 && args[end - 1] === undefined) end--;
+  return args.slice(0, end);
+}
+
 const activeCall = () => activeCalls[activeCalls.length - 1] ?? null;
 const effect = (api, args) =>
   records.push({
@@ -54,7 +62,13 @@ ipcMain.handle = (channel, handler) =>
   realHandle(channel, async (event, ...args) => {
     const id = nextCall++;
     activeCalls.push(id);
-    records.push({ k: "start", t: since(), id, channel, args: args.map((a) => toJson(a).json) });
+    records.push({
+      k: "start",
+      t: since(),
+      id,
+      channel,
+      args: withoutTrailingUndefined(args).map((a) => toJson(a).json ?? null),
+    });
     try {
       const result = await handler(event, ...args);
       const { json, nonFinite } = toJson(result);

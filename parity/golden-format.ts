@@ -71,6 +71,18 @@ export interface GoldenManifest {
   dbSha256: string;
   channels: string[];
   events: string[];
+  /** Ids of the states recorded under `states/`. Absent until `record-states.ts` has run. */
+  states?: string[];
+}
+
+/** `states/<id>.json`: every call one page state made, in order, and the case that answers each. */
+export interface StateIndex {
+  format: typeof GOLDEN_FORMAT;
+  state: string;
+  group: string;
+  route: string;
+  viewport: { width: number; height: number };
+  calls: { seq: number; channel: string; method: string | null; args: Json[]; case: string }[];
 }
 
 /** `:` is not a legal file name character on Windows, and no channel contains a dot. */
