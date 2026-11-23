@@ -58,6 +58,15 @@ impl Host {
             clock: commands::Clock::System,
         }
     }
+
+    /// The host golden replay builds every mock app on: `clock`, and nothing
+    /// that reaches the operator's machine. A field a later unit adds for an
+    /// OS seam gets its recording form here, never its real one, so a replayed
+    /// `app:open-url` records the URL instead of opening it.
+    #[cfg(feature = "parity-driver")]
+    pub fn replay(clock: commands::Clock) -> Self {
+        Self { clock }
+    }
 }
 
 /// The state and commands every build of the app has, the golden replay's

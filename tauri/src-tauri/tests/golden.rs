@@ -294,7 +294,7 @@ struct Replay {
 }
 
 fn build(build_app: BuildApp<'_>, clock: Clock) -> Replay {
-    let app = build_app(Host { clock })
+    let app = build_app(Host::replay(clock))
         .manage(EffectRecorder::default())
         .build(mock_context(noop_assets()))
         .expect("build the mock app");
@@ -712,6 +712,8 @@ struct Manifest {
     clock: Clock,
     recording: Recording,
     db_sha256: Option<String>,
+    /// The snapshot the goldens were recorded on, `fixture` for T05's.
+    data: String,
 }
 
 fn read_manifest(dir: &Path) -> Result<Manifest, String> {
@@ -731,29 +733,75 @@ fn read_manifest(dir: &Path) -> Result<Manifest, String> {
         clock: Clock::Fixed(ms),
         recording: Recording::from_manifest(&manifest),
         db_sha256: text_field("dbSha256"),
+        data: text_field("data").unwrap_or_else(|| "fixture".into()),
     })
 }
 
-/// Refuses a fixture other than the one the goldens were recorded on.
-fn check_fixture(manifest: &Manifest, data: Option<&Path>) -> Result<(), String> {
+/// How the golden test is run over `dir` and `data`, for a refusal to print.
+fn replay_command(dir: &Path, data: &str) -> String {
+    format!(
+        "BMT_GOLDEN_DIR={} BMT_GOLDEN_DATA={data} cargo test --features parity-driver --test golden",
+        dir.display()
+    )
+}
+
+/// The snapshot folder next to the goldens, `parity/snapshots/<data>/data`
+/// beside `parity/out/golden`, where `parity/snapshot.ts` writes it.
+fn fixture_beside(dir: &Path, manifest: &Manifest) -> Option<PathBuf> {
+    let parity = dir.parent()?.parent()?;
+    Some(parity.join("snapshots").join(&manifest.data).join("data"))
+}
+
+/// Refuses a fixture other than the one the goldens were recorded on, and
+/// goldens that do not say which one that was.
+fn check_fixture(manifest: &Manifest, dir: &Path, data: Option<&Path>) -> Result<(), String> {
     let Some(expected) = &manifest.db_sha256 else {
-        return Ok(());
-    };
-    let data = data.ok_or(format!(
-        "set BMT_GOLDEN_DATA to the fixture folder whose matches.db has sha256 {expected}"
-    ))?;
-    let db = data.join("matches.db");
-    if !db.is_file() {
-        return Err(format!("{}: no matches.db", data.display()));
-    }
-    let actual = sha256(&db);
-    if &actual != expected {
         return Err(format!(
-            "{} has sha256 {actual}, but the goldens were recorded on {expected}; replay over another fixture fails a correct port",
-            db.display()
+            "{} has no dbSha256, so replay cannot tell which fixture the goldens were recorded on; re-record them with parity/run-electron.ts",
+            dir.join("manifest.json").display()
         ));
-    }
-    Ok(())
+    };
+    let matching = |folder: &Path| {
+        let db = folder.join("matches.db");
+        db.is_file().then(|| sha256(&db))
+    };
+    let found = match data {
+        None => "BMT_GOLDEN_DATA is not set".to_owned(),
+        Some(data) => match matching(data) {
+            None => format!("{} holds no matches.db", data.display()),
+            Some(actual) => {
+                if &actual != expected {
+                    format!(
+                        "{} has sha256 {actual}, and replay over another fixture fails a correct port",
+                        data.join("matches.db").display()
+                    )
+                } else {
+                    return Ok(());
+                }
+            }
+        },
+    };
+    let rerun = match fixture_beside(dir, manifest) {
+        Some(beside) if matching(&beside).as_ref() == Some(expected) => format!(
+            "Rerun as:\n  {}",
+            manifest
+                .recording
+                .rerun(&replay_command(dir, &beside.display().to_string()))
+        ),
+        beside => format!(
+            "No folder of that sha256 is at {}; point BMT_GOLDEN_DATA at the snapshot the goldens were recorded on:\n  {}",
+            beside.map_or("the goldens' parity/snapshots".into(), |b| b
+                .display()
+                .to_string()),
+            manifest.recording.rerun(&replay_command(
+                dir,
+                &format!("<a folder whose matches.db has sha256 {expected}>")
+            ))
+        ),
+    };
+    Err(format!(
+        "the goldens were recorded on a matches.db of sha256 {expected}, but {found}. {rerun}"
+    ))
 }
 
 fn copy_dir(from: &Path, to: &Path) {
@@ -881,6 +929,22 @@ async fn version_and_event(app: tauri::AppHandle<MockRuntime>) -> Result<String,
 }
 
 #[tauri::command(rename = "app:version")]
+async fn version_only() -> Result<String, CommandError> {
+    Ok("1.2.1".into())
+}
+
+#[tauri::command(rename = "app:version")]
+async fn version_and_effect(app: tauri::AppHandle<MockRuntime>) -> Result<String, CommandError> {
+    let root = std::env::var("BMT_DATA_ROOT").map_err(|e| CommandError::thrown(e.to_string()))?;
+    let folder = Path::new(&root).join("backups");
+    app.state::<EffectRecorder>().record(
+        "shell.openPath",
+        vec![Value::from(folder.to_string_lossy())],
+    );
+    Ok("1.2.1".into())
+}
+
+#[tauri::command(rename = "app:version")]
 async fn version_and_file() -> Result<String, CommandError> {
     let root = std::env::var("BMT_DATA_ROOT").map_err(|e| CommandError::thrown(e.to_string()))?;
     std::fs::write(Path::new(&root).join("stray.txt"), "x")
@@ -969,50 +1033,101 @@ fn check_harness(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// A right answer with a wrong event or a stray file is a failure, and the
-/// ratchet holds both ways.
+/// A right answer with any side effect that differs from Electron's, in
+/// either direction, is a failure, and the ratchet holds both ways.
 fn check_side_effects(root: &Path) -> Result<(), String> {
     let registry = commands::registry();
     let spec = registry
         .iter()
         .find(|c| c.channel == "app:version")
         .ok_or("app:version is not registered")?;
-    let golden = |events: Value| {
-        Golden::parse(serde_json::json!({
+    let golden = |key: &str, items: Value| {
+        let mut golden = serde_json::json!({
             "channel": "app:version", "case": "hand-made", "group": "read", "seq": 0, "args": [],
-            "outcome": { "kind": "value", "result": "1.2.1" }, "events": events
-        }))
+            "outcome": { "kind": "value", "result": "1.2.1" }
+        });
+        golden[key] = items;
+        Golden::parse(golden)
     };
-    let quiet = golden(serde_json::json!([]))?;
-    let pushed = golden(serde_json::json!([{ "seq": 0, "event": "lcu:games-updated" }]))?;
-    let emits = |host: Host| {
-        mock_builder()
-            .manage(host.clock)
-            .invoke_handler(tauri::generate_handler![version_and_event])
-    };
-    let writes = |host: Host| {
-        mock_builder()
-            .manage(host.clock)
-            .invoke_handler(tauri::generate_handler![version_and_file])
-    };
-    let replay = build(&emits, Clock::System);
-    expect(
-        "an event Electron did not push",
-        replay_case(&replay, spec, &quiet, root).0,
-        Verdict::Fail,
+    let quiet = golden("events", serde_json::json!([]))?;
+    let pushed = golden(
+        "events",
+        serde_json::json!([{ "seq": 0, "event": "lcu:games-updated" }]),
     )?;
+    let other_payload = golden(
+        "events",
+        serde_json::json!([{ "seq": 0, "event": "lcu:games-updated", "payload": { "games": 1 } }]),
+    )?;
+    let stray = format!("{:x}", Sha256::digest(b"x"));
+    let wrote = golden(
+        "files",
+        serde_json::json!([{ "path": "$RUN/stray.txt", "size": 1, "sha256": stray }]),
+    )?;
+    let opened = golden(
+        "effects",
+        serde_json::json!([{ "seq": 0, "api": "shell.openPath", "args": ["$RUN/backups"] }]),
+    )?;
+    let handlers =
+        |handler: fn() -> Builder<MockRuntime>| move |host: Host| handler().manage(host.clock);
+    let only = handlers(|| mock_builder().invoke_handler(tauri::generate_handler![version_only]));
+    let emits =
+        handlers(|| mock_builder().invoke_handler(tauri::generate_handler![version_and_event]));
+    let writes =
+        handlers(|| mock_builder().invoke_handler(tauri::generate_handler![version_and_file]));
+    let records =
+        handlers(|| mock_builder().invoke_handler(tauri::generate_handler![version_and_effect]));
+    let cases: [(&str, BuildApp<'_>, &Golden, Verdict); 10] = [
+        (
+            "no side effect on either side",
+            &only,
+            &quiet,
+            Verdict::Pass,
+        ),
+        (
+            "an event Electron did not push",
+            &emits,
+            &quiet,
+            Verdict::Fail,
+        ),
+        ("the event Electron pushed", &emits, &pushed, Verdict::Pass),
+        ("an event Rust did not push", &only, &pushed, Verdict::Fail),
+        (
+            "an event with another payload",
+            &emits,
+            &other_payload,
+            Verdict::Fail,
+        ),
+        (
+            "a file Electron did not write",
+            &writes,
+            &quiet,
+            Verdict::Fail,
+        ),
+        ("the file Electron wrote", &writes, &wrote, Verdict::Pass),
+        ("a file Rust did not write", &only, &wrote, Verdict::Fail),
+        (
+            "an OS call Electron did not make",
+            &records,
+            &quiet,
+            Verdict::Fail,
+        ),
+        (
+            "an OS call Rust did not make",
+            &only,
+            &opened,
+            Verdict::Fail,
+        ),
+    ];
+    for (label, handler, golden, want) in cases {
+        let verdict = replay_case(&build(handler, Clock::System), spec, golden, root).0;
+        std::fs::remove_file(root.join("stray.txt")).ok();
+        expect(label, verdict, want)?;
+    }
     expect(
-        "the event Electron pushed",
-        replay_case(&replay, spec, &pushed, root).0,
+        "the OS call Electron made, under $RUN",
+        replay_case(&build(&records, Clock::System), spec, &opened, root).0,
         Verdict::Pass,
     )?;
-    let replay = build(&writes, Clock::System);
-    expect(
-        "a file Electron did not write",
-        replay_case(&replay, spec, &quiet, root).0,
-        Verdict::Fail,
-    )?;
-    std::fs::remove_file(root.join("stray.txt")).ok();
 
     let verdicts = BTreeMap::from([
         ("app:version", Verdict::Pass),
@@ -1028,14 +1143,22 @@ fn check_side_effects(root: &Path) -> Result<(), String> {
     {
         return Err(format!("self-check ratchet: {unlisted:?} and {listed:?}"));
     }
+    let stubbed = listed_stubs(
+        &BTreeSet::from(["db:profile", "db:seasons"]),
+        &BTreeSet::from(["db:profile".to_owned(), "app:version".to_owned()]),
+    );
+    if stubbed != ["db:profile is in tests/ported.txt but its body answers not ported"] {
+        return Err(format!("self-check listed stubs: {stubbed:?}"));
+    }
     Ok(())
 }
 
 /// Every channel is reachable under its name and reads its arguments by their
 /// keys: only a body may answer, never Tauri's own refusal, which is a string.
-fn check_every_channel(build_app: BuildApp<'_>) -> Result<(), String> {
+fn check_every_channel(build_app: BuildApp<'_>) -> Result<BTreeSet<&'static str>, String> {
     let cfg = ts_rs::Config::new().with_large_int("number");
     let replay = build(build_app, Clock::System);
+    let mut stubs = BTreeSet::new();
     for command in commands::registry() {
         let mut full = Map::new();
         for arg in &command.args {
@@ -1047,14 +1170,21 @@ fn check_every_channel(build_app: BuildApp<'_>) -> Result<(), String> {
             .filter(|a| !a.ty.optional)
             .map(|a| (a.key(), full[&a.key()].clone()))
             .collect();
+        let mut stub = true;
         for body in [full, required] {
-            if let Err(Value::String(refusal)) = call(&replay.window, command.channel, body.clone())
-            {
-                return Err(format!(
-                    "self-check {} with {body:?}: Tauri refused it: {refusal}",
-                    command.channel
-                ));
+            match call(&replay.window, command.channel, body.clone()) {
+                Err(Value::String(refusal)) => {
+                    return Err(format!(
+                        "self-check {} with {body:?}: Tauri refused it: {refusal}",
+                        command.channel
+                    ));
+                }
+                Err(rejection) if is_not_ported(&rejection) => {}
+                _ => stub = false,
             }
+        }
+        if stub {
+            stubs.insert(command.channel);
         }
     }
     let unknown = call(&replay.window, UNREGISTERED_CHANNEL, Map::new())
@@ -1068,18 +1198,27 @@ fn check_every_channel(build_app: BuildApp<'_>) -> Result<(), String> {
             "self-check unregistered channel: rejected with {unknown}"
         ));
     }
-    Ok(())
+    Ok(stubs)
 }
 
-/// Arguments the page can send that a Rust type would refuse, recorded from
-/// trunk Electron (T13's verifier). Electron's handler answered each, so
-/// Tauri must hand each to the body, never refuse it; the body then answers
-/// as Electron did, SQLite's own refusals included, which a replay of the
-/// recorded corpus checks.
+/// Arguments the page can send that a Rust type would refuse. The first file
+/// was recorded from trunk Electron (T13's verifier) for the matches domain;
+/// the second is hand-made, one or two per scalar argument of every other
+/// domain, from the handler audit in the T08 record. Electron's handler
+/// answers each, so Tauri must hand each to the body, never refuse it; the
+/// body then answers as Electron did, SQLite's own refusals included, which a
+/// replay of the recorded corpus checks.
+const HOSTILE_ARGUMENTS: &[&str] = &["tests/hostile-args.json", "tests/hostile-scalar-args.json"];
+
 fn check_hostile_arguments(build_app: BuildApp<'_>) -> Result<(), String> {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/hostile-args.json");
-    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let cases: Vec<Value> = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let mut cases: Vec<Value> = Vec::new();
+    for file in HOSTILE_ARGUMENTS {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(file);
+        let text =
+            std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let read: Vec<Value> = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+        cases.extend(read);
+    }
     let registry = commands::registry();
     let replay = build(build_app, Clock::System);
     for case in &cases {
@@ -1269,102 +1408,46 @@ fn golden_dir() -> Result<Option<PathBuf>, String> {
     }
 }
 
-fn run() -> Result<Vec<String>, String> {
-    let registry = commands::registry();
-    let ported = read_ported(&registry)?;
-    let dir = golden_dir()?;
-    let manifest = dir.as_deref().map(read_manifest).transpose()?;
-    if let Some(manifest) = &manifest {
-        let mut command = String::new();
-        for key in ["BMT_GOLDEN_DIR", "BMT_GOLDEN_DATA"] {
-            if let Ok(value) = std::env::var(key) {
-                command.push_str(&format!("{key}={value} "));
-            }
-        }
-        command.push_str("cargo test --features parity-driver --test golden");
-        require_recording_env(&manifest.recording, &command)?;
-        println!(
-            "replaying in {} with {}",
-            manifest.recording.tz(),
-            manifest.recording.lang()
-        );
-    }
-    let build_app = |host: Host| bmt_lib::app_builder(mock_builder(), host);
+/// What replaying a set of goldens found.
+struct Replayed {
+    wire_values: usize,
+    cases: BTreeMap<&'static str, Vec<(String, Verdict)>>,
+    verdicts: BTreeMap<&'static str, Verdict>,
+    failures: Vec<String>,
+}
 
-    let root = std::env::temp_dir().join(format!("bmt-golden-self-check-{}", std::process::id()));
-    std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
-    use_data_root(&root);
-    check_harness(&root)?;
-    check_side_effects(&root)?;
-    check_every_channel(&build_app)?;
-    check_hostile_arguments(&build_app)?;
-    check_comparison()?;
-    check_clock_fields(dir.is_some())?;
-    std::fs::remove_dir_all(&root).ok();
-    println!(
-        "self-check: a stub reads not ported, a wrong answer and a panic read fail, every channel takes its arguments, hostile ones included"
-    );
-
-    let (Some(dir), Some(manifest)) = (dir, manifest) else {
-        // CI runs this with the recording's TZ set, to show SQLite reads it on
-        // each platform before any replay depends on it
-        let recording = Recording::from_manifest(&Value::Null);
-        if std::env::var("TZ").ok() == Some(recording.tz()) {
-            require_recording_env(
-                &recording,
-                "cargo test --features parity-driver --test golden",
-            )?;
-            println!(
-                "self-check: SQLite reads TZ={} as {}, the recording's zone",
-                recording.tz(),
-                recording.time_zone
-            );
-        }
-        println!(
-            "behavior replay skipped: no goldens here. They are recorded locally on the fixture, whose release waits on the operator's decision E2, so this run checked the harness and the contract only. Set BMT_GOLDEN_DIR and BMT_GOLDEN_DATA to replay."
-        );
-        if !ported.is_empty() {
-            println!(
-                "tests/ported.txt lists {} channels, not replayed here",
-                ported.len()
-            );
-        }
-        return Ok(Vec::new());
-    };
-    let data = std::env::var_os("BMT_GOLDEN_DATA").map(PathBuf::from);
-    check_fixture(&manifest, data.as_deref())?;
-    let goldens = read_goldens(&dir)?;
+/// Replays `goldens` against apps from `build_app`, each group over a fresh
+/// copy of `data`, and holds the result to the ratchet.
+fn replay_goldens(
+    dir: &Path,
+    goldens: &[Golden],
+    clock: Clock,
+    data: Option<&Path>,
+    registry: &[CommandSpec],
+    ported: BTreeSet<String>,
+    build_app: BuildApp<'_>,
+) -> Replayed {
     let mut failures = Vec::new();
-
-    let (checked, problems) = wire_shapes(&dir, &goldens, &registry);
-    let cases_read = goldens.len();
-    println!(
-        "wire shapes: {checked} values Electron sent in {cases_read} cases read and write back {}",
-        if problems.is_empty() {
-            "unchanged".to_string()
-        } else {
-            format!("with {} differences", problems.len())
-        }
-    );
+    let (wire_values, problems) = wire_shapes(dir, goldens, registry);
     failures.extend(problems.into_iter().map(|p| format!("wire shape: {p}")));
 
     let scratch = std::env::temp_dir().join(format!("bmt-golden-{}", std::process::id()));
     let mut groups: BTreeMap<&str, Vec<&Golden>> = BTreeMap::new();
-    for golden in &goldens {
+    for golden in goldens {
         groups
             .entry(golden.group.as_str())
             .or_default()
             .push(golden);
     }
-    let mut cases: BTreeMap<&str, Vec<(String, Verdict)>> = BTreeMap::new();
+    let mut cases: BTreeMap<&'static str, Vec<(String, Verdict)>> = BTreeMap::new();
     for (group, group_cases) in groups {
         let root = scratch.join(group);
-        match &data {
+        match data {
             Some(data) => copy_dir(data, &root),
             None => std::fs::create_dir_all(&root).expect("create the data folder"),
         }
         use_data_root(&root);
-        let replay = build(&build_app, manifest.clock);
+        let replay = build(build_app, clock);
         for golden in group_cases {
             if golden.channel == UNREGISTERED_CHANNEL {
                 let answer = call(&replay.window, &golden.channel, Map::new());
@@ -1397,7 +1480,7 @@ fn run() -> Result<Vec<String>, String> {
     }
     std::fs::remove_dir_all(&scratch).ok();
 
-    let verdicts: BTreeMap<&str, Verdict> = registry
+    let verdicts: BTreeMap<&'static str, Verdict> = registry
         .iter()
         .map(|spec| {
             let channel_cases = cases
@@ -1407,12 +1490,199 @@ fn run() -> Result<Vec<String>, String> {
             (spec.channel, channel_verdict(channel_cases))
         })
         .collect();
+    failures.extend(ratchet(&verdicts, &ported));
+    Replayed {
+        wire_values,
+        cases,
+        verdicts,
+        failures,
+    }
+}
+
+/// The replay entry with a listed stub fails on the ratchet, so the replay
+/// cannot drop its verdict.
+fn check_replay_ratchet(root: &Path) -> Result<(), String> {
+    let golden = Golden::parse(serde_json::json!({
+        "channel": "app:version", "case": "hand-made", "group": "read", "seq": 0, "args": [],
+        "outcome": { "kind": "value", "result": "1.2.1" }
+    }))?;
+    let stub = |host: Host| {
+        mock_builder()
+            .manage(host.clock)
+            .invoke_handler(tauri::generate_handler![canary])
+    };
+    let replayed = replay_goldens(
+        &root.join("no-goldens"),
+        &[golden],
+        Clock::System,
+        None,
+        &commands::registry(),
+        BTreeSet::from(["app:version".to_owned()]),
+        &stub,
+    );
+    if replayed.failures != ["app:version is in tests/ported.txt but reads not ported"] {
+        return Err(format!(
+            "self-check replay ratchet: a listed stub replayed with {:?}",
+            replayed.failures
+        ));
+    }
+    Ok(())
+}
+
+/// A listed channel whose body still answers `not ported`, which a run with
+/// no goldens can see without replaying anything.
+fn listed_stubs(stubs: &BTreeSet<&str>, ported: &BTreeSet<String>) -> Vec<String> {
+    ported
+        .iter()
+        .filter(|channel| stubs.contains(channel.as_str()))
+        .map(|channel| format!("{channel} is in tests/ported.txt but its body answers not ported"))
+        .collect()
+}
+
+/// Both fixture refusals, over a goldens folder and snapshot made here.
+fn check_fixture_refusals(root: &Path) -> Result<(), String> {
+    let dir = root.join("fixture-check/parity/out/golden");
+    let beside = root.join("fixture-check/parity/snapshots/fixture/data");
+    let other = root.join("fixture-check/other");
+    for (folder, text) in [(&beside, "recorded"), (&other, "another")] {
+        std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
+        std::fs::write(folder.join("matches.db"), text).map_err(|e| e.to_string())?;
+    }
+    let manifest = |db_sha256: Option<String>| Manifest {
+        clock: Clock::System,
+        recording: Recording::from_manifest(&Value::Null),
+        db_sha256,
+        data: "fixture".into(),
+    };
+    let recorded = manifest(Some(format!("{:x}", Sha256::digest(b"recorded"))));
+    let rerun = recorded
+        .recording
+        .rerun(&replay_command(&dir, &beside.display().to_string()));
+    let refusals = [
+        check_fixture(&manifest(None), &dir, Some(&beside)),
+        check_fixture(&recorded, &dir, Some(&other)),
+        check_fixture(&recorded, &dir, None),
+    ];
+    std::fs::remove_dir_all(root.join("fixture-check")).ok();
+    let [unrecorded, wrong, unset] = refusals;
+    if !unrecorded
+        .as_ref()
+        .is_err_and(|e| e.contains("has no dbSha256"))
+    {
+        return Err(format!(
+            "self-check fixture: a manifest with no dbSha256 read {unrecorded:?}"
+        ));
+    }
+    for (label, refusal) in [("another fixture", wrong), ("no BMT_GOLDEN_DATA", unset)] {
+        if !refusal
+            .as_ref()
+            .is_err_and(|e| e.ends_with(&format!("Rerun as:\n  {rerun}")))
+        {
+            return Err(format!(
+                "self-check fixture, {label}: {refusal:?} does not end in the rerun line {rerun:?}"
+            ));
+        }
+    }
+    if check_fixture(&recorded, &dir, Some(&beside)).is_ok() {
+        return Err("self-check fixture: the recorded fixture was refused".into());
+    }
+    Ok(())
+}
+
+fn run() -> Result<Vec<String>, String> {
+    let registry = commands::registry();
+    let ported = read_ported(&registry)?;
+    let dir = golden_dir()?;
+    let manifest = dir.as_deref().map(read_manifest).transpose()?;
+    let data = std::env::var_os("BMT_GOLDEN_DATA").map(PathBuf::from);
+    if let (Some(dir), Some(manifest)) = (&dir, &manifest) {
+        let data = data
+            .as_deref()
+            .map_or("<unset>".into(), |d| d.display().to_string());
+        require_recording_env(&manifest.recording, &replay_command(dir, &data))?;
+        println!(
+            "replaying in {} with {}",
+            manifest.recording.tz(),
+            manifest.recording.lang()
+        );
+    }
+    let build_app = |host: Host| bmt_lib::app_builder(mock_builder(), host);
+
+    let root = std::env::temp_dir().join(format!("bmt-golden-self-check-{}", std::process::id()));
+    std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
+    use_data_root(&root);
+    check_harness(&root)?;
+    check_side_effects(&root)?;
+    let stubs = check_every_channel(&build_app)?;
+    check_hostile_arguments(&build_app)?;
+    check_comparison()?;
+    check_clock_fields(dir.is_some())?;
+    check_fixture_refusals(&root)?;
+    check_replay_ratchet(&root)?;
+    std::fs::remove_dir_all(&root).ok();
+    println!(
+        "self-check: a stub reads not ported, a wrong answer and a panic read fail, every channel takes its arguments, hostile ones included"
+    );
+    let mut failures = listed_stubs(&stubs, &ported);
+
+    let (Some(dir), Some(manifest)) = (dir, manifest) else {
+        // CI runs this with the recording's TZ set, to show SQLite reads it on
+        // each platform before any replay depends on it
+        let recording = Recording::from_manifest(&Value::Null);
+        if std::env::var("TZ").ok() == Some(recording.tz()) {
+            require_recording_env(
+                &recording,
+                "cargo test --features parity-driver --test golden",
+            )?;
+            println!(
+                "self-check: SQLite reads TZ={} as {}, the recording's zone",
+                recording.tz(),
+                recording.time_zone
+            );
+        }
+        println!(
+            "behavior replay skipped: no goldens here. They are recorded locally on the fixture, whose release waits on the operator's decision E2, so this run checked the harness and the contract only. Set BMT_GOLDEN_DIR and BMT_GOLDEN_DATA to replay."
+        );
+        if !ported.is_empty() {
+            println!(
+                "tests/ported.txt lists {} channels, not replayed here",
+                ported.len()
+            );
+        }
+        return Ok(failures);
+    };
+    check_fixture(&manifest, &dir, data.as_deref())?;
+    let goldens = read_goldens(&dir)?;
+    let replayed = replay_goldens(
+        &dir,
+        &goldens,
+        manifest.clock,
+        data.as_deref(),
+        &registry,
+        ported,
+        &build_app,
+    );
+    let wire_problems = replayed
+        .failures
+        .iter()
+        .filter(|f| f.starts_with("wire shape: "))
+        .count();
+    println!(
+        "wire shapes: {} values Electron sent in {} cases read and write back {}",
+        replayed.wire_values,
+        goldens.len(),
+        if wire_problems == 0 {
+            "unchanged".to_string()
+        } else {
+            format!("with {wire_problems} differences")
+        }
+    );
     let mut counts: BTreeMap<Verdict, usize> = BTreeMap::new();
     println!("{:<30} {:<26} {:>5}  result", "channel", "method", "cases");
     for spec in &registry {
-        let verdict = verdicts[spec.channel];
+        let verdict = replayed.verdicts[spec.channel];
         *counts.entry(verdict).or_default() += 1;
-        let n = cases.get(spec.channel).map_or(0, Vec::len);
+        let n = replayed.cases.get(spec.channel).map_or(0, Vec::len);
         println!(
             "{:<30} {:<26} {:>5}  {}",
             spec.channel,
@@ -1432,7 +1702,7 @@ fn run() -> Result<Vec<String>, String> {
         summary.push_str(&format!(", {} no golden", count(Verdict::NoGolden)));
     }
     println!("{summary}");
-    failures.extend(ratchet(&verdicts, &ported));
+    failures.extend(replayed.failures);
     Ok(failures)
 }
 

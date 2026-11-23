@@ -1,0 +1,239 @@
+[
+  {
+    "channel": "db:champion-stats",
+    "case": "patch-number",
+    "args": [
+      25.21
+    ]
+  },
+  {
+    "channel": "db:champion-stats",
+    "case": "queue-string",
+    "args": [
+      null,
+      "2400"
+    ]
+  },
+  {
+    "channel": "db:champion-stats",
+    "case": "season-number",
+    "args": [
+      null,
+      null,
+      3
+    ]
+  },
+  {
+    "channel": "db:augment-stats",
+    "case": "champion-id-string",
+    "args": [
+      "157"
+    ]
+  },
+  {
+    "channel": "db:augment-stats",
+    "case": "queue-fraction",
+    "args": [
+      157,
+      null,
+      2400.5
+    ]
+  },
+  {
+    "channel": "db:augment-stats-detailed",
+    "case": "season-boolean",
+    "args": [
+      null,
+      null,
+      true
+    ]
+  },
+  {
+    "channel": "db:champion-item-stats",
+    "case": "champion-id-nan",
+    "args": [
+      null
+    ]
+  },
+  {
+    "channel": "db:champion-item-stats",
+    "case": "champion-id-string",
+    "args": [
+      "157",
+      "25.21"
+    ]
+  },
+  {
+    "channel": "db:global-stats",
+    "case": "queue-fraction",
+    "args": [
+      "25.21",
+      2400.5
+    ]
+  },
+  {
+    "channel": "db:global-champion-detail",
+    "case": "champion-id-nan",
+    "args": [
+      null
+    ]
+  },
+  {
+    "channel": "db:global-champion-detail",
+    "case": "champion-id-fraction",
+    "args": [
+      157.5,
+      null,
+      "2400"
+    ]
+  },
+  {
+    "channel": "db:trends",
+    "case": "queue-string",
+    "args": [
+      "2400"
+    ]
+  },
+  {
+    "channel": "db:records",
+    "case": "account-number",
+    "args": [
+      null,
+      5
+    ]
+  },
+  {
+    "channel": "db:teammate-stats",
+    "case": "season-number",
+    "args": [
+      1
+    ]
+  },
+  {
+    "channel": "db:teammate-groups",
+    "case": "season-object",
+    "args": [
+      {
+        "id": "s1"
+      }
+    ]
+  },
+  {
+    "channel": "db:teammate-group-detail",
+    "case": "key-number",
+    "args": [
+      5
+    ]
+  },
+  {
+    "channel": "db:teammate-detail",
+    "case": "key-missing",
+    "args": [
+      null
+    ]
+  },
+  {
+    "channel": "db:game-recap",
+    "case": "game-id-string",
+    "args": [
+      "123"
+    ]
+  },
+  {
+    "channel": "db:game-card",
+    "case": "game-id-fraction",
+    "args": [
+      1.5
+    ]
+  },
+  {
+    "channel": "db:game-card",
+    "case": "game-id-missing",
+    "args": [
+      null
+    ]
+  },
+  {
+    "channel": "db:season-recap",
+    "case": "season-id-number",
+    "args": [
+      3,
+      "2400",
+      7
+    ]
+  },
+  {
+    "channel": "dragon:augments",
+    "case": "patch-number",
+    "args": [
+      25
+    ]
+  },
+  {
+    "channel": "dragon:augment-icon",
+    "case": "id-string",
+    "args": [
+      "1108",
+      16
+    ]
+  },
+  {
+    "channel": "dragon:items",
+    "case": "patch-boolean",
+    "args": [
+      false
+    ]
+  },
+  {
+    "channel": "settings:get",
+    "case": "key-number",
+    "args": [
+      5
+    ]
+  },
+  {
+    "channel": "settings:set",
+    "case": "key-and-value-numbers",
+    "args": [
+      5,
+      5
+    ]
+  },
+  {
+    "channel": "settings:set",
+    "case": "value-missing",
+    "args": [
+      "auto_start"
+    ]
+  },
+  {
+    "channel": "app:download-update",
+    "case": "asset-url-number",
+    "args": [
+      7
+    ]
+  },
+  {
+    "channel": "app:open-url",
+    "case": "url-missing",
+    "args": [
+      null
+    ]
+  },
+  {
+    "channel": "app:open-url",
+    "case": "url-array",
+    "args": [
+      [
+        "https://example.com"
+      ]
+    ]
+  },
+  {
+    "channel": "backup:restore",
+    "case": "file-number",
+    "args": [
+      3
+    ]
+  }
+]
