@@ -1,0 +1,111 @@
+name: Parity
+
+# Baseline capture on Windows. The anonymized fixture is not committed yet
+# (decision E2), so the job takes it from an earlier run's artifact and skips
+# with a notice when none is named.
+on:
+  workflow_dispatch:
+    inputs:
+      fixture_run:
+        description: "Run id holding a parity-fixture artifact"
+        required: false
+        default: ""
+      lanes:
+        description: "States or groups to capture, or all"
+        required: false
+        default: "all"
+  push:
+    branches: ["port/**"]
+    paths:
+      - "parity/**"
+      - ".github/workflows/parity.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: parity
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: canary
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run fmt:check
+      - run: bun test
+
+  baseline-windows:
+    needs: unit
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the fixture
+        id: fixture
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.fixture_run }}
+        run: |
+          if [ -d parity/snapshots/fixture/data ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "$RUN_ID" ]; then
+            gh run download "$RUN_ID" --name parity-fixture --dir parity/snapshots/fixture
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No fixture. Pass fixture_run with the id of a run that uploaded a parity-fixture artifact. Skipping the Windows baseline."
+          fi
+
+      - if: steps.fixture.outputs.found == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - if: steps.fixture.outputs.found == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: canary
+
+      - if: steps.fixture.outputs.found == 'true'
+        name: Build trunk Electron
+        run: |
+          npm ci
+          npm run rebuild
+          node node_modules/electron/install.js
+          npm run build
+
+      - if: steps.fixture.outputs.found == 'true'
+        name: Install parity
+        working-directory: parity
+        run: bun install --frozen-lockfile
+
+      - if: steps.fixture.outputs.found == 'true'
+        name: Capture twice
+        working-directory: parity
+        run: |
+          bun capture.ts --app electron --data fixture --states "${{ inputs.lanes || 'all' }}" --out out/baseline/run-1
+          bun capture.ts --app electron --data fixture --states "${{ inputs.lanes || 'all' }}" --out out/baseline/run-2
+
+      - if: steps.fixture.outputs.found == 'true'
+        name: Compare the two runs
+        working-directory: parity
+        run: bun determinism.ts out/baseline/run-1 out/baseline/run-2 | tee out/baseline/determinism.log
+
+      - if: always() && steps.fixture.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-baseline-windows
+          path: parity/out/baseline

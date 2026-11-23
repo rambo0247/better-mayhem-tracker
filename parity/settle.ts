@@ -38,7 +38,12 @@ export async function settle(
       let pending = 0;
       for (;;) {
         const images = [...document.images];
-        pending = images.filter((image) => !image.complete).length;
+        // Lazy images far below the fold never load, so only the ones near the viewport count
+        pending = images.filter((image) => {
+          if (image.complete) return false;
+          const box = image.getBoundingClientRect();
+          return box.bottom > -innerHeight && box.top < 2 * innerHeight;
+        }).length;
         const status = document.querySelector('[role="status"][aria-label^="League client:"]');
         const connecting = status?.getAttribute("aria-label")?.includes("Connecting") ?? false;
         if (pending > 0 || connecting) lastMutation = performance.now();
@@ -50,7 +55,12 @@ export async function settle(
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
       observer.disconnect();
-      await Promise.all([...document.images].map((image) => image.decode().catch(() => {})));
+      const decodeWithin = (image: HTMLImageElement) =>
+        Promise.race([
+          image.decode().catch(() => {}),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+      await Promise.all([...document.images].filter((image) => image.complete).map(decodeWithin));
       return { timedOut, pending };
     },
     { quiet: QUIET_MS, timeout: SETTLE_TIMEOUT_MS },

@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { Database } from "bun:sqlite";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -69,10 +69,9 @@ export function prepareRun(options: { data: string; runDir: string; repo: string
   fs.mkdirSync(path.join(runDir, "logs"), { recursive: true });
 
   const db = path.join(runDir, "data", "matches.db");
-  execFileSync("sqlite3", [
-    db,
-    `UPDATE settings SET value='${pkg.version}' WHERE key='last_run_version'`,
-  ]);
+  const database = new Database(db);
+  database.run("UPDATE settings SET value = ? WHERE key = 'last_run_version'", [pkg.version]);
+  database.close();
   return { dataRoot, version: pkg.version };
 }
 
