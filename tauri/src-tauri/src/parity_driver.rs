@@ -857,10 +857,14 @@ mod mac {
 
     use super::{Key, KeyKind, MouseKind, json_returning_body, wait};
 
-    /// Keeps App Nap from slowing timers while the window sits behind others.
+    /// Keeps App Nap from slowing timers while the window sits behind others,
+    /// and the display from idling to sleep mid-run: WebKit stops painting a
+    /// window on a sleeping display, so every snapshot would time out.
     pub fn hold_off_app_nap() {
         let activity = NSProcessInfo::processInfo().beginActivityWithOptions_reason(
-            NSActivityOptions::UserInitiated | NSActivityOptions::LatencyCritical,
+            NSActivityOptions::UserInitiated
+                | NSActivityOptions::LatencyCritical
+                | NSActivityOptions::IdleDisplaySleepDisabled,
             &NSString::from_str("parity capture"),
         );
         // Held for the life of the process

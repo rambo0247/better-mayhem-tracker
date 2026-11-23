@@ -378,7 +378,15 @@ export class TauriEngine implements Engine {
   lastSnapshot?: { width: number; height: number; sourceColorSpace: string; backingScale: number };
 
   async screenshot(file: string) {
-    const response = await this.driver.call("snapshot", { scale: 2, ...this.viewport });
+    const response = await this.driver
+      .call("snapshot", { scale: 2, ...this.viewport })
+      .catch(async (error) => {
+        const { occluded } = await this.driver.json<{ occluded: boolean }>("info");
+        // WebKit paints no window that is covered or on a sleeping display
+        throw occluded
+          ? new Error(`${error.message}; the window is occluded or the display is asleep`)
+          : error;
+      });
     this.lastSnapshot = JSON.parse(response.headers.get("x-bmt-snapshot") ?? "{}");
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, Buffer.from(await response.arrayBuffer()));
