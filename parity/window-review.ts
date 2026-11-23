@@ -51,6 +51,8 @@ const file = (name: string) => path.join(work, name);
 const FONT = "/System/Library/Fonts/Supplemental/Arial.ttf";
 const MONO = "/System/Library/Fonts/Menlo.ttc";
 const magick = (...argv: string[]) => execFileSync("magick", argv, { stdio: "pipe" });
+/** Electron's side wherever its traffic lights are a model: Screen Recording is not granted. */
+const ELECTRON_MODELED = "Electron 1.2.1 (chrome modeled)";
 
 async function tauriPicture(tauri: RunningTauri, target: "titlebar" | "tray", name: string) {
   const response = await tauri.driver.call("shell-shot", { target });
@@ -151,29 +153,42 @@ function absent(name: string, text: string, like: string) {
   return file(name);
 }
 
-/** Two pictures side by side under a caption, each scaled to `width`. */
+/**
+ * Text set in a fixed box, wrapped to its width, so a long line wraps instead of running off
+ * either edge.
+ */
+const textBox = (width: number, height: number, pointsize: number, text: string) => [
+  "(",
+  "-size",
+  `${width}x${height}`,
+  "-background",
+  "#0f1115",
+  "-fill",
+  "#e8e8e8",
+  "-font",
+  FONT,
+  "-pointsize",
+  String(pointsize),
+  "-gravity",
+  "center",
+  `caption:${text}`,
+  ")",
+];
+
+/** Two pictures side by side, each under its label and scaled to `width`. */
 function pair(name: string, left: string, right: string, labels: [string, string], width = 960) {
   const scaled = [left, right].map((src, i) => {
     const target = file(`${name}-${i}.png`);
     magick(
+      ...textBox(width, 64, 22, labels[i]!),
+      "(",
       src,
       "-resize",
       `${width}x`,
+      ")",
       "-background",
       "#0f1115",
-      "-gravity",
-      "north",
-      "-splice",
-      "0x44",
-      "-fill",
-      "#e8e8e8",
-      "-pointsize",
-      "24",
-      "-font",
-      FONT,
-      "-annotate",
-      "+0+8",
-      labels[i]!,
+      "-append",
       target,
     );
     return target;
@@ -192,32 +207,35 @@ function pair(name: string, left: string, right: string, labels: [string, string
   return file(name);
 }
 
+/**
+ * A 1920x1080 video frame. Every frame is 8-bit RGB: ffmpeg's fps filter drops a frame wherever
+ * the input's pixel format changes, and ImageMagick keeps a 16-bit source at 16 bits.
+ */
 function captioned(name: string, src: string, caption: string) {
   const target = file(name);
   magick(
+    ...textBox(1840, 80, 30, caption),
+    "-gravity",
+    "center",
+    "-extent",
+    "1920x80",
+    "(",
     src,
     "-resize",
-    "1920x1080",
+    "1920x1000",
     "-background",
     "#0f1115",
     "-gravity",
     "center",
     "-extent",
     "1920x1000",
-    "-gravity",
-    "north",
-    "-splice",
-    "0x80",
-    "-fill",
-    "#ffffff",
-    "-pointsize",
-    "32",
-    "-font",
-    FONT,
-    "-annotate",
-    "+0+22",
-    caption,
-    target,
+    ")",
+    "-append",
+    "-alpha",
+    "off",
+    "-depth",
+    "8",
+    `PNG24:${target}`,
   );
   return target;
 }
@@ -496,25 +514,32 @@ try {
     file("electron-tl-marked-big.png"),
     file("tauri-tl-marked-big.png"),
     [
-      "Electron: page; red = modeled frames from trafficLightPosition {16,15}",
-      "Tauri: webview + AppKit title bar, green = measured, red = Electron's",
+      `${ELECTRON_MODELED}: page only; red = the frames trafficLightPosition {16,15} gives`,
+      "Tauri (T10): webview + AppKit title bar; green = measured, red = Electron's",
     ],
   );
   fs.copyFileSync(tl, path.join(out, "T10-review-traffic-lights.png"));
-  crop(file("electron-page.png"), file("electron-strip.png"), 1280, 60);
+  outline(file("electron-page.png"), file("electron-page-modeled.png"), scale, [
+    [eFrames, "#ff4040"],
+  ]);
+  crop(file("electron-page-modeled.png"), file("electron-strip.png"), 1280, 60);
   crop(tWindow.file, file("tauri-strip.png"), 1280, 60);
+  const stripWidth = 1280 * scale;
   magick(
+    ...textBox(stripWidth, 56, 32, `${ELECTRON_MODELED}: page, red = modeled traffic lights`),
     file("electron-strip.png"),
+    ...textBox(stripWidth, 56, 32, "Tauri (T10): webview + AppKit title bar"),
     file("tauri-strip.png"),
     "-background",
     "#0f1115",
-    "-splice",
-    "0x16",
     "-append",
     path.join(out, "T10-review-title-bar.png"),
   );
   frame(
-    pair("launch.png", file("electron-page.png"), tWindow.file, ["Electron 1.2.1", "Tauri (T10)"]),
+    pair("launch.png", file("electron-page-modeled.png"), tWindow.file, [
+      `${ELECTRON_MODELED}: red = its traffic light frames`,
+      "Tauri (T10)",
+    ]),
     "Launch: the header doubles as the title bar, traffic lights inset at 16,15",
     5,
   );
@@ -612,8 +637,8 @@ try {
     ),
     withIcon("tauri-tray-panel", menuText(menus.tray), iconPanel("tauri-tray", trayIcon)),
     [
-      "Electron: T04's menu dump, assets/tray@2x.png at 16 pt",
-      "Tauri: live menu, the status item as AppKit draws it",
+      "Electron 1.2.1: T04's menu dump, assets/tray@2x.png at 16 pt",
+      "Tauri (T10): live menu, the status item as AppKit draws it",
     ],
     1100,
   );
@@ -642,7 +667,7 @@ try {
       file("electron-page.png"),
     ),
     absent("tauri-hidden.png", "hidden to the tray\nis_visible() = false", tWindow.file),
-    ["Electron after close", "Tauri after close"],
+    ["Electron 1.2.1 after close", "Tauri (T10) after close"],
   );
   frame(
     hiddenPair,
@@ -661,10 +686,13 @@ try {
     tauri: tShown.visible,
   });
   await electron.ctx.engine.screenshot(file("electron-shown.png"));
+  outline(file("electron-shown.png"), file("electron-shown-modeled.png"), scale, [
+    [eFrames, "#ff4040"],
+  ]);
   const tBack = await tauriShot(tauri, "window", "tauri-shown.png");
-  const back = pair("shown.png", file("electron-shown.png"), tBack.file, [
-    "Electron after Show Window",
-    "Tauri after Show Window",
+  const back = pair("shown.png", file("electron-shown-modeled.png"), tBack.file, [
+    `${ELECTRON_MODELED} after Show Window`,
+    "Tauri (T10) after Show Window",
   ]);
   magick(
     file("closed.png"),
@@ -719,7 +747,10 @@ try {
       "second.png",
       absent("second-hidden.png", "window in the tray", tWindow.file),
       (await tauriShot(tauri, "window", "tauri-second.png")).file,
-      ["Tauri before: hidden", `Second launch exited ${secondCode}; the first window shows`],
+      [
+        "Tauri (T10) before: hidden",
+        `Tauri (T10): second launch exited ${secondCode}; the first window shows`,
+      ],
     ),
     "Second launch: it hands over to the running app and exits 0",
     3,
@@ -955,24 +986,30 @@ async function signalQuit(name: string, signal: NodeJS.Signals, fetchMs?: number
 }
 
 fs.writeFileSync(path.join(out, "T10-review.json"), JSON.stringify(checks, null, 1));
-const list = path.join(work, "frames.txt");
 fs.writeFileSync(
-  list,
-  video.map((f) => `file '${f.file}'\nduration ${f.seconds}`).join("\n") +
-    `\nfile '${video.at(-1)!.file}'\n`,
+  path.join(work, "frames.txt"),
+  video.map((f) => `file '${f.file}'\nduration ${f.seconds}`).join("\n") + "\n",
 );
+// Each still is its own looped input cut to its length, so every frame plays for exactly its
+// seconds; the concat demuxer stretched the last one
 execFileSync("ffmpeg", [
   "-y",
   "-loglevel",
   "error",
-  "-f",
-  "concat",
-  "-safe",
-  "0",
-  "-i",
-  list,
-  "-vf",
-  "fps=30,format=yuv420p",
+  ...video.flatMap((f) => [
+    "-loop",
+    "1",
+    "-framerate",
+    "30",
+    "-t",
+    String(f.seconds),
+    "-i",
+    f.file,
+  ]),
+  "-filter_complex",
+  `${video.map((_, i) => `[${i}:v]`).join("")}concat=n=${video.length}:v=1:a=0,format=yuv420p[v]`,
+  "-map",
+  "[v]",
   "-c:v",
   "libx264",
   path.join(out, "T10-review.mp4"),
