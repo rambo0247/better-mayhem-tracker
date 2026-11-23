@@ -23,7 +23,7 @@ export const route = {
   navigations: [] as { to: string; options?: unknown }[],
 };
 
-mock.module("../lib/api-shim", () => ({
+void mock.module("../lib/api-shim", () => ({
   api: {
     platform: "darwin",
     onGamesUpdated: () => () => {},
@@ -32,14 +32,14 @@ mock.module("../lib/api-shim", () => ({
     getMatchFilterOptions: async () => ({}),
   },
 }));
-mock.module("../lib/perf", () => ({ reportFirstContent: () => {} }));
-mock.module("../hooks/useIpc", () => ({
+void mock.module("../lib/perf", () => ({ reportFirstContent: () => {} }));
+void mock.module("../hooks/useIpc", () => ({
   useIpc: () => {
     const answer = ipc.answers[ipc.calls++]!;
     return { data: () => answer.data, loading: () => answer.loading, refetch: async () => {} };
   },
 }));
-mock.module("@solidjs/router", () => ({
+void mock.module("@solidjs/router", () => ({
   useParams: () => route.params,
   useLocation: () => ({ state: route.state }),
   useNavigate: () => (to: string, options?: unknown) => {
