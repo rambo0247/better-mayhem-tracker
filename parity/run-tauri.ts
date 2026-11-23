@@ -169,8 +169,9 @@ const clockScript = (fixed: number) => `(() => {
   });
 })();`;
 
-export function initScript(bundle: ReplayBundle | undefined): string {
+export function initScript(bundle: ReplayBundle | undefined, api?: string): string {
   const parts = [clockScript(FIXED_TIME.getTime())];
+  if (api) parts.push(api);
   if (bundle) {
     parts.push(`globalThis.__BMT_REPLAY__ = ${JSON.stringify(bundle)};`);
     parts.push(fs.readFileSync(path.join(PARITY_DIR, "replay-api.js"), "utf8"));
@@ -538,6 +539,11 @@ export interface StartTauriOptions {
   /** The data whose asset cache is served. Only the Electron renderer needs it. */
   data?: string;
   renderer?: Renderer;
+  /**
+   * What answers the Electron renderer's `window.api`: the T05 goldens, or the Rust commands
+   * through `tauri/src/api.ts`.
+   */
+  api?: "replay" | "tauri";
   runDir?: string;
   repo?: string;
   binary?: string;
@@ -720,6 +726,7 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
   if (dataRoot) copyDataTree(path.join(dataRoot, "asset-cache"), assets);
 
   let bundle: ReplayBundle | undefined;
+  let api: string | undefined;
   const env: Record<string, string> = {
     TZ: TIME_ZONE,
     LANG: "en_US.UTF-8",
@@ -731,6 +738,11 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
       throw new Error(`${rendererDir} has no build. Run \`npm run build\` in ${repo}.`);
     }
     env.BMT_PARITY_RENDERER_DIR = rendererDir;
+  }
+  if (renderer === "electron" && options.api === "tauri") {
+    const { buildApiBundle } = await import("../tauri/scripts/api-bundle.ts");
+    api = await buildApiBundle();
+  } else if (renderer === "electron") {
     bundle = buildReplayBundle({
       goldenDir: options.goldenDir ?? path.join(PARITY_DIR, "out", "golden"),
       methods: readInvokeChannels(repo),
@@ -740,7 +752,7 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     });
   }
   const init = path.join(runDir, "init.js");
-  fs.writeFileSync(init, initScript(bundle));
+  fs.writeFileSync(init, initScript(bundle, api));
   env.BMT_PARITY_INIT = init;
   if (process.platform === "win32") {
     env.BMT_PARITY_BROWSER_ARGS = WEBVIEW2_ARGS.join(" ");
@@ -969,7 +981,7 @@ if (import.meta.main) {
   const renderer = (value("--renderer") ?? "electron") as Renderer;
   if (!["electron", "solid"].includes(renderer)) {
     console.error(
-      "usage: bun parity/run-tauri.ts [--renderer electron|solid] [--data <fixture|snapshot|folder>] [--state <id>] [--out <run folder>] [--golden <dir>] [--scenario <events file>] [--binary <path>]",
+      "usage: bun parity/run-tauri.ts [--renderer electron|solid] [--api replay|tauri] [--data <fixture|snapshot|folder>] [--state <id>] [--out <run folder>] [--golden <dir>] [--scenario <events file>] [--binary <path>]",
     );
     process.exit(2);
   }
@@ -983,6 +995,7 @@ if (import.meta.main) {
   const running = await startTauri({
     data: value("--data") ?? (renderer === "electron" ? "fixture" : undefined),
     renderer,
+    api: value("--api") === "tauri" ? "tauri" : "replay",
     runDir: value("--out"),
     goldenDir: value("--golden"),
     scenario: value("--scenario"),
