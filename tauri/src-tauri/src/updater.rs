@@ -934,13 +934,14 @@ pub fn apply_mac_update(
     tmp_dir: &Path,
     relaunch_hidden: bool,
 ) -> Result<(), String> {
-    use crate::mac_update_script::{MacSwap, mac_swap_script};
+    use crate::mac_update_script::{MacSwap, mac_join, mac_parent, mac_swap_script};
     let name = bundle
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let parent = bundle.parent().unwrap_or(Path::new("/"));
-    let staging = parent.join(format!(".{name}.update"));
+    let bundle_text = bundle.to_string_lossy().into_owned();
+    let parent = mac_parent(&bundle_text);
+    let staging = mac_join(parent, &format!(".{name}.update"));
     let prepared = match std::fs::remove_dir_all(&staging) {
         Err(err) if err.kind() != std::io::ErrorKind::NotFound => Err(err),
         _ => std::fs::create_dir(&staging),
@@ -973,11 +974,11 @@ pub fn apply_mac_update(
     let script = tmp_dir.join("update.sh");
     let swap = MacSwap {
         pid: std::process::id(),
-        bundle: bundle.to_path_buf(),
-        staged_bundle: staging.join(staged),
-        backup: parent.join(format!(".{name}.update.old")),
+        staged_bundle: mac_join(&staging, &staged),
+        backup: mac_join(parent, &format!(".{name}.update.old")),
+        bundle: bundle_text,
         staging_dir: staging,
-        tmp_dir: tmp_dir.to_path_buf(),
+        tmp_dir: tmp_dir.to_string_lossy().into_owned(),
         relaunch_args: if relaunch_hidden {
             vec![HIDDEN_FLAG.to_owned()]
         } else {

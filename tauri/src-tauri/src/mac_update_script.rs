@@ -3,23 +3,39 @@
 //! exit, moves the old bundle aside, moves the new one in, and relaunches
 //! whichever is in place, putting the old one back if the swap fails. An app
 //! that never exits is left alone.
-
-use std::path::PathBuf;
+//!
+//! Paths are macOS paths held as text and joined with `/`, as Node's
+//! `path.join` does there, so the script is the same on every host that
+//! builds or tests it.
 
 pub struct MacSwap {
     /// The process to wait out before touching its bundle.
     pub pid: u32,
     /// The installed `.app` being replaced.
-    pub bundle: PathBuf,
+    pub bundle: String,
     /// The new `.app`, unpacked in a folder beside `bundle`.
-    pub staged_bundle: PathBuf,
+    pub staged_bundle: String,
     /// That folder, removed once the swap is done.
-    pub staging_dir: PathBuf,
+    pub staging_dir: String,
     /// Where the old bundle waits until the new one is in place.
-    pub backup: PathBuf,
+    pub backup: String,
     /// The download's temp folder, removed last.
-    pub tmp_dir: PathBuf,
+    pub tmp_dir: String,
     pub relaunch_args: Vec<String>,
+}
+
+/// `path.posix.join(dir, name)` for a `name` with no `/` in it.
+pub fn mac_join(dir: &str, name: &str) -> String {
+    format!("{}/{name}", dir.trim_end_matches('/'))
+}
+
+/// `path.posix.dirname(path)` for an absolute path.
+pub fn mac_parent(path: &str) -> &str {
+    let path = path.trim_end_matches('/');
+    match path.rfind('/') {
+        Some(0) | None => "/",
+        Some(at) => &path[..at],
+    }
 }
 
 /// Single-quoted for sh, which takes everything literally inside but a quote.
@@ -28,7 +44,7 @@ pub fn sh_quote(value: &str) -> String {
 }
 
 pub fn mac_swap_script(swap: &MacSwap) -> String {
-    let q = |path: &PathBuf| sh_quote(&path.to_string_lossy());
+    let q = |path: &String| sh_quote(path);
     let args = if swap.relaunch_args.is_empty() {
         String::new()
     } else {
@@ -83,15 +99,15 @@ mod tests {
 
     #[test]
     fn matches_electron_with_a_quote_in_the_path_and_hidden() {
-        let apps = PathBuf::from("/Users/me/It's Apps");
-        let staging = apps.join(".Better Mayhem Tracker.app.update");
+        let apps = "/Users/me/It's Apps";
+        let staging = mac_join(apps, ".Better Mayhem Tracker.app.update");
         let swap = MacSwap {
             pid: 4242,
-            bundle: apps.join("Better Mayhem Tracker.app"),
-            staged_bundle: staging.join("Better Mayhem Tracker.app"),
-            backup: apps.join(".Better Mayhem Tracker.app.update.old"),
+            bundle: mac_join(apps, "Better Mayhem Tracker.app"),
+            staged_bundle: mac_join(&staging, "Better Mayhem Tracker.app"),
+            backup: mac_join(apps, ".Better Mayhem Tracker.app.update.old"),
             staging_dir: staging,
-            tmp_dir: PathBuf::from("/var/folders/xy/T/better-mayhem-update-AbC123"),
+            tmp_dir: "/var/folders/xy/T/better-mayhem-update-AbC123".into(),
             relaunch_args: vec!["--hidden".into()],
         };
         assert_eq!(mac_swap_script(&swap), electron("mac"));
@@ -109,5 +125,14 @@ mod tests {
             relaunch_args: Vec::new(),
         };
         assert_eq!(mac_swap_script(&swap), electron("plain"));
+    }
+
+    #[test]
+    fn joins_and_parents_as_node_posix_path_does() {
+        assert_eq!(mac_join("/Applications", "B.app"), "/Applications/B.app");
+        assert_eq!(mac_join("/", ".B.app.update"), "/.B.app.update");
+        assert_eq!(mac_parent("/Applications/B.app"), "/Applications");
+        assert_eq!(mac_parent("/Applications/B.app/"), "/Applications");
+        assert_eq!(mac_parent("/B.app"), "/");
     }
 }
