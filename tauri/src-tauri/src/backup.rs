@@ -16,7 +16,7 @@ use jiff::tz::TimeZone;
 use jiff::{Timestamp, ToSpan};
 use rusqlite::{Connection, OpenFlags};
 use tauri::plugin::TauriPlugin;
-use tauri::{Manager, Runtime};
+use tauri::{Manager, RunEvent, Runtime};
 
 use crate::commands::Clock;
 use crate::commands::backup::{BackupInfo, RecoveryProblem, RecoveryReport};
@@ -653,14 +653,15 @@ pub fn schedule<R: Runtime>(clock: Clock) -> TauriPlugin<R> {
             ready_rx.recv()?;
             Ok(())
         })
+        .on_event(|app, event| {
+            // stopBackupSchedule
+            if let RunEvent::Exit = event
+                && let Some(backups) = app.try_state::<Backups>()
+            {
+                backups.stop_schedule();
+            }
+        })
         .build()
-}
-
-/// `stopBackupSchedule`.
-pub fn stop_schedule<R: Runtime>(app: &tauri::AppHandle<R>) {
-    if let Some(backups) = app.try_state::<Backups>() {
-        backups.stop_schedule();
-    }
 }
 
 #[cfg(test)]
