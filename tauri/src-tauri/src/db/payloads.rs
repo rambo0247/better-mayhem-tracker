@@ -519,6 +519,40 @@ mod tests {
         }
     }
 
+    /// `zlib.gunzipSync` in trunk Electron (`probe-fix2.ts`): after each
+    /// member a zero byte ends the input, whatever follows it, and anything
+    /// else must be another whole member.
+    #[test]
+    fn gzip_framing_reads_as_gunzip_sync_does() {
+        let one = gzip(br#"{"n":"a"}"#);
+        let two = gzip(b"[]");
+        let cat = |parts: &[&[u8]]| parts.concat();
+        let read = |blob: Vec<u8>| unpack_raw(Some(&blob)).map(|v| js::stringify(&v));
+        let a = Some(r#"{"n":"a"}"#.to_owned());
+        assert_eq!(read(cat(&[&one, &[0; 5]])), a, "trailing zeros");
+        assert_eq!(
+            read(cat(&[&one, &[0], b"garbage"])),
+            a,
+            "a zero, then garbage"
+        );
+        assert_eq!(
+            read(cat(&[&one, &[0, 0], &two])),
+            a,
+            "a zero, then a member"
+        );
+        let halves = cat(&[&gzip(br#"{"n""#), &gzip(br#":"a"}"#), &[0; 3]]);
+        assert_eq!(read(halves), a, "two members, then zeros");
+        assert_eq!(read(cat(&[&one, b"garbage"])), None, "trailing garbage");
+        assert_eq!(read(cat(&[&one, &[0x1f, 0x8b]])), None, "trailing magic");
+        assert_eq!(
+            read(cat(&[&one, &two[..two.len() - 3]])),
+            None,
+            "a cut second member"
+        );
+        assert_eq!(read(cat(&[&[0], &one])), None, "a leading zero");
+        assert_eq!(read(Vec::new()), None, "no bytes");
+    }
+
     #[test]
     fn payloads_round_trip() {
         let raw = json!({ "gameId": 7, "b": [1.5, "x"], "a": null });
