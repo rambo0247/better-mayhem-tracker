@@ -28,6 +28,128 @@ export function parseChannels(source: string, name: string, file: string): Map<s
   return new Map([...body.matchAll(/^\s*(\w+): "([^"]+)",?$/gm)].map((m) => [m[1], m[2]]));
 }
 
+/** Splits a parameter list at its top-level commas. */
+function splitTopLevel(list: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i];
+    if ("([{<".includes(c)) depth++;
+    else if (")]}".includes(c) || (c === ">" && list[i - 1] !== "=")) depth--;
+    if (c === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+    } else current += c;
+  }
+  if (current.trim()) parts.push(current);
+  return parts.map((p) => p.trim()).filter(Boolean);
+}
+
+/** Each `name: (a: T, b?: U) => ...` member's parameter names, in order. */
+export function parseParameterNames(source: string, file: string): Map<string, string[]> {
+  const body = block(source, /export interface ElectronAPI \{/, file);
+  const out = new Map<string, string[]>();
+  for (const match of body.matchAll(/^ {2}(\w+): \(/gm)) {
+    let depth = 1;
+    let i = match.index + match[0].length;
+    const from = i;
+    for (; i < body.length && depth > 0; i++) {
+      if (body[i] === "(") depth++;
+      else if (body[i] === ")") depth--;
+    }
+    const names = splitTopLevel(body.slice(from, i - 1)).map((p) => /^(\w+)\??:/.exec(p)?.[1] ?? p);
+    out.set(match[1], names);
+  }
+  return out;
+}
+
+export interface Wrapper {
+  params: string[];
+  named: string;
+  positional: string[];
+}
+
+/** Each generated wrapper's parameters, the named object it sends, and its positional list. */
+export function parseWrappers(source: string, file: string): Map<string, Wrapper> {
+  const body = block(source, /export const createCommands = \(call: Transport\) => \(\{/, file);
+  const out = new Map<string, Wrapper>();
+  const wrapper =
+    /^ {2}(\w+): \((.*)\): Promise<.*> =>\n {4}call<.*?>\("[^"]+", (\{[^}]*\}), \[([^\]]*)\]\)/gm;
+  for (const m of body.matchAll(wrapper)) {
+    const params = splitTopLevel(m[2]).map((p) => /^(\w+)\??:/.exec(p)?.[1] ?? p);
+    out.set(m[1], { params, named: m[3], positional: splitTopLevel(m[4]) });
+  }
+  return out;
+}
+
+/** Argument names and order, which a function type does not carry. */
+export function checkArgumentNames(
+  expected: Map<string, string[]>,
+  wrappers: Map<string, Wrapper>,
+  methods: string[],
+): string[] {
+  const problems: string[] = [];
+  const list = (names: string[]) => `(${names.join(", ")})`;
+  for (const method of methods) {
+    const names = expected.get(method);
+    const wrapper = wrappers.get(method);
+    if (!names || !wrapper) {
+      problems.push(
+        `${method}: no ${names ? "wrapper in the bindings" : "signature in api.ts"} to read its arguments from`,
+      );
+      continue;
+    }
+    if (list(names) !== list(wrapper.params)) {
+      problems.push(
+        `${method} arguments: api.ts names ${list(names)}, the bindings ${list(wrapper.params)}`,
+      );
+    }
+    const named = wrapper.params.length === 0 ? "{}" : `{ ${wrapper.params.join(", ")} }`;
+    if (wrapper.named !== named) {
+      problems.push(
+        `${method}: the wrapper sends ${wrapper.named}, not its arguments by name, ${named}`,
+      );
+    }
+    if (list(wrapper.positional) !== list(wrapper.params)) {
+      problems.push(
+        `${method}: the wrapper passes [${wrapper.positional.join(", ")}] as Electron's positions, not [${wrapper.params.join(", ")}]`,
+      );
+    }
+  }
+  return problems;
+}
+
+/**
+ * Every problem in tsc's output. A Check line carries the problems as one literal; any other
+ * error, a Check line whose literal cannot be read, or a failing exit with nothing read, is a
+ * problem in itself, so the check never passes on output it did not understand.
+ */
+export function parseDiagnostics(output: string, status: number | null): string[] {
+  const problems: string[] = [];
+  for (const line of output.split("\n").filter((l) => /error TS\d+:/.test(l))) {
+    const isCheck = /(does not satisfy the constraint|is not assignable to type) 'never'/.test(
+      line,
+    );
+    const literal = isCheck
+      ? /Type '"(.*)"' (?:does not satisfy|is not assignable)/.exec(line)?.[1]
+      : undefined;
+    if (literal === undefined) {
+      problems.push(`tsc: ${line.trim()}`);
+      continue;
+    }
+    for (const problem of literal.replace(/\\"/g, '"').split(" ;; ")) {
+      if (!problems.includes(problem)) problems.push(problem);
+    }
+  }
+  if (status !== 0 && problems.length === 0) {
+    problems.push(
+      `tsc exited ${status} with no diagnostic the check could read:\n${output.trim()}`,
+    );
+  }
+  return problems;
+}
+
 export function parseEvents(source: string, file: string): string[] {
   const body = block(source, /export interface RendererEvents \{/, file);
   return [...body.matchAll(/^\s*"([^"]+)":/gm)].map((m) => m[1]);
@@ -44,38 +166,75 @@ type IsObject<T> = [T] extends [readonly unknown[]]
     : [T] extends [object]
       ? true
       : false;
+type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+type IsUnion<T> = [T] extends [UnionToIntersection<T>] ? false : true;
+type LastOf<U> = UnionToIntersection<U extends unknown ? () => U : never> extends () => infer R ? R : never;
+type Join<U, Sep extends string, Acc extends string = ""> = [U] extends [never]
+  ? Acc
+  : LastOf<U> extends infer L extends string
+    ? Join<Exclude<U, L>, Sep, Acc extends "" ? L : \`\${Acc}\${Sep}\${L}\`>
+    : Acc;
 type OptionalKeys<T> = { [K in keyof T]-?: {} extends Pick<T, K> ? K : never }[keyof T];
 type StringKeys<T> = keyof T & string;
+type ShowKey<T, K extends keyof T> = K extends OptionalKeys<T> ? \`\${K & string}?\` : K & string;
+// A type as text: primitives and literals in full, objects by their keys
+type ShowOne<T> = [T] extends [string]
+  ? string extends T ? "string" : \`"\${T & string}"\`
+  : [T] extends [number]
+    ? number extends T ? "number" : \`\${T & number}\`
+    : [T] extends [boolean]
+      ? \`\${T & boolean}\`
+      : [T] extends [null]
+        ? "null"
+        : [T] extends [undefined]
+          ? "undefined"
+          : [T] extends [void]
+            ? "void"
+            : [T] extends [readonly (infer E)[]]
+              ? \`\${ShowFlat<E>}[]\`
+              : [T] extends [(...args: never[]) => unknown]
+                ? "function"
+                : \`{ \${Join<{ [K in keyof T]-?: ShowKey<T, K> }[keyof T], ", ">} }\`;
+type ShowFlat<T> = IsUnion<T> extends true ? "(union)" : ShowOne<T>;
+type Show<T> = [T] extends [never] ? "never" : [boolean] extends [T] ? Join<ShowOne<Exclude<T, boolean>> | "boolean", " | "> : Join<T extends unknown ? ShowOne<T> : never, " | ">;
+type Differs<A, B, P extends string> = \`\${P}: \${Show<A>} in api.ts, \${Show<B>} in the bindings\`;
+type Side<A, B> = \`optional in \${A extends 1 ? "api.ts" : "the bindings"}, required in \${A extends 1 ? "the bindings" : "api.ts"}\`;
 type ObjectDiff<A, B, P extends string> =
   | { [K in Exclude<StringKeys<A>, StringKeys<B>>]: \`\${P}.\${K}: missing from the bindings\` }[Exclude<StringKeys<A>, StringKeys<B>>]
   | { [K in Exclude<StringKeys<B>, StringKeys<A>>]: \`\${P}.\${K}: not in api.ts\` }[Exclude<StringKeys<B>, StringKeys<A>>]
   | { [K in StringKeys<A> & StringKeys<B>]: Eq<K extends OptionalKeys<A> ? 1 : 0, K extends OptionalKeys<B> ? 1 : 0> extends true
         ? Diff<A[K], B[K], \`\${P}.\${K}\`>
-        : \`\${P}.\${K}: optional on one side only\` }[StringKeys<A> & StringKeys<B>];
+        : \`\${P}.\${K}: \${Side<K extends OptionalKeys<A> ? 1 : 0, 0>}\` }[StringKeys<A> & StringKeys<B>];
+// Members of a union of objects, each matched to an equal member on the other side
+type Unmatched<A, B> = A extends unknown ? (true extends (B extends unknown ? Eq<A, B> : never) ? never : A) : never;
+type UnionDiff<A, B, P extends string> =
+  | (Unmatched<A, B> extends infer M ? M extends unknown ? \`\${P}: api.ts's member \${ShowOne<M>} has no match in the bindings\` : never : never)
+  | (Unmatched<B, A> extends infer M ? M extends unknown ? \`\${P}: the bindings' member \${ShowOne<M>} is not in api.ts\` : never : never);
+type Count<T extends readonly unknown[]> = Required<T>["length"];
+type TupleDiff<A extends readonly unknown[], B extends readonly unknown[], P extends string> =
+  Eq<Count<A>, Count<B>> extends true
+    ? { [K in keyof Required<A> & \`\${number}\`]: Eq<K extends OptionalKeys<A> ? 1 : 0, K extends OptionalKeys<B> ? 1 : 0> extends true
+          ? Diff<Required<A>[K], K extends keyof Required<B> ? Required<B>[K] : never, \`\${P}[\${K}]\`>
+          : \`\${P}[\${K}]: \${Side<K extends OptionalKeys<A> ? 1 : 0, 0>}\` }[keyof Required<A> & \`\${number}\`]
+    : \`\${P}: \${Count<A> & number} arguments in api.ts, \${Count<B> & number} in the bindings\`;
 type ArrayDiff<A extends readonly unknown[], B extends readonly unknown[], P extends string> =
   number extends A["length"]
-    ? number extends B["length"] ? Diff<A[number], B[number], \`\${P}[]\`> : P
-    : Eq<A["length"], B["length"]> extends true
-      ? { [K in keyof A & \`\${number}\`]: Diff<A[K], K extends keyof B ? B[K] : never, \`\${P}[\${K}]\`> }[keyof A & \`\${number}\`]
-      : \`\${P}: \${A["length"]} arguments in api.ts, \${B["length"]} in the bindings\`;
+    ? number extends B["length"] ? Diff<A[number], B[number], \`\${P}[]\`> : Differs<A, B, P>
+    : number extends B["length"] ? Differs<A, B, P> : TupleDiff<A, B, P>;
 type Inner<A, B, P extends string> = [A] extends [readonly unknown[]]
-  ? [B] extends [readonly unknown[]] ? ArrayDiff<A, B, P> : P
+  ? [B] extends [readonly unknown[]] ? ArrayDiff<A, B, P> : Differs<A, B, P>
   : Eq<Extract<A, Nullish>, Extract<B, Nullish>> extends true
     ? Eq<A, Exclude<A, Nullish>> extends true
-      ? IsObject<A> extends true ? IsObject<B> extends true ? ObjectDiff<A, B, P> : P : P
+      ? IsUnion<A> extends true ? UnionOrLeaf<A, B, P>
+        : IsUnion<B> extends true ? UnionOrLeaf<A, B, P>
+        : IsObject<A> extends true ? IsObject<B> extends true ? ObjectDiff<A, B, P> : Differs<A, B, P> : Differs<A, B, P>
       : Diff<Exclude<A, Nullish>, Exclude<B, Nullish>, P>
-    : \`\${P}: null or undefined on one side only\`;
-type Diff<A, B, P extends string> = Eq<A, B> extends true ? never : OrSelf<Inner<A, B, P>, P>;
+    : Differs<A, B, P>;
+type UnionOrLeaf<A, B, P extends string> = [Extract<A | B, object>] extends [never] ? Differs<A, B, P> : UnionDiff<A, B, P>;
+type Diff<A, B, P extends string> = Eq<A, B> extends true ? never : OrSelf<Inner<A, B, P>, Differs<A, B, P>>;
 // Joins every mismatch into one literal, since tsc reports one member of a union
-type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
-type LastOf<U> = UnionToIntersection<U extends unknown ? () => U : never> extends () => infer R ? R : never;
-type Join<U, Acc extends string = ""> = [U] extends [never]
-  ? Acc
-  : LastOf<U> extends infer L extends string
-    ? Join<Exclude<U, L>, Acc extends "" ? L : \`\${Acc}\${typeof SEPARATOR}\${L}\`>
-    : Acc;
 declare const SEPARATOR: " ;; ";
-type Problems<U> = [U] extends [never] ? never : Join<U>;
+type Problems<U> = [U] extends [never] ? never : Join<U, typeof SEPARATOR>;
 type Check<T extends never> = T;
 `;
 
@@ -167,21 +326,16 @@ export function checkContract(options: { bindings?: string; shared?: string } = 
       shell: process.platform === "win32",
     });
     if (run.error) throw run.error;
-    const output = `${run.stdout}${run.stderr}`;
-    const found = output
-      .split("\n")
-      .filter((line) =>
-        /(does not satisfy the constraint|is not assignable to type) 'never'/.test(line),
-      );
-    for (const line of found) {
-      const literal = /Type '"(.*)"' (?:does not satisfy|is not assignable)/.exec(line)?.[1];
-      for (const problem of literal?.split(" ;; ") ?? []) {
-        if (!problems.includes(problem)) problems.push(problem);
-      }
+    const names = parseParameterNames(shared, sharedFile);
+    const label = (problem: string) =>
+      problem.replace(/^(\w+) arguments\[(\d+)\]/, (whole, method: string, index: string) => {
+        const name = names.get(method)?.[Number(index)];
+        return name ? `${whole} ${name}` : whole;
+      });
+    for (const problem of parseDiagnostics(`${run.stdout}${run.stderr}`, run.status)) {
+      problems.push(label(problem));
     }
-    if (run.status !== 0 && found.length === 0) {
-      problems.push(`tsc failed on the contract assertions:\n${output.trim()}`);
-    }
+    problems.push(...checkArgumentNames(names, parseWrappers(bindings, bindingsFile), methods));
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }
