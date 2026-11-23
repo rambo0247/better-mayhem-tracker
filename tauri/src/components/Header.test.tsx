@@ -86,3 +86,29 @@ for (const platform of ["darwin", "win32"]) {
     }
   });
 }
+
+// A click leaves the button unfocused in WebKit on macOS and in this DOM, while
+// Chromium focuses it on the press. Either way, Escape hands focus back to the
+// button that opened the dialog, as it does in Electron.
+test("closing the update dialog by Escape returns focus to the button that opened it", async () => {
+  const Router = createRouter({
+    routes: [{ path: "/*", component: Header }],
+    history: hashHistoryWithState(),
+    explicitLinks: true,
+  });
+  view = mount(() => <Router>{(props) => props.children}</Router>);
+  await settle();
+
+  const opener = view.container.querySelector<HTMLButtonElement>(
+    'button[title="Update to version 9.9.9"]',
+  )!;
+  opener.click();
+  await settle();
+  expect(document.activeElement).not.toBe(opener);
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await settle();
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(document.activeElement).toBe(opener);
+});

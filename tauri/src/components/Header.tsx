@@ -264,6 +264,8 @@ export default function Header() {
   const rail = useRail();
   const [update, setUpdate] = createSignal<UpdateInfo | null>(null);
   const [showUpdateDialog, setShowUpdateDialog] = createSignal(false);
+  // The update button, when a press on it opened the dialog
+  let updateOpener: HTMLElement | undefined;
 
   onSettled(() => {
     let lastCheck = 0;
@@ -321,6 +323,7 @@ export default function Header() {
 
   const closeUpdateDialog = () => {
     setShowUpdateDialog(false);
+    updateOpener = undefined;
     setInstalling(false);
   };
 
@@ -431,7 +434,10 @@ export default function Header() {
           <Show when={update()?.hasUpdate ? update() : null}>
             {(info) => (
               <button
-                onClick={() => setShowUpdateDialog(true)}
+                onClick={(e) => {
+                  updateOpener = e.currentTarget;
+                  setShowUpdateDialog(true);
+                }}
                 title={`Update to version ${info().latest}`}
                 aria-label={`Update to version ${info().latest}`}
                 class={[
@@ -462,6 +468,7 @@ export default function Header() {
           <UpdateDialog
             update={update()!}
             installing={mode === "installing"}
+            opener={updateOpener}
             onClose={closeUpdateDialog}
           />
         )}

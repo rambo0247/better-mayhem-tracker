@@ -12,6 +12,7 @@ export default function UpdateDialog(props: {
   // The main process started this install itself at launch, rather than the
   // user from this dialog
   installing?: boolean;
+  opener?: HTMLElement;
   onClose: () => void;
 }) {
   const [downloading, setDownloading] = createSignal(() => props.installing ?? false);
@@ -60,6 +61,7 @@ export default function UpdateDialog(props: {
       kicker="Better Mayhem Tracker"
       title={launchInstalling() ? "Updating" : "Update Available"}
       onDismiss={downloading() ? undefined : props.onClose}
+      opener={props.opener}
       footer={
         <>
           <button onClick={() => api.openUrl(props.update.url!)} class="btn btn-ghost -ml-2">
