@@ -253,7 +253,11 @@ function Side(props: {
           {blue() ? "Blue Team" : "Red Team"}
         </div>
         <div class="label mt-1.5 text-[11px] text-lol-text/70">
-          {props.ourTeam === props.teamId ? "Your team" : props.ourTeam != null ? "Opponents" : " "}
+          {props.ourTeam === props.teamId
+            ? "Your team"
+            : props.ourTeam != null
+              ? "Opponents"
+              : "\u00a0"}
         </div>
       </div>
       <Show when={props.inGame}>
