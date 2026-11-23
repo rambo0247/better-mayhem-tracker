@@ -498,7 +498,7 @@ function fakeGithub(): Promise<{ url: string; stop: () => void }> {
 
 async function recordUpdateScenario(data: string, repo: string): Promise<EventLine[]> {
   const github = await fakeGithub();
-  process.env.SEAM_GITHUB = github.url;
+  process.env.SEAM_IPC_GITHUB = github.url;
   if (process.platform === "win32") process.env.PORTABLE_EXECUTABLE_FILE = "C:\\seam\\fake.exe";
   let run: RunningElectron | null = null;
   try {
@@ -516,7 +516,7 @@ async function recordUpdateScenario(data: string, repo: string): Promise<EventLi
     }
     return lines;
   } finally {
-    delete process.env.SEAM_GITHUB;
+    delete process.env.SEAM_IPC_GITHUB;
     delete process.env.PORTABLE_EXECUTABLE_FILE;
     await run?.close();
     github.stop();

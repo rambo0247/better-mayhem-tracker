@@ -154,7 +154,8 @@ app.setLoginItemSettings = (settings) => effect("app.setLoginItemSettings", [set
 
 // The update scenario: the app believes it is installed, GitHub is a local server, and nothing
 // may spawn a process, so a download that somehow verified still could not swap the app.
-if (process.env.SEAM_GITHUB) {
+// Keyed on its own variable: run-electron sets SEAM_GITHUB on every launch.
+if (process.env.SEAM_IPC_GITHUB) {
   Object.defineProperty(app, "isPackaged", { get: () => true, configurable: true });
   const guardedFetch = globalThis.fetch;
   globalThis.fetch = (input, init) => {
@@ -165,7 +166,7 @@ if (process.env.SEAM_GITHUB) {
         url.pathname.startsWith("/rambo0247/better-mayhem-tracker/"));
     if (!ours) return guardedFetch(input, init);
     return guardedFetch(
-      `${process.env.SEAM_GITHUB}/${url.hostname}${url.pathname}${url.search}`,
+      `${process.env.SEAM_IPC_GITHUB}/${url.hostname}${url.pathname}${url.search}`,
       init,
     );
   };
