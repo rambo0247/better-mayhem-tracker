@@ -254,8 +254,11 @@ pub fn encode_card_png(bitmap: &CardBitmap, target_height: u32) -> Result<CardIm
         let mut encoder = png::Encoder::new(&mut png, width, height);
         encoder.set_color(png::ColorType::Rgb);
         encoder.set_depth(png::BitDepth::Eight);
-        // The file is written once and read by people, so speed wins over size
-        encoder.set_compression(png::Compression::Fast);
+        // Level 4 is 1.21x Electron's size for 50 ms more than fdeflate's 1.65x;
+        // level 6 is 1.18x for 200 ms more. On Electron's own pixels level 6
+        // matches Electron, so the gap left is in WebKit's pixels, not the encoder.
+        encoder.set_deflate_compression(png::DeflateCompression::Level(4));
+        encoder.set_filter(png::Filter::Adaptive);
         let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
         writer.write_image_data(rows).map_err(|e| e.to_string())?;
     }
@@ -490,10 +493,14 @@ async fn render_in_window(
     timings.attempts = attempt;
     timings.snapshot_ms = snapped.elapsed().as_millis();
     let encoded = Instant::now();
-    let image = encode_card_png(&bitmap, target).map_err(|err| {
-        crate::assets::log_error(format!("Card capture failed: {err}"));
-        CAPTURE_FAILED.to_string()
-    })?;
+    let image = tauri::async_runtime::spawn_blocking(move || encode_card_png(&bitmap, target))
+        .await
+        .map_err(|err| err.to_string())
+        .and_then(|encoded| encoded)
+        .map_err(|err| {
+            crate::assets::log_error(format!("Card capture failed: {err}"));
+            CAPTURE_FAILED.to_string()
+        })?;
     timings.encode_ms = encoded.elapsed().as_millis();
     if image.height != target {
         crate::assets::log_error(format!(
@@ -588,8 +595,8 @@ async fn ask_save_path(
 ) -> Option<PathBuf> {
     #[cfg(feature = "parity-driver")]
     {
-        let _ = (app, parent);
-        recorded_save_path(options)
+        let _ = app;
+        recorded_save_path(parent, options)
     }
     #[cfg(not(feature = "parity-driver"))]
     {
@@ -603,9 +610,10 @@ async fn ask_save_path(
             let extensions: Vec<&str> = filter.extensions.iter().map(String::as_str).collect();
             dialog = dialog.add_filter(&filter.name, &extensions);
         }
-        // Modal to the window that asked, as Electron's is. A sheet on a window
-        // hidden to the tray would never be seen, so that one gets a free dialog.
-        if let Some(parent) = parent.filter(|w| w.is_visible().unwrap_or(false)) {
+        // A sheet on the window that asked, hidden or not, as Electron passes it.
+        // Without a parent, rfd would sheet it on whichever window AppKit calls
+        // main, which can be a card window.
+        if let Some(parent) = parent {
             dialog = dialog.set_parent(parent);
         }
         let (tx, rx) = oneshot::channel();
@@ -622,9 +630,20 @@ async fn ask_save_path(
 /// Parity builds never open a real dialog. The file `BMT_PARITY_SAVE_ANSWER`
 /// names is read at each export: a folder in it answers the dialog with
 /// `<folder>/<default name>`, and an empty file, or none, dismisses it. Either
-/// way the options are logged in the shape Electron's goldens record them.
+/// way the options are logged in the shape Electron's goldens record them, and
+/// the window the real dialog would be a sheet on beside them.
 #[cfg(feature = "parity-driver")]
-fn recorded_save_path(options: &SaveDialogOptions) -> Option<PathBuf> {
+fn recorded_save_path(
+    parent: Option<&WebviewWindow>,
+    options: &SaveDialogOptions,
+) -> Option<PathBuf> {
+    crate::assets::log(format!(
+        "card export: dialog parent {}",
+        serde_json::json!({
+            "label": parent.map(|w| w.label()),
+            "visible": parent.and_then(|w| w.is_visible().ok()),
+        })
+    ));
     crate::assets::log(format!(
         "card export: save dialog {}",
         serde_json::to_string(options).unwrap_or_default()
