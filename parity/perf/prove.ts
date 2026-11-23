@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnApp, waitForGone, sandboxed } from "./app.ts";
+import { waitForNoGame } from "../lib/no-game.ts";
+import { spawnApp, waitForGone } from "./app.ts";
 import { wallClockMs } from "./first-content.ts";
 import {
   attributeElectron,
@@ -11,6 +12,7 @@ import {
   readFootprint,
   type WebKitContext,
 } from "./memory-mac.ts";
+import { PERF_BUNDLE_ID, tauriCommand, tauriPlacement } from "./tauri.ts";
 
 /** Known-case proofs for the memory attribution. Prints one PASS or FAIL line per claim. */
 const MB = 1024 * 1024;
@@ -47,8 +49,7 @@ async function syntheticTree() {
   const rows = listProcesses();
   const attribution = attributeElectron(rows, parent.pid);
   const pids = attribution.members.map((m) => m.row.pid);
-  const reading = readFootprint([...pids, decoy.pid]);
-  const attributed = pids.reduce((total, pid) => total + reading.footprint.get(pid)!, 0);
+  const attributed = readFootprint(pids).total!;
   const expected = 150 * MB * 2 + baseline * 3;
   check(
     "synthetic tree includes the parent and both children",
@@ -74,12 +75,18 @@ async function syntheticTree() {
 }
 
 async function webkitDecoys(appPath: string) {
-  const dir = path.join(appPath, "Contents", "MacOS");
-  const executable = path.join(dir, fs.readdirSync(dir)[0]!);
   const work = fs.mkdtempSync(path.join(process.env.TMPDIR ?? "/tmp", "bmt-prove-"));
+  let executable = "";
   const start = () => {
-    const launch = sandboxed(executable, [], path.join(work, `${Math.random()}.sb`));
-    return spawnApp({ ...launch, cwd: work });
+    const runDir = fs.mkdtempSync(path.join(work, "run-"));
+    const launch = tauriCommand(appPath, runDir, []);
+    executable = launch.executable;
+    return spawnApp({
+      command: launch.command,
+      args: launch.args,
+      cwd: runDir,
+      env: tauriPlacement("darwin", "release", runDir).env,
+    });
   };
   const before = new Set(listProcesses().map((row) => row.pid));
   const mine = start();
@@ -88,7 +95,7 @@ async function webkitDecoys(appPath: string) {
     rootPid: mine.pid,
     before,
     spawnedAtMs: mine.spawnedAtMs,
-    identityTokens: ["com.better-mayhem-tracker.app", path.basename(executable).replace(/-/g, "_")],
+    identityTokens: [PERF_BUNDLE_ID, path.basename(executable).replace(/-/g, "_")],
     expectedWebContent: 1,
   });
   const resolve = () => {
@@ -148,7 +155,10 @@ async function webkitDecoys(appPath: string) {
 const tauri = process.argv[process.argv.indexOf("--tauri") + 1];
 console.log(`prove: ${new Date().toISOString()} at ${wallClockMs()}`);
 await syntheticTree();
-if (tauri) await webkitDecoys(tauri);
+if (tauri) {
+  await waitForNoGame();
+  await webkitDecoys(tauri);
+}
 const failed = results.filter(([, ok]) => !ok);
 console.log(failed.length === 0 ? "prove: all PASS" : `prove: ${failed.length} FAIL`);
 process.exit(failed.length === 0 ? 0 : 1);

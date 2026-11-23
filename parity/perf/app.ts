@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { resolveDataRoot } from "../lib/data.ts";
@@ -40,13 +41,22 @@ export async function waitForQuietClient(log: (line: string) => void = console.l
 export type Isolation = "sandbox" | "none";
 
 /**
+ * The operator's home from the user database. `os.homedir()` reads HOME, which a Tauri run
+ * points at its own folder, so every guard asks this instead.
+ */
+export const realHome = () => os.userInfo().homedir;
+
+export const realRoots = () => realDataRoots(process.platform, process.env, realHome());
+
+/**
  * The packaged app has no seam, so on macOS it runs under a Seatbelt profile that denies
  * what the seam hides. Reads of the League install and the Riot records fail, so the app
  * cannot find the client, and `ps` cannot run, so its fallback scan fails too. Any access
- * to the real data folder fails. Nothing else is changed: the network, the GPU and the
- * packaged-app code paths are production's.
+ * to the real data folder fails, and so does any write to LaunchAgents, where a login item
+ * would go. Nothing else is changed: the network, the GPU and the packaged-app code paths
+ * are production's.
  */
-export function sandboxProfile(realRoots: string[] = realDataRoots()): string {
+export function sandboxProfile(home: string = realHome()): string {
   const quote = (value: string) => JSON.stringify(value);
   return [
     "(version 1)",
@@ -54,7 +64,8 @@ export function sandboxProfile(realRoots: string[] = realDataRoots()): string {
     `(deny file* (subpath ${quote("/Applications/League of Legends.app")}))`,
     `(deny file* (subpath ${quote("/Users/Shared/Riot Games")}))`,
     `(deny process-exec (literal ${quote("/bin/ps")}))`,
-    ...realRoots.map((root) => `(deny file* (subpath ${quote(root)}))`),
+    ...realDataRoots("darwin", {}, home).map((root) => `(deny file* (subpath ${quote(root)}))`),
+    `(deny file-write* (subpath ${quote(path.join(home, "Library", "LaunchAgents"))}))`,
     "",
   ].join("\n");
 }
@@ -73,22 +84,35 @@ export interface PreparedData {
   newest: { kills: number; deaths: number; assists: number; durationSeconds: number } | null;
 }
 
+/** Refuses a run folder inside the real data folder, then empties it. */
+export function freshRunDir(runDir: string) {
+  refuseRealFolder(runDir, "run folder", realRoots());
+  fs.rmSync(runDir, { recursive: true, force: true });
+  fs.mkdirSync(runDir, { recursive: true });
+}
+
 /**
- * Copies a snapshot or the fixture into a fresh user-data folder and turns the update
- * check off in the copy. `none` starts the app on an empty folder, for a runner with no fixture. A newer release would replace the scratch app mid-run, and the
- * copy's `auto_start` is absent so nothing writes a login item.
+ * Empties `runDir` and copies the data into `runDir/userdata`. `none` starts the app on an
+ * empty folder, for a runner with no fixture.
  */
 export function prepareUserData(options: { data: string; runDir: string }): PreparedData {
-  const { runDir } = options;
-  refuseRealFolder(runDir, "run folder");
-  const userData = path.join(runDir, "userdata");
-  fs.rmSync(runDir, { recursive: true, force: true });
+  freshRunDir(options.runDir);
+  const userData = path.join(options.runDir, "userdata");
   fs.mkdirSync(userData, { recursive: true });
-  if (options.data === "none") {
+  return copyData(options.data, userData);
+}
+
+/**
+ * Copies a snapshot or the fixture into `userData`, an empty folder, and in the copy turns
+ * the update check off, because a newer release would replace the scratch app mid-run, and
+ * removes `auto_start` so nothing writes a login item.
+ */
+export function copyData(data: string, userData: string): PreparedData {
+  if (data === "none") {
     fs.mkdirSync(path.join(userData, "logs"), { recursive: true });
     return { userData, newest: null };
   }
-  const root = resolveDataRoot(options.data);
+  const root = resolveDataRoot(data);
   for (const name of ["data", "asset-cache", "backups"]) {
     const from = path.join(root, name);
     if (fs.existsSync(from)) fs.cpSync(from, path.join(userData, name), { recursive: true });

@@ -3,10 +3,19 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { PARITY_DIR } from "./lib/data.ts";
+import { parseArgs } from "node:util";
 import { refuseRealFolder } from "./lib/real-folder.ts";
-import { VERSION, type Isolation } from "./perf/app.ts";
+import { realRoots, VERSION, type Isolation } from "./perf/app.ts";
+import { DEFAULT_MAX_LOAD, loadGate, startLoadSampler, summarizeLoad } from "./perf/load.ts";
 import { median } from "./perf/memory-mac.ts";
-import { runElectron, runTauri, type RunOptions, type RunResult } from "./perf/measure.ts";
+import {
+  runElectron,
+  runTauri,
+  type RunOptions,
+  type RunResult,
+  type Scenario,
+} from "./perf/measure.ts";
+import { checkPerfBundle, RefusedRun, refuseTauriRun, type TauriProfile } from "./perf/tauri.ts";
 import {
   allocatedBytes,
   apparentBytes,
@@ -46,21 +55,128 @@ export function summarize(runs: RunResult[]) {
   };
 }
 
-const args = process.argv.slice(2);
-const values = (flag: string) =>
-  args.flatMap((arg, i) => (arg === flag && args[i + 1] ? [args[i + 1]!] : []));
-const value = (flag: string, fallback?: string) => values(flag)[0] ?? fallback;
+const APPS = ["electron-1.2.1", "tauri"] as const;
+type AppName = (typeof APPS)[number];
+const SCENARIOS: Scenario[] = ["visible-idle", "hidden-idle"];
+const PROFILES: TauriProfile[] = ["release", "lane"];
 
-function usage(): never {
-  console.error(
-    [
-      "usage: bun parity/perf.ts --app electron-1.2.1 [--app tauri] [--runs 10]",
-      "  [--data fixture|<folder>] [--electron <.app|.exe>] [--tauri <.app|.exe>]",
-      "  [--idle 60] [--samples 5] [--interval 10] [--isolation sandbox|none]",
-      "  [--tauri-download <dmg|exe>] [--out parity/out/perf] [--selector <css>] [--sizes-only]",
-    ].join("\n"),
-  );
-  process.exit(2);
+export const USAGE = [
+  "usage: bun parity/perf.ts --app electron-1.2.1 [--app tauri --tauri <.app|.exe>] [--runs 10]",
+  "  [--scenario visible-idle|hidden-idle] [--data fixture|<folder>|none] [--electron <.app|.exe>]",
+  "  [--tauri-profile release|lane] [--tauri-download <dmg|exe>] [--idle 60] [--samples 5]",
+  "  [--interval 10] [--isolation sandbox|none] [--max-load 10] [--out parity/out/perf]",
+  "  [--selector <css>] [--kill-role-after-first-sample <role>] [--sizes-only]",
+].join("\n");
+
+export class UsageError extends Error {}
+
+export interface Cli {
+  apps: AppName[];
+  runs: number;
+  scenario: Scenario;
+  data: string;
+  electron?: string;
+  tauri?: string;
+  tauriProfile: TauriProfile;
+  tauriDownload?: string;
+  idleSeconds: number;
+  samples: number;
+  intervalSeconds: number;
+  isolation: Isolation;
+  maxLoad: number;
+  maxLoadFromFlag: boolean;
+  out: string;
+  selector?: string;
+  killRoleAfterFirstSample?: string;
+  sizesOnly: boolean;
+}
+
+function oneOf<T extends string>(flag: string, value: string, allowed: readonly T[]): T {
+  if (!(allowed as readonly string[]).includes(value)) {
+    throw new UsageError(`${flag} must be one of ${allowed.join(", ")}, not ${value}`);
+  }
+  return value as T;
+}
+
+function positive(flag: string, value: string, integer = false): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0 || (integer && !Number.isInteger(n))) {
+    throw new UsageError(
+      `${flag} must be a positive ${integer ? "integer" : "number"}, not ${value}`,
+    );
+  }
+  return n;
+}
+
+/** Parses the command line. Unknown flags, bad values and unsafe Tauri runs throw. */
+export function parseCli(
+  argv: string[],
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): Cli {
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: argv,
+      strict: true,
+      allowPositionals: false,
+      options: {
+        app: { type: "string", multiple: true },
+        runs: { type: "string", default: "10" },
+        scenario: { type: "string", default: "visible-idle" },
+        data: { type: "string", default: "fixture" },
+        electron: { type: "string" },
+        tauri: { type: "string" },
+        "tauri-profile": { type: "string", default: "release" },
+        "tauri-download": { type: "string" },
+        idle: { type: "string", default: "60" },
+        samples: { type: "string", default: "5" },
+        interval: { type: "string", default: "10" },
+        isolation: { type: "string", default: platform === "darwin" ? "sandbox" : "none" },
+        "max-load": { type: "string" },
+        out: { type: "string", default: path.join(PARITY_DIR, "out", "perf") },
+        selector: { type: "string" },
+        "kill-role-after-first-sample": { type: "string" },
+        "sizes-only": { type: "boolean", default: false },
+      },
+    }).values;
+  } catch (error) {
+    throw new UsageError((error as Error).message);
+  }
+  const apps = (parsed.app ?? []).map((app) => oneOf("--app", app, APPS));
+  if (apps.length === 0) throw new UsageError("name at least one --app");
+  const isolation = oneOf("--isolation", parsed.isolation!, ["sandbox", "none"] as const);
+  if (isolation === "sandbox" && platform !== "darwin") {
+    throw new UsageError("--isolation sandbox exists only on macOS");
+  }
+  const cli: Cli = {
+    apps: [...new Set(apps)],
+    runs: positive("--runs", parsed.runs!, true),
+    scenario: oneOf("--scenario", parsed.scenario!, SCENARIOS),
+    data: parsed.data!,
+    electron: parsed.electron,
+    tauri: parsed.tauri,
+    tauriProfile: oneOf("--tauri-profile", parsed["tauri-profile"]!, PROFILES),
+    tauriDownload: parsed["tauri-download"],
+    idleSeconds: positive("--idle", parsed.idle!),
+    samples: positive("--samples", parsed.samples!, true),
+    intervalSeconds: positive("--interval", parsed.interval!),
+    isolation,
+    maxLoad:
+      parsed["max-load"] === undefined
+        ? DEFAULT_MAX_LOAD
+        : positive("--max-load", parsed["max-load"]),
+    maxLoadFromFlag: parsed["max-load"] !== undefined,
+    out: path.resolve(parsed.out!),
+    selector: parsed.selector,
+    killRoleAfterFirstSample: parsed["kill-role-after-first-sample"],
+    sizesOnly: parsed["sizes-only"]!,
+  };
+  if (cli.apps.includes("tauri")) {
+    if (!cli.tauri) throw new UsageError("--app tauri needs --tauri <.app|.exe>");
+    refuseTauriRun({ platform, env, isolation: cli.isolation, data: cli.data });
+  }
+  return cli;
 }
 
 async function downloadElectron(out: string): Promise<string> {
@@ -115,43 +231,47 @@ function electronSizes(appPath: string, tag: string): SizeReport {
 const mib = (bytes: number) => (bytes / 1048576).toFixed(1);
 
 async function main() {
-  const apps = values("--app");
-  if (apps.length === 0) usage();
-  const runs = Number(value("--runs", "10"));
-  const out = path.resolve(value("--out", path.join(PARITY_DIR, "out", "perf"))!);
-  refuseRealFolder(out, "perf output");
+  let cli: Cli;
+  try {
+    cli = parseCli(process.argv.slice(2));
+    if (cli.tauri && process.platform === "darwin") checkPerfBundle(cli.tauri);
+  } catch (error) {
+    if (!(error instanceof UsageError || error instanceof RefusedRun)) throw error;
+    console.error(`perf: ${error.message}\n${USAGE}`);
+    process.exit(2);
+  }
+  const { apps, out } = cli;
+  refuseRealFolder(out, "perf output", realRoots());
   const platformTag = process.platform === "darwin" ? "mac" : "win";
   const base: Omit<RunOptions, "runDir"> = {
-    data: value("--data", "fixture")!,
-    idleSeconds: Number(value("--idle", "60")),
-    samples: Number(value("--samples", "5")),
-    intervalSeconds: Number(value("--interval", "10")),
-    isolation: value(
-      "--isolation",
-      process.platform === "darwin" ? "sandbox" : "none",
-    ) as Isolation,
-    selector: value("--selector"),
-    killRoleAfterFirstSample: value("--kill-role-after-first-sample"),
+    data: cli.data,
+    idleSeconds: cli.idleSeconds,
+    samples: cli.samples,
+    intervalSeconds: cli.intervalSeconds,
+    isolation: cli.isolation,
+    scenario: cli.scenario,
+    selector: cli.selector,
+    killRoleAfterFirstSample: cli.killRoleAfterFirstSample,
     log: console.log,
   };
 
-  let electronApp = value("--electron");
+  let electronApp = cli.electron;
   let electronSource = "operator-supplied path";
   const wantsElectron = apps.includes("electron-1.2.1");
   if (wantsElectron && !electronApp) {
     electronApp = await downloadElectron(out);
     electronSource = `gh release download v${VERSION}`;
   }
-  const tauriApp = value("--tauri");
-  if (apps.includes("tauri") && !tauriApp) usage();
+  const tauriApp = cli.tauri;
 
   const report: Record<string, unknown> = {
     platform: process.platform,
     arch: os.arch(),
     osRelease: os.release(),
     cpus: os.cpus().length,
-    loadAverageAtStart: os.loadavg(),
+    scenario: cli.scenario,
     isolation: base.isolation,
+    tauriProfile: tauriApp ? cli.tauriProfile : undefined,
     idleSeconds: base.idleSeconds,
     samples: base.samples,
     intervalSeconds: base.intervalSeconds,
@@ -160,13 +280,12 @@ async function main() {
 
   const sizes: Record<string, SizeReport> = {};
   if (wantsElectron) sizes["electron-1.2.1"] = electronSizes(electronApp!, `v${VERSION}`);
-  if (apps.includes("tauri") && tauriApp) {
+  if (tauriApp) {
     const installed = process.platform === "darwin" ? tauriApp : path.dirname(tauriApp);
-    const download = value("--tauri-download");
-    const downloadBytes = download ? fs.statSync(download).size : 0;
+    const download = cli.tauriDownload;
     sizes.tauri = {
       downloadAssets: [],
-      downloadBytes,
+      downloadBytes: download ? fs.statSync(download).size : 0,
       downloadAsset: download ? path.basename(download) : "not given",
       installedApparentBytes: apparentBytes(installed),
       installedAllocatedBytes: allocatedBytes(installed),
@@ -175,22 +294,25 @@ async function main() {
   }
   report.sizes = sizes;
   report.electronSource = wantsElectron ? electronSource : undefined;
-  if (args.includes("--sizes-only")) {
+  if (cli.sizesOnly) {
     console.log(JSON.stringify(sizes, null, 2));
     return;
   }
 
+  const sampler = startLoadSampler();
   const results: Record<string, RunResult[]> = Object.fromEntries(apps.map((app) => [app, []]));
-  for (let i = 0; i < runs; i++) {
+  for (let i = 0; i < cli.runs; i++) {
     const order = i % 2 === 0 ? apps : [...apps].reverse();
     for (const app of order) {
       const runDir = path.join(out, "runs", `${app}-${i}`);
-      refuseRealFolder(runDir, "run folder");
-      console.log(`perf: ${app} run ${i + 1}/${runs}, load ${os.loadavg()[0]!.toFixed(1)}`);
+      refuseRealFolder(runDir, "run folder", realRoots());
+      console.log(`perf: ${app} run ${i + 1}/${cli.runs}, load ${os.loadavg()[0]!.toFixed(1)}`);
+      const startedMs = Date.now();
       const result =
         app === "electron-1.2.1"
           ? await runElectron({ ...base, runDir, executable: electronExecutable(electronApp!) })
-          : await runTauri({ ...base, runDir, app: tauriApp! });
+          : await runTauri({ ...base, runDir, app: tauriApp!, profile: cli.tauriProfile });
+      result.load = summarizeLoad(sampler.between(startedMs, Date.now()));
       results[app]!.push(result);
       try {
         fs.rmSync(runDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
@@ -198,11 +320,12 @@ async function main() {
         result.notes.push(`run folder left behind: ${String(error)}`);
       }
       console.log(
-        `  ${result.valid ? "ok" : `INVALID ${result.invalidReason}`} first=${result.firstContentMs?.toFixed(0)} ms footprint=${result.idleFootprintBytes ? mib(result.idleFootprintBytes) : "-"} MiB rss=${result.idleRssBytes ? mib(result.idleRssBytes) : "-"} MiB`,
+        `  ${result.valid ? "ok" : `INVALID ${result.invalidReason}`} first=${result.firstContentMs?.toFixed(0)} ms footprint=${result.idleFootprintBytes ? mib(result.idleFootprintBytes) : "-"} MiB rss=${result.idleRssBytes ? mib(result.idleRssBytes) : "-"} MiB median load ${result.load.medianLoad1?.toFixed(1)}`,
       );
       await Bun.sleep(3000);
     }
   }
+  await sampler.stop();
 
   const extracted = (results["electron-1.2.1"] ?? [])
     .map((run) => run.extractedBytes)
@@ -211,18 +334,39 @@ async function main() {
     sizes["electron-1.2.1"].installedApparentBytes = median(extracted);
     sizes["electron-1.2.1"].installedAllocatedBytes = median(extracted);
   }
+  const loadSummary = summarizeLoad(sampler.samples);
+  const gate = loadGate(loadSummary, cli.maxLoad, cli.maxLoadFromFlag);
   const summary = Object.fromEntries(apps.map((app) => [app, summarize(results[app]!)]));
-  const full = { ...report, summary, runs: results, finishedAt: new Date().toISOString() };
+  const full = {
+    ...report,
+    load: {
+      ...gate,
+      ...loadSummary,
+      loadAverageMeaningful: process.platform !== "win32",
+      intervalMs: 2000,
+      samples: sampler.samples,
+    },
+    summary,
+    runs: results,
+    finishedAt: new Date().toISOString(),
+  };
   fs.mkdirSync(out, { recursive: true });
-  const file = path.join(out, `${apps.join("+")}-${platformTag}.json`);
-  fs.writeFileSync(file, JSON.stringify(full, null, 2));
-  if (apps.length === 1 && wantsElectron) {
-    fs.writeFileSync(
-      path.join(out, `electron-1.2.1-${platformTag}.json`),
-      JSON.stringify(full, null, 2),
+  const scenarioTag = cli.scenario === "visible-idle" ? "" : `-${cli.scenario}`;
+  const name = (apps: string) => `${apps}${scenarioTag}-${platformTag}`;
+  if (!gate.passed) {
+    const file = path.join(out, `${name(apps.join("+"))}.refused.json`);
+    fs.writeFileSync(file, JSON.stringify(full, null, 2));
+    console.error(
+      `perf: refused, median 1-minute load ${loadSummary.medianLoad1?.toFixed(1)} is above ${cli.maxLoad}, so no numbers are reported. Raw runs in ${file}`,
     );
+    process.exit(1);
   }
+  const file = path.join(out, `${name(apps.join("+"))}.json`);
+  fs.writeFileSync(file, JSON.stringify(full, null, 2));
   printSummary(summary, sizes);
+  console.log(
+    `  median load ${loadSummary.medianLoad1?.toFixed(1)} (max ${cli.maxLoad}${cli.maxLoadFromFlag ? " from --max-load" : ""}), median CPU idle ${loadSummary.medianCpuIdle === null ? "-" : `${(loadSummary.medianCpuIdle * 100).toFixed(0)}%`}`,
+  );
   console.log(`perf: wrote ${file}`);
 }
 

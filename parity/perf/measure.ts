@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { gameRunning, waitForNoGame } from "../lib/no-game.ts";
+import type { LoadSummary } from "./load.ts";
 import { apparentBytes } from "./size.ts";
 import {
   freePort,
@@ -36,6 +37,21 @@ import {
   type MemorySample,
   type WebKitContext,
 } from "./memory-mac.ts";
+import {
+  fixtureProof,
+  PERF_BUNDLE_ID,
+  prepareTauriData,
+  refuseTauriRun,
+  tauriCommand,
+  tauriLogFile,
+  tauriPlacement,
+  type TauriProfile,
+} from "./tauri.ts";
+
+/** `hidden-idle` launches with `--hidden`, as a login item does, and idles with no window. */
+export type Scenario = "visible-idle" | "hidden-idle";
+
+const scenarioArgs = (scenario: Scenario) => (scenario === "hidden-idle" ? ["--hidden"] : []);
 
 export interface RunOptions {
   data: string;
@@ -44,6 +60,7 @@ export interface RunOptions {
   samples: number;
   intervalSeconds: number;
   isolation: Isolation;
+  scenario: Scenario;
   selector?: string;
   /** Test hook for the missing-helper proof: kill this role once, after the first sample. */
   killRoleAfterFirstSample?: string;
@@ -63,9 +80,10 @@ export interface RunResult {
   samples: Array<{ footprintBytes: number; rssBytes: number }>;
   members: Array<{ role: string; pid: number; footprintBytes: number; rssBytes: number }>;
   notes: string[];
-  loadAverage: number;
   /** Windows: bytes of the folder the portable exe unpacks into, read while it runs. */
   extractedBytes?: number;
+  /** Load while this run ran, from the sweep's sampler. */
+  load?: LoadSummary;
 }
 
 const FREEZE_DELAY_MS = 1500;
@@ -118,7 +136,7 @@ async function sampleWindows(rootPid: number): Promise<{
   };
 }
 
-function emptyResult(app: string, load: number): RunResult {
+function emptyResult(app: string): RunResult {
   return {
     app,
     valid: false,
@@ -131,7 +149,6 @@ function emptyResult(app: string, load: number): RunResult {
     samples: [],
     members: [],
     notes: [],
-    loadAverage: load,
   };
 }
 
@@ -169,7 +186,7 @@ async function stopAndConfirm(app: RunningApp, watched: number[], result: RunRes
 export async function runElectron(
   options: RunOptions & { executable: string },
 ): Promise<RunResult> {
-  const result = emptyResult("electron-1.2.1", (await import("node:os")).loadavg()[0]!);
+  const result = emptyResult("electron-1.2.1");
   await waitForNoGame(options.log);
   if (options.isolation === "none") await waitForQuietClient(options.log);
   const prepared = prepareUserData({ data: options.data, runDir: options.runDir });
@@ -178,7 +195,7 @@ export async function runElectron(
   const launch = launchCommand(
     options.isolation,
     options.executable,
-    [userDataArg, `--remote-debugging-port=${port}`],
+    [userDataArg, `--remote-debugging-port=${port}`, ...scenarioArgs(options.scenario)],
     options.runDir,
     true,
   );
@@ -194,7 +211,8 @@ export async function runElectron(
     result.firstContentMs = first.framesMs ?? first.domMs;
     result.firstContentKind = first.framesMs === null ? "row-in-dom" : "row-two-frames";
     if (!options.selector) result.rowIsNewestGame = rowIsNewestGame(first.rowText, prepared.newest);
-    if (first.visibility !== "visible")
+    // A window never shown still reads visible, since Electron's paintWhenInitiallyHidden is on
+    if (options.scenario === "visible-idle" && first.visibility !== "visible")
       result.notes.push(`window ${first.visibility} at first content`);
     if (first.lateAttach) result.notes.push("row existed when the probe attached");
     const firstContentAt = wallClockMs();
@@ -299,72 +317,67 @@ function invalidate(result: RunResult, error: unknown) {
   result.idleRssBytes = null;
 }
 
-function bundleExecutable(appPath: string): string {
-  const dir = path.join(appPath, "Contents", "MacOS");
-  const [name] = fs.readdirSync(dir);
-  if (!name) throw new Error(`${dir} is empty`);
-  return path.join(dir, name);
-}
-
-function bundleIdentifier(appPath: string): string {
-  const out = spawnSync(
-    "plutil",
-    ["-extract", "CFBundleIdentifier", "raw", path.join(appPath, "Contents", "Info.plist")],
-    { encoding: "utf8" },
-  );
-  return out.stdout.trim();
-}
-
-/** Runs a Tauri build. `app` is the .app on macOS and the exe on Windows. */
-export async function runTauri(options: RunOptions & { app: string }): Promise<RunResult> {
-  const result = emptyResult("tauri", (await import("node:os")).loadavg()[0]!);
+/**
+ * Runs a Tauri build. `app` is the .app on macOS and the exe on Windows. The run counts only
+ * once the app shows it opened the copy: its log is in the prepared folder and its first row
+ * is the fixture's newest game.
+ */
+export async function runTauri(
+  options: RunOptions & { app: string; profile: TauriProfile },
+): Promise<RunResult> {
+  refuseTauriRun({
+    platform: process.platform,
+    env: process.env,
+    isolation: options.isolation,
+    data: options.data,
+  });
+  const result = emptyResult("tauri");
   await waitForNoGame(options.log);
-  if (options.isolation === "none") await waitForQuietClient(options.log);
   const mac = process.platform === "darwin";
-  const executable = mac ? bundleExecutable(options.app) : options.app;
-  const prepared = prepareTauriRun(options);
+  const placement = tauriPlacement(process.platform, options.profile, options.runDir);
+  const prepared = prepareTauriData(placement, options.data, options.runDir);
+  const launch = tauriCommand(options.app, options.runDir, scenarioArgs(options.scenario));
   const perfLog = path.join(options.runDir, "perf.log");
   const before = new Set(listProcessesSafe().map((row) => row.pid));
-  const launch = launchCommand(options.isolation, executable, [], options.runDir, false);
   const app = spawnApp({
-    ...launch,
+    command: launch.command,
+    args: launch.args,
     cwd: options.runDir,
-    env: { BMT_PERF: "1", BMT_PERF_LOG: perfLog, BMT_DATA_DIR: prepared },
+    env: { ...placement.env, BMT_PERF: "1", BMT_PERF_LOG: perfLog },
   });
   const watched = new Set<number>([app.pid]);
   try {
     const deadline = app.spawnedAtMs + 30_000;
     let first: TauriFirstContent | null = null;
-    let paintSeenAt = 0;
-    while (wallClockMs() < deadline) {
-      const lines = [
-        ...app.lines,
-        ...(fs.existsSync(perfLog)
-          ? fs
-              .readFileSync(perfLog, "utf8")
-              .split("\n")
-              .map((text) => ({ atMs: fs.statSync(perfLog).mtimeMs, text }))
-          : []),
-      ];
-      first = parseTauriLines(lines, app.spawnedAtMs);
-      if (first?.source === "first-content") break;
-      if (first && !paintSeenAt) paintSeenAt = wallClockMs();
-      if (first && wallClockMs() - paintSeenAt > 2000) break;
+    while (!first && wallClockMs() < deadline) {
+      const logged = fs.existsSync(perfLog)
+        ? fs
+            .readFileSync(perfLog, "utf8")
+            .split("\n")
+            .map((text) => ({ atMs: fs.statSync(perfLog).mtimeMs, text }))
+        : [];
+      first = parseTauriLines([...app.lines, ...logged], app.spawnedAtMs);
+      if (first) break;
       if (app.hasExited())
         throw new MemoryProbeError("app exited before first content", "missing-helper");
       await Bun.sleep(10);
     }
-    if (!first) {
-      throw new MemoryProbeError(
-        "no first-content or first-paint line. A Windows release build has no stdout, so it needs BMT_PERF_LOG",
-        "unreadable",
-      );
-    }
+    const logFile = tauriLogFile(placement);
+    const logText = fs.existsSync(logFile) ? fs.readFileSync(logFile, "utf8") : null;
+    result.notes.push(
+      logText
+        ? `app log in the prepared folder, first line: ${logText.split("\n")[0]}`
+        : `no app log at ${logFile}`,
+    );
+    if (!first) throw new MemoryProbeError("no first-content line within 30 s", "unreadable");
     result.firstContentDetail = first;
     result.firstContentMs = first.arrivedMs;
-    result.firstContentKind =
-      first.source === "first-content" ? "first-content line" : "first-paint line, no rows";
+    result.firstContentKind = "first-content line";
     const firstContentAt = wallClockMs();
+    result.rowIsNewestGame =
+      first.rowText === null ? null : rowIsNewestGame(first.rowText, prepared.newest);
+    const unproven = fixtureProof(logText, first.rowText, prepared.newest);
+    if (unproven) throw new MemoryProbeError(unproven, "unreadable");
     await Bun.sleep(FREEZE_DELAY_MS);
 
     const readTree = async (frozenRoles?: Map<number, string>) => {
@@ -396,9 +409,9 @@ export async function runTauri(options: RunOptions & { app: string }): Promise<R
         before,
         spawnedAtMs: app.spawnedAtMs,
         identityTokens: [
-          bundleIdentifier(options.app),
-          path.basename(executable),
-          path.basename(executable).replace(/-/g, "_"),
+          PERF_BUNDLE_ID,
+          path.basename(launch.executable),
+          path.basename(launch.executable).replace(/-/g, "_"),
         ],
         expectedWebContent: 1,
       };
@@ -458,15 +471,6 @@ export async function runTauri(options: RunOptions & { app: string }): Promise<R
 
 function listProcessesSafe() {
   return process.platform === "darwin" ? listProcesses() : [];
-}
-
-function prepareTauriRun(options: RunOptions): string {
-  try {
-    return prepareUserData({ data: options.data, runDir: options.runDir }).userData;
-  } catch {
-    fs.mkdirSync(options.runDir, { recursive: true });
-    return options.runDir;
-  }
 }
 
 export { pidExists };

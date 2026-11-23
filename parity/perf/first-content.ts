@@ -212,24 +212,26 @@ export interface TauriFirstContent {
   arrivedMs: number;
   /** ms the app reported against its own start */
   reportedMs: number;
-  source: "first-content" | "first-paint";
+  /** The first row's text, from `row=` on the line, or null when the line has none. */
+  rowText: string | null;
 }
 
 /**
- * T27's build logs `first-content N ms` when `BMT_PERF=1`. The T01 shell logs
- * `page first-paint N ms after process start`, which has no rows to wait for.
+ * With `BMT_PERF=1` the Tauri build logs `first-content N ms` once the first Match History
+ * row is painted, on stdout and in `BMT_PERF_LOG`. A run proves it opened the fixture copy
+ * only if the line ends with `row=` and the row's text as a JSON string.
  */
 export function parseTauriLines(lines: TimedLine[], spawnedAtMs: number): TauriFirstContent | null {
-  for (const [source, pattern] of [
-    ["first-content", /\bfirst-content (\d+(?:\.\d+)?) ms/],
-    ["first-paint", /\bpage first-paint (\d+(?:\.\d+)?) ms/],
-  ] as const) {
-    for (const line of lines) {
-      const match = pattern.exec(line.text);
-      if (match) {
-        return { arrivedMs: line.atMs - spawnedAtMs, reportedMs: Number(match[1]), source };
-      }
+  for (const line of lines) {
+    const match = /\bfirst-content (\d+(?:\.\d+)?) ms\b(?:.*\brow=(".*"))?/.exec(line.text);
+    if (!match) continue;
+    let rowText: string | null;
+    try {
+      rowText = match[2] === undefined ? null : String(JSON.parse(match[2]));
+    } catch {
+      rowText = null;
     }
+    return { arrivedMs: line.atMs - spawnedAtMs, reportedMs: Number(match[1]), rowText };
   }
   return null;
 }

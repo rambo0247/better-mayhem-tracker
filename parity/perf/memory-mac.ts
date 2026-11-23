@@ -249,16 +249,28 @@ export function attributeWebKit(
 }
 
 export interface FootprintReading {
+  /**
+   * `total footprint` for the whole set. footprint de-duplicates memory mapped into more
+   * than one of the processes (`man footprint`), so this is less than the per-process sum.
+   */
+  total: number | null;
   footprint: Map<number, number>;
   missing: number[];
 }
 
 /** `footprint -j` reports each process's phys_footprint, the number Activity Monitor calls Memory. */
 export function parseFootprint(json: string, wanted: number[]): FootprintReading {
-  const parsed = JSON.parse(json) as { processes?: Array<{ pid: number; footprint: number }> };
+  const parsed = JSON.parse(json) as {
+    processes?: Array<{ pid: number; footprint: number }>;
+    "total footprint"?: number;
+  };
   const footprint = new Map<number, number>();
   for (const proc of parsed.processes ?? []) footprint.set(proc.pid, proc.footprint);
-  return { footprint, missing: wanted.filter((pid) => !footprint.has(pid)) };
+  return {
+    total: parsed["total footprint"] ?? null,
+    footprint,
+    missing: wanted.filter((pid) => !footprint.has(pid)),
+  };
 }
 
 export function readFootprint(pids: number[]): FootprintReading {
@@ -269,7 +281,7 @@ export function readFootprint(pids: number[]): FootprintReading {
       encoding: "utf8",
     });
     if (!fs.existsSync(file)) {
-      return { footprint: new Map(), missing: pids };
+      return { total: null, footprint: new Map(), missing: pids };
     }
     return parseFootprint(fs.readFileSync(file, "utf8"), pids);
   } finally {
@@ -286,7 +298,10 @@ export class MemoryProbeError extends Error {
   }
 }
 
-/** Sums footprint and RSS over members, and throws when any member cannot be read. */
+/**
+ * The set's footprint is footprint's own de-duplicated total, and RSS is summed. Throws when
+ * any member cannot be read.
+ */
 export function sumMembers(
   members: Array<{ row: ProcRow; role: string }>,
   reading: FootprintReading,
@@ -298,6 +313,9 @@ export function sumMembers(
       "missing-helper",
     );
   }
+  if (reading.total === null) {
+    throw new MemoryProbeError("footprint wrote no total footprint", "unreadable");
+  }
   const out: Member[] = members.map(({ row, role }) => ({
     pid: row.pid,
     role,
@@ -306,7 +324,7 @@ export function sumMembers(
     rssBytes: latestRss.get(row.pid) ?? row.rssBytes,
   }));
   return {
-    footprintBytes: out.reduce((total, member) => total + member.footprintBytes, 0),
+    footprintBytes: reading.total,
     rssBytes: out.reduce((total, member) => total + member.rssBytes, 0),
     members: out,
   };
