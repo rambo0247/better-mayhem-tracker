@@ -3,6 +3,8 @@
 
 use rusqlite::{Connection, OptionalExtension};
 
+use super::js::Cell;
+
 /// `SESSION_GROUPING_SETTING` in `src/shared/session.ts`.
 pub const SESSION_GROUPING_SETTING: &str = "session_grouping";
 
@@ -27,10 +29,15 @@ pub fn is_renderer_setting(key: &str) -> bool {
     RENDERER_SETTINGS.contains(&key)
 }
 
-pub fn get_setting(conn: &Connection, key: &str) -> rusqlite::Result<Option<String>> {
-    conn.prepare_cached("SELECT value FROM settings WHERE key = ?")?
+/// `getSetting`: the stored value as better-sqlite3 reads it, whatever its
+/// type, and `null` for no row. Callers compare it as JavaScript does, so a
+/// blob or a number is never equal to a string.
+pub fn get_setting(conn: &Connection, key: &str) -> rusqlite::Result<Cell> {
+    Ok(conn
+        .prepare_cached("SELECT value FROM settings WHERE key = ?")?
         .query_row([key], |row| row.get(0))
-        .optional()
+        .optional()?
+        .unwrap_or(Cell::Null))
 }
 
 pub fn set_setting(conn: &Connection, key: &str, value: &str) -> rusqlite::Result<()> {

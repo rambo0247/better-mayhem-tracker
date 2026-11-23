@@ -5,9 +5,12 @@
 
 use std::borrow::Cow;
 
+use base64::Engine as _;
 use rusqlite::Connection;
 use rusqlite::types::{Value as Sql, ValueRef};
+use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_json::Value;
+use ts_rs::TS;
 
 /// The `TypeError` reading a property of `null` or `undefined` throws.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -482,8 +485,10 @@ impl Drop for UndoOnUnwind<'_> {
 }
 
 /// A column as better-sqlite3 hands it to JavaScript, reduced to what `===`
-/// compares: integers and reals are both numbers.
-#[derive(Debug, Clone, PartialEq)]
+/// compares: integers and reals are both numbers. Typed for the page as the
+/// `string | null` Electron's API declares for a setting.
+#[derive(Debug, Clone, PartialEq, TS)]
+#[ts(as = "Option<String>")]
 pub enum Cell {
     Null,
     Number(f64),
@@ -527,6 +532,27 @@ impl Cell {
             Cell::Number(f) => Sql::Real(*f),
             Cell::Text(s) => Sql::Text(s.clone()),
             Cell::Blob(b) => Sql::Blob(b.clone()),
+        }
+    }
+}
+
+/// As Electron's IPC hands a column to the page: `null`, a number, a string,
+/// or for a Buffer a Uint8Array, which the port's JSON carries as
+/// `{"$bytes": base64}`, the form T05's goldens record it in.
+impl Serialize for Cell {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Cell::Null => serializer.serialize_none(),
+            Cell::Number(n) => serializer.serialize_f64(*n),
+            Cell::Text(s) => serializer.serialize_str(s),
+            Cell::Blob(b) => {
+                let mut map = serializer.serialize_map(Some(1))?;
+                map.serialize_entry(
+                    "$bytes",
+                    &base64::engine::general_purpose::STANDARD.encode(b),
+                )?;
+                map.end()
+            }
         }
     }
 }

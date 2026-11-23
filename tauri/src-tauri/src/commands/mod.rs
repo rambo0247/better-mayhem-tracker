@@ -521,7 +521,7 @@ contract! {
         get_summoner_spell_data = "getSummonerSpellData" "dragon:summoner-spells" () -> SummonerSpellData;
     }
     settings {
-        get_setting = "getSetting" "settings:get" (key: Js<String>) -> Option<String>;
+        get_setting = "getSetting" "settings:get" (key: Js<String>) -> crate::db::js::Cell;
         is_auto_start_supported = "isAutoStartSupported" "autostart:supported" () -> bool;
         set_setting = "setSetting" "settings:set" (key: Js<String>, value: Js<String>) -> ();
     }

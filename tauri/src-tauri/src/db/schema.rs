@@ -21,7 +21,7 @@ pub fn init_database(conn: &Connection, now_ms: i64) -> rusqlite::Result<()> {
     // Backfill bonus augment slots (5+) for games stored when only 4 slots
     // were captured.
     let slots = AUGMENT_SLOTS.to_string();
-    if get_setting(conn, "augment_slots")?.as_deref() != Some(slots.as_str()) {
+    if get_setting(conn, "augment_slots")?.as_str() != Some(slots.as_str()) {
         migrations::backfill_augment_slots(conn)?;
         set_setting(conn, "augment_slots", &slots)?;
     }

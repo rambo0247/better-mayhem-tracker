@@ -7,7 +7,7 @@ use jiff::tz::TimeZone;
 use rusqlite::Connection;
 use rusqlite::types::Value as Sql;
 
-use super::js;
+use super::js::{self, Cell};
 use super::settings::get_setting;
 
 /// `QUEUE_ID_MAYHEM_CLASSIC` in `src/shared/queues.ts`.
@@ -99,7 +99,17 @@ pub fn season_window(season: Option<&str>) -> SeasonWindow {
 /// Queues switched off on the Settings page. An absent key means the setting
 /// was never written; an empty one means everything is switched on.
 fn hidden_queues(conn: &Connection) -> rusqlite::Result<Vec<f64>> {
-    let raw = get_setting(conn, "hidden_queues")?.unwrap_or_default();
+    // `if (!raw) return []`, then `raw.split(",")`, which only a string has
+    let raw = match get_setting(conn, "hidden_queues")? {
+        Cell::Text(raw) => raw,
+        Cell::Null => return Ok(Vec::new()),
+        Cell::Number(n) if n == 0.0 => return Ok(Vec::new()),
+        Cell::Number(_) | Cell::Blob(_) => {
+            return Err(js::thrown(js::TypeError(
+                "raw.split is not a function".into(),
+            )));
+        }
+    };
     if raw.is_empty() {
         return Ok(Vec::new());
     }
@@ -173,7 +183,7 @@ pub fn apply_season_filter(w: &mut Where, season: Option<&str>, alias: &str) {
 /// `hideRemakes`: remakes are already left out of every stat; this setting
 /// takes them out of the match list as well.
 pub fn hide_remakes(conn: &Connection) -> rusqlite::Result<bool> {
-    Ok(get_setting(conn, "hide_remakes")?.as_deref() == Some("true"))
+    Ok(get_setting(conn, "hide_remakes")?.as_str() == Some("true"))
 }
 
 #[cfg(test)]

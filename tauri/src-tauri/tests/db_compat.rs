@@ -674,7 +674,7 @@ fn a_write_waits_out_another_process_holding_the_lock() {
     let value = db
         .with(|conn| bmt_lib::db::settings::get_setting(conn, "hide_remakes"))
         .unwrap();
-    assert_eq!(value.as_deref(), Some("true"));
+    assert_eq!(value.as_str(), Some("true"));
 }
 
 /// The bundled SQLite against better-sqlite3's in trunk Electron
@@ -1433,10 +1433,16 @@ fn settings_of_every_type_read_as_electron_reads_them() {
         };
         for case in electron["settings"].as_array().unwrap() {
             store("remember_filters", case["sql"].as_str().unwrap())?;
+            // serde_json writes 42.0 where JavaScript writes 42, which the
+            // page reads as the same number
+            let number = |v: Value| match v {
+                Value::Number(n) => json!(n.as_f64()),
+                v => v,
+            };
             let ours = settings::get_setting(conn, "remember_filters")
-                .map(|v| serde_json::to_value(v).unwrap())
+                .map(|v| number(serde_json::to_value(v).unwrap()))
                 .map_err(|e| e.to_string());
-            assert_eq!(ours, Ok(case["wire"].clone()), "{}", case["name"]);
+            assert_eq!(ours, Ok(number(case["wire"].clone())), "{}", case["name"]);
         }
         for case in electron["hidden_queues"].as_array().unwrap() {
             store("hidden_queues", case["sql"].as_str().unwrap())?;

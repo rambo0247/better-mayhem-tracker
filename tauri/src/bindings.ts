@@ -23,6 +23,8 @@ export type BackupInfo = { file: string, created: number, size: number, games: n
 
 export type CardSpec = { "kind": "game", gameId: number, } | { "kind": "season", seasonId: string, queue?: number, account?: string, hideFriends?: boolean, };
 
+export type Cell = string | null;
+
 export type ChallengeGroup = { summary: ChallengeProgress, challenges: Array<ChallengeProgress>, };
 
 export type ChallengeLevel = "IRON" | "BRONZE" | "SILVER" | "GOLD" | "PLATINUM" | "DIAMOND" | "MASTER" | "GRANDMASTER" | "CHALLENGER" | "NONE";
@@ -372,8 +374,8 @@ export const createCommands = (call: Transport) => ({
     call<{ [key in number]: ItemEntry }>("dragon:items", { patch }, [patch]),
   getSummonerSpellData: (): Promise<{ [key in number]: SummonerSpellEntry }> =>
     call<{ [key in number]: SummonerSpellEntry }>("dragon:summoner-spells", {}, []),
-  getSetting: (key: string): Promise<string | null> =>
-    call<string | null>("settings:get", { key }, [key]),
+  getSetting: (key: string): Promise<Cell> =>
+    call<Cell>("settings:get", { key }, [key]),
   isAutoStartSupported: (): Promise<boolean> =>
     call<boolean>("autostart:supported", {}, []),
   setSetting: (key: string, value: string): Promise<void> =>

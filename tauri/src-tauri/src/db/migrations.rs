@@ -26,10 +26,10 @@ pub const SCHEMA_VERSION: i64 = 4;
 /// per-queue list. Writing the key even when nothing was hidden is what keeps
 /// this from firing again after the user switches every queue back on.
 pub fn migrate_hidden_queues(conn: &Connection) -> rusqlite::Result<()> {
-    if get_setting(conn, "hidden_queues")?.is_some() {
+    if get_setting(conn, "hidden_queues")? != Cell::Null {
         return Ok(());
     }
-    let hid_classic = get_setting(conn, "hide_classic_games")?.as_deref() == Some("true");
+    let hid_classic = get_setting(conn, "hide_classic_games")?.as_str() == Some("true");
     let value = if hid_classic {
         QUEUE_ID_MAYHEM_CLASSIC.to_string()
     } else {
