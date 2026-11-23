@@ -24,7 +24,9 @@ impl Paths {
         match root_from(std::env::var_os(ROOT_OVERRIDE), dirs::config_dir()) {
             Some(root) => Self::at(root),
             None => {
-                eprintln!("Better Mayhem Tracker cannot find the folder this system keeps application data in");
+                eprintln!(
+                    "Better Mayhem Tracker cannot find the folder this system keeps application data in"
+                );
                 std::process::exit(data_guard::EXIT_CODE);
             }
         }
@@ -35,14 +37,18 @@ impl Paths {
     pub fn at(root: impl Into<PathBuf>) -> Self {
         let root = root.into();
         data_guard::enforce(&root);
-        Self { root: absolute(root) }
+        Self {
+            root: absolute(root),
+        }
     }
 
     /// [`Paths::at`] against stand-ins for the real folder's parent.
     #[cfg(test)]
     pub(crate) fn at_with(root: PathBuf, config_dirs: &[PathBuf]) -> Self {
         data_guard::enforce_against(&root, config_dirs);
-        Self { root: absolute(root) }
+        Self {
+            root: absolute(root),
+        }
     }
 
     pub fn root(&self) -> &Path {
@@ -97,9 +103,18 @@ mod tests {
     #[test]
     fn the_override_wins_and_an_empty_one_is_unset() {
         let config = Some(PathBuf::from("/config"));
-        assert_eq!(root_from(Some("/run/data".into()), config.clone()), Some(PathBuf::from("/run/data")));
-        assert_eq!(root_from(Some("".into()), config.clone()), Some(PathBuf::from("/config").join(DATA_FOLDER)));
-        assert_eq!(root_from(None, config), Some(PathBuf::from("/config").join(DATA_FOLDER)));
+        assert_eq!(
+            root_from(Some("/run/data".into()), config.clone()),
+            Some(PathBuf::from("/run/data"))
+        );
+        assert_eq!(
+            root_from(Some("".into()), config.clone()),
+            Some(PathBuf::from("/config").join(DATA_FOLDER))
+        );
+        assert_eq!(
+            root_from(None, config),
+            Some(PathBuf::from("/config").join(DATA_FOLDER))
+        );
         assert_eq!(root_from(None, None), None);
     }
 
@@ -109,7 +124,10 @@ mod tests {
     fn the_macos_root_is_in_application_support() {
         let home = dirs::home_dir().expect("a home folder");
         let root = root_from(None, dirs::config_dir()).expect("a root");
-        assert_eq!(root, home.join("Library/Application Support/better-mayhem-tracker"));
+        assert_eq!(
+            root,
+            home.join("Library/Application Support/better-mayhem-tracker")
+        );
     }
 
     #[cfg(windows)]

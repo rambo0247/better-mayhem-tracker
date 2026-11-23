@@ -69,7 +69,11 @@ pub fn real_config_dirs() -> Vec<PathBuf> {
     #[cfg(all(unix, not(target_os = "macos")))]
     dirs.extend(passwd_home().map(|home| home.join(".config")));
     #[cfg(windows)]
-    dirs.extend(std::env::var_os("APPDATA").filter(|v| !v.is_empty()).map(PathBuf::from));
+    dirs.extend(
+        std::env::var_os("APPDATA")
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from),
+    );
     dirs
 }
 
@@ -84,7 +88,15 @@ fn passwd_home() -> Option<PathBuf> {
     let mut result: *mut libc::passwd = std::ptr::null_mut();
     // SAFETY: every pointer is valid for the call, and `buf` outlives the
     // strings `pwd` points into, which are copied out before it drops
-    let status = unsafe { libc::getpwuid_r(libc::getuid(), &mut pwd, buf.as_mut_ptr(), buf.len(), &mut result) };
+    let status = unsafe {
+        libc::getpwuid_r(
+            libc::getuid(),
+            &mut pwd,
+            buf.as_mut_ptr(),
+            buf.len(),
+            &mut result,
+        )
+    };
     if status != 0 || result.is_null() || pwd.pw_dir.is_null() {
         return None;
     }
@@ -95,9 +107,17 @@ fn passwd_home() -> Option<PathBuf> {
 /// Passes when `root` is neither the real folder under any of `config_dirs`
 /// nor inside it.
 pub fn check(root: &Path, config_dirs: &[PathBuf]) -> Result<(), Tripped> {
-    let trip = |reason: String| Err(Tripped { root: root.to_path_buf(), reason });
+    let trip = |reason: String| {
+        Err(Tripped {
+            root: root.to_path_buf(),
+            reason,
+        })
+    };
     if config_dirs.is_empty() {
-        return trip("could not be checked, because this process cannot tell where the real folder is".into());
+        return trip(
+            "could not be checked, because this process cannot tell where the real folder is"
+                .into(),
+        );
     }
     let Ok(absolute) = std::path::absolute(root) else {
         return trip("could not be made absolute".into());
@@ -109,15 +129,27 @@ pub fn check(root: &Path, config_dirs: &[PathBuf]) -> Result<(), Tripped> {
         let real = config.join(DATA_FOLDER);
         let config_physical = walk(config).unwrap_or_else(|| config.clone());
         let real_physical = config_physical.join(DATA_FOLDER);
-        if starts_with(&lexical(&absolute), &lexical(&real)) || starts_with(&physical, &real_physical) {
+        if starts_with(&lexical(&absolute), &lexical(&real))
+            || starts_with(&physical, &real_physical)
+        {
             return trip(format!("is {} or inside it", real.display()));
         }
         // The same folder under another name: an ancestor called
         // better-mayhem-tracker whose parent is the config folder itself
         for ancestor in physical.ancestors() {
-            let named = ancestor.file_name().is_some_and(|name| fold(name) == fold(OsStr::new(DATA_FOLDER)));
-            if named && ancestor.parent().is_some_and(|parent| same_dir(parent, config)) {
-                return trip(format!("reaches {} through {}", real.display(), ancestor.display()));
+            let named = ancestor
+                .file_name()
+                .is_some_and(|name| fold(name) == fold(OsStr::new(DATA_FOLDER)));
+            if named
+                && ancestor
+                    .parent()
+                    .is_some_and(|parent| same_dir(parent, config))
+            {
+                return trip(format!(
+                    "reaches {} through {}",
+                    real.display(),
+                    ancestor.display()
+                ));
             }
         }
     }
@@ -128,11 +160,17 @@ pub fn check(root: &Path, config_dirs: &[PathBuf]) -> Result<(), Tripped> {
 /// included, and `..` taken from the folder actually reached. `None` past
 /// [`MAX_LINKS`] symlinks.
 fn walk(path: &Path) -> Option<PathBuf> {
-    let mut pending: Vec<PathBuf> = path.components().rev().map(|c| PathBuf::from(c.as_os_str())).collect();
+    let mut pending: Vec<PathBuf> = path
+        .components()
+        .rev()
+        .map(|c| PathBuf::from(c.as_os_str()))
+        .collect();
     let mut out = PathBuf::new();
     let mut links = 0;
     while let Some(part) = pending.pop() {
-        let Some(component) = part.components().next() else { continue };
+        let Some(component) = part.components().next() else {
+            continue;
+        };
         match component {
             Component::Prefix(_) => out = part,
             Component::RootDir => out.push(component.as_os_str()),
@@ -142,7 +180,8 @@ fn walk(path: &Path) -> Option<PathBuf> {
             }
             Component::Normal(name) => {
                 let next = out.join(name);
-                let is_link = std::fs::symlink_metadata(&next).is_ok_and(|m| m.file_type().is_symlink());
+                let is_link =
+                    std::fs::symlink_metadata(&next).is_ok_and(|m| m.file_type().is_symlink());
                 if !is_link {
                     out = next;
                     continue;
@@ -154,7 +193,12 @@ fn walk(path: &Path) -> Option<PathBuf> {
                 let target = std::fs::read_link(&next).ok()?;
                 // A relative target continues from the link's folder, which
                 // `out` still is; an absolute one starts over at its root
-                pending.extend(target.components().rev().map(|c| PathBuf::from(c.as_os_str())));
+                pending.extend(
+                    target
+                        .components()
+                        .rev()
+                        .map(|c| PathBuf::from(c.as_os_str())),
+                );
             }
         }
     }
@@ -186,7 +230,8 @@ fn starts_with(path: &Path, prefix: &Path) -> bool {
                 Component::Prefix(prefix) => {
                     let text = prefix.as_os_str().to_string_lossy().to_lowercase();
                     let text = text.trim_start_matches(r"\\?\").trim_start_matches(r"\\.\");
-                    text.strip_prefix(r"unc\").map_or_else(|| text.to_owned(), |rest| format!(r"\\{rest}"))
+                    text.strip_prefix(r"unc\")
+                        .map_or_else(|| text.to_owned(), |rest| format!(r"\\{rest}"))
                 }
                 other => fold(other.as_os_str()),
             })
@@ -233,7 +278,8 @@ mod tests {
         fn new(name: &str) -> Self {
             let dir = std::env::temp_dir().join(format!("bmt-guard-{}-{name}", std::process::id()));
             std::fs::remove_dir_all(&dir).ok();
-            std::fs::create_dir_all(dir.join("Application Support")).expect("create the scratch folder");
+            std::fs::create_dir_all(dir.join("Application Support"))
+                .expect("create the scratch folder");
             Self(std::fs::canonicalize(dir).expect("canonical scratch"))
         }
         fn config(&self) -> PathBuf {
@@ -274,7 +320,11 @@ mod tests {
     #[test]
     fn refuses_other_spellings_of_the_name() {
         let s = Scratch::new("case");
-        for name in ["Better-Mayhem-Tracker", "BETTER-MAYHEM-TRACKER", "better-mayhem-trac\u{212A}er"] {
+        for name in [
+            "Better-Mayhem-Tracker",
+            "BETTER-MAYHEM-TRACKER",
+            "better-mayhem-trac\u{212A}er",
+        ] {
             assert!(trips(&s, &s.config().join(name)), "{name}");
         }
         assert!(trips(&s, &s.config().join(".").join(DATA_FOLDER).join(".")));
@@ -284,8 +334,20 @@ mod tests {
     fn refuses_a_way_back_in_through_dot_dot() {
         let s = Scratch::new("dotdot");
         std::fs::create_dir_all(s.0.join("elsewhere")).unwrap();
-        assert!(trips(&s, &s.0.join("elsewhere").join("..").join("Application Support").join(DATA_FOLDER)));
-        assert!(trips(&s, &s.0.join("missing").join("..").join("Application Support").join(DATA_FOLDER)));
+        assert!(trips(
+            &s,
+            &s.0.join("elsewhere")
+                .join("..")
+                .join("Application Support")
+                .join(DATA_FOLDER)
+        ));
+        assert!(trips(
+            &s,
+            &s.0.join("missing")
+                .join("..")
+                .join("Application Support")
+                .join(DATA_FOLDER)
+        ));
     }
 
     #[cfg(unix)]
@@ -301,7 +363,11 @@ mod tests {
         symlink(s.config(), s.0.join("support")).unwrap();
         assert!(trips(&s, &s.0.join("support").join(DATA_FOLDER)));
         // A relative link, and a chain of two
-        symlink(Path::new("Application Support").join(DATA_FOLDER), s.0.join("relative")).unwrap();
+        symlink(
+            Path::new("Application Support").join(DATA_FOLDER),
+            s.0.join("relative"),
+        )
+        .unwrap();
         assert!(trips(&s, &s.0.join("relative")));
         symlink(s.0.join("relative"), s.0.join("chain")).unwrap();
         assert!(trips(&s, &s.0.join("chain").join("logs")));
@@ -327,7 +393,10 @@ mod tests {
         // `/private` is a firmlink of `/System/Volumes/Data/private`, the same
         // folder under a path that no symlink explains
         let s = Scratch::new("firmlink");
-        let Ok(inside) = s.config().strip_prefix("/") else { return };
+        let config = s.config();
+        let Ok(inside) = config.strip_prefix("/") else {
+            return;
+        };
         let alias = Path::new("/System/Volumes/Data").join(inside);
         if !alias.exists() {
             return;
@@ -339,7 +408,10 @@ mod tests {
     fn passes_folders_beside_it() {
         let s = Scratch::new("beside");
         assert!(!trips(&s, &s.config()));
-        assert!(!trips(&s, &s.config().join(format!("{DATA_FOLDER}-snapshot"))));
+        assert!(!trips(
+            &s,
+            &s.config().join(format!("{DATA_FOLDER}-snapshot"))
+        ));
         assert!(!trips(&s, &s.0.join("run").join(DATA_FOLDER)));
         assert!(!trips(&s, &s.0.join("run").join("data")));
     }
@@ -361,8 +433,10 @@ mod tests {
     /// The child half of [`exits_before_creating_anything`].
     #[test]
     fn guard_child() {
-        let (Some(root), Some(config)) = (std::env::var_os("BMT_GUARD_CHILD_ROOT"), std::env::var_os("BMT_GUARD_CHILD_CONFIG"))
-        else {
+        let (Some(root), Some(config)) = (
+            std::env::var_os("BMT_GUARD_CHILD_ROOT"),
+            std::env::var_os("BMT_GUARD_CHILD_CONFIG"),
+        ) else {
             return;
         };
         let paths = crate::paths::Paths::at_with(PathBuf::from(root), &[PathBuf::from(config)]);
@@ -375,7 +449,12 @@ mod tests {
     fn exits_before_creating_anything() {
         let s = Scratch::new("exit");
         let output = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "data_guard::tests::guard_child", "--nocapture", "--test-threads=1"])
+            .args([
+                "--exact",
+                "data_guard::tests::guard_child",
+                "--nocapture",
+                "--test-threads=1",
+            ])
             .env("BMT_GUARD_CHILD_ROOT", s.real())
             .env("BMT_GUARD_CHILD_CONFIG", s.config())
             .output()

@@ -100,7 +100,9 @@ version = "0.0.0"
 dependencies = [
  "base64 0.23.1",
  "block2",
+ "dirs",
  "heck 0.5.0",
+ "libc",
  "objc2",
  "objc2-app-kit",
  "objc2-core-foundation",
