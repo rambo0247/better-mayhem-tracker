@@ -3,6 +3,8 @@
 //! better-sqlite3 binds and returns values and runs transactions. `None` is
 //! `undefined`.
 
+use std::borrow::Cow;
+
 use rusqlite::Connection;
 use rusqlite::types::{Value as Sql, ValueRef};
 use serde_json::Value;
@@ -197,6 +199,59 @@ pub fn cells_eq(a: &Cell, b: &Cell) -> bool {
     }
 }
 
+/// `JSON.parse(text)`, or `None` where it throws. A string in the result
+/// holds each lone surrogate as U+FFFD: JSON.parse keeps it, but
+/// better-sqlite3 binds it as U+FFFD (measured in trunk Electron), so every
+/// cell written from the value matches. A stringify of the value prints
+/// U+FFFD where JSON.stringify would print the `\udXXX` escape.
+pub fn parse(text: &str) -> Option<Value> {
+    serde_json::from_str(&lone_surrogates_replaced(text)).ok()
+}
+
+/// `text` with every `\uXXXX` escape of a lone surrogate turned into
+/// `\ufffd`. serde_json refuses lone surrogates, and a `\u` escape is the
+/// only way a UTF-8 text can carry one.
+fn lone_surrogates_replaced(text: &str) -> Cow<'_, str> {
+    let bytes = text.as_bytes();
+    let unit_at = |i: usize| -> Option<u16> {
+        let hex = bytes.get(i..i + 6)?;
+        if hex[0] != b'\\' || hex[1] != b'u' {
+            return None;
+        }
+        u16::from_str_radix(std::str::from_utf8(&hex[2..]).ok()?, 16).ok()
+    };
+    let mut out: Option<String> = None;
+    let (mut i, mut copied) = (0, 0);
+    while let Some(at) = bytes[i..].iter().position(|&b| b == b'\\') {
+        i += at;
+        let Some(unit) = unit_at(i) else {
+            // Any other escape is two bytes, which also steps over `\\`
+            i = (i + 2).min(bytes.len());
+            continue;
+        };
+        let paired = (0xd800..0xdc00).contains(&unit)
+            && unit_at(i + 6).is_some_and(|low| (0xdc00..0xe000).contains(&low));
+        if paired {
+            i += 12;
+        } else if (0xd800..0xe000).contains(&unit) {
+            let out = out.get_or_insert_with(|| String::with_capacity(text.len()));
+            out.push_str(&text[copied..i]);
+            out.push_str("\\ufffd");
+            i += 6;
+            copied = i;
+        } else {
+            i += 6;
+        }
+    }
+    match out {
+        Some(mut out) => {
+            out.push_str(&text[copied..]);
+            Cow::Owned(out)
+        }
+        None => Cow::Borrowed(text),
+    }
+}
+
 /// `JSON.stringify(value)`: keys in the order JavaScript enumerates them,
 /// which needs serde_json's `preserve_order` for the insertion order, and
 /// numbers as JavaScript prints them.
@@ -364,6 +419,31 @@ mod tests {
             let v: Value = serde_json::from_str(text).unwrap();
             assert_eq!(stringify(&v), node, "{text}");
         }
+    }
+
+    /// What trunk Electron's better-sqlite3 stores for each string
+    /// JSON.parse reads from the text: every lone surrogate as U+FFFD, a
+    /// pair as its character (electron-sqlite.json in the fixtures).
+    #[test]
+    fn lone_surrogates_parse_as_better_sqlite3_binds_them() {
+        let cases = [
+            (r#""A\ud83d""#, "A\u{fffd}"),
+            (r#""\udc00NA""#, "\u{fffd}NA"),
+            (r#""\ud83d\ud83d""#, "\u{fffd}\u{fffd}"),
+            (r#""B\ud83d\nC""#, "B\u{fffd}\nC"),
+            (r#""\ud83d\u0041""#, "\u{fffd}A"),
+            (r#""\uD83D\uDE00 ok""#, "\u{1f600} ok"),
+            (r#""\ud83d\ud83d\ude00""#, "\u{fffd}\u{1f600}"),
+            (r#""\ude00\ud83d""#, "\u{fffd}\u{fffd}"),
+            (r#""x\udbff\udfff\udc00""#, "x\u{10ffff}\u{fffd}"),
+            (r#""\\ud800""#, "\\ud800"),
+        ];
+        for (text, stored) in cases {
+            assert_eq!(parse(text), Some(Value::String(stored.into())), "{text}");
+        }
+        assert_eq!(parse(r#"{"\ud800":1}"#), Some(json!({ "\u{fffd}": 1 })));
+        assert_eq!(parse(r#"["\"#), None);
+        assert_eq!(parse("[1,]"), None);
     }
 
     #[test]

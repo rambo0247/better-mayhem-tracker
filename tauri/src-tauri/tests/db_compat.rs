@@ -609,3 +609,169 @@ fn a_write_waits_out_another_process_holding_the_lock() {
         .unwrap();
     assert_eq!(value.as_deref(), Some("true"));
 }
+
+/// One `games` row and its `player_stats` line for a pre-versioning
+/// database. The line is what the V1 backfill matches the owner by.
+fn insert_v0_game(conn: &Connection, game_id: i64, raw_json: &[u8]) {
+    conn.execute(
+        "INSERT INTO games VALUES (?, 2400, 'KIWI', ?, 1500, CAST(? AS TEXT))",
+        rusqlite::params![game_id, 1_790_000_000_000i64 + game_id, raw_json],
+    )
+    .unwrap();
+    conn.execute(
+        &format!("INSERT INTO player_stats ({PLAYER_STATS_V0}) VALUES (?, 103, 1, 7, 2, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL)"),
+        [game_id],
+    )
+    .unwrap();
+}
+
+/// Builds a pre-versioning database from `games`, leaves it for the Electron
+/// lane under `<name>-source`, migrates it in Rust, and leaves the result
+/// under `<name>-rust`.
+fn migrate_v0(name: &str, games: &[(i64, Vec<u8>)]) -> (PathBuf, Database) {
+    let dir = scratch(name);
+    {
+        let conn = Connection::open(dir.join("matches.db")).unwrap();
+        conn.execute_batch(V0_DDL).unwrap();
+        for (game_id, raw) in games {
+            insert_v0_game(&conn, *game_id, raw);
+        }
+    }
+    keep(&format!("{name}-source"), &dir);
+    let db = Database::open(&dir, NOW_MS).unwrap();
+    db.close();
+    keep(&format!("{name}-rust"), &dir);
+    db.reopen(NOW_MS).unwrap();
+    (dir, db)
+}
+
+/// A cell as `capture-cells.py` writes it: TEXT and BLOB as hex, REAL as
+/// its f64 bits, `raw_gz` as its gunzipped text.
+fn typed_cell(column: &str, value: rusqlite::types::ValueRef<'_>) -> Value {
+    use rusqlite::types::ValueRef;
+    let hex = |b: &[u8]| b.iter().map(|x| format!("{x:02x}")).collect::<String>();
+    match value {
+        ValueRef::Null => Value::Null,
+        ValueRef::Integer(i) => json!({ "int": i.to_string() }),
+        ValueRef::Real(f) => json!({ "real": format!("{:016x}", f.to_bits()) }),
+        ValueRef::Text(t) => json!({ "text": hex(t) }),
+        ValueRef::Blob(b) if column == "raw_gz" => json!({ "gunzipped": hex(&gunzip(b)) }),
+        ValueRef::Blob(b) => json!({ "blob": hex(b) }),
+    }
+}
+
+/// Every query of an Electron capture, run on `conn`, cell for cell.
+fn same_cells_as_electron(conn: &Connection, fixture: &str) {
+    let path = manifest_dir().join("tests/fixtures").join(fixture);
+    let electron: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(
+        migrations::user_version(conn).unwrap(),
+        electron["user_version"].as_i64().unwrap()
+    );
+    for query in electron["queries"].as_array().unwrap() {
+        let sql = query["sql"].as_str().unwrap();
+        let mut stmt = conn.prepare(sql).unwrap();
+        let names: Vec<String> = stmt.column_names().map(str::to_owned).collect();
+        let ours: Vec<Value> = stmt
+            .query_map([], |row| {
+                Ok(Value::Array(
+                    (0..names.len())
+                        .map(|i| typed_cell(&names[i], row.get_ref(i).unwrap()))
+                        .collect(),
+                ))
+            })
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        let theirs = query["rows"].as_array().unwrap();
+        for (i, (a, b)) in ours.iter().zip(theirs).enumerate() {
+            let differ: Vec<String> = names
+                .iter()
+                .enumerate()
+                .filter(|(c, _)| a[*c] != b[*c])
+                .map(|(c, name)| format!("{name}: ours {} electron {}", a[c], b[c]))
+                .collect();
+            assert!(differ.is_empty(), "{sql}\n  row {i}: {}", differ.join("\n    "));
+        }
+        assert_eq!(ours.len(), theirs.len(), "{sql}: row count");
+    }
+}
+
+/// Payloads that reach the JavaScript edges a migration crosses: names that
+/// are present but empty, lone surrogates, floats a fast parser misrounds,
+/// and invalid UTF-8 in the stored text. The cells must equal what trunk
+/// Electron 1.2.1 wrote migrating the same file
+/// (`electron-hostile-v0.json`, from `capture-cells.py`).
+#[test]
+fn hostile_payloads_migrate_to_the_cells_electron_writes() {
+    let mut invalid_utf8 = br#"{"gameId":15,"gameVersion":"16.23.1.2","participants":[{"participantId":1,"championId":103,"teamId":100,"stats":{"win":true,"kills":7,"deaths":2,"assists":9}}],"participantIdentities":[{"player":{"puuid":"owner-15","gameName":"C"#.to_vec();
+    invalid_utf8.extend_from_slice(b"\xed\xa0\xbdD\",\"tagLine\":\"E\xf0\x9f\x98F\"}}]}");
+    let games = [
+        (11, br#"{"gameId":11,"gameVersion":"16.23.1.2","participants":[{"participantId":1,"championId":103,"teamId":100,"spell1Id":4,"spell2Id":32,"puuid":"owner-11","riotIdGameName":"","riotIdTagline":"","win":true,"kills":7,"deaths":2,"assists":9},{"participantId":2,"championId":22,"teamId":200,"spell1Id":4,"spell2Id":32,"puuid":"other-11","riotIdGameName":"Other","riotIdTagline":"","win":false,"kills":1,"deaths":5,"assists":2}]}"#.to_vec()),
+        (12, br#"{"gameId":12,"gameVersion":"16.23.1.2","participants":[{"participantId":1,"championId":103,"teamId":100,"stats":{"win":true,"kills":7,"deaths":2,"assists":9,"playerAugment1":101}},{"participantId":2,"championId":22,"teamId":200,"stats":{"win":false,"kills":1,"deaths":5,"assists":2}},{"participantId":3,"championId":23,"teamId":200,"stats":{"win":false}},{"participantId":4,"championId":24,"teamId":200,"stats":{"win":false}},{"participantId":5,"championId":25,"teamId":200,"stats":{"win":false}}],"participantIdentities":[{"player":{"puuid":"owner-12\ud800","gameName":"A\ud83d","tagLine":"\udc00NA"}},{"player":{"puuid":"p2-12","summonerName":"B\ud83d\nC","tagLine":"\ud83d\ud83d"}},{"player":{"puuid":"p3-12","gameName":"\ud83d\u0041","tagLine":"\uD83D\uDE00 ok"}},{"player":{"puuid":"p4-12","gameName":"\ud83d\ud83d\ude00","tagLine":"\ude00\ud83d"}},{"player":{"puuid":"p5-12","gameName":"x\udbff\udfff\udc00","tagLine":"\\ud800"}}],"extra":{"\ud800":1,"\ud801":2}}"#.to_vec()),
+        (13, br#"{"gameId":13,"gameVersion":"16.23.1.2","extra":{"b":1,"2":0,"1":0},"participants":[{"participantId":1,"championId":103,"teamId":100,"stats":{"win":true,"kills":7,"deaths":2,"assists":9,"totalHeal":0.45454545454545453,"goldEarned":9.241516992974401e+110,"totalDamageTaken":1.0063725663392093e+82,"largestKillingSpree":-3.8017925100238707e+197,"totalDamageDealtToChampions":9.24151699297440102308e+110}}],"participantIdentities":[{"player":{"puuid":"owner-13","gameName":"Owner","tagLine":"NA1"}}]}"#.to_vec()),
+        (14, br#"{"gameId":14,"gameVersion":"16.23.1.2","participants":[{"participantId":1,"championId":103,"teamId":100,"summonerName":"","stats":{"win":true,"kills":7,"deaths":2,"assists":9}}],"participantIdentities":[{"player":{"puuid":"owner-14","gameName":"","summonerName":"","tagLine":""}}]}"#.to_vec()),
+        (15, invalid_utf8),
+    ];
+    let (_dir, db) = migrate_v0("hostile-v0", &games);
+    db.with(|conn| {
+        same_cells_as_electron(conn, "electron-hostile-v0.json");
+        Ok(())
+    })
+    .unwrap();
+}
+
+/// Number formatting and `JSON.stringify(JSON.parse(text))` against Node's
+/// answers, which `docs/tauri-port/units/T11/js-fuzz.mjs` writes into the
+/// folder `BMT_JS_FUZZ` names. A text goes in through `unpack_raw`, the path
+/// every stored payload takes.
+#[test]
+#[ignore]
+fn js_semantics_match_node() {
+    let dir = PathBuf::from(std::env::var_os("BMT_JS_FUZZ").expect("set BMT_JS_FUZZ"));
+    let numbers = std::fs::read_to_string(dir.join("numbers.txt")).unwrap();
+    let mut number_misses = BTreeSet::new();
+    let mut count = 0;
+    for line in numbers.lines() {
+        let (hex, node) = line.split_once(' ').unwrap();
+        let x = f64::from_bits(u64::from_str_radix(hex, 16).unwrap());
+        count += 1;
+        let ours = bmt_lib::db::js::number_to_string(x);
+        if ours != node {
+            number_misses.insert(format!("{hex}: node {node}, ours {ours}"));
+        }
+    }
+    println!("numbers: {} distinct of {count} differ", number_misses.len());
+    for miss in number_misses.iter().take(20) {
+        println!("  {miss}");
+    }
+
+    let cases: Vec<Value> =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("json.json")).unwrap()).unwrap();
+    let mut json_misses = BTreeSet::new();
+    let mut lossy = 0;
+    for case in &cases {
+        let text = case["text"].as_str().unwrap();
+        let (want, bound) = (case["want"].as_str().unwrap(), case["wantBound"].as_str().unwrap());
+        let ours = match payloads::unpack_raw(Some(&payloads::gzip(text.as_bytes()))) {
+            Some(v) => bmt_lib::db::js::stringify(&v),
+            None if want.starts_with("THROW ") => want.to_owned(),
+            None => "unparsed".to_owned(),
+        };
+        if want != bound {
+            lossy += 1;
+        }
+        if ours != bound {
+            json_misses.insert(format!("{text}\n    node  {bound}\n    ours  {ours}"));
+        }
+    }
+    println!(
+        "json: {} distinct of {} differ from Node with lone surrogates as U+FFFD; {lossy} hold a lone surrogate",
+        json_misses.len(),
+        cases.len()
+    );
+    for miss in json_misses.iter().take(10) {
+        println!("  {}", miss.chars().take(400).collect::<String>());
+    }
+    assert!(number_misses.is_empty() && json_misses.is_empty());
+}

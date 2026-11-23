@@ -124,7 +124,7 @@ fn json_text(cell: &Cell) -> Option<String> {
 }
 
 fn parse_json(cell: &Cell) -> Option<Value> {
-    serde_json::from_str(&json_text(cell)?).ok()
+    js::parse(&json_text(cell)?)
 }
 
 /// Compresses the raw payloads, normalizes them into `match_participants`,

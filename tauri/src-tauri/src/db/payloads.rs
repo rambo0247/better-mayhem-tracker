@@ -49,7 +49,7 @@ pub fn pack_raw(raw: &Value) -> Vec<u8> {
 pub fn unpack_raw(blob: Option<&[u8]>) -> Option<Value> {
     let mut bytes = Vec::new();
     MultiGzDecoder::new(blob?).read_to_end(&mut bytes).ok()?;
-    serde_json::from_str(&String::from_utf8_lossy(&bytes)).ok()
+    js::parse(&String::from_utf8_lossy(&bytes))
 }
 
 /// One player in one game, unpicked from either of Riot's two shapes: the
