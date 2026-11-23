@@ -233,6 +233,13 @@ pub fn run() {
             #[cfg(feature = "parity-driver")]
             let window = parity_driver::configure(window);
             let window = window.build()?;
+            // wry makes the webview first responder only in a window built visible
+            // and focused. Otherwise AppKit picks one by the key view loop when the
+            // window first turns key, and WebKit takes that for a Tab into the page:
+            // it focuses the first link, ring and all. Chromium's view takes it
+            // directly, so Electron's page focuses nothing.
+            #[cfg(target_os = "macos")]
+            window.as_ref().set_focus()?;
             let scale = window.scale_factor()?;
             let size = window.inner_size()?.to_logical::<f64>(scale);
             log(format!(
