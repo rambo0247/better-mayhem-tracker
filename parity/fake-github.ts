@@ -22,14 +22,23 @@ export const isScenario = (value: string): value is Scenario =>
 export const RELEASES_PATH = "/repos/rambo0247/better-mayhem-tracker/releases";
 export const DOWNLOAD_PATH = "/rambo0247/better-mayhem-tracker/releases/download/";
 const REPO_URL = "https://github.com/rambo0247/better-mayhem-tracker";
+// What the releases page reports for the update dialog's size line. The download itself is
+// PAYLOAD, small and real, so its digest and content-length are honest.
 const ASSET_BYTES = 91_234_567;
-const DIGEST = "sha256:" + "ab".repeat(32);
+const PAYLOAD = new TextEncoder().encode("better-mayhem-tracker fake update payload\n");
+export const PAYLOAD_DIGEST =
+  "sha256:" + new Bun.CryptoHasher("sha256").update(PAYLOAD).digest("hex");
 
 interface Release {
   tag: string;
   date: string;
   body: string;
+  draft: boolean;
+  prerelease: boolean;
 }
+
+/** A tag, or a tag GitHub lists as a draft or a prerelease. */
+type Entry = string | { tag: string; draft?: true; prerelease?: true };
 
 const NOTES: Record<string, string> = {
   "1.3.0": [
@@ -67,21 +76,46 @@ const NOTES: Record<string, string> = {
 const note = (version: string) => NOTES[version] ?? `- Fixes and small improvements in ${version}.`;
 const stamp = (index: number) => new Date(Date.UTC(2026, 10, 20 - index * 9)).toISOString();
 
-function releaseList(tags: string[]): Release[] {
-  return tags.map((tag, index) => ({ tag, date: stamp(index), body: note(tag) }));
+function releaseList(entries: Entry[]): Release[] {
+  return entries.map((entry, index) => {
+    const {
+      tag,
+      draft = false,
+      prerelease = false,
+    } = typeof entry === "string" ? { tag: entry } : entry;
+    return { tag, date: stamp(index), body: note(tag), draft, prerelease };
+  });
 }
 
 const MANY = Array.from({ length: 20 }, (_, i) => `1.${3 + 20 - i}.0`);
 
-const TAGS: Record<Scenario, string[]> = {
+const TAGS: Record<Scenario, Entry[]> = {
   "up-to-date": ["1.2.1", "1.2.0", "1.1.2", "1.1.1", "1.1.0", "1.0.0"],
   "update-available": ["1.3.0", "1.2.1", "1.2.0", "1.1.2", "1.1.1", "1.1.0", "1.0.0"],
   "update-multi": ["1.4.0", "1.3.1", "1.3.0", "1.2.1", "1.2.0", "1.1.2", "1.1.1", "1.1.0", "1.0.0"],
   "update-many": MANY,
   "update-no-asset": ["1.3.0", "1.2.1", "1.2.0", "1.1.0"],
   downloading: ["1.3.0", "1.2.1", "1.2.0", "1.1.0"],
-  "notes-single": ["1.2.1", "1.2.0", "1.1.2", "1.1.1", "1.1.0", "1.0.0"],
-  "notes-multi": ["1.2.1", "1.2.0", "1.1.2", "1.1.1", "1.1.0", "1.0.0"],
+  // A prerelease of the installed version parses as 1.2.1, so only the filter keeps it out
+  "notes-single": [
+    "1.2.1",
+    { tag: "1.2.1-rc.1", prerelease: true },
+    "1.2.0",
+    "1.1.2",
+    "1.1.1",
+    "1.1.0",
+    "1.0.0",
+  ],
+  "notes-multi": [
+    "1.2.1",
+    { tag: "1.2.0-rc.1", prerelease: true },
+    "1.2.0",
+    { tag: "1.1.3", draft: true },
+    "1.1.2",
+    "1.1.1",
+    "1.1.0",
+    "1.0.0",
+  ],
 };
 
 const ASSET_NAMES = [
@@ -101,14 +135,14 @@ export function releasesFor(scenario: Scenario) {
         : ASSET_NAMES.map((name) => ({
             name,
             size: ASSET_BYTES,
-            digest: DIGEST,
+            digest: PAYLOAD_DIGEST,
             browser_download_url: `${REPO_URL}/releases/download/v${release.tag}/${name}`,
           }));
     return {
       tag_name: `v${release.tag}`,
       name: `Better Mayhem Tracker ${release.tag}`,
-      draft: false,
-      prerelease: false,
+      draft: release.draft,
+      prerelease: release.prerelease,
       published_at: release.date,
       html_url: `${REPO_URL}/releases/tag/v${release.tag}`,
       body: release.body,
@@ -119,44 +153,26 @@ export function releasesFor(scenario: Scenario) {
 
 export interface FakeGithub {
   url: string;
-  port: number;
-  setDefault(scenario: Scenario): void;
   close(): void;
 }
 
-/** The download endpoint sends part of the file and then holds the connection open. */
-function stalledDownload(): Response {
-  const part = new Uint8Array(ASSET_BYTES * 0.4);
-  const body = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(part);
-    },
-  });
-  return new Response(body, { headers: { "content-length": String(ASSET_BYTES) } });
-}
-
 export function startFakeGithub(options: { scenario?: Scenario; port?: number } = {}): FakeGithub {
-  let fallback: Scenario = options.scenario ?? "up-to-date";
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: options.port ?? 0,
     fetch(request) {
       const url = new URL(request.url);
       if (url.pathname === RELEASES_PATH) {
-        const asked = url.searchParams.get("scenario") ?? fallback;
+        const asked = url.searchParams.get("scenario") ?? options.scenario ?? "up-to-date";
         if (!isScenario(asked)) return new Response(`unknown scenario ${asked}`, { status: 400 });
         return Response.json(releasesFor(asked));
       }
-      if (url.pathname.startsWith(DOWNLOAD_PATH)) return stalledDownload();
+      if (url.pathname.startsWith(DOWNLOAD_PATH)) return new Response(PAYLOAD);
       return new Response("not found", { status: 404 });
     },
   });
   return {
     url: `http://127.0.0.1:${server.port}`,
-    port: server.port ?? 0,
-    setDefault: (scenario) => {
-      fallback = scenario;
-    },
     close: () => void server.stop(true),
   };
 }

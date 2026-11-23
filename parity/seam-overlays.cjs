@@ -25,6 +25,9 @@ const CHANNELS = {
   copyCardImage: "export:copy-card-image",
 };
 
+// These write the clipboard or open a save dialog. A run can replace their answer, never call them.
+const EXPORT_METHODS = new Set(["exportCardImage", "copyCardImage"]);
+
 // A function in a template has no JSON form; its source stands in for it.
 function serializeTemplate(template) {
   return template.map((entry) => {
@@ -100,7 +103,7 @@ module.exports = {
   toReleaseNote,
 };
 
-if (process.versions.electron) {
+if (process.type === "browser") {
   const { app, ipcMain, BrowserWindow, Menu, Tray } = require("electron");
 
   const originals = new Map();
@@ -257,6 +260,9 @@ if (process.versions.electron) {
       return "ok";
     },
     async realCall({ method, args = [] }) {
+      if (EXPORT_METHODS.has(method)) {
+        throw new Error(`realCall refuses ${method}: it would use the clipboard or a save dialog`);
+      }
       return originals.get(channelOf(method))(null, ...args);
     },
     menus() {
