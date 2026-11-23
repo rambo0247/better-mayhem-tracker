@@ -20,6 +20,10 @@ db:match-sessions
 db:profile
 db:records
 db:stored-queues
+db:teammate-detail
+db:teammate-group-detail
+db:teammate-groups
+db:teammate-stats
 db:toggle-favorite
 db:trends
 settings:get
