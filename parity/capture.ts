@@ -13,9 +13,16 @@ import { dumpGeometry, type DriveContext } from "./drive.ts";
 import { isDataSource, PARITY_DIR } from "./lib/data.ts";
 import { gameRunning, waitForNoGame } from "./lib/no-game.ts";
 import { refuseRealFolder } from "./lib/real-folder.ts";
-import { openClientState } from "./capture-client.ts";
-import { gpuSwitch, startElectron, type RunReport, type RunningElectron } from "./run-electron.ts";
-import { startTauri, type Renderer } from "./run-tauri.ts";
+import {
+  electronClientEnv,
+  HOLD_CONNECTING_SCRIPT,
+  openClientState,
+  tauriClientEnv,
+  type ClientCapture,
+  type ClientLaunch,
+} from "./capture-client.ts";
+import { gpuSwitch, startElectron, type RunningElectron } from "./run-electron.ts";
+import { startTauri, type Renderer, type RunningTauri } from "./run-tauri.ts";
 import {
   applyState,
   resolveVars,
@@ -35,7 +42,7 @@ interface Timing {
   settleTimedOut: boolean;
   ok: boolean;
   error?: string;
-  /** Client states: fake client start to the app reading "Connected" or "In Game". */
+  /** Client states: app start to the app reading "Connected" or "In Game". */
   connectMs?: number;
   /** Electron card states: how many times the card was drawn again for a missing lookup. */
   retries?: number;
@@ -46,6 +53,12 @@ const CARD_ATTEMPTS = 5;
 
 type App = "electron" | "tauri";
 
+interface ClosedApp {
+  faults: string[];
+  leaks: string[];
+  seam: string;
+}
+
 interface RunningApp {
   ctx: DriveContext;
   runDir: string;
@@ -53,7 +66,7 @@ interface RunningApp {
   /** Facts recorded in every state's meta file. */
   meta(): Promise<Record<string, unknown>>;
   /** Closes the app and copies its logs into `dir`, numbered by launch. */
-  close(dir: string, launch: number): Promise<{ faults: string[]; leaks: string[]; seam: string }>;
+  close(dir: string, launch: number): Promise<ClosedApp>;
 }
 
 function parse(argv: string[]) {
@@ -118,17 +131,14 @@ function isAlive(pid: number) {
   }
 }
 
-function electronApp(
-  running: RunningElectron,
-  closeApp: () => Promise<RunReport> = () => running.close(),
-): RunningApp {
+function electronApp(running: RunningElectron): RunningApp {
   return {
     ctx: running.ctx,
     runDir: running.runDir,
     faults: () => running.faults(),
     meta: async () => ({ engine: "electron" }),
     async close(dir, launch) {
-      const report = await closeApp();
+      const report = await running.close();
       const mainLog = path.join(running.runDir, "logs", "main.log");
       if (fs.existsSync(mainLog)) fs.copyFileSync(mainLog, path.join(dir, `main.${launch}.log`));
       return { ...report, seam: fs.readFileSync(running.seamLog, "utf8") };
@@ -136,21 +146,7 @@ function electronApp(
   };
 }
 
-async function start(
-  args: ReturnType<typeof parse>,
-  data: string,
-  runDir: string,
-): Promise<RunningApp> {
-  if (args.app === "electron") {
-    return electronApp(await startElectron({ data, repo: args.repo, runDir }));
-  }
-  const running = await startTauri({
-    data,
-    repo: args.repo,
-    renderer: args.renderer,
-    goldenDir: args.golden,
-    runDir,
-  });
+function tauriApp(args: ReturnType<typeof parse>, running: RunningTauri): RunningApp {
   return {
     ctx: running.ctx,
     runDir: running.runDir,
@@ -186,6 +182,58 @@ async function start(
       return { faults: [], leaks: [], seam: "" };
     },
   };
+}
+
+async function start(
+  args: ReturnType<typeof parse>,
+  data: string,
+  runDir: string,
+): Promise<RunningApp> {
+  if (args.app === "electron") {
+    return electronApp(await startElectron({ data, repo: args.repo, runDir }));
+  }
+  return tauriApp(
+    args,
+    await startTauri({
+      data,
+      repo: args.repo,
+      renderer: args.renderer,
+      goldenDir: args.golden,
+      runDir,
+    }),
+  );
+}
+
+/** The app for a client state, reaching the fake client the way each app finds one. */
+async function startClientApp(
+  args: ReturnType<typeof parse>,
+  launch: ClientLaunch,
+): Promise<RunningApp> {
+  const { data, runDir, viewport } = launch;
+  if (args.app === "electron") {
+    const running = await startElectron({
+      data,
+      repo: args.repo,
+      runDir,
+      viewport,
+      seamEnv: electronClientEnv(launch),
+    });
+    if (launch.hold) await running.page.context().addInitScript(HOLD_CONNECTING_SCRIPT);
+    return electronApp(running);
+  }
+  return tauriApp(
+    args,
+    await startTauri({
+      data,
+      repo: args.repo,
+      renderer: args.renderer,
+      goldenDir: args.golden,
+      runDir,
+      viewport,
+      env: tauriClientEnv(launch),
+      init: launch.hold ? HOLD_CONNECTING_SCRIPT : undefined,
+    }),
+  );
 }
 
 /**
@@ -396,7 +444,7 @@ async function main() {
   try {
     for (const state of states) {
       let session: RunningApp;
-      let clientRun: Awaited<ReturnType<typeof openClientState>> | undefined;
+      let clientRun: ClientCapture<RunningApp, ClosedApp> | undefined;
       let sessionVars = vars;
       let clientSeen = 0;
       const record: Timing = { id: state.id, ms: 0, settleMs: 0, settleTimedOut: false, ok: true };
@@ -405,15 +453,10 @@ async function main() {
         await closeShared();
         await waitForNoGame();
         try {
-          if (args.app !== "electron") {
-            throw new Error(
-              "client states run on Electron only, where the seam reaches the fake client",
-            );
-          }
           clientRun = await openClientState(state as StateRow, {
             data: args.data,
-            repo: args.repo,
             dir,
+            start: (launch) => startClientApp(args, launch),
           });
         } catch (error) {
           record.ok = false;
@@ -425,7 +468,7 @@ async function main() {
           continue;
         }
         const run = clientRun;
-        session = electronApp(run.running, () => run.finish(dir));
+        session = { ...run.app, close: (to, launch) => run.finish(to, launch) };
       } else {
         if (running && gameRunning()) {
           console.log("a League game started, closing the window and waiting");
