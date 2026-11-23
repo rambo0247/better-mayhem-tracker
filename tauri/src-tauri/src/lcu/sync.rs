@@ -632,7 +632,7 @@ impl LcuSync {
             install_dir: Arc::new(DbInstallDir(sync.clone())),
             hooks: Arc::new(SyncHooks(sync.clone())),
             emit,
-            timing: super::Timing::default(),
+            timing: super::Timing::from_env(),
         });
         Self { lcu, sync }
     }
