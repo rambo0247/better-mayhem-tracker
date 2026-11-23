@@ -3,6 +3,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { PNG } from "pngjs";
 import { isUnderRealFolder, realDataRoots } from "../lib/real-folder.ts";
 import { diffHashes, hashAppFiles, takeSnapshot } from "../snapshot.ts";
 
@@ -179,6 +180,36 @@ test("the snapshot CLI refuses a --verify log in the real folder before it reads
   expect(result.stderr).toContain("verify log refused");
   expect(fs.existsSync(out)).toBe(false);
   expect(fs.readdirSync(real)).toEqual(["data"]);
+});
+
+test("diff and determinism refuse an output in the real folder before they create anything", () => {
+  const home = fs.realpathSync(scratch());
+  const real = realDataRoots(process.platform, {}, home)[0]!;
+  fs.mkdirSync(real, { recursive: true });
+  const runs = path.join(home, "runs");
+  fs.mkdirSync(runs);
+  const png = new PNG({ width: 2, height: 2 });
+  fs.writeFileSync(path.join(runs, "a.png"), PNG.sync.write(png));
+  png.data[0] = 255;
+  fs.writeFileSync(path.join(runs, "b.png"), PNG.sync.write(png));
+  const run = (script: string, args: string[]) =>
+    spawnSync("bun", [path.resolve(import.meta.dir, "..", script), ...args], {
+      env: { ...process.env, HOME: home, XDG_CONFIG_HOME: "" },
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+  const diff = run("diff.ts", [
+    path.join(runs, "a.png"),
+    path.join(runs, "b.png"),
+    "--out",
+    path.join(real, "new", "x"),
+  ]);
+  expect(diff.status).not.toBe(0);
+  expect(diff.stderr).toContain("diff output refused");
+  const determinism = run("determinism.ts", [runs, path.join(real, "run-2")]);
+  expect(determinism.status).not.toBe(0);
+  expect(determinism.stderr).toContain("diff folder refused");
+  expect(fs.readdirSync(real)).toEqual([]);
 });
 
 describe("seam", () => {

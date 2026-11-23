@@ -9,6 +9,7 @@ import { dumpGeometry, runStep, type DriveContext, type Step } from "./drive.ts"
 import { PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
 import { waitForNoGame } from "./lib/no-game.ts";
 import { realDataRoots, refuseRealFolder } from "./lib/real-folder.ts";
+import { resolveThroughSymlinks } from "./lib/real-folder.cjs";
 import { settle } from "./settle.ts";
 
 export const FIXED_TIME = new Date("2026-11-22T21:00:00-05:00");
@@ -53,6 +54,8 @@ export function readFaults(seamLog: string): string[] {
 function copyTree(from: string, to: string) {
   if (fs.existsSync(from)) fs.cpSync(from, to, { recursive: true, dereference: true });
 }
+
+export const RUN_MARKER = ".bmt-parity-run";
 
 const isInside = (child: string, parent: string) =>
   child === parent || child.startsWith(parent + path.sep);
@@ -145,8 +148,18 @@ export function prepareRun(options: { data: string; runDir: string; repo: string
   const { runDir, repo } = options;
   refuseRealFolder(runDir, "run folder");
   const dataRoot = resolveDataRoot(options.data);
+  if (isInside(fs.realpathSync(dataRoot), resolveThroughSymlinks(runDir))) {
+    throw new Error(`run folder ${runDir} contains the data folder ${dataRoot}`);
+  }
+  const marker = path.join(runDir, RUN_MARKER);
+  if (fs.existsSync(runDir) && fs.readdirSync(runDir).length > 0 && !fs.existsSync(marker)) {
+    throw new Error(
+      `${runDir} is not empty and was not made by a parity run, refusing to clear it`,
+    );
+  }
   fs.rmSync(runDir, { recursive: true, force: true });
   fs.mkdirSync(runDir, { recursive: true });
+  fs.writeFileSync(marker, "bmt parity run folder\n");
   assertRunFolderPinned(runDir);
 
   const built = path.join(repo, "out");
@@ -178,7 +191,19 @@ export function prepareRun(options: { data: string; runDir: string; repo: string
 
   const db = path.join(runDir, "data", "matches.db");
   const database = new Database(db);
-  database.run("UPDATE settings SET value = ? WHERE key = 'last_run_version'", [pkg.version]);
+  if (options.data === "fixture") {
+    const row = database
+      .query("SELECT value FROM settings WHERE key = 'last_run_version'")
+      .get() as { value: string } | undefined;
+    if (row?.value !== pkg.version) {
+      database.close();
+      throw new Error(
+        `the fixture is frozen at ${row?.value} and the app is ${pkg.version}. Rebuild the fixture, or the first run shows the what's-new dialog.`,
+      );
+    }
+  } else {
+    database.run("UPDATE settings SET value = ? WHERE key = 'last_run_version'", [pkg.version]);
+  }
   database.close();
   assertNoEscapingLinks(runDir);
   return { dataRoot, version: pkg.version };
@@ -200,9 +225,16 @@ async function teardown(step: string, work: Promise<unknown>) {
 }
 
 async function quit(app: ElectronApplication) {
+  // exit(0) alone destroys a visible window without a close event, and macOS then emits
+  // hide on the dead wrapper, where Electron's own visibilityChanged listener throws.
   await teardown(
-    "hiding windows",
-    app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((w) => w.hide())),
+    "destroying windows",
+    app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows().forEach((w) => {
+        w.removeAllListeners();
+        w.destroy();
+      }),
+    ),
   );
   await teardown(
     "exit",
@@ -341,11 +373,12 @@ if (import.meta.main) {
     repo: value("--repo"),
     viewport: state?.viewport,
   });
-  if (state) {
-    const vars = await resolveVars(running.page);
-    await applyState(running.ctx, state, vars);
-  } else {
-    await settle(running.page, running.ctx.viewport);
+  try {
+    if (state) await applyState(running.ctx, state, await resolveVars(running.page));
+    else await settle(running.page, running.ctx.viewport);
+  } catch (error) {
+    await running.close();
+    throw error;
   }
 
   const token = crypto.randomBytes(16).toString("hex");

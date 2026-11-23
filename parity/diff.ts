@@ -256,6 +256,7 @@ export function diffFiles(
     outPrefix?: string;
   },
 ): DiffResult {
+  if (options.outPrefix) refuseRealFolder(options.outPrefix, "diff output");
   const a = PNG.sync.read(fs.readFileSync(aFile));
   const b = PNG.sync.read(fs.readFileSync(bFile));
   const result = diffPngs(a, b, {
@@ -264,7 +265,6 @@ export function diffFiles(
     geometryB: options.geometry ? readGeometry(options.geometry[1]) : undefined,
   });
   if (options.outPrefix && result.diffImage) {
-    refuseRealFolder(options.outPrefix, "diff output");
     fs.mkdirSync(path.dirname(options.outPrefix), { recursive: true });
     fs.writeFileSync(`${options.outPrefix}.diff.png`, PNG.sync.write(result.diffImage));
     fs.writeFileSync(

@@ -74,7 +74,12 @@ async function main() {
 
   const finish = async (session: RunningElectron, seen: number) => {
     const report = await session.close();
-    seamLogs.push(session.seamLog);
+    const mainLog = path.join(session.runDir, "logs", "main.log");
+    if (fs.existsSync(mainLog)) {
+      fs.copyFileSync(mainLog, path.join(dir, `main.${seamLogs.length}.log`));
+    }
+    seamLogs.push(fs.readFileSync(session.seamLog, "utf8"));
+    fs.rmSync(session.runDir, { recursive: true, force: true });
     allFaults.push(...report.faults);
     leaks.push(...report.leaks);
     if (report.faults.length > seen) {
@@ -85,34 +90,38 @@ async function main() {
     }
   };
 
-  let running = await launch();
-  let vars = await resolveVars(running.page).catch(async (error) => {
-    await finish(running, 0);
-    throw error;
-  });
+  let running: RunningElectron | undefined;
+  let vars: Record<string, string> = {};
   let seenFaults = 0;
+  const relaunch = async () => {
+    if (running) await finish(running, seenFaults);
+    running = undefined;
+    await waitForNoGame();
+    running = await launch();
+    seenFaults = 0;
+    vars = await resolveVars(running.page);
+  };
   try {
+    await relaunch();
     for (const state of states) {
       if (gameRunning()) {
         console.log("a League game started, closing the window and waiting");
-        await finish(running, seenFaults);
-        await waitForNoGame();
-        running = await launch();
-        vars = await resolveVars(running.page);
-        seenFaults = 0;
+        await relaunch();
       }
+      const session = running!;
       const t0 = Date.now();
       const record: Timing = { id: state.id, ms: 0, settleMs: 0, settleTimedOut: false, ok: true };
       try {
-        const outcome = await applyState(running.ctx, state as StateRow, vars);
+        const outcome = await applyState(session.ctx, state as StateRow, vars);
         record.settleMs = outcome.settle.ms;
         record.settleTimedOut = outcome.settle.timedOut;
-        const faults = running.faults();
+        const faults = session.faults();
         if (faults.length > seenFaults) {
           const fresh = faults.slice(seenFaults);
           seenFaults = faults.length;
           throw new Error(`main process fault: ${fresh.join(" | ").slice(0, 400)}`);
         }
+        if (outcome.settle.timedOut) throw new Error("the page never settled");
         if (!outcome.expectFound) throw new Error(`expected ${state.expect} on the page`);
         if (state.card && outcome.card?.state !== "ready") {
           throw new Error(`card status ${JSON.stringify(outcome.card)}`);
@@ -122,13 +131,23 @@ async function main() {
         }
         fs.writeFileSync(
           path.join(dir, `${state.id}.geometry.json`),
-          await dumpGeometry(running.page),
+          await dumpGeometry(session.page),
         );
-        await running.page.screenshot({
+        await session.page.screenshot({
           path: path.join(dir, `${state.id}.png`),
           animations: "disabled",
           caret: "hide",
+          fullPage: state.card === true,
         });
+        if (state.card) {
+          const png = fs.readFileSync(path.join(dir, `${state.id}.png`));
+          const expected = outcome.card!.height * 2;
+          if (png.readUInt32BE(20) !== expected) {
+            throw new Error(
+              `card image is ${png.readUInt32BE(20)} px tall, the card is ${expected}`,
+            );
+          }
+        }
         fs.writeFileSync(
           path.join(dir, `${state.id}.meta.json`),
           JSON.stringify(
@@ -156,16 +175,20 @@ async function main() {
       );
     }
   } finally {
-    await finish(running, seenFaults);
+    if (running) await finish(running, seenFaults);
   }
   if (leaks.length) {
     failures++;
     console.log(`FAIL the app wrote outside the run folder:\n  ${leaks.join("\n  ")}`);
   }
   const wallMs = Date.now() - startedAt;
-  const seamText = seamLogs.map((file) => fs.readFileSync(file, "utf8")).join("");
+  const seamText = seamLogs.join("");
   fs.writeFileSync(path.join(dir, "seam.log"), seamText);
   const blockedWrites = seamText.split("\n").filter((l) => l.startsWith("blocked-write")).length;
+  if (blockedWrites > 0) {
+    failures++;
+    console.log(`FAIL the seam blocked ${blockedWrites} writes to the real data folder`);
+  }
   const max = timings.reduce((a, b) => (b.ms > a.ms ? b : a), timings[0]!);
   const summary = {
     wallMs,

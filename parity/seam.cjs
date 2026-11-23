@@ -119,10 +119,7 @@ fs.WriteStream = class extends RealWriteStream {
   }
 };
 
-const realLoad = Module._load;
-Module._load = function (request, parent, isMain) {
-  const loaded = realLoad.call(this, request, parent, isMain);
-  if (request !== "better-sqlite3" || loaded.__seamGuarded) return loaded;
+function guardSqlite(loaded) {
   // SQL can name another file: VACUUM INTO writes one, ATTACH opens one for writing.
   const SQL_FILE = /(?:VACUUM\s+(?:\w+\s+)?INTO|ATTACH(?:\s+DATABASE)?)\s+(['"])(.+?)\1/gi;
   const guardSql = (sql) => {
@@ -155,6 +152,49 @@ Module._load = function (request, parent, isMain) {
   }
   GuardedDatabase.__seamGuarded = true;
   return GuardedDatabase;
+}
+
+let inactiveElectron;
+// Electron's own show() activates the app, which takes focus from whatever the operator is doing.
+// Every window is created hidden and shown inactive instead, at the size the app asked for.
+function guardElectron(electron) {
+  if (inactiveElectron) return inactiveElectron;
+  const RealWindow = electron.BrowserWindow;
+  class InactiveWindow extends RealWindow {
+    constructor(options = {}) {
+      super({ ...options, show: false });
+      if (options.show !== false) this.showInactive();
+    }
+  }
+  RealWindow.prototype.show = function () {
+    this.showInactive();
+  };
+  RealWindow.prototype.focus = function () {
+    log("dropped focus");
+  };
+  electron.app.focus = () => log("dropped app.focus");
+  const realEmit = RealWindow.prototype.emit;
+  // Electron's own listeners (visibilityChanged) throw when an event reaches a destroyed window.
+  RealWindow.prototype.emit = function (name, ...args) {
+    if (name !== "closed" && this.isDestroyed()) {
+      log("dropped-event-on-destroyed-window", String(name));
+      return false;
+    }
+    return realEmit.call(this, name, ...args);
+  };
+  inactiveElectron = new Proxy(electron, {
+    get: (target, key, receiver) =>
+      key === "BrowserWindow" ? InactiveWindow : Reflect.get(target, key, receiver),
+  });
+  return inactiveElectron;
+}
+
+const realLoad = Module._load;
+Module._load = function (request, parent, isMain) {
+  const loaded = realLoad.call(this, request, parent, isMain);
+  if (request === "better-sqlite3" && !loaded.__seamGuarded) return guardSqlite(loaded);
+  if (request === "electron" && process.type === "browser") return guardElectron(loaded);
+  return loaded;
 };
 
 const LEAGUE = /League of Legends|Riot Games/;
@@ -292,8 +332,8 @@ const fault = (kind, error) => {
         path.join(process.env.SEAM_RUN_DIR, "logs", "main.log"),
         `FATAL ${text}\n`,
       );
-    } catch {
-      // the run folder has no logs folder yet, and seam.log has the fault
+    } catch (error) {
+      log("main.log unwritable", String(error));
     }
   }
 };
@@ -301,42 +341,24 @@ const fault = (kind, error) => {
 process.on("uncaughtException", (error) => fault("uncaughtException", error));
 process.on("unhandledRejection", (reason) => fault("unhandledRejection", reason));
 
-try {
-  const { app: electronApp, dialog, BrowserWindow, shell } = require("electron");
+if (process.type === "browser") {
+  const { app: electronApp, dialog, shell } = require("electron");
+  const userData = electronApp.getPath("userData");
+  log("userData", userData);
+  if (isReal(userData)) {
+    log("userData-is-real", userData);
+    electronApp.exit(3);
+  }
   const realTrash = shell.trashItem.bind(shell);
   shell.trashItem = async (target) => {
     guard("trashItem", target);
     return realTrash(target);
   };
-  // No Dock icon, app switcher entry or activation on macOS. The window is still created and shown.
-  if (process.platform === "darwin") {
+  if (process.platform === "darwin" && process.env.SEAM_DOCK !== "show") {
     electronApp.setActivationPolicy("accessory");
     electronApp.dock?.hide();
   }
   dialog.showErrorBox = (title, content) => fault("showErrorBox", `${title}: ${content}`);
-  const realEmit = BrowserWindow.prototype.emit;
-  // Electron's own listeners (visibilityChanged) throw when an event reaches a destroyed window.
-  BrowserWindow.prototype.emit = function (name, ...args) {
-    if (name !== "closed" && this.isDestroyed()) {
-      log("dropped-event-on-destroyed-window", String(name));
-      return false;
-    }
-    return realEmit.call(this, name, ...args);
-  };
-} catch {
-  // outside Electron there is no dialog to stub
-}
-
-try {
-  const { app } = require("electron");
-  const userData = app.getPath("userData");
-  log("userData", userData);
-  if (isReal(userData)) {
-    log("userData-is-real", userData);
-    app.exit(3);
-  }
-} catch {
-  // outside Electron there is no app to check
 }
 
 log("seam loaded pid", process.pid);

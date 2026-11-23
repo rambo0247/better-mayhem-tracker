@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -5,7 +6,6 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { isUnderRealFolder, realDataRoots } from "../lib/real-folder.ts";
-import { waitForNoGame } from "../lib/no-game.ts";
 import { SNAPSHOT_DIRS } from "../lib/data.ts";
 import {
   assertNoEscapingLinks,
@@ -14,6 +14,7 @@ import {
   prepareRun,
   readFaults,
   stampDiff,
+  startElectron,
 } from "../run-electron.ts";
 
 const seam = path.resolve(import.meta.dir, "../seam.cjs");
@@ -56,6 +57,30 @@ describe("run folder containment", () => {
     fs.mkdirSync(path.join(repo, "logs"));
     const leaks = stampDiff(before, checkoutStamp(repo));
     expect(leaks.some((leak) => leak.includes("data/matches.db"))).toBe(true);
+  });
+
+  function scratchData(dir: string) {
+    const data = path.join(dir, "source");
+    fs.mkdirSync(path.join(data, "data"), { recursive: true });
+    fs.writeFileSync(path.join(data, "data", "matches.db"), "");
+    return data;
+  }
+
+  test("prepareRun refuses to clear a folder no parity run made, and leaves it as it was", () => {
+    const dir = scratch();
+    const data = scratchData(dir);
+    const run = path.join(dir, "someone-elses");
+    fs.mkdirSync(run);
+    fs.writeFileSync(path.join(run, "keep.txt"), "mine");
+    expect(() => prepareRun({ data, runDir: run, repo: dir })).toThrow(/not made by a parity run/);
+    expect(fs.readdirSync(run)).toEqual(["keep.txt"]);
+  });
+
+  test("prepareRun refuses a run folder that contains the data folder", () => {
+    const dir = scratch();
+    const data = scratchData(dir);
+    expect(() => prepareRun({ data, runDir: dir, repo: dir })).toThrow(/contains the data folder/);
+    expect(fs.existsSync(path.join(data, "data", "matches.db"))).toBe(true);
   });
 
   const fixture = fs.existsSync(path.join(SNAPSHOT_DIRS.fixture, "data", "matches.db"));
@@ -111,58 +136,83 @@ describe("main-process faults under the seam", () => {
   });
 
   const require = createRequire(import.meta.url);
-  let binary = "";
-  try {
-    binary = require(path.resolve(import.meta.dir, "../../node_modules/electron")) as string;
-  } catch {
-    binary = "";
-  }
+  const installed = path.resolve(import.meta.dir, "../../node_modules/electron/index.js");
+  const binary = fs.existsSync(installed) ? (require(installed) as string) : "";
   const hasElectron = process.platform === "darwin" && binary !== "" && fs.existsSync(binary);
 
+  function fakeApp(main: string) {
+    const dir = scratch();
+    const repo = path.join(dir, "repo");
+    fs.mkdirSync(path.join(repo, "out", "main"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "out", "main", "index.js"), main);
+    fs.symlinkSync(
+      path.resolve(import.meta.dir, "../../node_modules"),
+      path.join(repo, "node_modules"),
+    );
+    fs.writeFileSync(
+      path.join(repo, "package.json"),
+      JSON.stringify({ name: "x", version: "1.2.1", main: "./out/main/index.js" }),
+    );
+    spawnSync("git", ["init", "-q"], { cwd: repo });
+    const data = path.join(dir, "source");
+    fs.mkdirSync(path.join(data, "data"), { recursive: true });
+    const db = new Database(path.join(data, "data", "matches.db"));
+    db.run("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)");
+    db.run("INSERT INTO settings VALUES ('last_run_version', '1.2.1')");
+    db.close();
+    return { repo, data, runDir: path.join(dir, "run") };
+  }
+
   test.skipIf(!hasElectron)(
-    "in Electron a throw is a fault, the error dialog is stubbed, and an event on a destroyed window is dropped",
+    "through run-electron, a main-process throw fails the run with no dialog, and the window shows without focus or a Dock icon",
     async () => {
-      await waitForNoGame();
-      const dir = scratch();
-      fs.mkdirSync(path.join(dir, "logs"));
-      fs.mkdirSync(path.join(dir, "userdata"));
-      const main = path.join(dir, "main.js");
-      fs.writeFileSync(
-        main,
-        `
+      const app = fakeApp(`
         const { app, dialog, BrowserWindow } = require("electron");
         app.whenReady().then(() => {
+          const win = new BrowserWindow({ width: 400, height: 300 });
+          win.loadURL("data:text/html,<p>fake app</p>");
+          win.show();
+          win.focus();
+          app.focus({ steal: true });
           dialog.showErrorBox("title", "body");
-          const win = new BrowserWindow({ show: false });
-          let ran = false;
-          win.on("visibilityChanged", () => { ran = true; throw new TypeError("Object has been destroyed"); });
-          win.destroy();
-          win.emit("visibilityChanged");
           setTimeout(() => { throw new Error("main-process-throw"); }, 10);
-          setTimeout(() => app.exit(ran ? 4 : 0), 400);
         });
-        `,
-      );
-      const log = path.join(dir, "seam.log");
-      const result = spawnSync(
-        binary,
-        [`--user-data-dir=${path.join(dir, "userdata")}`, "-r", seam, main],
-        {
-          env: { ...process.env, SEAM_LOG: log, SEAM_RUN_DIR: dir, ELECTRON_ENABLE_LOGGING: "0" },
-          encoding: "utf8",
-          timeout: 60_000,
-        },
-      );
-      expect(result.status).toBe(0);
-      const faults = readFaults(log).join("\n");
+      `);
+      const running = await startElectron(app);
+      let report: Awaited<ReturnType<typeof running.close>>;
+      try {
+        await running.page.waitForTimeout(500);
+        const window = await running.app.evaluate(({ app: electron, BrowserWindow }) => {
+          const win = BrowserWindow.getAllWindows()[0]!;
+          const dead = new BrowserWindow({ show: false });
+          dead.on("visibilityChanged", () => {
+            throw new TypeError("Object has been destroyed");
+          });
+          dead.destroy();
+          dead.emit("visibilityChanged");
+          return {
+            visible: win.isVisible(),
+            focused: win.isFocused(),
+            dock: electron.dock?.isVisible(),
+          };
+        });
+        expect(window).toEqual({ visible: true, focused: false, dock: false });
+      } finally {
+        report = await running.close();
+      }
+      const faults = report.faults.join("\n");
       expect(faults).toContain("showErrorBox title: body");
       expect(faults).toContain("uncaughtException Error: main-process-throw");
-      expect(fs.readFileSync(log, "utf8")).toContain(
-        "dropped-event-on-destroyed-window visibilityChanged",
+      const log = fs.readFileSync(running.seamLog, "utf8");
+      expect(log).toContain("dropped-event-on-destroyed-window visibilityChanged");
+      expect(log).toContain("dropped focus");
+      expect(log).toContain("dropped app.focus");
+      expect(fs.readFileSync(path.join(running.runDir, "logs", "main.log"), "utf8")).toContain(
+        "FATAL",
       );
-      expect(fs.readFileSync(path.join(dir, "logs", "main.log"), "utf8")).toContain("FATAL");
+      expect(report.leaks).toEqual([]);
     },
-    90_000,
+    300_000,
   );
 });
 
