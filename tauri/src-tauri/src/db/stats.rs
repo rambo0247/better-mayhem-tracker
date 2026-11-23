@@ -254,18 +254,23 @@ pub fn get_dashboard_data(
     filters: Option<&MatchScope>,
 ) -> rusqlite::Result<DashboardData> {
     let f = filters.cloned().unwrap_or_default();
+    let (account, patch, season) = (
+        f.account.typed().flatten(),
+        f.patch.typed().flatten(),
+        f.season.typed().flatten(),
+    );
     let mut w = not_remade();
-    if let Some(id) = f.champion_id {
+    if let Some(id) = f.champion_id.typed().flatten() {
         w.conditions.push("ps.champion_id = ?".into());
         w.params.push(Sql::Integer(id));
     }
-    if let Some(account) = given(f.account.as_deref()) {
+    if let Some(account) = given(account.as_deref()) {
         w.conditions.push("g.puuid = ?".into());
         w.params.push(Sql::Text(account.into()));
     }
-    push_patch(&mut w, f.patch.as_deref(), "g");
-    apply_queue_filter(conn, &mut w, f.queue, "g")?;
-    apply_season_filter(&mut w, f.season.as_deref(), "g");
+    push_patch(&mut w, patch.as_deref(), "g");
+    apply_queue_filter(conn, &mut w, f.queue.typed().flatten(), "g")?;
+    apply_season_filter(&mut w, season.as_deref(), "g");
     let where_sql = format!("WHERE {}", joined(&w));
 
     let totals: DashboardTotals = stmt::first(
