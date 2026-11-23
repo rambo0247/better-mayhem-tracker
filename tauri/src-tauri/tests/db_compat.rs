@@ -535,7 +535,18 @@ fn node_gzip_and_ours_hold_the_same_text() {
     let ours = payloads::pack_raw(&raw);
     assert_eq!(gunzip(&ours), gunzip(&node), "the same JSON text");
     assert_eq!(ours[..4], node[..4], "the same gzip header flags");
-    assert_eq!(ours[9], node[9], "the same OS byte");
+    // The fixture was gzipped on macOS. Chromium's zlib, which Node and
+    // Electron build, writes its OS_CODE: 10 under WIN32, 19 under
+    // __APPLE__, 3 elsewhere (third_party/zlib/zutil.h)
+    assert_eq!(node[9], 19, "the fixture's macOS OS byte");
+    let platform = if cfg!(windows) {
+        10
+    } else if cfg!(target_os = "macos") {
+        19
+    } else {
+        3
+    };
+    assert_eq!(ours[9], platform, "the OS byte Electron writes on this platform");
     assert_eq!(
         payloads::unpack_raw(Some(&node)),
         Some(raw),
