@@ -249,9 +249,9 @@ pub fn apply(
     // startup-approved value, so rewriting an entry that is already correct
     // would undo a player who switched the app off in Task Manager.
     let current = if enabled {
-        registered.as_deref() == Some(&*target)
+        registered.as_str() == Some(&*target)
     } else {
-        registered.as_deref().is_none_or(str::is_empty)
+        registered.as_str().is_none_or(str::is_empty)
     };
     if current {
         return Ok(());
@@ -271,7 +271,7 @@ pub fn apply(
 /// which leaves the registered path pointing at nothing, so each launch
 /// registers it again.
 pub fn sync(conn: &Connection, items: &LoginItems, target: Option<&Path>) -> rusqlite::Result<()> {
-    let enabled = settings::get_setting(conn, "auto_start")?.as_deref() == Some("true");
+    let enabled = settings::get_setting(conn, "auto_start")?.as_str() == Some("true");
     apply(conn, items, target, enabled)
 }
 
@@ -434,7 +434,10 @@ mod tests {
         }
         .expect(name);
         assert_eq!(
-            settings::get_setting(conn, AUTO_START_PATH_SETTING).expect("read"),
+            settings::get_setting(conn, AUTO_START_PATH_SETTING)
+                .expect("read")
+                .as_str()
+                .map(str::to_owned),
             step["autoStartPath"].as_str().map(str::to_owned),
             "{name}: auto_start_path"
         );
