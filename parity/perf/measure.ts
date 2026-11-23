@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { waitForNoGame } from "../lib/no-game.ts";
 import { apparentBytes } from "./size.ts";
 import {
   freePort,
@@ -169,6 +170,7 @@ export async function runElectron(
   options: RunOptions & { executable: string },
 ): Promise<RunResult> {
   const result = emptyResult("electron-1.2.1", (await import("node:os")).loadavg()[0]!);
+  await waitForNoGame(options.log);
   if (options.isolation === "none") await waitForQuietClient(options.log);
   const prepared = prepareUserData({ data: options.data, runDir: options.runDir });
   const port = await freePort();
@@ -314,6 +316,7 @@ function bundleIdentifier(appPath: string): string {
 /** Runs a Tauri build. `app` is the .app on macOS and the exe on Windows. */
 export async function runTauri(options: RunOptions & { app: string }): Promise<RunResult> {
   const result = emptyResult("tauri", (await import("node:os")).loadavg()[0]!);
+  await waitForNoGame(options.log);
   if (options.isolation === "none") await waitForQuietClient(options.log);
   const mac = process.platform === "darwin";
   const executable = mac ? bundleExecutable(options.app) : options.app;
