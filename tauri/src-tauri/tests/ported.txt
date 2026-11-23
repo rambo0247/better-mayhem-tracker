@@ -7,6 +7,7 @@ app:version
 backup:list
 backup:open-folder
 backup:recovery-report
+data:export
 db:all-summoner-puuids
 db:augment-stats
 db:augment-stats-detailed
