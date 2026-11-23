@@ -4,7 +4,9 @@ import { useLinkState } from "@solidjs/router";
 import { api } from "../lib/api-shim";
 import { useLcuStatus } from "../hooks/useLcuStatus";
 import { useRecapBadge } from "../hooks/useRecapBadge";
-import type { LcuStatus, SeasonSummary, UpdateInfo } from "../lib/types";
+import type { LcuStatus, SeasonSummary, UpdateInfo, UpdateNotes } from "../lib/types";
+import UpdateDialog from "./UpdateDialog";
+import WhatsNewDialog from "./WhatsNewDialog";
 import BrandMark from "./BrandMark";
 import SummonerIcon from "./SummonerIcon";
 import RiotId from "./RiotId";
@@ -261,12 +263,15 @@ export default function Header() {
   const hiddenLinks = useHiddenNavLinks();
   const rail = useRail();
   const [update, setUpdate] = createSignal<UpdateInfo | null>(null);
+  const [showUpdateDialog, setShowUpdateDialog] = createSignal(false);
 
   onSettled(() => {
     let lastCheck = 0;
     let inFlight = false;
     const check = () => {
-      if (inFlight) return;
+      // Skip while the dialog is up: swapping the release out from under an
+      // in-progress download would invalidate the URL being installed
+      if (inFlight || showUpdateDialog()) return;
       inFlight = true;
       lastCheck = Date.now();
       void api
@@ -300,6 +305,30 @@ export default function Header() {
     };
   });
 
+  // The launch check installs on its own; the dialog is just there to show it
+  // happening. Asked for as well as listened for, since the install can begin
+  // before this window has loaded.
+  const [installing, setInstalling] = createSignal(false);
+  onSettled(() => {
+    const show = (info: UpdateInfo) => {
+      setUpdate(info);
+      setInstalling(true);
+      setShowUpdateDialog(true);
+    };
+    void api.getLaunchInstall().then((info) => info && show(info));
+    return api.onUpdateInstalling(show);
+  });
+
+  const closeUpdateDialog = () => {
+    setShowUpdateDialog(false);
+    setInstalling(false);
+  };
+
+  const [updateNotes, setUpdateNotes] = createSignal<UpdateNotes | null>(null);
+  onSettled(() => {
+    void api.getUpdateNotes().then(setUpdateNotes);
+  });
+
   const entries = createMemo(() =>
     NAV_LINKS.filter((link) => !hiddenLinks().has(link.to)).map((link): NavEntry => {
       const season = recapBadge.season();
@@ -325,99 +354,122 @@ export default function Header() {
   );
 
   return (
-    <aside
-      class={[
-        "relative z-20 flex h-full shrink-0 flex-col border-r border-lol-line bg-lol-deep/85",
-        rail() ? "w-[68px] items-center" : "w-[228px]",
-      ]}
-    >
-      {/* The traffic lights sit in this strip on macOS; it drags the window */}
-      <div
-        data-tauri-drag-region="deep"
-        class={["titlebar-drag shrink-0", isMac() ? "h-10" : "h-3"]}
-      />
-
-      <header
-        data-tauri-drag-region="deep"
+    <>
+      <aside
         class={[
-          "titlebar-drag flex shrink-0 items-center gap-2.5 pb-5",
-          rail() ? "justify-center pt-1" : "px-5 pt-1",
+          "relative z-20 flex h-full shrink-0 flex-col border-r border-lol-line bg-lol-deep/85",
+          rail() ? "w-[68px] items-center" : "w-[228px]",
         ]}
-        title={rail() ? "Better Mayhem Tracker" : undefined}
       >
-        <BrandMark class="h-9 w-9 shrink-0 drop-shadow-[0_4px_12px_rgb(212_178_115/0.25)]" />
-        <span
+        {/* The traffic lights sit in this strip on macOS; it drags the window */}
+        <div
+          data-tauri-drag-region="deep"
+          class={["titlebar-drag shrink-0", isMac() ? "h-10" : "h-3"]}
+        />
+
+        <header
+          data-tauri-drag-region="deep"
           class={[
-            "font-display italic font-extrabold uppercase leading-[0.95] tracking-[0.04em]",
-            rail() ? "sr-only" : "flex flex-col text-[17px]",
+            "titlebar-drag flex shrink-0 items-center gap-2.5 pb-5",
+            rail() ? "justify-center pt-1" : "px-5 pt-1",
+          ]}
+          title={rail() ? "Better Mayhem Tracker" : undefined}
+        >
+          <BrandMark class="h-9 w-9 shrink-0 drop-shadow-[0_4px_12px_rgb(212_178_115/0.25)]" />
+          <span
+            class={[
+              "font-display italic font-extrabold uppercase leading-[0.95] tracking-[0.04em]",
+              rail() ? "sr-only" : "flex flex-col text-[17px]",
+            ]}
+          >
+            <span class="text-lol-text-bright">Better Mayhem</span>{" "}
+            <span class="text-[13px] tracking-[0.26em] text-lol-gold">Tracker</span>
+          </span>
+        </header>
+
+        <nav
+          class={[
+            "flex min-h-0 flex-1 scroll-py-2 flex-col overflow-y-auto pb-3",
+            rail() ? "items-center gap-1 px-2" : "px-3",
           ]}
         >
-          <span class="text-lol-text-bright">Better Mayhem</span>{" "}
-          <span class="text-[13px] tracking-[0.26em] text-lol-gold">Tracker</span>
-        </span>
-      </header>
-
-      <nav
-        class={[
-          "flex min-h-0 flex-1 scroll-py-2 flex-col overflow-y-auto pb-3",
-          rail() ? "items-center gap-1 px-2" : "px-3",
-        ]}
-      >
-        <For each={groups()} keyed={(g) => g.group}>
-          {(group, i) => (
-            <div class={rail() ? "flex flex-col items-center gap-1" : i() > 0 ? "pt-5" : ""}>
-              <Show
-                when={rail()}
-                fallback={
-                  <div class="label px-3 pb-1.5 text-[11px] text-lol-text">{group().group}</div>
-                }
-              >
-                <Show when={i() > 0}>
-                  <div class="my-3 h-px w-7 bg-lol-border" />
+          <For each={groups()} keyed={(g) => g.group}>
+            {(group, i) => (
+              <div class={rail() ? "flex flex-col items-center gap-1" : i() > 0 ? "pt-5" : ""}>
+                <Show
+                  when={rail()}
+                  fallback={
+                    <div class="label px-3 pb-1.5 text-[11px] text-lol-text">{group().group}</div>
+                  }
+                >
+                  <Show when={i() > 0}>
+                    <div class="my-3 h-px w-7 bg-lol-border" />
+                  </Show>
                 </Show>
-              </Show>
-              <div class={rail() ? "flex flex-col items-center gap-1" : "space-y-0.5"}>
-                <For each={group().items} keyed={(entry) => entry.to}>
-                  {(entry) => (
-                    <NavItem
-                      entry={entry()}
-                      rail={rail()}
-                      live={entry().to === "/live" && status() === "ingame"}
-                    />
-                  )}
-                </For>
+                <div class={rail() ? "flex flex-col items-center gap-1" : "space-y-0.5"}>
+                  <For each={group().items} keyed={(entry) => entry.to}>
+                    {(entry) => (
+                      <NavItem
+                        entry={entry()}
+                        rail={rail()}
+                        live={entry().to === "/live" && status() === "ingame"}
+                      />
+                    )}
+                  </For>
+                </div>
               </div>
-            </div>
-          )}
-        </For>
-      </nav>
+            )}
+          </For>
+        </nav>
 
-      <div
-        class={["shrink-0 space-y-2 border-t border-lol-line pb-3 pt-3", rail() ? "px-2" : "px-3"]}
+        <div
+          class={[
+            "shrink-0 space-y-2 border-t border-lol-line pb-3 pt-3",
+            rail() ? "px-2" : "px-3",
+          ]}
+        >
+          <Show when={update()?.hasUpdate ? update() : null}>
+            {(info) => (
+              <button
+                onClick={() => setShowUpdateDialog(true)}
+                title={`Update to version ${info().latest}`}
+                aria-label={`Update to version ${info().latest}`}
+                class={[
+                  "flex w-full items-center gap-2.5 rounded-md border border-lol-gold/35 bg-lol-gold/10 text-left text-lol-gold transition-colors hover:bg-lol-gold/18",
+                  rail() ? "h-10 justify-center" : "px-3 py-2",
+                ]}
+              >
+                <DownloadIcon class="h-4 w-4 shrink-0" />
+                <Show when={!rail()}>
+                  <span class="min-w-0 leading-tight">
+                    <span class="block text-[13px] font-semibold">Update available</span>
+                    <span class="block text-[11px] text-lol-gold/75">Version {info().latest}</span>
+                  </span>
+                </Show>
+              </button>
+            )}
+          </Show>
+          <SettingsLink rail={rail()} />
+          <ClientCard status={status()} rail={rail()} />
+        </div>
+      </aside>
+      {/* Keyed so a launch install taking over an open dialog starts it afresh */}
+      <Show
+        when={showUpdateDialog() && update() ? (installing() ? "installing" : "manual") : null}
+        keyed
       >
-        <Show when={update()?.hasUpdate ? update() : null}>
-          {(info) => (
-            <button
-              title={`Update to version ${info().latest}`}
-              aria-label={`Update to version ${info().latest}`}
-              class={[
-                "flex w-full items-center gap-2.5 rounded-md border border-lol-gold/35 bg-lol-gold/10 text-left text-lol-gold transition-colors hover:bg-lol-gold/18",
-                rail() ? "h-10 justify-center" : "px-3 py-2",
-              ]}
-            >
-              <DownloadIcon class="h-4 w-4 shrink-0" />
-              <Show when={!rail()}>
-                <span class="min-w-0 leading-tight">
-                  <span class="block text-[13px] font-semibold">Update available</span>
-                  <span class="block text-[11px] text-lol-gold/75">Version {info().latest}</span>
-                </span>
-              </Show>
-            </button>
-          )}
-        </Show>
-        <SettingsLink rail={rail()} />
-        <ClientCard status={status()} rail={rail()} />
-      </div>
-    </aside>
+        {(mode) => (
+          <UpdateDialog
+            update={update()!}
+            installing={mode === "installing"}
+            onClose={closeUpdateDialog}
+          />
+        )}
+      </Show>
+      {/* An update installing right now outranks notes on the last one */}
+      <Show when={showUpdateDialog() ? null : updateNotes()}>
+        {(notes) => <WhatsNewDialog notes={notes()} onClose={() => setUpdateNotes(null)} />}
+      </Show>
+    </>
   );
 }

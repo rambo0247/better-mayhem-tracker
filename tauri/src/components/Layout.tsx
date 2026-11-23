@@ -2,6 +2,8 @@ import { Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useLocation } from "@solidjs/router";
 import Header, { TitleBar } from "./Header";
+import RecoveryBanner from "./RecoveryBanner";
+import ActivityToast from "./ActivityToast";
 
 export default function Layout(props: { children?: JSX.Element }) {
   const location = useLocation();
@@ -10,6 +12,7 @@ export default function Layout(props: { children?: JSX.Element }) {
       <Header />
       <div class="app-stage relative flex min-w-0 flex-1 flex-col">
         <TitleBar />
+        <RecoveryBanner />
         {/* Pages cap their own width; on a window wider than that they sit in
             the middle rather than against the left edge */}
         {/* Scroll padding so a control Tab scrolls into view stops clear of the
@@ -21,6 +24,7 @@ export default function Layout(props: { children?: JSX.Element }) {
           </Show>
         </main>
       </div>
+      <ActivityToast />
     </div>
   );
 }
