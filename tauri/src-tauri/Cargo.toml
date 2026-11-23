@@ -157,6 +157,19 @@ windows-sys = { version = "=0.61.2", features = ["Wdk_System_SystemServices", "W
 tauri-plugin-single-instance = "=3.0.0-alpha.3"
 webview2-com = "=0.39.1"
 windows-core = "=0.62.2"
+# The Run value, the Start Menu shortcut, and the process's AppUserModelID
+windows = { version = "=0.62.2", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Storage_EnhancedStorage",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Registry",
+  "Win32_System_Variant",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_PropertiesSystem",
+] }
 
 [profile.release]
 codegen-units = 1

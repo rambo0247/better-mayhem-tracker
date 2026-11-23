@@ -11,6 +11,7 @@ compile_error!(
 pub mod app_menu;
 mod asset_cache;
 mod assets;
+pub mod autostart;
 pub mod backup;
 mod challenges;
 #[deny(clippy::disallowed_methods)]
@@ -43,6 +44,7 @@ pub mod replay;
 pub mod security;
 pub mod session;
 pub mod shell;
+pub mod shortcut;
 pub mod single_instance;
 // Card export (T25) calls it in release builds; until then only the driver does
 #[cfg_attr(not(feature = "parity-driver"), allow(dead_code))]
@@ -315,6 +317,17 @@ pub fn run() {
             });
             let handle = app.handle().clone();
             shell.on_will_quit(move || quit::will_quit(&handle));
+            shortcut::set_process_app_id();
+            shortcut::ensure_start_menu_shortcut();
+            if let Some(database) = app.try_state::<db::Database>() {
+                let target = autostart::registered_target();
+                let synced = database.with(|conn| {
+                    autostart::sync(conn, &autostart::LoginItems::System, target.as_deref())
+                });
+                if let Err(err) = synced {
+                    log::error(format!("Failed to update the login item: {}", err.message));
+                }
+            }
             #[cfg(feature = "parity-driver")]
             parity_driver::prepare(app);
             #[cfg(feature = "parity-driver")]
