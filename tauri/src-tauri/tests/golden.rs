@@ -51,10 +51,10 @@ const CALL_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 /// SQLite's own files, which a write changes but the seam never lists.
 const DATABASE_FILES: &[&str] = &[
-    "matches.db",
-    "matches.db-wal",
-    "matches.db-shm",
-    "matches.db-journal",
+    "data/matches.db",
+    "data/matches.db-wal",
+    "data/matches.db-shm",
+    "data/matches.db-journal",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -417,6 +417,9 @@ fn file_differences(golden: &Golden, root: &Path, before: &Listing) -> Vec<Strin
             listed.contains(format!("{RUN}/{name}").as_str())
                 || !DATABASE_FILES.contains(&name.as_str())
         })
+        // A file the call made and removed again, such as a journal, was not
+        // left written
+        .filter(|(name, _)| root.join(name).is_file())
         .map(|(name, (size, _))| format!("{RUN}/{name} {size} {}", sha256(&root.join(&name))))
         .collect();
     let mut out: Vec<String> = expected
