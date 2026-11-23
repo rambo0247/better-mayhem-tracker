@@ -48,10 +48,12 @@ fn override_root() -> Option<OsString> {
 }
 
 /// The data root, checked by the guard in a lane build before anything can
-/// use it.
+/// use it, and again for every folder and file handed out under it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Paths {
     root: PathBuf,
+    #[cfg(not(bmt_release_profile))]
+    guard: crate::data_guard::Guard,
 }
 
 impl Paths {
@@ -71,21 +73,30 @@ impl Paths {
 
     /// `root`, once the guard passes it. A lane build exits here when it is
     /// the real folder.
+    #[cfg(not(bmt_release_profile))]
     pub fn at(root: impl Into<PathBuf>) -> Self {
-        let root = root.into();
-        #[cfg(not(bmt_release_profile))]
-        crate::data_guard::enforce(&root);
+        Self::guarded(root.into(), crate::data_guard::Guard::real())
+    }
+
+    #[cfg(bmt_release_profile)]
+    pub fn at(root: impl Into<PathBuf>) -> Self {
         Self {
-            root: absolute(root),
+            root: absolute(root.into()),
         }
     }
 
     /// [`Paths::at`] against stand-ins for the real folder's parent.
     #[cfg(all(test, not(bmt_release_profile)))]
     pub(crate) fn at_with(root: PathBuf, config_dirs: &[PathBuf]) -> Self {
-        crate::data_guard::enforce_against(&root, config_dirs);
+        Self::guarded(root, crate::data_guard::Guard::against(config_dirs))
+    }
+
+    #[cfg(not(bmt_release_profile))]
+    fn guarded(root: PathBuf, guard: crate::data_guard::Guard) -> Self {
+        guard.enforce(&root);
         Self {
             root: absolute(root),
+            guard,
         }
     }
 
@@ -113,10 +124,36 @@ impl Paths {
         self.ensure("asset-cache")
     }
 
+    /// `data/<name>`. The database code takes the path it opens from here,
+    /// `matches.db` and each SQLite file beside it, so a lane build refuses a
+    /// file that is the real folder's file of the same name, by a symlink or
+    /// a hard link, before it is opened.
+    pub fn data_file(&self, name: &str) -> io::Result<PathBuf> {
+        self.file_in("data", name)
+    }
+
+    /// `logs/<name>`, for the log writer, on the same terms as
+    /// [`Paths::data_file`].
+    pub fn log_file(&self, name: &str) -> io::Result<PathBuf> {
+        self.file_in("logs", name)
+    }
+
+    /// A folder links can still lead out of after the root passed the guard,
+    /// so a lane build checks each one before it makes or returns it.
     fn ensure(&self, name: &str) -> io::Result<PathBuf> {
         let dir = self.root.join(name);
+        #[cfg(not(bmt_release_profile))]
+        self.guard.enforce(&dir);
         std::fs::create_dir_all(&dir)?;
         Ok(dir)
+    }
+
+    fn file_in(&self, folder: &str, name: &str) -> io::Result<PathBuf> {
+        let file = self.ensure(folder)?.join(name);
+        #[cfg(not(bmt_release_profile))]
+        self.guard
+            .enforce_file(&file, &Path::new(folder).join(name));
+        Ok(file)
     }
 }
 

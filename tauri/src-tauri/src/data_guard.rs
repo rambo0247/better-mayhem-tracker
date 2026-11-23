@@ -1,15 +1,27 @@
-//! Keeps debug and parity builds out of the folder Electron 1.2.1 keeps a
-//! player's matches in. [`crate::paths::Paths`] runs [`enforce`] before it
-//! hands out a single path, so nothing is created or opened under a root
-//! that fails it. Release builds do not compile it, and open that folder as 1.2.1 does.
+//! Keeps lane builds, any build whose Cargo profile is not `release`, out of
+//! the folder Electron 1.2.1 keeps a player's matches in.
+//! [`crate::paths::Paths`] runs the [`Guard`] on the root before it stores
+//! it, and again on every folder and file it hands out, so nothing is created
+//! or opened under a path that fails it. Release builds do not compile it, and
+//! open that folder as 1.2.1 does.
 //!
-//! A root fails when it is the real folder or inside it, however it is
-//! spelled. The check walks the root the way the kernel will: symlinks are
-//! followed even when they dangle, `..` steps out of the folder actually
-//! reached, names compare case-insensitively, and a folder is matched by
-//! identity as well as by name, which catches aliases such as macOS firmlinks
-//! (`/System/Volumes/Data/Users/...`). It never reads the real folder itself.
-//! There is no override: a debug build that fails it exits.
+//! A path fails when it is the real folder or inside it, however it is
+//! spelled. The check compares the text first. Then it walks the path the
+//! way the kernel will: symlinks are followed even when they dangle, `..`
+//! steps out of the folder actually reached, and names compare
+//! case-insensitively. Before it takes a step into a folder named like the
+//! real one, it compares the folder it stands in with the config folder by
+//! identity, which catches aliases such as macOS firmlinks
+//! (`/System/Volumes/Data/Users/...`). It stops at the first step that would
+//! enter the real folder, so the real folder is never stat-ed by a spelling
+//! the check recognizes. Two kinds of spelling it can only recognize by
+//! looking: a path that names the real folder itself under another name (a
+//! volfs inode path, a Windows 8.3 short name), and, on Windows, a spelling
+//! only `canonicalize` resolves. Those cost one metadata look at the real
+//! folder. A file is also matched against the real folder's file of the same
+//! name by (device, inode) when it has more than one link, which catches a
+//! hard link. Nothing here reads a file's contents.
+//! There is no override: a lane build that fails it exits.
 
 use std::ffi::OsStr;
 use std::fmt;
@@ -19,10 +31,15 @@ use crate::paths::DATA_FOLDER;
 
 pub use crate::paths::EXIT_CODE;
 
+/// The names the real folder goes by: package.json's `name`, which 1.2.1
+/// uses, and the display name, which the parity tools also refuse
+/// (`parity/lib/real-folder.ts`).
+pub const REAL_FOLDER_NAMES: [&str; 2] = [DATA_FOLDER, crate::PRODUCT_NAME];
+
 /// Symlinks followed before the walk gives up, as `MAXSYMLINKS` on macOS.
 const MAX_LINKS: usize = 32;
 
-/// Why a root was refused.
+/// Why a path was refused.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tripped {
     pub root: PathBuf,
@@ -42,15 +59,65 @@ impl fmt::Display for Tripped {
     }
 }
 
-/// Exits the process when `root` is the real folder. Only debug and parity
-/// builds compile this module.
-pub fn enforce(root: &Path) {
-    enforce_against(root, &real_config_dirs());
+/// The folders the real data folder can sit in, which every path the app
+/// uses is checked against.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Guard {
+    config_dirs: Vec<PathBuf>,
 }
 
-/// [`enforce`] against the given folders that the real folder sits in.
-pub fn enforce_against(root: &Path, config_dirs: &[PathBuf]) {
-    if let Err(tripped) = check(root, config_dirs) {
+impl Guard {
+    /// This process's own config folders, from [`real_config_dirs`].
+    pub fn real() -> Self {
+        Self::against(&real_config_dirs())
+    }
+
+    /// Stand-ins for the config folders, for tests.
+    pub fn against(config_dirs: &[PathBuf]) -> Self {
+        Self {
+            config_dirs: config_dirs.to_vec(),
+        }
+    }
+
+    pub fn check(&self, path: &Path) -> Result<(), Tripped> {
+        check(path, &self.config_dirs)
+    }
+
+    /// [`Guard::check`] for a file, plus a hard link test: `relative` is where
+    /// the file sits under the data root, `data/matches.db`, and a file that
+    /// has the (device, inode) of the real folder's file at that place fails.
+    pub fn check_file(&self, file: &Path, relative: &Path) -> Result<(), Tripped> {
+        self.check(file)?;
+        let Some(id) = file_id(file).filter(|id| id.links > 1) else {
+            return Ok(());
+        };
+        for config in &self.config_dirs {
+            for name in REAL_FOLDER_NAMES {
+                let real = config.join(name).join(relative);
+                if file_id(&real).is_some_and(|other| other.same_file(&id)) {
+                    return Err(Tripped {
+                        root: file.to_path_buf(),
+                        reason: format!("is a hard link to {}", real.display()),
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Exits the process when `path` fails [`Guard::check`].
+    pub fn enforce(&self, path: &Path) {
+        exit_on(self.check(path));
+    }
+
+    /// Exits the process when `file` fails [`Guard::check_file`].
+    pub fn enforce_file(&self, file: &Path, relative: &Path) {
+        exit_on(self.check_file(file, relative));
+    }
+}
+
+fn exit_on(result: Result<(), Tripped>) {
+    if let Err(tripped) = result {
         eprintln!("{tripped}");
         std::process::exit(EXIT_CODE);
     }
@@ -101,6 +168,13 @@ fn passwd_home() -> Option<PathBuf> {
     Some(PathBuf::from(OsStr::from_bytes(dir.to_bytes())))
 }
 
+/// One spelling of the real folder: as the config folder is written, and as
+/// the walk reaches it.
+struct Real {
+    lexical: PathBuf,
+    physical: PathBuf,
+}
+
 /// Passes when `root` is neither the real folder under any of `config_dirs`
 /// nor inside it.
 pub fn check(root: &Path, config_dirs: &[PathBuf]) -> Result<(), Tripped> {
@@ -119,44 +193,71 @@ pub fn check(root: &Path, config_dirs: &[PathBuf]) -> Result<(), Tripped> {
     let Ok(absolute) = std::path::absolute(root) else {
         return trip("could not be made absolute".into());
     };
-    let Some(physical) = walk(&absolute) else {
-        return trip(format!("follows more than {MAX_LINKS} symlinks"));
-    };
+    let mut reals = Vec::new();
     for config in config_dirs {
-        let real = config.join(DATA_FOLDER);
-        let config_physical = walk(config).unwrap_or_else(|| config.clone());
-        let real_physical = config_physical.join(DATA_FOLDER);
-        if starts_with(&lexical(&absolute), &lexical(&real))
-            || starts_with(&physical, &real_physical)
-        {
-            return trip(format!("is {} or inside it", real.display()));
-        }
-        // The same folder under another name: an ancestor called
-        // better-mayhem-tracker whose parent is the config folder itself
-        for ancestor in physical.ancestors() {
-            let named = ancestor
-                .file_name()
-                .is_some_and(|name| fold(name) == fold(OsStr::new(DATA_FOLDER)));
-            if named
-                && ancestor
-                    .parent()
-                    .is_some_and(|parent| same_dir(parent, config))
-            {
-                return trip(format!(
-                    "reaches {} through {}",
-                    real.display(),
-                    ancestor.display()
-                ));
-            }
+        let config_lexical = lexical(config);
+        let config_physical = walk(&config_lexical, |_, _| None).unwrap_or(config_lexical.clone());
+        for name in REAL_FOLDER_NAMES {
+            reals.push(Real {
+                lexical: config_lexical.join(name),
+                physical: config_physical.join(name),
+            });
         }
     }
+    let inside = |path: &Path| {
+        reals
+            .iter()
+            .find(|real| starts_with(path, &real.lexical) || starts_with(path, &real.physical))
+    };
+    if let Some(real) = inside(&lexical(&absolute)) {
+        return trip(format!("is {} or inside it", real.lexical.display()));
+    }
+    let names: Vec<String> = REAL_FOLDER_NAMES
+        .iter()
+        .map(|name| fold(OsStr::new(name)))
+        .collect();
+    let step = |folder: &Path, name: &OsStr| -> Option<String> {
+        let next = folder.join(name);
+        if let Some(real) = inside(&next) {
+            return Some(format!(
+                "reaches {} through {}",
+                real.lexical.display(),
+                next.display()
+            ));
+        }
+        // The same folder under another name: a folder named like the real
+        // one in a folder that is the config folder itself
+        if !names.contains(&fold(name)) {
+            return None;
+        }
+        let config = config_dirs.iter().find(|config| same_dir(folder, config))?;
+        Some(format!(
+            "reaches {} through {}",
+            config.join(name).display(),
+            next.display()
+        ))
+    };
+    let physical = match walk(&absolute, step) {
+        Ok(physical) => physical,
+        Err(reason) => return trip(reason),
+    };
+    #[cfg(windows)]
+    if let Some(reason) = windows::canonical_check(&physical, config_dirs) {
+        return trip(reason);
+    }
+    #[cfg(not(windows))]
+    drop(physical);
     Ok(())
 }
 
 /// The path the kernel reaches by `path`: symlinks expanded, dangling ones
-/// included, and `..` taken from the folder actually reached. `None` past
-/// [`MAX_LINKS`] symlinks.
-fn walk(path: &Path) -> Option<PathBuf> {
+/// included, and `..` taken from the folder actually reached. `step` sees
+/// each folder and the name about to be entered from it before anything
+/// looks at that name on disk, and ends the walk with its reason.
+fn walk(
+    path: &Path,
+    mut step: impl FnMut(&Path, &OsStr) -> Option<String>,
+) -> Result<PathBuf, String> {
     let mut pending: Vec<PathBuf> = path
         .components()
         .rev()
@@ -176,18 +277,25 @@ fn walk(path: &Path) -> Option<PathBuf> {
                 out.pop();
             }
             Component::Normal(name) => {
+                if let Some(reason) = step(&out, name) {
+                    return Err(reason);
+                }
                 let next = out.join(name);
-                let is_link =
-                    std::fs::symlink_metadata(&next).is_ok_and(|m| m.file_type().is_symlink());
+                let is_link = symlink_metadata(&next).is_ok_and(|m| m.file_type().is_symlink());
                 if !is_link {
                     out = next;
                     continue;
                 }
                 links += 1;
                 if links > MAX_LINKS {
-                    return None;
+                    return Err(format!("follows more than {MAX_LINKS} symlinks"));
                 }
-                let target = std::fs::read_link(&next).ok()?;
+                let target = read_link(&next).map_err(|err| {
+                    format!(
+                        "has a symlink {} that cannot be read: {err}",
+                        next.display()
+                    )
+                })?;
                 // A relative target continues from the link's folder, which
                 // `out` still is; an absolute one starts over at its root
                 pending.extend(
@@ -199,7 +307,7 @@ fn walk(path: &Path) -> Option<PathBuf> {
             }
         }
     }
-    Some(out)
+    Ok(out)
 }
 
 /// `path` with `.` dropped and `..` applied to the text, for a root whose
@@ -218,18 +326,14 @@ fn lexical(path: &Path) -> PathBuf {
     out
 }
 
-/// Component-wise and case-folded, with Windows' `\\?\` prefixes dropped, so
-/// `C:\Users` and `\\?\c:\users` compare equal.
+/// Component-wise and case-folded, with every Windows spelling of a drive
+/// made one (`C:`, `\\?\C:`, `\\.\C:`, `\\localhost\C$`), so `C:\Users` and
+/// `\\?\c:\users` compare equal.
 fn starts_with(path: &Path, prefix: &Path) -> bool {
     let key = |p: &Path| -> Vec<String> {
         p.components()
             .map(|c| match c {
-                Component::Prefix(prefix) => {
-                    let text = prefix.as_os_str().to_string_lossy().to_lowercase();
-                    let text = text.trim_start_matches(r"\\?\").trim_start_matches(r"\\.\");
-                    text.strip_prefix(r"unc\")
-                        .map_or_else(|| text.to_owned(), |rest| format!(r"\\{rest}"))
-                }
+                Component::Prefix(prefix) => prefix_key(prefix.kind()),
                 other => fold(other.as_os_str()),
             })
             .collect()
@@ -238,29 +342,175 @@ fn starts_with(path: &Path, prefix: &Path) -> bool {
     path.len() >= prefix.len() && path[..prefix.len()] == prefix[..]
 }
 
-/// A name as a case-insensitive file system compares it. Upper then lower
-/// folds the Kelvin sign to `k` and the long s to `s`, as APFS and NTFS do.
+fn prefix_key(prefix: std::path::Prefix<'_>) -> String {
+    use std::path::Prefix;
+    let drive = |letter: u8| format!("{}:", letter.to_ascii_lowercase() as char);
+    match prefix {
+        Prefix::Disk(letter) | Prefix::VerbatimDisk(letter) => drive(letter),
+        Prefix::DeviceNS(name) => match name.as_encoded_bytes() {
+            [letter, b':'] if letter.is_ascii_alphabetic() => drive(*letter),
+            _ => format!(r"\\.\{}", fold(name)),
+        },
+        Prefix::UNC(server, share) | Prefix::VerbatimUNC(server, share) => {
+            match (is_loopback(server), share.as_encoded_bytes()) {
+                (true, [letter, b'$']) if letter.is_ascii_alphabetic() => drive(*letter),
+                _ => format!(r"\\{}\{}", fold(server), fold(share)),
+            }
+        }
+        Prefix::Verbatim(name) => format!(r"\\?\{}", fold(name)),
+    }
+}
+
+/// A UNC server name that is this machine, whose admin shares (`C$`) are its
+/// drives.
+fn is_loopback(server: &OsStr) -> bool {
+    let server = fold(server);
+    let this_machine = std::env::var_os("COMPUTERNAME").is_some_and(|name| fold(&name) == server);
+    this_machine
+        || server == "localhost"
+        || server == "0--1.ipv6-literal.net"
+        || server.starts_with("127.")
+}
+
+/// A name as the file system compares it. Upper then lower folds the Kelvin
+/// sign to `k` and the long s to `s`, as APFS and NTFS do. On Windows a
+/// stream suffix (`name::$INDEX_ALLOCATION`) names the same file, and Win32
+/// drops trailing dots and spaces.
 fn fold(name: &OsStr) -> String {
-    name.to_string_lossy().to_uppercase().to_lowercase()
+    let name = name.to_string_lossy();
+    #[cfg(windows)]
+    let name = name
+        .split(':')
+        .next()
+        .unwrap_or_default()
+        .trim_end_matches(['.', ' ']);
+    name.to_uppercase().to_lowercase()
 }
 
 /// Whether two paths name the same existing folder.
 fn same_dir(a: &Path, b: &Path) -> bool {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        match (std::fs::metadata(a), std::fs::metadata(b)) {
-            (Ok(a), Ok(b)) => a.dev() == b.dev() && a.ino() == b.ino(),
-            _ => false,
+    match (file_id(a), file_id(b)) {
+        (Some(a), Some(b)) => a.same_file(&b),
+        _ => false,
+    }
+}
+
+/// A file's identity, and how many names it has.
+#[derive(Debug, Clone, Copy)]
+struct FileId {
+    device: u64,
+    index: u64,
+    links: u64,
+}
+
+impl FileId {
+    fn same_file(&self, other: &FileId) -> bool {
+        self.device == other.device && self.index == other.index
+    }
+}
+
+#[cfg(unix)]
+fn file_id(path: &Path) -> Option<FileId> {
+    use std::os::unix::fs::MetadataExt;
+    touched(path);
+    let meta = std::fs::metadata(path).ok()?;
+    Some(FileId {
+        device: meta.dev(),
+        index: meta.ino(),
+        links: meta.nlink(),
+    })
+}
+
+/// The volume serial number and file index, Windows' (device, inode). The
+/// handle asks for no access to the contents.
+#[cfg(windows)]
+fn file_id(path: &Path) -> Option<FileId> {
+    use std::os::windows::fs::OpenOptionsExt;
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        BY_HANDLE_FILE_INFORMATION, FILE_FLAG_BACKUP_SEMANTICS, GetFileInformationByHandle,
+    };
+    touched(path);
+    let file = std::fs::OpenOptions::new()
+        .access_mode(0)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+        .open(path)
+        .ok()?;
+    let mut info = BY_HANDLE_FILE_INFORMATION::default();
+    // SAFETY: the handle is open for the call and `info` is a valid out pointer
+    if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
+        return None;
+    }
+    Some(FileId {
+        device: u64::from(info.dwVolumeSerialNumber),
+        index: (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
+        links: u64::from(info.nNumberOfLinks),
+    })
+}
+
+#[cfg(windows)]
+mod windows {
+    use std::path::{Path, PathBuf};
+
+    use super::{REAL_FOLDER_NAMES, starts_with, touched};
+
+    /// What only Windows itself resolves, an 8.3 short name (`BETTER~1`) or a
+    /// volume GUID path: `canonicalize` of the deepest folder that exists,
+    /// with the rest of the path after it.
+    pub(super) fn canonical_check(physical: &Path, config_dirs: &[PathBuf]) -> Option<String> {
+        let canonical = canonical_prefix(physical)?;
+        for config in config_dirs {
+            let Some(config) = canonical_prefix(config) else {
+                continue;
+            };
+            for name in REAL_FOLDER_NAMES {
+                let real = config.join(name);
+                if starts_with(&canonical, &real) {
+                    return Some(format!(
+                        "is {} or inside it, as {}",
+                        real.display(),
+                        canonical.display()
+                    ));
+                }
+            }
+        }
+        None
+    }
+
+    fn canonical_prefix(path: &Path) -> Option<PathBuf> {
+        let mut tail = Vec::new();
+        let mut at = path;
+        loop {
+            touched(at);
+            if let Ok(canonical) = std::fs::canonicalize(at) {
+                return Some(tail.iter().rev().fold(canonical, |p, name| p.join(name)));
+            }
+            tail.push(at.file_name()?.to_owned());
+            at = at.parent()?;
         }
     }
-    #[cfg(not(unix))]
-    {
-        match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
-            (Ok(a), Ok(b)) => starts_with(&a, &b) && starts_with(&b, &a),
-            _ => false,
-        }
-    }
+}
+
+fn symlink_metadata(path: &Path) -> std::io::Result<std::fs::Metadata> {
+    touched(path);
+    std::fs::symlink_metadata(path)
+}
+
+fn read_link(path: &Path) -> std::io::Result<PathBuf> {
+    touched(path);
+    std::fs::read_link(path)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Every path this thread's checks looked at on disk, so a test can show
+    /// the real folder was not one of them.
+    static TOUCHED: std::cell::RefCell<Vec<PathBuf>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+fn touched(_path: &Path) {
+    #[cfg(test)]
+    TOUCHED.with(|t| t.borrow_mut().push(_path.to_path_buf()));
 }
 
 #[cfg(test)]
@@ -427,7 +677,8 @@ mod tests {
         assert!(check(&s.real(), &[other, s.config()]).is_err());
     }
 
-    /// The child half of [`exits_before_creating_anything`].
+    /// The child half of the tests that need the process to exit: builds
+    /// `Paths` over `BMT_GUARD_CHILD_ROOT` and uses it as the app would.
     #[test]
     fn guard_child() {
         let (Some(root), Some(config)) = (
@@ -437,14 +688,28 @@ mod tests {
             return;
         };
         let paths = crate::paths::Paths::at_with(PathBuf::from(root), &[PathBuf::from(config)]);
-        // Unreachable when the guard works: this would create the folder
-        paths.data_dir().ok();
+        // Unreachable when the guard works: each of these writes under the root
+        match std::env::var("BMT_GUARD_CHILD_USE").as_deref() {
+            Ok("log") => crate::log::start(paths, "9.9.9"),
+            Ok("database") => {
+                use std::io::Write;
+                let db = paths.data_file("matches.db").expect("the database path");
+                let mut file = std::fs::OpenOptions::new()
+                    .append(true)
+                    .create(true)
+                    .open(db)
+                    .unwrap();
+                file.write_all(b"written by a lane").unwrap();
+            }
+            _ => {
+                paths.data_dir().ok();
+            }
+        }
         println!("guard-child: passed the guard");
     }
 
-    #[test]
-    fn exits_before_creating_anything() {
-        let s = Scratch::new("exit");
+    /// Runs [`guard_child`] in a child process and asserts the guard ended it.
+    fn assert_child_refused(root: &Path, config: &Path, use_as: &str) {
         let output = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
@@ -452,15 +717,287 @@ mod tests {
                 "--nocapture",
                 "--test-threads=1",
             ])
-            .env("BMT_GUARD_CHILD_ROOT", s.real())
-            .env("BMT_GUARD_CHILD_CONFIG", s.config())
+            .env("BMT_GUARD_CHILD_ROOT", root)
+            .env("BMT_GUARD_CHILD_CONFIG", config)
+            .env("BMT_GUARD_CHILD_USE", use_as)
             .output()
             .expect("run the child");
         let stderr = String::from_utf8_lossy(&output.stderr);
-        assert_eq!(output.status.code(), Some(EXIT_CODE), "stderr: {stderr}");
-        assert!(stderr.contains("refused to start"), "stderr: {stderr}");
-        assert!(stderr.contains("BMT_DATA_ROOT"), "stderr: {stderr}");
-        assert!(!String::from_utf8_lossy(&output.stdout).contains("passed the guard"));
+        assert_eq!(
+            output.status.code(),
+            Some(EXIT_CODE),
+            "{use_as}: stderr: {stderr}"
+        );
+        assert!(
+            stderr.contains("refused to start"),
+            "{use_as}: stderr: {stderr}"
+        );
+        assert!(
+            stderr.contains("BMT_DATA_ROOT"),
+            "{use_as}: stderr: {stderr}"
+        );
+        assert!(
+            !String::from_utf8_lossy(&output.stdout).contains("passed the guard"),
+            "{use_as}"
+        );
+    }
+
+    #[test]
+    fn exits_before_creating_anything() {
+        let s = Scratch::new("exit");
+        assert_child_refused(&s.real(), &s.config(), "data");
         assert!(!s.real().exists(), "nothing was created");
+    }
+
+    #[test]
+    fn refuses_the_display_name_folder() {
+        let s = Scratch::new("display");
+        for name in ["Better Mayhem Tracker", "better mayhem tracker"] {
+            assert!(trips(&s, &s.config().join(name)), "{name}");
+            assert!(trips(&s, &s.config().join(name).join("data")), "{name}");
+        }
+    }
+
+    /// The root passes, but a folder in it links into the real folder, so
+    /// the log or the database would land there.
+    #[cfg(unix)]
+    #[test]
+    fn refuses_a_root_whose_folders_link_into_the_real_folder() {
+        use std::os::unix::fs::symlink;
+        let s = Scratch::new("subfolders");
+        for folder in ["logs", "data"] {
+            std::fs::create_dir_all(s.real().join(folder)).unwrap();
+        }
+        for (folder, use_as) in [("logs", "log"), ("data", "data"), ("data", "database")] {
+            let root = s.0.join(format!("run-{use_as}"));
+            std::fs::create_dir_all(&root).unwrap();
+            symlink(s.real().join(folder), root.join(folder)).unwrap();
+            assert!(!trips(&s, &root), "the root itself passes");
+            assert_child_refused(&root, &s.config(), use_as);
+        }
+        assert!(
+            !s.real().join("logs").join("main.log").exists(),
+            "no log line reached it"
+        );
+        assert!(
+            !s.real().join("data").join("matches.db").exists(),
+            "no database reached it"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_a_database_file_that_links_into_the_real_folder() {
+        use std::os::unix::fs::symlink;
+        let s = Scratch::new("dblink");
+        std::fs::create_dir_all(s.real().join("data")).unwrap();
+        let root = s.0.join("run");
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        // Dangling: the real database does not exist yet
+        symlink(
+            s.real().join("data").join("matches.db"),
+            root.join("data").join("matches.db"),
+        )
+        .unwrap();
+        assert_child_refused(&root, &s.config(), "database");
+        assert!(!s.real().join("data").join("matches.db").exists());
+    }
+
+    #[test]
+    fn refuses_a_hard_link_to_the_real_database() {
+        let s = Scratch::new("hardlink");
+        let real_db = s.real().join("data").join("matches.db");
+        std::fs::create_dir_all(real_db.parent().unwrap()).unwrap();
+        std::fs::write(&real_db, b"the player's matches").unwrap();
+        let root = s.0.join("run");
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        std::fs::hard_link(&real_db, root.join("data").join("matches.db")).unwrap();
+        assert!(!trips(&s, &root), "the root itself passes");
+        assert_child_refused(&root, &s.config(), "database");
+        assert_eq!(std::fs::read(&real_db).unwrap(), b"the player's matches");
+    }
+
+    #[test]
+    fn passes_a_database_of_its_own() {
+        let s = Scratch::new("owndb");
+        std::fs::create_dir_all(s.real().join("data")).unwrap();
+        std::fs::write(s.real().join("data").join("matches.db"), b"real").unwrap();
+        let root = s.0.join("run");
+        let paths = crate::paths::Paths::at_with(root.clone(), &[s.config()]);
+        let db = paths.data_file("matches.db").unwrap();
+        assert_eq!(db, root.join("data").join("matches.db"));
+        std::fs::write(&db, b"lane").unwrap();
+        // A second name for the lane's own file is not the real one
+        std::fs::hard_link(&db, s.0.join("lane-copy.db")).unwrap();
+        assert_eq!(paths.data_file("matches.db").unwrap(), db);
+        assert_eq!(
+            paths.log_file("main.log").unwrap(),
+            root.join("logs").join("main.log")
+        );
+    }
+
+    /// Every hostile spelling trips, and none makes the check look at the
+    /// real folder or anything in it on disk.
+    #[cfg(unix)]
+    #[test]
+    fn never_looks_inside_the_real_folder() {
+        use std::os::unix::fs::{MetadataExt, symlink};
+        let s = Scratch::new("untouched");
+        let home = s.0.join("home-Jos\u{e9}");
+        let config = home.join("Library").join("Application Support");
+        let real = config.join(DATA_FOLDER);
+        std::fs::create_dir_all(real.join("data")).unwrap();
+        std::fs::create_dir_all(real.join("logs")).unwrap();
+        std::fs::write(real.join("data").join("matches.db"), b"real").unwrap();
+        std::fs::create_dir_all(config.join("sub")).unwrap();
+        let text = real.to_str().unwrap().to_owned();
+        symlink(config.join("sub"), s.0.join("to-sub")).unwrap();
+        symlink("better-mayhem-tracker/", config.join("alias")).unwrap();
+        symlink(format!("{text}/"), s.0.join("abs-trailing")).unwrap();
+        symlink(
+            format!(
+                "{}/./../better-mayhem-tracker/./",
+                config.join("sub").display()
+            ),
+            s.0.join("messy"),
+        )
+        .unwrap();
+        std::fs::create_dir_all(s.0.join("run")).unwrap();
+        symlink(
+            "../home-Jose\u{301}/Library/APPLICATION SUPPORT",
+            s.0.join("run").join("cfg"),
+        )
+        .unwrap();
+        let meta = std::fs::metadata(&config).unwrap();
+        let mut roots = vec![
+            real.clone(),
+            PathBuf::from(format!("{text}/")),
+            PathBuf::from(format!("{text}/./")),
+            PathBuf::from(text.replace("/Library/", "//Library//")),
+            PathBuf::from(text.replace("Jos\u{e9}", "Jose\u{301}")),
+            PathBuf::from(
+                text.replace("Jos\u{e9}", "Jose\u{301}")
+                    .replace(DATA_FOLDER, "BETTER-MAYHEM-TRACKER"),
+            ),
+            PathBuf::from(
+                text.replace("Library/Application Support", "LIBRARY/APPLICATION SUPPORT"),
+            ),
+            config.join("better-mayhem-trac\u{212A}er"),
+            real.join("data"),
+            real.join("data").join("matches.db"),
+            PathBuf::from(format!("/.vol/{}/{}/{DATA_FOLDER}", meta.dev(), meta.ino())),
+            s.0.join("to-sub").join("..").join(DATA_FOLDER),
+            config.join("alias"),
+            s.0.join("abs-trailing").join("logs"),
+            s.0.join("messy"),
+            s.0.join("run")
+                .join("cfg")
+                .join("Better-Mayhem-Tracker")
+                .join("data"),
+        ];
+        if let Some(rest) = text.strip_prefix("/private/var/") {
+            roots.push(PathBuf::from(format!("/var/{rest}")));
+        }
+        if let Some(rest) = text.strip_prefix("/private/tmp/") {
+            roots.push(PathBuf::from(format!("/tmp/{rest}")));
+        }
+        if Path::new("/System/Volumes/Data").exists() {
+            roots.push(PathBuf::from(format!("/System/Volumes/Data{text}")));
+        }
+        if Path::new("/Volumes/Macintosh HD").exists() {
+            roots.push(PathBuf::from(format!("/Volumes/Macintosh HD{text}")));
+        }
+        let real_id = std::fs::metadata(&real).unwrap();
+        let is_real = |m: std::fs::Metadata| m.dev() == real_id.dev() && m.ino() == real_id.ino();
+        for root in roots {
+            TOUCHED.with(|t| t.borrow_mut().clear());
+            assert!(
+                check(&root, std::slice::from_ref(&config)).is_err(),
+                "{}",
+                root.display()
+            );
+            for path in TOUCHED.with(|t| t.take()) {
+                let inside = std::fs::symlink_metadata(&path).is_ok_and(is_real)
+                    || path
+                        .ancestors()
+                        .skip(1)
+                        .any(|a| std::fs::metadata(a).is_ok_and(is_real));
+                assert!(
+                    !inside,
+                    "checking {} looked at {} in the real folder",
+                    root.display(),
+                    path.display()
+                );
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn refuses_a_stream_suffix_and_trailing_dots() {
+        let s = Scratch::new("streams");
+        for exists in [false, true] {
+            if exists {
+                std::fs::create_dir_all(s.real()).unwrap();
+            }
+            for name in [
+                "better-mayhem-tracker::$INDEX_ALLOCATION",
+                "better-mayhem-tracker:$I30:$INDEX_ALLOCATION",
+                "Better-Mayhem-Tracker.",
+                "better-mayhem-tracker. .",
+            ] {
+                assert!(trips(&s, &s.config().join(name)), "{name} exists={exists}");
+            }
+            assert!(trips(&s, &s.real().join("data").join("matches.db::$DATA")));
+        }
+    }
+
+    /// The scratch folder's own drive through `\\localhost\C$` and the other
+    /// names this machine answers to.
+    #[cfg(windows)]
+    #[test]
+    fn refuses_an_admin_share_of_this_machine() {
+        let s = Scratch::new("share");
+        let real = s.real();
+        let text = real.to_str().unwrap();
+        let local = text.strip_prefix(r"\\?\").unwrap_or(text);
+        let (drive, rest) = local.split_once(':').expect("a drive letter");
+        let mut servers = vec!["localhost".to_owned(), "127.0.0.1".to_owned()];
+        servers.extend(std::env::var("COMPUTERNAME").ok());
+        for server in servers {
+            for prefix in [r"\\", r"\\?\UNC\"] {
+                let root = PathBuf::from(format!("{prefix}{server}\\{drive}${rest}"));
+                assert!(trips(&s, &root), "{}", root.display());
+            }
+        }
+    }
+
+    /// Unproven until a Windows runner has run it: the volume must make 8.3
+    /// names, which the assertion below reports.
+    #[cfg(windows)]
+    #[test]
+    fn refuses_an_8_3_short_name() {
+        use std::os::windows::ffi::{OsStrExt, OsStringExt};
+        use windows_sys::Win32::Storage::FileSystem::GetShortPathNameW;
+        let s = Scratch::new("short");
+        std::fs::create_dir_all(s.real().join("data")).unwrap();
+        let wide: Vec<u16> = s.real().as_os_str().encode_wide().chain([0]).collect();
+        let mut buf = vec![0u16; 32 * 1024];
+        // SAFETY: `wide` is NUL-terminated and `buf` holds `buf.len()` units
+        let len = unsafe { GetShortPathNameW(wide.as_ptr(), buf.as_mut_ptr(), buf.len() as u32) };
+        assert!(len > 0, "GetShortPathNameW failed");
+        let short = PathBuf::from(std::ffi::OsString::from_wide(&buf[..len as usize]));
+        let name = short.file_name().unwrap().to_string_lossy().into_owned();
+        assert_ne!(
+            name, DATA_FOLDER,
+            "this volume makes no 8.3 names, so the test cannot run here"
+        );
+        assert!(trips(&s, &short), "{}", short.display());
+        assert!(trips(&s, &short.join("data")), "{}", short.display());
+        assert!(
+            trips(&s, &short.join("data").join("missing")),
+            "{}",
+            short.display()
+        );
     }
 }

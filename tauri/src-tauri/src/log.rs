@@ -60,7 +60,7 @@ impl Writer {
     }
 
     fn log_path(&self, name: &str) -> Option<PathBuf> {
-        self.paths.log_dir().ok().map(|dir| dir.join(name))
+        self.paths.log_file(name).ok()
     }
 
     fn reopen(&mut self) {
