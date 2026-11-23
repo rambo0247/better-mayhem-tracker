@@ -26,16 +26,24 @@ export default function QueueSelect(props: {
     },
   );
 
+  // Each option says whether it is the one chosen: the value can arrive before
+  // the options it names do
   const select = () => (
     <select
-      value={props.value ?? ""}
+      value={String(props.value ?? "")}
       onChange={(e) =>
         props.onChange(e.currentTarget.value === "" ? undefined : Number(e.currentTarget.value))
       }
       class={props.label ? "select w-full" : "select"}
     >
       <option value="">All Queues</option>
-      <For each={queues()}>{(q) => <option value={q}>{queueLabel(q)}</option>}</For>
+      <For each={queues()}>
+        {(q) => (
+          <option value={q} selected={props.value === q}>
+            {queueLabel(q)}
+          </option>
+        )}
+      </For>
     </select>
   );
 

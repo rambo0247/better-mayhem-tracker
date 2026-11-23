@@ -27,6 +27,8 @@ export default function SeasonSelect(props: {
     },
   );
 
+  // Each option says whether it is the one chosen: the value can arrive before
+  // the options it names do
   const select = () => (
     <select
       value={props.value ?? ""}
@@ -36,7 +38,13 @@ export default function SeasonSelect(props: {
       class={props.label ? "select w-full" : "select"}
     >
       <option value="">All Sets</option>
-      <For each={seasons()}>{(s) => <option value={s}>{seasonName(s)}</option>}</For>
+      <For each={seasons()}>
+        {(s) => (
+          <option value={s} selected={props.value === s}>
+            {seasonName(s)}
+          </option>
+        )}
+      </For>
     </select>
   );
 

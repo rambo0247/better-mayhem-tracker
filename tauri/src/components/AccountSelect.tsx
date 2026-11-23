@@ -30,7 +30,11 @@ export default function AccountSelect(props: {
       >
         <option value="">All Accounts</option>
         <For each={accounts()}>
-          {(a) => <option value={a.puuid}>{a.name ?? "Unknown account"}</option>}
+          {(a) => (
+            <option value={a.puuid} selected={props.value === a.puuid}>
+              {a.name ?? "Unknown account"}
+            </option>
+          )}
         </For>
       </select>
     </Show>

@@ -22,6 +22,8 @@ export default function PatchSelect(props: {
     },
   );
 
+  // Each option says whether it is the one chosen: the value can arrive before
+  // the options it names do
   const select = () => (
     <select
       value={props.value ?? ""}
@@ -31,7 +33,13 @@ export default function PatchSelect(props: {
       class={props.label ? "select w-full" : "select"}
     >
       <option value="">All Patches</option>
-      <For each={patches()}>{(p) => <option value={p}>Patch {formatPatch(p)}</option>}</For>
+      <For each={patches()}>
+        {(p) => (
+          <option value={p} selected={props.value === p}>
+            Patch {formatPatch(p)}
+          </option>
+        )}
+      </For>
     </select>
   );
 
