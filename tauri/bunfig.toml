@@ -43,7 +43,7 @@ correctness = "error"
 
 [fmt]
 printWidth = 100
-ignorePatterns = ["dist/", "src-tauri/target/", "src-tauri/gen/"]
+ignorePatterns = ["dist/", "src-tauri/target/", "src-tauri/gen/", "src/bindings.ts"]
 
 [test]
 preload = ["./test/setup.ts"]

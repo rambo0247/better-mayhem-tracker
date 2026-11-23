@@ -106,18 +106,55 @@ impl Golden {
             Some(Value::Array(items)) => Ok(items.clone()),
             Some(_) => Err(format!("`{name}` is not a list")),
         };
+        let channel = text("channel")?;
+        let outcome = on_platform(&channel, field("outcome")?, cfg!(windows));
         Ok(Self {
-            channel: text("channel")?,
+            channel,
             case: text("case")?,
             group: text("group")?,
             seq: field("seq")?.as_i64().ok_or("`seq` is not a number")?,
             args: list("args")?,
-            outcome: field("outcome")?,
+            outcome,
             events: list("events")?,
             files: list("files")?,
             effects: list("effects")?,
         })
     }
+}
+
+/// `updater.ts:189` at v1.2.1, the darwin branch the goldens recorded.
+const UNPACKAGED_MAC: &str = "In-app update only works once the app is in your Applications folder";
+/// `updater.ts:190` at v1.2.1, what Electron answers on Windows.
+const UNPACKAGED_WINDOWS: &str = "In-app update only works in the portable exe build";
+
+/// Register rule G: the goldens were recorded on macOS, and on Windows two
+/// answers are the platform's own. Only there, and only for these channels,
+/// the expected answer becomes Windows': an augment icon's `asset://` URL is
+/// WebView2's `http://asset.localhost/` form of the same custom-protocol
+/// path, and an unpackaged update names the portable exe, as Electron does.
+fn on_platform(channel: &str, mut outcome: Value, windows: bool) -> Value {
+    if !windows || outcome.get("kind").and_then(Value::as_str) != Some("value") {
+        return outcome;
+    }
+    let Some(result) = outcome.get_mut("result") else {
+        return outcome;
+    };
+    match channel {
+        "dragon:augment-icon" => {
+            if let Some(rest) = result.as_str().and_then(|url| url.strip_prefix("asset://")) {
+                *result = Value::from(format!("http://asset.localhost/{rest}"));
+            }
+        }
+        "app:download-update" => {
+            if let Some(error) = result.get_mut("error")
+                && error == UNPACKAGED_MAC
+            {
+                *error = Value::from(UNPACKAGED_WINDOWS);
+            }
+        }
+        _ => {}
+    }
+    outcome
 }
 
 /// `canon.ts`: keys sorted at every depth, clock fields masked, and a whole
@@ -506,12 +543,24 @@ fn event_differences(golden: &Golden, pushed: Vec<(String, Value)>) -> Option<St
     (!matches).then(|| format!("Electron pushed {expected:?}, Rust pushed {pushed:?}"))
 }
 
+/// `text` with the data root written as `$RUN`. The goldens were recorded on
+/// macOS, so on Windows a path under it reads with `/` between its parts, as
+/// Electron's `path.join` writes it there.
+fn redact_root(text: &str, root: &str, windows: bool) -> String {
+    let text = text.replace(root, RUN);
+    if windows && text.contains(RUN) {
+        text.replace('\\', "/")
+    } else {
+        text
+    }
+}
+
 /// The OS calls the golden recorded against those the bodies recorded, with
 /// the data root written as `$RUN`. The seam's `seq` is the list's order.
 fn effect_differences(golden: &Golden, recorded: Vec<Value>, root: &Path) -> Option<String> {
     let root = root.to_string_lossy().into_owned();
     let redact = |value: &Value| match value {
-        Value::String(s) => Value::String(s.replace(&root, RUN)),
+        Value::String(s) => Value::String(redact_root(s, &root, cfg!(windows))),
         other => other.clone(),
     };
     let shape = |e: &Value| {
@@ -567,13 +616,21 @@ fn os_effects(app: &MockApp) -> Vec<Value> {
 /// An answer with the data folder written as `$RUN`, as Electron's seam writes
 /// its run folder, so a path a body answers compares with the golden's.
 fn redact_run(answer: Answer, root: &Path) -> Answer {
-    let root = serde_json::to_string(&root.to_string_lossy()).expect("a path is text");
-    let root = root.trim_matches('"').to_owned();
-    let redact = |value: Value| -> Value {
-        let text = value.to_string().replace(&root, RUN);
-        serde_json::from_str(&text).expect("still JSON")
-    };
-    answer.map(redact).map_err(redact)
+    fn walk(value: Value, root: &str) -> Value {
+        match value {
+            Value::String(s) => Value::String(redact_root(&s, root, cfg!(windows))),
+            Value::Array(items) => Value::Array(items.into_iter().map(|v| walk(v, root)).collect()),
+            Value::Object(entries) => Value::Object(
+                entries
+                    .into_iter()
+                    .map(|(k, v)| (redact_root(&k, root, cfg!(windows)), walk(v, root)))
+                    .collect(),
+            ),
+            other => other,
+        }
+    }
+    let root = root.to_string_lossy().into_owned();
+    answer.map(|v| walk(v, &root)).map_err(|v| walk(v, &root))
 }
 
 /// Replays one case: its outcome, and once that passes, its events, files
@@ -1237,6 +1294,99 @@ fn check_side_effects(root: &Path) -> Result<(), String> {
         let verdict = replay_case(&build(handler, Clock::System), spec, golden, root).0;
         std::fs::remove_file(root.join("stray.txt")).ok();
         expect(label, verdict, want)?;
+    }
+    let icon = |url: &str| serde_json::json!({ "kind": "value", "result": url });
+    let unpackaged = |error: &str| serde_json::json!({ "kind": "value", "result": { "success": false, "error": error } });
+    let mac_icon = icon("asset://game-data/latest/a.png");
+    for (label, channel, golden, windows, answer, want) in [
+        (
+            "rule G maps an icon on Windows",
+            "dragon:augment-icon",
+            &mac_icon,
+            true,
+            serde_json::json!("http://asset.localhost/game-data/latest/a.png"),
+            Verdict::Pass,
+        ),
+        (
+            "rule G keeps the icon's path",
+            "dragon:augment-icon",
+            &mac_icon,
+            true,
+            serde_json::json!("http://asset.localhost/game-data/latest/b.png"),
+            Verdict::Fail,
+        ),
+        (
+            "rule G wants Windows' form on Windows",
+            "dragon:augment-icon",
+            &mac_icon,
+            true,
+            serde_json::json!("asset://game-data/latest/a.png"),
+            Verdict::Fail,
+        ),
+        (
+            "rule G never maps on macOS",
+            "dragon:augment-icon",
+            &mac_icon,
+            false,
+            serde_json::json!("http://asset.localhost/game-data/latest/a.png"),
+            Verdict::Fail,
+        ),
+        (
+            "rule G maps only its two channels",
+            "dragon:item-icon",
+            &mac_icon,
+            true,
+            serde_json::json!("http://asset.localhost/game-data/latest/a.png"),
+            Verdict::Fail,
+        ),
+        (
+            "rule G wants Electron's Windows text on Windows",
+            "app:download-update",
+            &unpackaged(UNPACKAGED_MAC),
+            true,
+            serde_json::json!({ "success": false, "error": UNPACKAGED_WINDOWS }),
+            Verdict::Pass,
+        ),
+        (
+            "rule G refuses the darwin text on Windows",
+            "app:download-update",
+            &unpackaged(UNPACKAGED_MAC),
+            true,
+            serde_json::json!({ "success": false, "error": UNPACKAGED_MAC }),
+            Verdict::Fail,
+        ),
+        (
+            "rule G keeps the rest of the update answer",
+            "app:download-update",
+            &unpackaged(UNPACKAGED_MAC),
+            true,
+            serde_json::json!({ "success": true, "error": UNPACKAGED_WINDOWS }),
+            Verdict::Fail,
+        ),
+        (
+            "rule G keeps the darwin text on macOS",
+            "app:download-update",
+            &unpackaged(UNPACKAGED_MAC),
+            false,
+            serde_json::json!({ "success": false, "error": UNPACKAGED_MAC }),
+            Verdict::Pass,
+        ),
+    ] {
+        let expected = on_platform(channel, golden.clone(), windows);
+        expect(label, classify(channel, &expected, &Ok(answer)), want)?;
+    }
+    for (label, text, windows, want) in [
+        ("a macOS path", "/r/data/backups", false, "$RUN/backups"),
+        ("a Windows path", r"C:\r\data\backups", true, "$RUN/backups"),
+        ("text with no root", r"a\b", true, r"a\b"),
+    ] {
+        let root = if windows { r"C:\r\data" } else { "/r/data" };
+        let got = redact_root(text, root, windows);
+        if got != want {
+            return Err(format!(
+                "self-check $RUN for {label}: {got:?}, not {want:?}"
+            ));
+        }
     }
     expect(
         "the OS call Electron made, under $RUN",
