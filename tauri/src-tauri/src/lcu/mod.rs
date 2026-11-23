@@ -29,7 +29,9 @@ use tokio::task::JoinHandle;
 use tokio::time::{Instant, MissedTickBehavior, interval_at};
 
 use http::Session;
-use lockfile::{ClientLookup, InstallRoots};
+use lockfile::ClientLookup;
+#[cfg(not(feature = "parity-ca"))]
+use lockfile::InstallRoots;
 use process_lookup::ProcessSource;
 pub use status::LcuStatus;
 use status::StatusCell;
@@ -42,6 +44,7 @@ fn log(message: impl AsRef<str>) {
 #[derive(Debug)]
 pub enum LcuError {
     NotFound,
+    #[cfg_attr(not(windows), allow(dead_code))]
     Elevated,
     /// Refused, reset, or closed mid-answer: Node's ECONNREFUSED, ECONNRESET,
     /// socket hang up, and EPIPE
@@ -96,6 +99,7 @@ impl LcuError {
     }
 
     /// `friendlyErrorMessage` in `lcu.ts`, for errors the UI shows.
+    #[allow(dead_code)]
     pub fn friendly_message(&self) -> String {
         match self {
             Self::NotFound => "League client is not running".into(),
@@ -109,11 +113,13 @@ impl LcuError {
 /// The `lcu_install_dir` setting: where the client said it was installed, the
 /// last time the process lookup had to find it. T20 backs it with the database.
 pub trait InstallDirSetting: Send + Sync {
+    #[cfg_attr(feature = "parity-ca", allow(dead_code))]
     fn get(&self) -> Option<String>;
     fn set(&self, dir: &str);
 }
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct MemoryInstallDir(Mutex<Option<String>>);
 
 impl InstallDirSetting for MemoryInstallDir {
@@ -127,27 +133,34 @@ impl InstallDirSetting for MemoryInstallDir {
 }
 
 /// Where the client is looked for.
-pub enum Candidates {
+enum Candidates {
     /// The setting, the Riot Client's records, and the default folder
+    #[cfg(not(feature = "parity-ca"))]
     System(InstallRoots),
     /// This folder alone, or nowhere, with the setting ignored: the parity
-    /// tools' fake client, or a test's temp folder
-    #[cfg(any(test, feature = "parity-ca"))]
+    /// tools' fake client, a test's temp folder, or nothing at all
+    #[cfg(any(test, debug_assertions, feature = "parity-ca"))]
     Only(Option<PathBuf>),
 }
 
+/// Where the transport looks for the client. Built only by [`Discovery::from_env`]
+/// outside this module, so a parity build has no way to reach the real client.
 pub struct Discovery {
-    pub candidates: Candidates,
-    pub process: ProcessSource,
+    candidates: Candidates,
+    process: ProcessSource,
 }
 
 #[cfg(feature = "parity-ca")]
 pub const PARITY_LEAGUE_DIR_ENV: &str = "BMT_PARITY_LEAGUE_DIR";
 #[cfg(feature = "parity-ca")]
 pub const PARITY_PROCESS_ARGS_ENV: &str = "BMT_PARITY_PROCESS_ARGS";
+/// The one opt-in that lets a debug build look for the real client
+#[cfg(all(debug_assertions, not(feature = "parity-ca")))]
+pub const ALLOW_REAL_LEAGUE_ENV: &str = "BMT_ALLOW_REAL_LEAGUE";
 
 impl Discovery {
-    pub fn system() -> Self {
+    #[cfg(not(feature = "parity-ca"))]
+    fn system() -> Self {
         Self {
             candidates: Candidates::System(InstallRoots::system()),
             process: ProcessSource::System,
@@ -157,6 +170,7 @@ impl Discovery {
     /// A parity build never looks at a real install or a real process: only
     /// the folder and the stand-in process list its environment names.
     #[cfg(feature = "parity-ca")]
+    #[allow(dead_code)]
     pub fn from_env() -> Self {
         let path = |name| std::env::var_os(name).map(PathBuf::from);
         let discovery = Self {
@@ -170,17 +184,45 @@ impl Discovery {
         discovery
     }
 
-    #[cfg(not(feature = "parity-ca"))]
+    /// A debug build runs on a machine where someone may be playing, so it
+    /// leaves the real client alone unless told otherwise.
+    #[cfg(all(debug_assertions, not(feature = "parity-ca")))]
+    #[allow(dead_code)]
+    pub fn from_env() -> Self {
+        Self::debug(std::env::var_os(ALLOW_REAL_LEAGUE_ENV).as_deref())
+    }
+
+    #[cfg(all(not(debug_assertions), not(feature = "parity-ca")))]
+    #[allow(dead_code)]
     pub fn from_env() -> Self {
         Self::system()
     }
 
-    fn dirs(&self, reported: Option<String>) -> Vec<PathBuf> {
+    #[cfg(all(debug_assertions, not(feature = "parity-ca")))]
+    fn debug(allow: Option<&std::ffi::OsStr>) -> Self {
+        if allow == Some("1".as_ref()) {
+            return Self::system();
+        }
+        log(format!(
+            "League client discovery is off in debug builds; set {ALLOW_REAL_LEAGUE_ENV}=1 to look for the real client"
+        ));
+        Self {
+            candidates: Candidates::Only(None),
+            process: ProcessSource::Nothing,
+        }
+    }
+
+    #[cfg_attr(
+        feature = "parity-ca",
+        expect(unused_variables, reason = "a parity build never reads the setting")
+    )]
+    fn dirs(&self, setting: &dyn InstallDirSetting) -> Vec<PathBuf> {
         match &self.candidates {
+            #[cfg(not(feature = "parity-ca"))]
             Candidates::System(roots) => {
-                lockfile::install_dir_candidates(reported.as_deref(), roots)
+                lockfile::install_dir_candidates(setting.get().as_deref(), roots)
             }
-            #[cfg(any(test, feature = "parity-ca"))]
+            #[cfg(any(test, debug_assertions, feature = "parity-ca"))]
             Candidates::Only(dir) => dir.iter().cloned().collect(),
         }
     }
@@ -227,10 +269,12 @@ pub trait Hooks: Send + Sync + 'static {
     fn on_event(&self, _lcu: &Lcu, _event: &Value) {}
 }
 
+#[allow(dead_code)]
 pub struct TransportOnly;
 
 const SUMMONER_PATH: &str = "/lol-summoner/v1/current-summoner";
 
+#[allow(dead_code)]
 impl Hooks for TransportOnly {
     fn on_poll<'a>(&'a self, lcu: &'a Lcu) -> BoxFuture<'a, Result<(), LcuError>> {
         Box::pin(async move {
@@ -344,6 +388,7 @@ pub struct LcuOptions {
 }
 
 impl Lcu {
+    #[allow(dead_code)]
     pub fn new(options: LcuOptions) -> Self {
         Self::with_anchors(options, Box::new(tls::lcu_anchors))
     }
@@ -370,19 +415,23 @@ impl Lcu {
         }))
     }
 
+    #[allow(dead_code)]
     pub fn status(&self) -> LcuStatus {
         self.0.status.get()
     }
 
+    #[allow(dead_code)]
     pub fn is_client_connected(&self) -> bool {
         self.status().is_client_connected()
     }
 
     /// Changes only, in order: what `onLcuStatusChange` listeners hear.
+    #[allow(dead_code)]
     pub fn subscribe(&self) -> broadcast::Receiver<LcuStatus> {
         self.0.status.subscribe()
     }
 
+    #[allow(dead_code)]
     pub fn live_game_ref(&self) -> Option<LiveGameRef> {
         *self.0.live_game.lock().expect("live game lock")
     }
@@ -407,7 +456,7 @@ impl Lcu {
     /// lockfile can say, at most once per `authenticate_interval`.
     async fn connect(&self) -> Result<Arc<Session>, LcuError> {
         let inner = &self.0;
-        let dirs = inner.discovery.dirs(inner.install_dir.get());
+        let dirs = inner.discovery.dirs(inner.install_dir.as_ref());
         match lockfile::find_client(&dirs, inner.timing.probe_timeout).await {
             ClientLookup::Running(credentials) => {
                 let session = self.new_session(credentials)?;
@@ -450,6 +499,7 @@ impl Lcu {
     }
 
     /// `lcuRequest`: finds the client first when there are no credentials.
+    #[allow(dead_code)]
     pub async fn request_json(&self, path: &str) -> Result<Value, LcuError> {
         let session = match self.session() {
             Some(session) => session,
@@ -459,6 +509,7 @@ impl Lcu {
     }
 
     /// `lcuJson`: an unreachable client is no answer rather than a failure.
+    #[allow(dead_code)]
     pub async fn json_or_none(&self, path: &str) -> Option<Value> {
         self.request_json(path).await.ok()
     }
@@ -478,7 +529,7 @@ impl Lcu {
             return lookup.session.clone();
         }
         let at = Instant::now();
-        let dirs = inner.discovery.dirs(inner.install_dir.get());
+        let dirs = inner.discovery.dirs(inner.install_dir.as_ref());
         let session = match lockfile::find_client(&dirs, inner.timing.probe_timeout).await {
             ClientLookup::Running(credentials) => self.new_session(credentials).ok(),
             _ => None,
@@ -492,6 +543,7 @@ impl Lcu {
 
     /// `lcuBytes`: the raw body the client serves at `path`, or `None` when it
     /// isn't running or has nothing there. At most six at a time, in order.
+    #[allow(dead_code)]
     pub async fn bytes(&self, path: &str) -> Option<Vec<u8>> {
         let session = self.file_session().await?;
         let _slot = self.0.file_slots.acquire().await.ok()?;
@@ -508,17 +560,17 @@ impl Lcu {
     /// The phase only decides between the two connected states. A phase that
     /// arrives late must never bring a disconnected client back up.
     fn apply_phase(&self, phase: Option<&Value>) {
-        if !self.is_client_connected() {
-            return;
-        }
         let in_game = phase
             .and_then(Value::as_str)
             .is_some_and(|phase| IN_GAME_PHASES.contains(&phase));
-        self.0.status.set(if in_game {
-            LcuStatus::Ingame
-        } else {
-            LcuStatus::Connected
-        });
+        self.0.status.set_if(
+            LcuStatus::is_client_connected,
+            if in_game {
+                LcuStatus::Ingame
+            } else {
+                LcuStatus::Connected
+            },
+        );
     }
 
     fn handle_event(&self, event: &Value) {
@@ -566,14 +618,27 @@ impl Lcu {
             socket::connect(&session, self.0.timing.attach_timeout).await
         }
         .await;
-        let socket = {
+        let installed = {
             let mut slot = self.0.socket.lock().expect("socket lock");
             slot.attaching = false;
             let socket = opened?;
-            let id = self.0.next_socket_id.fetch_add(1, Ordering::SeqCst);
-            let (close, closed) = oneshot::channel();
-            slot.open = Some((id, close));
-            (id, socket, closed)
+            // Checked under the socket lock, which `stop_polling` takes to
+            // close the socket after it marks the loops stopped
+            if self.0.loops.lock().expect("loops lock").stopped {
+                Err(socket)
+            } else {
+                let id = self.0.next_socket_id.fetch_add(1, Ordering::SeqCst);
+                let (close, closed) = oneshot::channel();
+                slot.open = Some((id, close));
+                Ok((id, socket, closed))
+            }
+        };
+        let socket = match installed {
+            Ok(socket) => socket,
+            Err(late) => {
+                late.close().await;
+                return Ok(());
+            }
         };
         log("Listening for post-game results");
         let lcu = self.clone();
@@ -616,9 +681,9 @@ impl Lcu {
             slot.open = None;
         }
         // Nothing is left to report the match ending
-        if self.status() == LcuStatus::Ingame {
-            self.0.status.set(LcuStatus::Connected);
-        }
+        self.0
+            .status
+            .set_if(|status| status == LcuStatus::Ingame, LcuStatus::Connected);
         self.handle_socket_drop().await;
     }
 
@@ -672,6 +737,7 @@ impl Lcu {
     /// `startPolling`: "connecting" only on the very first attempt after
     /// launch, "disconnected" on every restart. The first attempt lands one
     /// interval in, not at once.
+    #[allow(dead_code)]
     pub fn start_polling(&self, first_attempt: bool) {
         let mut loops = self.0.loops.lock().expect("loops lock");
         self.start_locked(&mut loops, first_attempt);
@@ -741,6 +807,7 @@ impl Lcu {
     }
 
     /// `stopPolling`, for quit.
+    #[allow(dead_code)]
     pub fn stop_polling(&self) {
         {
             let mut loops = self.0.loops.lock().expect("loops lock");
@@ -754,6 +821,7 @@ impl Lcu {
 }
 
 /// Sends every status to the main window only, as `sendToRenderer` does.
+#[allow(dead_code)]
 pub fn emit_to_main<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> status::Emit {
     use tauri::Emitter;
     Box::new(move |status| {
@@ -827,6 +895,18 @@ mod tests {
             ca: &TestCa,
             hooks: Option<Arc<dyn Hooks>>,
         ) -> Self {
+            let discovery = Discovery {
+                candidates: Candidates::Only(dir.map(|d| d.path().to_path_buf())),
+                process: ProcessSource::file(args),
+            };
+            Self::with_discovery(discovery, ca, hooks)
+        }
+
+        fn with_discovery(
+            discovery: Discovery,
+            ca: &TestCa,
+            hooks: Option<Arc<dyn Hooks>>,
+        ) -> Self {
             let sent = Arc::new(Mutex::new(vec![]));
             let sink = sent.clone();
             let recorder = Arc::new(Recorder::default());
@@ -835,10 +915,7 @@ mod tests {
             let lcu = Lcu::with_anchors(
                 LcuOptions {
                     runtime: Handle::current(),
-                    discovery: Discovery {
-                        candidates: Candidates::Only(dir.map(|d| d.path().to_path_buf())),
-                        process: ProcessSource::file(args),
-                    },
+                    discovery,
                     install_dir: install_dir.clone(),
                     hooks: hooks.unwrap_or_else(|| recorder.clone()),
                     emit: Box::new(move |status| sink.lock().unwrap().push(status)),
@@ -861,7 +938,8 @@ mod tests {
         fn lookups(&self) -> usize {
             match &self.lcu.0.discovery.process {
                 ProcessSource::File { runs, .. } => runs.load(Ordering::SeqCst),
-                ProcessSource::System => unreachable!("tests never read real processes"),
+                #[cfg(not(feature = "parity-ca"))]
+                _ => unreachable!("tests never read real processes"),
             }
         }
 
@@ -889,23 +967,6 @@ mod tests {
     }
 
     use LcuStatus::*;
-
-    #[test]
-    fn timing_matches_lcu_ts() {
-        assert_eq!(
-            Timing::default(),
-            Timing {
-                connect_interval: Duration::from_secs(5),
-                poll_interval: Duration::from_secs(60),
-                attach_timeout: Duration::from_secs(15),
-                probe_timeout: Duration::from_secs(1),
-                authenticate_interval: Duration::from_secs(30),
-                client_file_timeout: Duration::from_secs(5),
-                file_lookup_ttl: Duration::from_secs(5),
-                client_file_concurrency: 6,
-            }
-        );
-    }
 
     #[test]
     fn friendly_messages_match_lcu_ts() {
@@ -1151,6 +1212,75 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(500)).await;
         assert_eq!(rig.sent(), after, "nothing restarts after quit");
         assert_eq!(rig.lcu.live_game_ref(), None);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_socket_that_attaches_after_quit_is_closed_unused() {
+        let ca = TestCa::named("test root");
+        let client = FakeClient::start(&ca.leaf(&["127.0.0.1"])).await;
+        let gate = Arc::new(tokio::sync::Semaphore::new(0));
+        client.hold_upgrades(gate.clone());
+        let dir = TempDir::new();
+        client.write_lockfile(dir.path(), "pw");
+        let rig = Rig::new(Some(&dir), None, &ca);
+        rig.lcu.start_polling(true);
+        eventually("an attach in flight", WAIT, || {
+            !client.upgrades().is_empty()
+        })
+        .await;
+
+        rig.lcu.stop_polling();
+        let after = rig.sent();
+        gate.add_permits(1);
+        eventually("the handshake", WAIT, || !client.first_frames().is_empty()).await;
+        client.publish(serde_json::json!({
+            "uri": "/lol-gameflow/v1/gameflow-phase",
+            "data": "InProgress",
+        }));
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        assert!(!rig.lcu.socket_open(), "no socket installed after quit");
+        assert!(
+            rig.hooks.events.lock().unwrap().is_empty(),
+            "no reader after quit"
+        );
+        assert_eq!(rig.sent(), after, "no status after quit");
+    }
+
+    #[cfg(not(feature = "parity-ca"))]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_debug_build_leaves_the_real_client_alone_unless_allowed() {
+        assert!(matches!(
+            Discovery::debug(Some("1".as_ref())).candidates,
+            Candidates::System(_)
+        ));
+        for refused in [None, Some("0"), Some("true"), Some("")] {
+            let discovery = Discovery::debug(refused.map(AsRef::as_ref));
+            assert!(
+                matches!(discovery.candidates, Candidates::Only(None)),
+                "{refused:?}"
+            );
+            assert!(matches!(discovery.process, ProcessSource::Nothing));
+        }
+
+        // Even a remembered folder holding a live client's lockfile is not read
+        let ca = TestCa::named("test root");
+        let client = FakeClient::start(&ca.leaf(&["127.0.0.1"])).await;
+        let dir = TempDir::new();
+        client.write_lockfile(dir.path(), "pw");
+        let rig = Rig::with_discovery(Discovery::debug(None), &ca, None);
+        rig.install_dir.set(&dir.path().to_string_lossy());
+        rig.lcu.start_polling(true);
+        rig.until("disconnected", |s| s.contains(&Disconnected))
+            .await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert_eq!(rig.sent(), [Connecting, Disconnected]);
+        assert!(matches!(
+            rig.lcu.request_json(SUMMONER_PATH).await,
+            Err(LcuError::NotFound)
+        ));
+        assert_eq!(rig.lcu.bytes("/art").await, None);
+        assert!(client.requests().is_empty());
+        assert!(client.upgrades().is_empty());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -3,9 +3,12 @@
 //! `LeagueClient:<pid>:<port>:<password>:<protocol>`. Finding it is a file read.
 //! The process lookup is only the fallback for an install nothing records.
 
+#[cfg(any(test, not(feature = "parity-ca")))]
 use std::collections::HashSet;
 use std::fmt;
-use std::path::{Component, Path, PathBuf};
+use std::path::PathBuf;
+#[cfg(any(test, not(feature = "parity-ca")))]
+use std::path::{Component, Path};
 use std::sync::LazyLock;
 use std::time::Duration;
 
@@ -42,12 +45,14 @@ pub enum ClientLookup {
 
 /// Where the Riot Client keeps its per-product records, and where League goes
 /// unless told otherwise.
+#[cfg(any(test, not(feature = "parity-ca")))]
 #[derive(Clone, Debug)]
 pub struct InstallRoots {
     pub metadata_root: PathBuf,
     pub default_dir: PathBuf,
 }
 
+#[cfg(not(feature = "parity-ca"))]
 impl InstallRoots {
     #[cfg(target_os = "macos")]
     pub fn system() -> Self {
@@ -78,6 +83,7 @@ const CLIENT_BINARY: &str = if cfg!(target_os = "macos") {
 
 /// The Riot Client records a macOS install as the .app bundle itself, while the
 /// client runs, and writes its lockfile, from Contents/LoL inside it.
+#[cfg(any(test, not(feature = "parity-ca")))]
 pub fn client_dir(install_path: &str) -> PathBuf {
     if cfg!(target_os = "macos") && install_path.ends_with(".app") {
         Path::new(install_path).join("Contents").join("LoL")
@@ -86,8 +92,10 @@ pub fn client_dir(install_path: &str) -> PathBuf {
     }
 }
 
+#[cfg(any(test, not(feature = "parity-ca")))]
 static PRODUCT: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^league_of_legends\.[a-z]+$").expect("valid regex"));
+#[cfg(any(test, not(feature = "parity-ca")))]
 static INSTALL_PATH: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(?m)^product_install_full_path:\s*"?([^"\r\n]+?)"?\s*$"#).expect("valid regex")
 });
@@ -98,6 +106,7 @@ static LOCKFILE: LazyLock<Regex> = LazyLock::new(|| {
 
 /// The folders the Riot Client's records name, read on every lookup so a
 /// reinstall elsewhere is picked up without a restart.
+#[cfg(any(test, not(feature = "parity-ca")))]
 fn recorded_install_dirs(metadata_root: &Path) -> Vec<PathBuf> {
     let Ok(entries) = std::fs::read_dir(metadata_root) else {
         return vec![];
@@ -108,7 +117,9 @@ fn recorded_install_dirs(metadata_root: &Path) -> Vec<PathBuf> {
         // The ".game_patch" entries beside each patchline are not installs
         .filter(|name| PRODUCT.is_match(name))
         .collect();
-    // readdirSync returns names sorted; read_dir has no order
+    // read_dir promises no order. Node's readdirSync is libuv's scandir, which
+    // sorts with strcmp on Unix and keeps NTFS's case-insensitive order on
+    // Windows; for these all-lowercase names a byte sort matches both
     products.sort();
     products
         .iter()
@@ -126,6 +137,7 @@ fn recorded_install_dirs(metadata_root: &Path) -> Vec<PathBuf> {
 
 /// `path.resolve(dir).toLowerCase()`: absolute, with `.`, `..` and trailing
 /// separators folded away.
+#[cfg(any(test, not(feature = "parity-ca")))]
 fn dedupe_key(dir: &Path) -> String {
     let absolute = std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf());
     let mut folded = PathBuf::new();
@@ -143,6 +155,7 @@ fn dedupe_key(dir: &Path) -> String {
 
 /// Every folder the client could be running from, most specific first: where it
 /// last said it was, then the Riot Client's records, then the default.
+#[cfg(any(test, not(feature = "parity-ca")))]
 pub fn install_dir_candidates(reported: Option<&str>, roots: &InstallRoots) -> Vec<PathBuf> {
     let mut seen = HashSet::new();
     reported

@@ -123,10 +123,6 @@ impl TestCa {
         self.issuer.der().clone()
     }
 
-    pub fn pem(&self) -> String {
-        self.issuer.pem()
-    }
-
     /// A server leaf for the given names, as the client's own `rclient` leaf is.
     pub fn leaf(&self, names: &[&str]) -> Chain {
         let mut params =
@@ -267,6 +263,8 @@ struct State {
     /// The first text frame of each socket, which should be the subscribe
     first_frames: Vec<String>,
     upgrades: Vec<Seen>,
+    /// Holds each socket upgrade until the test adds a permit
+    upgrade_gate: Option<Arc<tokio::sync::Semaphore>>,
     in_flight: usize,
     most_in_flight: usize,
 }
@@ -340,6 +338,10 @@ impl FakeClient {
 
     pub fn first_frames(&self) -> Vec<String> {
         self.state.lock().unwrap().first_frames.clone()
+    }
+
+    pub fn hold_upgrades(&self, gate: Arc<tokio::sync::Semaphore>) {
+        self.state.lock().unwrap().upgrade_gate = Some(gate);
     }
 
     pub fn upgrades(&self) -> Vec<Seen> {
@@ -426,7 +428,14 @@ where
         .get("upgrade")
         .is_some_and(|v| v.eq_ignore_ascii_case("websocket"))
     {
-        state.lock().unwrap().upgrades.push(seen);
+        let gate = {
+            let mut state = state.lock().unwrap();
+            state.upgrades.push(seen);
+            state.upgrade_gate.clone()
+        };
+        if let Some(gate) = gate {
+            let _permit = gate.acquire().await;
+        }
         let replay = Replay {
             head,
             inner: stream,

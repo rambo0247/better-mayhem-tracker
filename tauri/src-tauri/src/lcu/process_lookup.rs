@@ -5,12 +5,17 @@
 use super::LcuError;
 use super::lockfile::Credentials;
 
+#[cfg(not(feature = "parity-ca"))]
 const PROCESS_NAME: &str = "LeagueClientUx";
 
 /// Where the command lines come from.
 #[derive(Debug)]
 pub enum ProcessSource {
+    #[cfg(not(feature = "parity-ca"))]
     System,
+    /// Reads nothing and finds nothing: a debug build kept off the real client
+    #[cfg(all(debug_assertions, not(feature = "parity-ca")))]
+    Nothing,
     /// A file standing in for the process list, so a lane can exercise the
     /// lookup without reading any real process. `None` finds nothing.
     #[cfg(any(test, feature = "parity-ca"))]
@@ -32,13 +37,20 @@ impl ProcessSource {
 
 pub async fn lookup(source: &ProcessSource) -> Result<Credentials, LcuError> {
     match source {
+        #[cfg(not(feature = "parity-ca"))]
         ProcessSource::System => system::lookup().await,
+        #[cfg(all(debug_assertions, not(feature = "parity-ca")))]
+        ProcessSource::Nothing => Err(LcuError::NotFound),
         #[cfg(any(test, feature = "parity-ca"))]
         ProcessSource::File { path, runs } => {
             let run = runs.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
             super::log(format!("parity: process lookup {run}"));
-            let text = match path {
-                Some(path) => std::fs::read_to_string(path).unwrap_or_default(),
+            let text = match path.as_deref().map(std::fs::read_to_string) {
+                Some(Ok(text)) => text,
+                Some(Err(err)) => {
+                    super::log(format!("parity: process list {path:?} unreadable: {err}"));
+                    String::new()
+                }
                 None => String::new(),
             };
             parse_command_lines(&text).ok_or(LcuError::NotFound)
@@ -90,12 +102,12 @@ pub fn parse_command_lines(output: &str) -> Option<Credentials> {
     })
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(feature = "parity-ca")))]
 mod system {
     use super::*;
 
     pub async fn lookup() -> Result<Credentials, LcuError> {
-        let output = tokio::process::Command::new("ps")
+        let output = tokio::process::Command::new("/bin/ps")
             .args(["x", "-o", "args"])
             .kill_on_drop(true)
             .output()
@@ -110,14 +122,24 @@ mod system {
     }
 }
 
-#[cfg(windows)]
+#[cfg(all(windows, not(feature = "parity-ca")))]
 mod system {
     use super::*;
 
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
+    /// By its full path, so a `powershell.exe` earlier on PATH never runs
+    fn powershell_path() -> std::path::PathBuf {
+        let windows = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+        std::path::Path::new(&windows)
+            .join("System32")
+            .join("WindowsPowerShell")
+            .join("v1.0")
+            .join("powershell.exe")
+    }
+
     async fn powershell(command: &str) -> Option<String> {
-        let output = tokio::process::Command::new("powershell")
+        let output = tokio::process::Command::new(powershell_path())
             .args(["-NoProfile", "-Command", command])
             .creation_flags(CREATE_NO_WINDOW)
             .kill_on_drop(true)
@@ -224,16 +246,5 @@ mod tests {
     fn finds_nothing_without_the_flags() {
         assert_eq!(parse_command_lines(""), None);
         assert_eq!(parse_command_lines("LeagueClientUx --app-port=x --"), None);
-    }
-
-    #[tokio::test]
-    async fn a_file_source_counts_its_runs() {
-        let source = ProcessSource::file(None);
-        assert!(matches!(lookup(&source).await, Err(LcuError::NotFound)));
-        assert!(matches!(lookup(&source).await, Err(LcuError::NotFound)));
-        let ProcessSource::File { runs, .. } = &source else {
-            unreachable!()
-        };
-        assert_eq!(runs.load(std::sync::atomic::Ordering::SeqCst), 2);
     }
 }

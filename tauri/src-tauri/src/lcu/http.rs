@@ -31,7 +31,7 @@ impl Session {
     ) -> Result<Self, LcuError> {
         let tls_error = |err: rustls::Error| LcuError::Other(err.to_string());
         let http = reqwest::Client::builder()
-            .use_preconfigured_tls(
+            .tls_backend_preconfigured(
                 tls::config_with_anchors(anchors, Alpn::Http1).map_err(tls_error)?,
             )
             .http1_only()

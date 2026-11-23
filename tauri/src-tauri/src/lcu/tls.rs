@@ -55,8 +55,11 @@ pub fn riot_root() -> CertificateDer<'static> {
         .expect("RIOT_ROOT_CA is one PEM certificate")
 }
 
-/// Passed explicitly everywhere, and never installed as the process default, so
-/// a stray `ClientConfig::builder()` panics instead of quietly trusting other roots.
+/// Passed explicitly, so these configs use ring whatever provider another crate
+/// installs as the process default. This does not stop a stray
+/// `ClientConfig::builder()`: with only ring compiled in, rustls installs it as
+/// the default on first use. What keeps other roots out is that every verifier
+/// here is built from an explicit store, and an empty one is an error.
 fn provider() -> Arc<CryptoProvider> {
     Arc::new(ring::default_provider())
 }
@@ -163,9 +166,11 @@ mod tests {
             let impostor = TestCa::new(riot_subject());
             subject_der(&impostor.cert())
         });
+        assert_eq!(lcu_anchors()[0], root);
+        #[cfg(not(feature = "parity-ca"))]
         assert_eq!(
-            lcu_anchors().len(),
-            1,
+            lcu_anchors(),
+            [root],
             "only Riot's root without a parity CA"
         );
     }
