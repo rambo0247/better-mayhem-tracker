@@ -75,8 +75,10 @@ fn gunzip(blob: &[u8]) -> Option<Vec<u8>> {
 pub struct RawParticipantRow {
     pub participant_id: f64,
     pub puuid: Option<String>,
-    pub game_name: Option<String>,
-    pub tag_line: Option<String>,
+    /// A name as better-sqlite3 binds it: text, or a number as a double,
+    /// which the TEXT column stores as its REAL text.
+    pub game_name: Sql,
+    pub tag_line: Sql,
     pub profile_icon: Option<f64>,
     pub team_id: f64,
     pub champion_id: f64,
@@ -154,7 +156,9 @@ pub fn participant_rows_from_raw(raw: Option<&Value>) -> Result<Vec<RawParticipa
                 }
             }
             let icon = js::number(get(player, "profileIcon")?).filter(|n| *n > 0.0);
-            let text = |v: Option<&Value>| js::string(v).map(str::to_owned);
+            // A name that is neither a string nor a number throws at the
+            // bind in Electron; here it stores NULL (waiver W3)
+            let name = |v: Option<&Value>| js::bind(v).unwrap_or(Sql::Null);
             let mut items = [None; 7];
             for (n, item) in items.iter_mut().enumerate() {
                 *item = js::number(get(s, &format!("item{n}"))?);
@@ -164,14 +168,14 @@ pub fn participant_rows_from_raw(raw: Option<&Value>) -> Result<Vec<RawParticipa
                 participant_id: js::number(js::nullish(&[get(p, "participantId")?]))
                     .unwrap_or((i + 1) as f64),
                 puuid: real_puuid(get(p, "puuid")?).or(real_puuid(get(player, "puuid")?)),
-                game_name: text(js::or(&[
+                game_name: name(js::or(&[
                     get(player, "gameName")?,
                     get(player, "summonerName")?,
                     get(p, "summonerName")?,
                     get(p, "riotIdGameName")?,
                     Some(&Value::Null),
                 ])),
-                tag_line: text(js::or(&[
+                tag_line: name(js::or(&[
                     get(player, "tagLine")?,
                     get(p, "riotIdTagline")?,
                     Some(&Value::Null),
@@ -462,7 +466,7 @@ mod tests {
         });
         let a = participant_rows_from_raw(Some(&lcu)).unwrap();
         let b = participant_rows_from_raw(Some(&sgp)).unwrap();
-        assert_eq!(a[0].game_name.as_deref(), Some("Old"));
+        assert_eq!(a[0].game_name, Sql::Text("Old".into()));
         assert_eq!(
             a[0].augments,
             vec![Augment {
@@ -495,8 +499,8 @@ mod tests {
         for raw in [sgp, lcu] {
             let row = &participant_rows_from_raw(Some(&raw)).unwrap()[0];
             assert_eq!(
-                (row.game_name.as_deref(), row.tag_line.as_deref()),
-                (None, None),
+                (&row.game_name, &row.tag_line),
+                (&Sql::Null, &Sql::Null),
                 "{raw}"
             );
         }
