@@ -5,6 +5,7 @@
 
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use rusqlite::Connection;
 
@@ -29,8 +30,15 @@ pub const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 pub const STARTUP_APPROVED_KEY: &str =
     r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
 
-/// Where login items are written.
+/// One login item write: registered at `target`, or removed.
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoginItemWrite {
+    pub enabled: bool,
+    pub target: String,
+}
+
+/// Where login items are written.
+#[derive(Debug)]
 pub enum LoginItems {
     /// The signed-in user's: `~/Library/LaunchAgents` under `HOME`, which is
     /// where Node's `os.homedir()` looks first, and HKCU's Run key.
@@ -42,53 +50,91 @@ pub enum LoginItems {
         run_key: String,
         approved_key: String,
     },
+    /// A list golden replay compares against Electron's, on any OS.
+    Recorded(Mutex<Vec<LoginItemWrite>>),
 }
 
 impl LoginItems {
-    pub fn launch_agent_path(&self) -> io::Result<PathBuf> {
-        let dir = match self {
-            LoginItems::System => dirs::home_dir()
-                .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))?
-                .join("Library")
-                .join("LaunchAgents"),
-            LoginItems::At { launch_agents, .. } => launch_agents.clone(),
-        };
-        Ok(dir.join(format!("{LAUNCH_AGENT_LABEL}.plist")))
+    pub fn recorded() -> Self {
+        LoginItems::Recorded(Mutex::new(Vec::new()))
     }
 
-    pub fn run_keys(&self) -> (&str, &str) {
+    /// What was recorded since the last call. Always empty for the others.
+    pub fn take(&self) -> Vec<LoginItemWrite> {
         match self {
-            LoginItems::System => (RUN_KEY, STARTUP_APPROVED_KEY),
-            LoginItems::At {
-                run_key,
-                approved_key,
-                ..
-            } => (run_key, approved_key),
+            LoginItems::Recorded(list) => {
+                std::mem::take(&mut *list.lock().unwrap_or_else(|p| p.into_inner()))
+            }
+            _ => Vec::new(),
         }
     }
 
     /// `writeLoginItem`.
     pub fn write(&self, enabled: bool, target: &str) -> io::Result<()> {
-        if cfg!(target_os = "macos") {
-            let file = self.launch_agent_path()?;
-            if !enabled {
-                return match std::fs::remove_file(&file) {
-                    Err(err) if err.kind() != io::ErrorKind::NotFound => Err(err),
-                    _ => Ok(()),
-                };
+        match self {
+            LoginItems::System => write_os(
+                || {
+                    dirs::home_dir()
+                        .map(|home| home.join("Library").join("LaunchAgents"))
+                        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))
+                },
+                RUN_KEY,
+                STARTUP_APPROVED_KEY,
+                enabled,
+                target,
+            ),
+            LoginItems::At {
+                launch_agents,
+                run_key,
+                approved_key,
+            } => write_os(
+                || Ok(launch_agents.clone()),
+                run_key,
+                approved_key,
+                enabled,
+                target,
+            ),
+            LoginItems::Recorded(list) => {
+                list.lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .push(LoginItemWrite {
+                        enabled,
+                        target: target.to_owned(),
+                    });
+                Ok(())
             }
-            if let Some(dir) = file.parent() {
-                std::fs::create_dir_all(dir)?;
-            }
-            return std::fs::write(file, launch_agent_plist(target));
         }
-        #[cfg(windows)]
-        {
-            let (run_key, approved_key) = self.run_keys();
-            run_value::write(run_key, approved_key, enabled, &run_value_data(target));
-        }
-        Ok(())
     }
+}
+
+pub fn launch_agent_file(launch_agents: &Path) -> PathBuf {
+    launch_agents.join(format!("{LAUNCH_AGENT_LABEL}.plist"))
+}
+
+fn write_os(
+    launch_agents: impl FnOnce() -> io::Result<PathBuf>,
+    run_key: &str,
+    approved_key: &str,
+    enabled: bool,
+    target: &str,
+) -> io::Result<()> {
+    if cfg!(target_os = "macos") {
+        let dir = launch_agents()?;
+        let file = launch_agent_file(&dir);
+        if !enabled {
+            return match std::fs::remove_file(&file) {
+                Err(err) if err.kind() != io::ErrorKind::NotFound => Err(err),
+                _ => Ok(()),
+            };
+        }
+        std::fs::create_dir_all(&dir)?;
+        return std::fs::write(file, launch_agent_plist(target));
+    }
+    #[cfg(windows)]
+    run_value::write(run_key, approved_key, enabled, &run_value_data(target));
+    #[cfg(not(windows))]
+    let _ = (run_key, approved_key);
+    Ok(())
 }
 
 /// `xmlEscape`: quotes are left alone, as Electron leaves them.
@@ -286,6 +332,35 @@ mod run_value {
         }
     }
 
+    /// The Run value `name` under `run_key`, for tests.
+    #[cfg(test)]
+    pub fn read(run_key: &str, name: &str) -> Option<String> {
+        use windows::Win32::System::Registry::{RRF_RT_REG_SZ, RegGetValueW};
+        let mut data = [0u16; 2048];
+        let mut size = std::mem::size_of_val(&data) as u32;
+        // SAFETY: `size` is the buffer's length in bytes
+        let status = unsafe {
+            RegGetValueW(
+                HKEY_CURRENT_USER,
+                &HSTRING::from(run_key),
+                &HSTRING::from(name),
+                RRF_RT_REG_SZ,
+                None,
+                Some(data.as_mut_ptr().cast()),
+                Some(&mut size),
+            )
+        };
+        let len = (size as usize / 2).saturating_sub(1);
+        (status == ERROR_SUCCESS).then(|| String::from_utf16_lossy(&data[..len]))
+    }
+
+    #[cfg(test)]
+    pub fn remove_tree(path: &str) {
+        use windows::Win32::System::Registry::RegDeleteTreeW;
+        // SAFETY: the string outlives the call
+        let _ = unsafe { RegDeleteTreeW(HKEY_CURRENT_USER, &HSTRING::from(path)) };
+    }
+
     /// `Browser::SetLoginItemSettings` with `enabled` left true. It reports
     /// nothing, so a failed write here fails nothing either.
     pub fn write(run_key: &str, approved_key: &str, enabled: bool, data: &str) {
@@ -312,7 +387,140 @@ mod run_value {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::Value;
+
     use super::*;
+
+    const BUNDLE_EXE: &str = "Contents/MacOS/Better Mayhem Tracker";
+
+    fn golden(platform: &str) -> Vec<Value> {
+        let golden: Value =
+            serde_json::from_str(include_str!("../tests/fixtures/electron-autostart.json"))
+                .expect("the golden is JSON");
+        golden[platform].as_array().expect("steps").clone()
+    }
+
+    fn database() -> Connection {
+        let conn = Connection::open_in_memory().expect("an in-memory database");
+        crate::db::schema::init_database(&conn, 0).expect("the schema");
+        conn
+    }
+
+    /// Runs one recorded step through the port and checks `auto_start_path`
+    /// ends where Electron's did.
+    fn replay(conn: &Connection, items: &LoginItems, platform: &str, step: &Value) {
+        let name = step["name"].as_str().expect("a name");
+        let target = step["install"].as_str().map(|install| match platform {
+            "darwin" => PathBuf::from(format!("{install}/{BUNDLE_EXE}")),
+            _ => PathBuf::from(install),
+        });
+        match step["call"].as_str() {
+            Some("sync") => sync(conn, items, target.as_deref()),
+            Some("apply") => {
+                let enabled = step["enabled"].as_bool().expect("enabled");
+                settings::set_setting(conn, "auto_start", &enabled.to_string())
+                    .and_then(|()| apply(conn, items, target.as_deref(), enabled))
+            }
+            other => panic!("{name}: unknown call {other:?}"),
+        }
+        .expect(name);
+        assert_eq!(
+            settings::get_setting(conn, AUTO_START_PATH_SETTING).expect("read"),
+            step["autoStartPath"].as_str().map(str::to_owned),
+            "{name}: auto_start_path"
+        );
+    }
+
+    #[test]
+    fn the_launch_agent_matches_electron_byte_for_byte() {
+        let conn = database();
+        let items = LoginItems::recorded();
+        let mut plist: Option<String> = None;
+        for step in golden("darwin") {
+            replay(&conn, &items, "darwin", &step);
+            for write in items.take() {
+                plist = write.enabled.then(|| launch_agent_plist(&write.target));
+            }
+            assert_eq!(plist.as_deref(), step["plist"].as_str(), "{}", step["name"]);
+        }
+    }
+
+    #[test]
+    fn the_run_value_matches_electron() {
+        let conn = database();
+        let items = LoginItems::recorded();
+        for step in golden("win32") {
+            replay(&conn, &items, "win32", &step);
+            let calls = step["setLoginItemSettings"].as_array().expect("calls");
+            let expected: Vec<LoginItemWrite> = calls
+                .iter()
+                .map(|call| {
+                    assert_eq!(call["name"], RUN_VALUE_NAME);
+                    assert_eq!(call["args"], serde_json::json!([HIDDEN_FLAG]));
+                    LoginItemWrite {
+                        enabled: call["openAtLogin"].as_bool().expect("openAtLogin"),
+                        target: call["path"].as_str().expect("path").to_owned(),
+                    }
+                })
+                .collect();
+            let writes = items.take();
+            assert_eq!(writes, expected, "{}", step["name"]);
+            for write in writes {
+                // AddQuoteForArg quotes a path with a backslash and leaves --hidden bare
+                assert_eq!(
+                    run_value_data(&write.target),
+                    format!("\"{}\" --hidden", write.target)
+                );
+            }
+        }
+    }
+
+    /// The same steps against a real LaunchAgents folder, a scratch one.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_launch_agent_file_follows_electron_in_a_scratch_folder() {
+        let dir = std::env::temp_dir().join(format!("bmt-launch-agents-{}", std::process::id()));
+        let items = LoginItems::At {
+            launch_agents: dir.clone(),
+            run_key: String::new(),
+            approved_key: String::new(),
+        };
+        let conn = database();
+        for step in golden("darwin") {
+            replay(&conn, &items, "darwin", &step);
+            let file = std::fs::read_to_string(launch_agent_file(&dir)).ok();
+            assert_eq!(file.as_deref(), step["plist"].as_str(), "{}", step["name"]);
+        }
+        std::fs::remove_dir_all(&dir).expect("remove the scratch folder");
+    }
+
+    /// The same steps against scratch HKCU subkeys.
+    #[cfg(windows)]
+    #[test]
+    fn the_run_value_follows_electron_in_scratch_keys() {
+        let root = format!(r"Software\bmt-autostart-test-{}", std::process::id());
+        let items = LoginItems::At {
+            launch_agents: PathBuf::new(),
+            run_key: format!(r"{root}\Run"),
+            approved_key: format!(r"{root}\StartupApproved\Run"),
+        };
+        let conn = database();
+        let mut expected: Option<String> = None;
+        for step in golden("win32") {
+            replay(&conn, &items, "win32", &step);
+            for call in step["setLoginItemSettings"].as_array().expect("calls") {
+                expected = (call["openAtLogin"] == true)
+                    .then(|| run_value_data(call["path"].as_str().expect("path")));
+            }
+            assert_eq!(
+                run_value::read(&format!(r"{root}\Run"), RUN_VALUE_NAME),
+                expected,
+                "{}",
+                step["name"]
+            );
+        }
+        run_value::remove_tree(&root);
+    }
 
     #[test]
     fn quoting_follows_command_line_to_argv() {

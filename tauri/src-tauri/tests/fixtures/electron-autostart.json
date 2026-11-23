@@ -1,0 +1,172 @@
+{
+  "about": "Electron 1.2.1's src/main/autostart.ts run by parity/autostart-golden.ts, HOME in a scratch folder",
+  "darwin": [
+    {
+      "name": "launch, never asked",
+      "call": "sync",
+      "install": "/Applications/Better Mayhem Tracker.app",
+      "supported": true,
+      "autoStart": null,
+      "autoStartPath": null,
+      "plist": null
+    },
+    {
+      "name": "turn on",
+      "call": "apply",
+      "enabled": true,
+      "install": "/Applications/Better Mayhem Tracker.app",
+      "supported": true,
+      "autoStart": "true",
+      "autoStartPath": "/Applications/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker",
+      "plist": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>Label</key>\n  <string>com.better-mayhem-tracker.app.autostart</string>\n  <key>ProgramArguments</key>\n  <array>\n    <string>/Applications/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker</string>\n    <string>--hidden</string>\n  </array>\n  <key>RunAtLoad</key>\n  <true/>\n</dict>\n</plist>\n"
+    },
+    {
+      "name": "turn on again",
+      "call": "apply",
+      "enabled": true,
+      "install": "/Applications/Better Mayhem Tracker.app",
+      "supported": true,
+      "autoStart": "true",
+      "autoStartPath": "/Applications/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker",
+      "plist": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>Label</key>\n  <string>com.better-mayhem-tracker.app.autostart</string>\n  <key>ProgramArguments</key>\n  <array>\n    <string>/Applications/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker</string>\n    <string>--hidden</string>\n  </array>\n  <key>RunAtLoad</key>\n  <true/>\n</dict>\n</plist>\n"
+    },
+    {
+      "name": "launch, unchanged",
+      "call": "sync",
+      "install": "/Applications/Better Mayhem Tracker.app",
+      "supported": true,
+      "autoStart": "true",
+      "autoStartPath": "/Applications/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker",
+      "plist": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>Label</key>\n  <string>com.better-mayhem-tracker.app.autostart</string>\n  <key>ProgramArguments</key>\n  <array>\n    <string>/Applications/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker</string>\n    <string>--hidden</string>\n  </array>\n  <key>RunAtLoad</key>\n  <true/>\n</dict>\n</plist>\n"
+    },
+    {
+      "name": "launch after a move",
+      "call": "sync",
+      "install": "/Users/player/Games & <Tools>/Better Mayhem Tracker.app",
+      "supported": true,
+      "autoStart": "true",
+      "autoStartPath": "/Users/player/Games & <Tools>/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker",
+      "plist": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>Label</key>\n  <string>com.better-mayhem-tracker.app.autostart</string>\n  <key>ProgramArguments</key>\n  <array>\n    <string>/Users/player/Games &amp; &lt;Tools&gt;/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker</string>\n    <string>--hidden</string>\n  </array>\n  <key>RunAtLoad</key>\n  <true/>\n</dict>\n</plist>\n"
+    },
+    {
+      "name": "turn on in a dev run",
+      "call": "apply",
+      "enabled": true,
+      "install": null,
+      "supported": false,
+      "autoStart": "true",
+      "autoStartPath": "/Users/player/Games & <Tools>/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker",
+      "plist": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>Label</key>\n  <string>com.better-mayhem-tracker.app.autostart</string>\n  <key>ProgramArguments</key>\n  <array>\n    <string>/Users/player/Games &amp; &lt;Tools&gt;/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker</string>\n    <string>--hidden</string>\n  </array>\n  <key>RunAtLoad</key>\n  <true/>\n</dict>\n</plist>\n"
+    },
+    {
+      "name": "turn off",
+      "call": "apply",
+      "enabled": false,
+      "install": "/Users/player/Games & <Tools>/Better Mayhem Tracker.app",
+      "supported": true,
+      "autoStart": "false",
+      "autoStartPath": "",
+      "plist": null
+    },
+    {
+      "name": "turn off again",
+      "call": "apply",
+      "enabled": false,
+      "install": "/Users/player/Games & <Tools>/Better Mayhem Tracker.app",
+      "supported": true,
+      "autoStart": "false",
+      "autoStartPath": "",
+      "plist": null
+    },
+    {
+      "name": "launch, off",
+      "call": "sync",
+      "install": "/Applications/Better Mayhem Tracker.app",
+      "supported": true,
+      "autoStart": "false",
+      "autoStartPath": "",
+      "plist": null
+    }
+  ],
+  "win32": [
+    {
+      "name": "launch, never asked",
+      "call": "sync",
+      "install": "C:\\Users\\player\\Downloads\\BetterMayhemTracker.exe",
+      "supported": true,
+      "autoStart": null,
+      "autoStartPath": null,
+      "setLoginItemSettings": []
+    },
+    {
+      "name": "turn on",
+      "call": "apply",
+      "enabled": true,
+      "install": "C:\\Users\\player\\Downloads\\BetterMayhemTracker.exe",
+      "supported": true,
+      "autoStart": "true",
+      "autoStartPath": "C:\\Users\\player\\Downloads\\BetterMayhemTracker.exe",
+      "setLoginItemSettings": [
+        {
+          "openAtLogin": true,
+          "path": "C:\\Users\\player\\Downloads\\BetterMayhemTracker.exe",
+          "args": ["--hidden"],
+          "name": "better-mayhem-tracker"
+        }
+      ]
+    },
+    {
+      "name": "turn on again",
+      "call": "apply",
+      "enabled": true,
+      "install": "C:\\Users\\player\\Downloads\\BetterMayhemTracker.exe",
+      "supported": true,
+      "autoStart": "true",
+      "autoStartPath": "C:\\Users\\player\\Downloads\\BetterMayhemTracker.exe",
+      "setLoginItemSettings": []
+    },
+    {
+      "name": "launch after a move",
+      "call": "sync",
+      "install": "D:\\Games & Tools\\BetterMayhemTracker.exe",
+      "supported": true,
+      "autoStart": "true",
+      "autoStartPath": "D:\\Games & Tools\\BetterMayhemTracker.exe",
+      "setLoginItemSettings": [
+        {
+          "openAtLogin": true,
+          "path": "D:\\Games & Tools\\BetterMayhemTracker.exe",
+          "args": ["--hidden"],
+          "name": "better-mayhem-tracker"
+        }
+      ]
+    },
+    {
+      "name": "turn off",
+      "call": "apply",
+      "enabled": false,
+      "install": "D:\\Games & Tools\\BetterMayhemTracker.exe",
+      "supported": true,
+      "autoStart": "false",
+      "autoStartPath": "",
+      "setLoginItemSettings": [
+        {
+          "openAtLogin": false,
+          "path": "D:\\Games & Tools\\BetterMayhemTracker.exe",
+          "args": ["--hidden"],
+          "name": "better-mayhem-tracker"
+        }
+      ]
+    },
+    {
+      "name": "turn off again",
+      "call": "apply",
+      "enabled": false,
+      "install": "D:\\Games & Tools\\BetterMayhemTracker.exe",
+      "supported": true,
+      "autoStart": "false",
+      "autoStartPath": "",
+      "setLoginItemSettings": []
+    }
+  ]
+}
