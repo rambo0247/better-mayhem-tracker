@@ -5,7 +5,7 @@ type Update = [Record<string, string | undefined>, { replace?: boolean } | undef
 let params: Record<string, string> = {};
 let updates: Update[] = [];
 
-mock.module("@solidjs/router", () => ({
+void mock.module("@solidjs/router", () => ({
   useSearchParams: () => [
     params,
     (next: Record<string, string | undefined>, options?: { replace?: boolean }) => {
