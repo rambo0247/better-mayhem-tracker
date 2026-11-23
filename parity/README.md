@@ -63,11 +63,11 @@ Client states live in `states-client.ts`. Rows with `empty` run on a copy of the
 ## Policies (Appendix A)
 
 - Same engine: pixelmatch `threshold` 0.03, `includeAA` on, zero differing pixels.
-- Cross engine: the layout gate (same element count, every box within 1 CSS px), then pixelmatch `threshold` 0.1, `includeAA` off, at most 0.3% of the page, and no 64 by 64 CSS px tile above 8%. A declared blur region is judged by the tile rule at threshold 0.2 and left out of the page count.
+- Cross engine: the layout gate (same element count, every box within 1 CSS px), then pixelmatch `threshold` 0.1, `includeAA` off, at most 0.3% of the page, and no 64 by 64 CSS px tile above 8%. A declared blur region is judged by the tile rule at threshold 0.2 and left out of the page count. The tile rule leaves out a scaled image's box under register rule E.
 
 ## Engine-difference register
 
-Differences between Chromium and WebKit that the cross-engine layout gate leaves out. Each is invisible on the page, the root approved it, and `test/register.test.ts` holds negative controls showing that a real shift of the same boxes still fails.
+Differences between Chromium and WebKit that the cross-engine layout gate or tile rule leaves out. Each is invisible on the page, the root approved it, and `test/register.test.ts` holds negative controls showing that a real shift or change of the same boxes still fails.
 
 ### A. SVG paint-server content
 
@@ -82,6 +82,13 @@ Differences between Chromium and WebKit that the cross-engine layout gate leaves
 - Measured: Chromium's box is 187, 192.75, 124.44 by 26.5, covering the text and the ellipsis. WebKit's is 187, 192.8, 119.48 by 26.4, the width of the text run (a `Range` over it measures 119.48 in both engines). The `.truncate` container is 126.6 wide in Chromium and 126.59 in WebKit.
 - Rule: `geometry.js` marks a row `"ellipsis"` when an ancestor has `text-overflow: ellipsis`, an `overflow-x` other than `visible`, and `scrollWidth > clientWidth`. When both engines mark a row, the gate compares its x, y and height and not its width, and counts it in `widthExempt`. The container itself is compared in full.
 - Controls: the `bdi` moved 2 px in x, in y, or grown 2 px in height each fail. The container 2 px narrower fails. A row that only one engine marks is compared on width.
+
+### E. Scaled images each engine resamples on its own pixel grid
+
+- Where: `season-recap-default`, the 300 by 300 px profile `img`, drawn 92.02 CSS px square at 316.54, 221.23 inside the card's CSS `zoom` of 0.8217.
+- Measured: Chromium lays out in 1/64 device px and WebKit in 1/64 CSS px. The image's border box ends on device row 626 in Chromium and 625 in WebKit, so each resamples the image into 177 rows against 176. The boxes agree within 0.02 CSS px, yet the 64 px tile over the image differs by 12.01%. Growing the Tauri image by 0.05 px, so both end on the same row, drops that tile to 0.36%.
+- Rule: `geometry.js` adds `{ image: [naturalWidth, naturalHeight] }` to the row of a decoded `img`, and not to an element marked `data-parity-skip`. The tile rule leaves out the pixels inside an image's box when both engines give it the same natural size, its x, y, width and height agree within 1 device px, it is drawn at other than one device px per natural px, and its two crops agree up to a 1 device px displacement: each channel of each pixel lies within 8 levels of the range the other crop holds within 1 device px of it, both ways, and no 64 px window has more than 8% of its pixels outside that. The page budget still counts those pixels, and pixels outside the box still count in the tile rule. No raster background image appears in the app, so background images are not covered.
+- Controls: a different image in the box, the same image moved 2 px, and changed text beside the image inside a tile the rule exempts each fail the tile rule. On the captured page the profile image measures 0.68% on the displacement check and 99.79% with another image pasted into its box. The tile drops from 12.01% to 3.33%, and the page stays at 0.3879%.
 
 ### Port elements marked `data-parity-skip`
 

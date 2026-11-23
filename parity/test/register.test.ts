@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { compareLayout, CROSS_ENGINE, type GeometryRow } from "../diff.ts";
+import { PNG } from "pngjs";
+import { compareLayout, CROSS_ENGINE, diffPngs, type GeometryRow } from "../diff.ts";
 
 const tolerance = CROSS_ENGINE.layoutToleranceCss;
 
@@ -11,6 +12,8 @@ type Style = { textOverflow: string; overflowX: string };
 class FakeElement {
   scrollWidth = 0;
   clientWidth = 0;
+  naturalWidth = 0;
+  naturalHeight = 0;
   style: Style = { textOverflow: "clip", overflowX: "visible" };
   attributes = new Set<string>();
   constructor(
@@ -258,6 +261,151 @@ describe("elements the port marks data-parity-skip", () => {
     moved.children[0]!.children[0]!.box[0] += 2;
     const result = compareLayout(geometryOf(electron()), geometryOf(moved), tolerance);
     expect(result.beyond).toBe(1);
+    expect(result.pass).toBe(false);
+  });
+});
+
+describe("rule E: images both engines draw scaled at the same box", () => {
+  // season-recap-default: a 300 px portrait drawn 92.02 CSS px wide under CSS zoom. Chromium
+  // ends its box on device row 626 and WebKit on 625, so each resamples it into its own rows.
+  const width = 2560;
+  const height = 1600;
+  const image = { x: 200, y: 150, size: 92 };
+  const text = { x: 294, y: 200, w: 60, h: 20 };
+
+  const paint = (png: PNG, x: number, y: number, rgb: number[]) => {
+    const i = (y * width + x) * 4;
+    png.data.set([...rgb, 255], i);
+  };
+  // Hard edges, so one row of resampling phase moves them: the case the tile rule trips on
+  const portrait = (u: number, v: number, seed: number) => [
+    Math.sin(u / 3 + seed) * Math.cos(v / 3.9) > 0 ? 220 : 40,
+    Math.sin((u + v) / 5.1 + seed) > 0 ? 200 : 60,
+    Math.cos(u / 2.7 - v / 6.3 + seed) > 0 ? 180 : 50,
+  ];
+  /** The page with the portrait resampled into `rows` device rows, as an engine draws it. */
+  const page = (rows: number, opts: { seed?: number; dx?: number; strokes?: "v" | "h" } = {}) => {
+    const png = new PNG({ width, height });
+    for (let i = 0; i < width * height; i++) png.data.set([24, 26, 32, 255], i * 4);
+    const cols = image.size * 2;
+    const [x0, y0] = [image.x * 2 + (opts.dx ?? 0), image.y * 2];
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const sum = [0, 0, 0];
+        for (let j = 0; j < 4; j++) {
+          for (let i = 0; i < 4; i++) {
+            const c = portrait(
+              ((x + (i + 0.5) / 4) * 300) / cols,
+              ((y + (j + 0.5) / 4) * 300) / rows,
+              opts.seed ?? 0,
+            );
+            for (let k = 0; k < 3; k++) sum[k]! += c[k]! / 16;
+          }
+        }
+        paint(png, x0 + x, y0 + y, sum.map(Math.round));
+      }
+    }
+    for (let y = text.y * 2; y < (text.y + text.h) * 2; y++) {
+      for (let x = text.x * 2; x < (text.x + text.w) * 2; x++) {
+        const stroke = (opts.strokes ?? "v") === "v" ? x % 4 < 2 : y % 4 < 2;
+        if (stroke) paint(png, x, y, [230, 230, 230]);
+      }
+    }
+    return png;
+  };
+  const rows = (imageHeight: number, opts: { dx?: number; marked?: boolean } = {}) =>
+    [
+      ["b", "BODY", 0, 0, width / 2, height / 2],
+      [
+        "b/0",
+        "IMG",
+        image.x + (opts.dx ?? 0),
+        image.y,
+        image.size,
+        imageHeight,
+        ...(opts.marked === false ? [] : [{ image: [300, 300] as [number, number] }]),
+      ],
+      ["b/1", "SPAN", text.x, text.y, text.w, text.h],
+    ] as GeometryRow[];
+  const chromium = () => page(184);
+  const diff = (b: PNG, geometryB: GeometryRow[], geometryA = rows(92)) =>
+    diffPngs(chromium(), b, { policy: "cross-engine", geometryA, geometryB });
+  const tileFails = (result: ReturnType<typeof diff>) =>
+    result.reasons.some((reason) => reason.startsWith("tile rule"));
+
+  test("geometry.js gives a decoded img its natural size and an undecoded one none", () => {
+    const decoded = new FakeElement("IMG", [200, 150, 92.02, 92.02]);
+    decoded.naturalWidth = 300;
+    decoded.naturalHeight = 300;
+    const pending = new FakeElement("IMG", [300, 150, 92.02, 92.02]);
+    const rows = geometryOf(new FakeElement("BODY", [0, 0, 1280, 820], [decoded, pending]));
+    expect(rows.map((row) => row.slice(6))).toEqual([[], [{ image: [300, 300] }], []]);
+  });
+
+  test("a wrapper marked data-parity-skip does not take its img's natural size", () => {
+    const img = new FakeElement("IMG", [285.64, 69.64, 122.72, 122.72]);
+    img.naturalWidth = 300;
+    img.naturalHeight = 300;
+    const span = new FakeElement("SPAN", [291, 75, 112, 112], [img]);
+    span.attributes.add("data-parity-skip");
+    const rows = geometryOf(new FakeElement("BODY", [0, 0, 1280, 820], [span]));
+    expect(rows[1]?.slice(1, 2)).toEqual(["IMG"]);
+    expect(rows[1]?.slice(6)).toEqual([]);
+  });
+
+  test("the portrait resampled one row apart fails the tile rule without the rule", () => {
+    const result = diff(page(185), rows(92.5, { marked: false }), rows(92, { marked: false }));
+    expect(result.layout?.pass).toBe(true);
+    expect(result.worstTile!.pct).toBeGreaterThan(CROSS_ENGINE.tileBudget * 100);
+    expect(tileFails(result)).toBe(true);
+  });
+
+  test("with the rule the tile passes and the page still counts the portrait's pixels", () => {
+    const without = diff(page(185), rows(92.5, { marked: false }), rows(92, { marked: false }));
+    const result = diff(page(185), rows(92.5));
+    expect(result.scaledImages).toEqual([expect.objectContaining({ path: "b/0", exempt: true })]);
+    expect(tileFails(result)).toBe(false);
+    expect(result.differing).toBe(without.differing);
+    expect(result.differing).toBeGreaterThan(0);
+    expect(result.pass).toBe(true);
+  });
+
+  test("an image drawn one device px per natural px is not scaled, so not exempt", () => {
+    const natural = rows(92.5).map((row) =>
+      row[0] === "b/0" ? ([...row.slice(0, 6), { image: [184, 185] }] as GeometryRow) : row,
+    );
+    const result = diff(page(185), natural, natural);
+    expect(result.scaledImages).toEqual([]);
+    expect(tileFails(result)).toBe(true);
+  });
+
+  test("an image outside the snapshot is skipped", () => {
+    const below = rows(92.5).map((row) =>
+      row[0] === "b/0" ? ([row[0], row[1], row[2], height, ...row.slice(4)] as GeometryRow) : row,
+    );
+    const result = diff(page(184), below, below);
+    expect(result.scaledImages).toEqual([]);
+    expect(result.pass).toBe(true);
+  });
+
+  test("negative control: a different image in that box fails the tile rule", () => {
+    const result = diff(page(185, { seed: 1.7 }), rows(92.5));
+    expect(result.scaledImages).toEqual([expect.objectContaining({ path: "b/0", exempt: false })]);
+    expect(tileFails(result)).toBe(true);
+    expect(result.pass).toBe(false);
+  });
+
+  test("negative control: the same image moved 2 px fails the tile rule", () => {
+    const result = diff(page(185, { dx: 4 }), rows(92.5, { dx: 2 }));
+    expect(result.scaledImages).toEqual([]);
+    expect(tileFails(result)).toBe(true);
+    expect(result.pass).toBe(false);
+  });
+
+  test("negative control: changed text beside the image, inside an exempted tile, fails", () => {
+    const result = diff(page(185, { strokes: "h" }), rows(92.5));
+    expect(result.scaledImages).toEqual([expect.objectContaining({ path: "b/0", exempt: true })]);
+    expect(tileFails(result)).toBe(true);
     expect(result.pass).toBe(false);
   });
 });

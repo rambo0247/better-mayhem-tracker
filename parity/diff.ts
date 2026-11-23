@@ -6,8 +6,12 @@ import { refuseRealFolder } from "./lib/real-folder.ts";
 
 export type Policy = "same-engine" | "cross-engine";
 type Box = [path: string, tag: string, x: number, y: number, w: number, h: number];
-/** `geometry.js` marks a row "ellipsis" when an ancestor truncates its overflowing text. */
-export type GeometryRow = Box | [...Box, inside: "ellipsis"];
+/**
+ * What `geometry.js` adds after a box: "ellipsis" when an ancestor truncates its overflowing
+ * text, and an `img`'s natural size once it has decoded.
+ */
+export type Mark = "ellipsis" | { image: [naturalWidth: number, naturalHeight: number] };
+export type GeometryRow = [...Box, ...Mark[]];
 export interface Region {
   x: number;
   y: number;
@@ -24,6 +28,9 @@ export const CROSS_ENGINE = {
   tileBudget: 0.08,
   blurThreshold: 0.2,
   layoutToleranceCss: 1,
+  /** Rule E: how far, in device px, and by how many levels a scaled image's pixel may move. */
+  imageReachDevicePx: 1,
+  imageToleranceLevels: 8,
 };
 
 export interface LayoutResult {
@@ -49,6 +56,8 @@ export interface DiffResult {
   differingPct: number;
   worstTile?: { differing: number; pct: number };
   blurRegions: { region: Region; worstTilePct: number; pass: boolean }[];
+  /** Register rule E: scaled images whose box the tile rule leaves out when their crops agree. */
+  scaledImages: { path: string; region: Region; displacedTilePct: number; exempt: boolean }[];
   layout?: LayoutResult;
   diffImage?: PNG;
 }
@@ -108,6 +117,87 @@ export function compareLayout(
   return result;
 }
 
+/**
+ * Images drawn at a size other than their natural one, at the same box in both engines within
+ * one device pixel: each engine resamples them on its own pixel grid (register rule E).
+ */
+export function scaledImages(
+  a: GeometryRow[],
+  b: GeometryRow[],
+  scale: number,
+): { path: string; region: Region }[] {
+  const natural = (row: GeometryRow) =>
+    row.slice(6).find((mark): mark is Exclude<Mark, string> => typeof mark === "object")?.image;
+  const found: { path: string; region: Region }[] = [];
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    const rowA = a[i]!;
+    const rowB = b[i]!;
+    const [na, nb] = [natural(rowA), natural(rowB)];
+    if (rowA[0] !== rowB[0] || !na || !nb || na[0] !== nb[0] || na[1] !== nb[1]) continue;
+    if (([2, 3, 4, 5] as const).some((k) => Math.abs(rowA[k] - rowB[k]) * scale > 1)) continue;
+    const [, , x, y, w, h] = rowA;
+    if (Math.abs(w * scale - na[0]) < 0.5 && Math.abs(h * scale - na[1]) < 0.5) continue;
+    found.push({ path: rowA[0], region: { x, y, w, h } });
+  }
+  return found;
+}
+
+/**
+ * Pixels of one crop that no pixel of the other comes near: every channel must fall within the
+ * other crop's range over the neighbours `reach` device px away, give or take `tolerance` levels.
+ * A resampling one row apart passes. Another image, a recolour or a shift does not.
+ */
+function displacedMismatches(
+  a: { data: Uint8Array; w: number; h: number },
+  b: { data: Uint8Array; w: number; h: number },
+  reach: number,
+  tolerance: number,
+): Uint8Array {
+  const { w, h } = a;
+  const miss = new Uint8Array(w * h);
+  for (const [p, q] of [
+    [a.data, b.data],
+    [b.data, a.data],
+  ] as const) {
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++)
+        for (let ch = 0; ch < 3; ch++) {
+          let lo = 255;
+          let hi = 0;
+          for (let j = Math.max(0, y - reach); j <= Math.min(h - 1, y + reach); j++)
+            for (let i = Math.max(0, x - reach); i <= Math.min(w - 1, x + reach); i++) {
+              const v = q[(j * w + i) * 4 + ch]!;
+              lo = Math.min(lo, v);
+              hi = Math.max(hi, v);
+            }
+          const v = p[(y * w + x) * 4 + ch]!;
+          if (v < lo - tolerance || v > hi + tolerance) {
+            miss[y * w + x] = 1;
+            break;
+          }
+        }
+  }
+  return miss;
+}
+
+/** The largest share of set cells in any n by n window of a w by h mask. */
+function worstWindow(mask: Uint8Array, w: number, h: number, n: number): number {
+  const size = Math.min(n, w, h);
+  const sum = new Int32Array((w + 1) * (h + 1));
+  const at = (x: number, y: number) => sum[y * (w + 1) + x]!;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      sum[(y + 1) * (w + 1) + x + 1] = mask[y * w + x]! + at(x + 1, y) + at(x, y + 1) - at(x, y);
+  let worst = 0;
+  for (let y = size; y <= h; y++)
+    for (let x = size; x <= w; x++)
+      worst = Math.max(
+        worst,
+        at(x, y) - at(x - size, y) - at(x, y - size) + at(x - size, y - size),
+      );
+  return size > 0 ? worst / (size * size) : 0;
+}
+
 function regionMask(width: number, height: number, regions: Region[], scale: number): Uint8Array {
   const mask = new Uint8Array(width * height);
   for (const r of regions) {
@@ -123,8 +213,8 @@ function regionMask(width: number, height: number, regions: Region[], scale: num
 function crop(png: PNG, r: Region, scale: number): { data: Uint8Array; w: number; h: number } {
   const x0 = Math.max(0, Math.floor(r.x * scale));
   const y0 = Math.max(0, Math.floor(r.y * scale));
-  const w = Math.min(png.width, Math.ceil((r.x + r.w) * scale)) - x0;
-  const h = Math.min(png.height, Math.ceil((r.y + r.h) * scale)) - y0;
+  const w = Math.max(0, Math.min(png.width, Math.ceil((r.x + r.w) * scale)) - x0);
+  const h = Math.max(0, Math.min(png.height, Math.ceil((r.y + r.h) * scale)) - y0);
   const data = new Uint8Array(w * h * 4);
   for (let y = 0; y < h; y++) {
     const from = ((y0 + y) * png.width + x0) * 4;
@@ -143,6 +233,7 @@ export function diffPngs(a: PNG, b: PNG, options: DiffOptions): DiffResult {
     differing: 0,
     differingPct: 0,
     blurRegions: [],
+    scaledImages: [],
   };
   if (a.width !== b.width || a.height !== b.height) {
     result.pass = false;
@@ -209,7 +300,37 @@ export function diffPngs(a: PNG, b: PNG, options: DiffOptions): DiffResult {
   }
 
   const tile = Math.round(CROSS_ENGINE.tileCss * scale);
-  const worstCount = pixelmatch(a.data, b.data, null, width, height, { ...base, windowSize: tile });
+  for (const { path: at, region } of scaledImages(
+    options.geometryA ?? [],
+    options.geometryB ?? [],
+    scale,
+  )) {
+    const ca = crop(a, region, scale);
+    const cb = crop(b, region, scale);
+    // An image scrolled out of the snapshot has no pixels for the tile rule to leave out
+    if (ca.w === 0 || ca.h === 0) continue;
+    const miss = displacedMismatches(
+      ca,
+      cb,
+      CROSS_ENGINE.imageReachDevicePx,
+      CROSS_ENGINE.imageToleranceLevels,
+    );
+    const pct = +(100 * worstWindow(miss, ca.w, ca.h, tile)).toFixed(2);
+    result.scaledImages.push({
+      path: at,
+      region,
+      displacedTilePct: pct,
+      exempt: pct / 100 <= CROSS_ENGINE.tileBudget,
+    });
+  }
+  const exempt = result.scaledImages.filter((s) => s.exempt).map((s) => s.region);
+  const tileIgnore =
+    exempt.length > 0 ? regionMask(width, height, [...blur, ...exempt], scale) : ignore;
+  const worstCount = pixelmatch(a.data, b.data, null, width, height, {
+    ...base,
+    ...(tileIgnore ? { ignoreMask: tileIgnore } : {}),
+    windowSize: tile,
+  });
   const tilePct = worstCount / (tile * tile);
   result.worstTile = { differing: worstCount, pct: +(100 * tilePct).toFixed(2) };
   if (tilePct > CROSS_ENGINE.tileBudget) {

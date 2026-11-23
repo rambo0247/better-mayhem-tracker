@@ -31,6 +31,10 @@
         +r.height.toFixed(2),
       ];
       if (inEllipsis) row.push("ellipsis");
+      // Register rule E needs to know when an image is drawn at other than its natural size
+      if (!stand && el.tagName === "IMG" && el.naturalWidth > 0) {
+        row.push({ image: [el.naturalWidth, el.naturalHeight] });
+      }
       out.push(row);
     }
     // A port element marked data-parity-skip stands for one element Electron drew: its box is
