@@ -37,11 +37,14 @@ export default function SeasonRecap() {
   // later pick from the menu isn't overridden by it.
   const [params, setParams] = useSearchParams<{ season?: string }>();
   const linked = createMemo(() => params.season || undefined);
-  createEffect(linked, (season) => {
-    if (!season) return;
-    if (season !== seasonId()) setSeasonId(season);
-    setParams({ season: undefined }, { replace: true });
-  });
+  createEffect(
+    () => ({ season: linked(), current: seasonId() }),
+    ({ season, current }) => {
+      if (!season) return;
+      if (season !== current) setSeasonId(season);
+      setParams({ season: undefined }, { replace: true });
+    },
+  );
   // The link wins from the first fetch, before the effect above has moved the
   // selection over, so a badge click doesn't first load the remembered season
   const requested = createMemo(() => linked() ?? seasonId());
