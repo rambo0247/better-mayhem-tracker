@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import type { Component } from "solid-js";
 import { Dynamic } from "@solidjs/web";
-import snapshots from "../../test/react-snapshots.json";
+import snapshots from "../../test/v1-dom-snapshots.json";
 import { caseFingerprints, CASES, FAKE_API, ICON_FILES, ICON_PROPS } from "../../test/parity-cases";
 import { normalizeDom, type DomNode } from "../../test/normalize-dom";
 import { fake } from "../../test/fakeApi";
@@ -9,8 +9,8 @@ import { mount, settle } from "../../test/render";
 import * as icons from "./icons";
 
 // Each shared component, rendered with the props test/parity-cases.ts gives
-// it, against test/react-snapshots.json: the React component's DOM for the
-// same props, from scripts/react-snapshots.ts. Text, tags, classes and every
+// it, against test/v1-dom-snapshots.json: the 1.2.1 React component's DOM for the
+// same props, recorded from the v1.2.1 tag. Text, tags, classes and every
 // other attribute have to match.
 
 const modules = import.meta.glob<Record<string, Component<Record<string, unknown>>>>(
@@ -77,9 +77,9 @@ async function render(
   return tree;
 }
 
-test("react-snapshots.json was made from these cases", () => {
+test("v1-dom-snapshots.json was made from these cases", () => {
   const made = (snapshots as unknown as { __cases: Record<string, string> }).__cases;
-  // Regenerate with `bun run react-snapshots` when this fails
+  // A new case needs its snapshot recorded from the v1.2.1 tag
   expect(made).toEqual(caseFingerprints());
 });
 

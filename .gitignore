@@ -1,7 +1,9 @@
 node_modules/
-out/
 dist/
 data/
 backups/
 logs/
 asset-cache/
+# A checkout of v1.2.1 for the parity tools, when kept inside this one
+/baseline-1.2.1/
+tauri/.api-bundle-*/

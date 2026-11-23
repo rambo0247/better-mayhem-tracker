@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import snapshots from "../../test/react-snapshots.json";
+import snapshots from "../../test/v1-dom-snapshots.json";
 import { CASES } from "../../test/parity-cases";
 import type { DomNode } from "../../test/normalize-dom";
 import { mount } from "../../test/render";
@@ -13,8 +13,8 @@ let view: ReturnType<typeof mount> | undefined;
 afterEach(() => view?.dispose());
 
 const REACT = snapshots as unknown as Record<string, DomNode[]>;
-const reactImg = (id: string) => (REACT[id] as [Exclude<DomNode, string>])[0];
-const INSET = Number(/inset\(([\d.]+)%\)/.exec(reactImg("ChampionIcon").attrs.style!)![1]) / 100;
+const v1Img = (id: string) => (REACT[id] as [Exclude<DomNode, string>])[0];
+const INSET = Number(/inset\(([\d.]+)%\)/.exec(v1Img("ChampionIcon").attrs.style!)![1]) / 100;
 
 // A length in the img's style, in px, for a tile `tile` px wide
 function length(value: string, tile: number): number {
@@ -53,7 +53,7 @@ for (const size of [24, 32, 40, 72]) {
 
 for (const c of CASES.filter((c) => c.file === "ChampionIcon")) {
   test(`${c.id} tile carries what React's img did`, () => {
-    const img = reactImg(c.id);
+    const img = v1Img(c.id);
     view = mount(() => <ChampionIcon {...(c.props as { championId: number })} />);
     const tile = view.container.firstElementChild as HTMLElement;
     const art = tile.firstElementChild as HTMLImageElement;

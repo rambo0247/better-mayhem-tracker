@@ -1,8 +1,7 @@
 // The prop combinations each shared component is rendered with, once from the
-// React tree (scripts/react-snapshots.ts writes test/react-snapshots.json)
-// and once from tauri/src (src/components/react-parity.test.tsx), so the two
-// renders can be compared. Props are written the Solid way (`class`); the
-// generator renames them for React. Every value here is made up.
+// 1.2.1 React tree (recorded in test/v1-dom-snapshots.json) and once from
+// tauri/src (src/components/v1-parity.test.tsx), so the two renders can be
+// compared. Props are written the Solid way (`class`). Every value here is made up.
 
 export interface ParityCase {
   id: string;
@@ -180,7 +179,7 @@ function livePlayer(key: string, teamId: number, extra: Record<string, unknown>)
   };
 }
 
-// react-router marks its Link for route discovery, which is no part of the UI
+// the old router marks its Link for route discovery, which is no part of the UI
 const LINK_DISCOVERY = ["data-discover"];
 
 const RECORD = { games: 12, wins: 7, kills: 80, deaths: 40, assists: 120, lastPlayed: FIRST };
@@ -647,7 +646,7 @@ export const CASES: ParityCase[] = [
 export const ICON_FILES = ["icons", "SettingsIcons"] as const;
 export const ICON_PROPS = { class: "h-4 w-4" };
 
-// What each case renders from, written beside the React snapshots, so a
+// What each case renders from, written beside the 1.2.1 snapshots, so a
 // snapshot file made from other cases is caught
 function fingerprint(value: unknown): string {
   const text = JSON.stringify(value, (_key, v: unknown) =>

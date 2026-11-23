@@ -1,11 +1,7 @@
 {
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "import"],
+  "plugins": ["import"],
   "categories": {
     "correctness": "error"
   },
-  "rules": {
-    "react-hooks/exhaustive-deps": "warn"
-  },
-  "ignorePatterns": ["out", "dist", "node_modules", "tauri", "parity"]
+  "ignorePatterns": ["node_modules", "tauri", "parity"]
 }

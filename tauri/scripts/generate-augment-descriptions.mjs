@@ -1,8 +1,8 @@
-// Regenerates src/main/augment-descriptions.json, the Mayhem augment tooltip
-// text bundled into the main process, and src/renderer/texticons.json, the
-// inline stat glyphs that text refers to.
+// Regenerates src-tauri/resources/augment-descriptions.json, the Mayhem augment
+// tooltip text bundled into the app, and src/texticons.json, the inline stat
+// glyphs that text refers to.
 //
-// Run it when augments change:  npm run gen:augments
+// Run it when augments change:  bun run gen:augments
 //
 // Why a build step and not a fetch at runtime: unlike items, whose descriptions
 // arrive fully formed in the items.json the app already loads per patch,
@@ -20,7 +20,7 @@
 // tooltip; distilled to id -> text it is about 35KB, so it ships in the bundle
 // instead. The tradeoff is that the text is current as of the last time this
 // ran rather than per-patch — acceptable for prose, which is why augment NAMES,
-// rarities and icons still come from the per-patch fetch in dragon.ts, where
+// rarities and icons still come from the per-patch fetch in dragon.rs, where
 // being wrong about a reworked augment would misreport what was played.
 
 import fs from "node:fs";
@@ -28,8 +28,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = path.join(ROOT, "src", "main", "augment-descriptions.json");
-const ICONS_OUT = path.join(ROOT, "src", "renderer", "texticons.json");
+const OUT = path.join(ROOT, "src-tauri", "resources", "augment-descriptions.json");
+const ICONS_OUT = path.join(ROOT, "src", "texticons.json");
 const CDRAGON = "https://raw.communitydragon.org";
 
 // A branch only ships the augments in its own rotation, so "latest" alone

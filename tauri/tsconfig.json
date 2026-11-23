@@ -14,8 +14,5 @@
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "lint", "scripts", "test", "vite.config.ts"],
-  // Renders the React tree, so it needs the repository root's node_modules,
-  // which tauri/ alone does not install
-  "exclude": ["scripts/react-snapshots.ts"]
+  "include": ["src", "lint", "scripts", "test", "vite.config.ts"]
 }

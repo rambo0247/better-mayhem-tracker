@@ -1,0 +1,4 @@
+[install]
+# The flat layout every folder used before they became one workspace: tests import
+# a few packages that only a dependency declares
+linker = "hoisted"
