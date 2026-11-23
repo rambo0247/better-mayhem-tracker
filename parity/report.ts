@@ -258,9 +258,11 @@ export function renderReport(report: Report, command: string): string {
     `Cross-engine policy: layout gate within ${CROSS_ENGINE.layoutToleranceCss} CSS px, pixelmatch threshold ${CROSS_ENGINE.threshold} without anti-aliasing, at most ${E1_PAGE_BUDGET_PCT}% of the page (decision E1, set by the operator on 2026-11-23; \`diff.ts\` gates at ${pct(CROSS_ENGINE.pageBudget)}, and the report passes a state whose only failure is that gate when it stays within ${E1_PAGE_BUDGET_PCT}%) and ${pct(CROSS_ENGINE.tileBudget)} of any ${CROSS_ENGINE.tileCss} px tile. A cell gives the share of pixels differing and the worst tile.`,
     "",
   );
-  const passed = (run?: PlatformRun) =>
-    run ? `${run.states.filter((s) => s.pass).length} of ${run.expected.length}` : "not run";
-  lines.push(`macOS ${passed(mac)} pass. Windows ${passed(win)} pass.`, "");
+  const passed = (name: string, run?: PlatformRun) =>
+    run
+      ? `${name}: ${run.states.filter((s) => s.pass).length} of ${run.expected.length} states pass.`
+      : `${name}: not run.`;
+  lines.push(`${passed("macOS", mac)} ${passed("Windows", win)}`, "");
   lines.push("| State | macOS | Windows |", "| --- | --- | --- |");
   for (const id of ids) lines.push(`| ${id} | ${stateCell(mac, id)} | ${stateCell(win, id)} |`);
   lines.push("");
