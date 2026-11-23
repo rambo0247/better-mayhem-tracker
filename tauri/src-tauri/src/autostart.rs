@@ -354,6 +354,15 @@ mod run_value {
         (status == ERROR_SUCCESS).then(|| String::from_utf16_lossy(&data[..len]))
     }
 
+    /// A value as Task Manager leaves one when the player switches the app
+    /// off. The real one is binary; only its name matters here.
+    #[cfg(test)]
+    pub fn seed(key: &str, name: &str, data: &str) {
+        Key::create(key)
+            .expect("create the scratch key")
+            .set_string(name, data);
+    }
+
     #[cfg(test)]
     pub fn remove_tree(path: &str) {
         use windows::Win32::System::Registry::RegDeleteTreeW;
@@ -494,31 +503,47 @@ mod tests {
         std::fs::remove_dir_all(&dir).expect("remove the scratch folder");
     }
 
-    /// The same steps against scratch HKCU subkeys.
+    /// The same steps against scratch HKCU subkeys. Before each step the
+    /// StartupApproved value is set, as Task Manager sets it: every write
+    /// deletes it, on as well as off, and a step that writes nothing keeps it.
     #[cfg(windows)]
     #[test]
     fn the_run_value_follows_electron_in_scratch_keys() {
         let root = format!(r"Software\bmt-autostart-test-{}", std::process::id());
+        let run_key = format!(r"{root}\Run");
+        let approved_key = format!(r"{root}\StartupApproved\Run");
         let items = LoginItems::At {
             launch_agents: PathBuf::new(),
-            run_key: format!(r"{root}\Run"),
-            approved_key: format!(r"{root}\StartupApproved\Run"),
+            run_key: run_key.clone(),
+            approved_key: approved_key.clone(),
         };
         let conn = database();
         let mut expected: Option<String> = None;
+        let mut wrote_on = false;
+        let mut wrote_off = false;
         for step in golden("win32") {
+            let name = step["name"].as_str().expect("a name");
+            run_value::seed(&approved_key, RUN_VALUE_NAME, "disabled in Task Manager");
             replay(&conn, &items, "win32", &step);
-            for call in step["setLoginItemSettings"].as_array().expect("calls") {
-                expected = (call["openAtLogin"] == true)
-                    .then(|| run_value_data(call["path"].as_str().expect("path")));
+            let calls = step["setLoginItemSettings"].as_array().expect("calls");
+            for call in calls {
+                let on = call["openAtLogin"] == true;
+                wrote_on |= on;
+                wrote_off |= !on;
+                expected = on.then(|| run_value_data(call["path"].as_str().expect("path")));
             }
             assert_eq!(
-                run_value::read(&format!(r"{root}\Run"), RUN_VALUE_NAME),
+                run_value::read(&run_key, RUN_VALUE_NAME),
                 expected,
-                "{}",
-                step["name"]
+                "{name}: the Run value"
+            );
+            assert_eq!(
+                run_value::read(&approved_key, RUN_VALUE_NAME).is_some(),
+                calls.is_empty(),
+                "{name}: the StartupApproved value"
             );
         }
+        assert!(wrote_on && wrote_off, "the golden turns the app on and off");
         run_value::remove_tree(&root);
     }
 
