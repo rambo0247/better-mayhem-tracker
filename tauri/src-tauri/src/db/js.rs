@@ -593,7 +593,9 @@ impl<'de> serde::Deserialize<'de> for Cell {
                     .decode(b64)
                     .map(Cell::Blob)
                     .map_err(D::Error::custom),
-                _ => Err(D::Error::custom("an object that is not {\"$bytes\": base64}")),
+                _ => Err(D::Error::custom(
+                    "an object that is not {\"$bytes\": base64}",
+                )),
             },
             other => Err(D::Error::custom(format!("not a column value: {other}"))),
         }

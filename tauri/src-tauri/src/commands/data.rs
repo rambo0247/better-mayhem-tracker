@@ -395,10 +395,16 @@ mod tests {
             let root = std::path::PathBuf::from(scenario["root"].as_str().unwrap());
             // SAFETY: this test is the only one that runs with the variable set
             unsafe { std::env::set_var("BMT_DATA_ROOT", &root) };
-            let app = crate::app_builder(mock_builder(), crate::Host::replay(clock))
-                .manage(Dialogs::scripted())
-                .build(mock_context(noop_assets()))
-                .unwrap();
+            let app = crate::app_builder(
+                mock_builder(),
+                crate::Host {
+                    clock,
+                    effects: crate::security::Effects::recorded(),
+                },
+            )
+            .manage(Dialogs::scripted())
+            .build(mock_context(noop_assets()))
+            .unwrap();
             let window =
                 tauri::WebviewWindowBuilder::new(&app, crate::WINDOW_LABEL, Default::default())
                     .build()

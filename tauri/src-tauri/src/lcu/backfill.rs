@@ -262,10 +262,8 @@ impl GameSync {
         // Once an account has been walked all the way back, a run that only
         // wants the new games can stop at the first page it knows in full
         let completed_key = format!("backfill_complete_{puuid}");
-        let walked_before = self
-            .db(|conn| get_setting(conn, &completed_key))?
-            .as_str()
-            == Some("1");
+        let walked_before =
+            self.db(|conn| get_setting(conn, &completed_key))?.as_str() == Some("1");
         let stop_at_known = walked_before && !full;
         let stop_after =
             |page: &[f64]| stop_at_known && page.iter().all(|id| known.contains(&id_key(*id)));
