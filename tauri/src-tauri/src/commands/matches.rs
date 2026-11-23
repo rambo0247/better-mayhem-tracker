@@ -7,19 +7,12 @@ use tauri::Runtime;
 use ts_rs::TS;
 
 use super::types::{MatchDetail, MatchPage, MatchScope};
-use super::{CommandError, CommandResult, Ctx, Domain};
+use super::{CommandResult, Ctx, Domain, whole};
 use crate::db::{self, filters, matches, summoner, week};
 use crate::js_arg::{Js, JsValue};
 
 pub struct Hooks;
 impl Domain for Hooks {}
-
-/// A whole-number argument. Anything else answers the error SQLite gives a
-/// LIMIT, OFFSET or id it cannot use.
-fn whole(arg: &Js<i64>) -> CommandResult<i64> {
-    arg.typed()
-        .ok_or_else(|| CommandError::named("SqliteError", "datatype mismatch"))
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

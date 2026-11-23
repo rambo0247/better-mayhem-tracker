@@ -271,6 +271,13 @@ impl EffectRecorder {
     }
 }
 
+/// A whole-number argument, as a porting body reads it. Anything else
+/// answers the error SQLite gives a LIMIT, OFFSET or id it cannot use.
+pub fn whole(arg: &crate::js_arg::Js<i64>) -> CommandResult<i64> {
+    arg.typed()
+        .ok_or_else(|| CommandError::named("SqliteError", "datatype mismatch"))
+}
+
 /// How one argument or result type prints in TypeScript, and the declarations
 /// it needs.
 #[derive(Clone, Copy)]
