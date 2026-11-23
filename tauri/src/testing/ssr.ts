@@ -1,31 +1,14 @@
-import { plugin } from "bun";
 import { mock } from "bun:test";
-import { readFileSync } from "node:fs";
-import { transformWithOxc } from "vite";
-import { transform } from "@solidjs/compiler";
-import { renderToString } from "@solidjs/web";
 import type { Component } from "solid-js";
+import { mount } from "../../test/render";
 
-// Page tests run without a DOM: pages are compiled for the server, rendered to
-// a string, and read as text. The hooks that would reach the Rust side answer
-// from `ipc`, in the order the page asks.
-plugin({
-  name: "solid-ssr",
-  setup(build) {
-    build.onLoad(
-      { filter: /\/tauri\/src\/(?!.*\.test\.)(?!testing\/).*\.tsx$/ },
-      async ({ path }) => {
-        const stripped = await transformWithOxc(readFileSync(path, "utf8"), path, {
-          jsx: "preserve",
-          lang: "tsx",
-        });
-        return {
-          contents: transform(stripped.code, { generate: "ssr", filename: path }).code,
-          loader: "js",
-        };
-      },
-    );
-  },
+// Page tests mount the page into the preloaded happy-dom window and read its
+// markup. The hooks that would reach the Rust side answer from `ipc`, in the
+// order the page asks.
+// The shared setup does not expose happy-dom's ResizeObserver, which
+// FriendDetail measures its champion list with
+Object.assign(globalThis, {
+  ResizeObserver: (window as never as typeof globalThis).ResizeObserver,
 });
 
 export interface IpcAnswer {
@@ -65,5 +48,8 @@ export const pending: IpcAnswer = { data: null, loading: true };
 export function html(page: Component, ...answers: IpcAnswer[]): string {
   ipc.answers = answers;
   ipc.calls = 0;
-  return renderToString(() => page({})).replaceAll("&#8230;", "…");
+  const view = mount(() => page({}));
+  const out = view.container.innerHTML.replaceAll("<!---->", "");
+  view.dispose();
+  return out;
 }

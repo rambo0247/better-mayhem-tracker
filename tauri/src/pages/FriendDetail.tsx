@@ -264,7 +264,7 @@ function ChampionsPanel(props: { champions: TeammateChampionStats[]; champData: 
       <div
         ref={(el) => (grid = el)}
         style={{
-          "max-height": showAll() ? undefined : `${collapsed}px`,
+          "max-height": `${showAll() ? "none" : `${collapsed}px`}`,
           "grid-auto-rows": `${CHAMPION_ROW_PX}px`,
         }}
         class="-mb-px grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-x-8 overflow-hidden px-4"
