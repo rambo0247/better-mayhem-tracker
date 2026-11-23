@@ -470,10 +470,7 @@ export default function MatchHistory() {
   // Session headers only make sense when the list reads in time order; any
   // other sort interleaves sessions, so those render flat.
   const isDateSort = () => !sort() || sort() === "date";
-  const sessions = createMemo<Session[] | null>(() => {
-    const mode = grouping();
-    if (!isDateSort() || mode === "none") return null;
-    const grouped = groupIntoSessions(matches(), mode);
+  const withTotals = (grouped: Session[]): Session[] => {
     const totals = sessionTotals();
     if (!totals) return grouped;
 
@@ -497,6 +494,10 @@ export default function MatchHistory() {
             : null,
       };
     });
+  };
+  const sessions = createMemo<Session[] | null>(() => {
+    const mode = grouping();
+    return !isDateSort() || mode === "none" ? null : withTotals(groupIntoSessions(matches(), mode));
   });
 
   const renderMatch = (m: () => MatchListItem) => (
