@@ -242,11 +242,8 @@ const menus: StateRow[] = [
   }),
 ];
 
-const favoritesOnly: Step = { op: "local", key: "view:matches.favorites", value: "true" };
-
 const favoriteMenu: StateRow[] = [
   overlay("overlay-context-menu-favorite", "/", "text=Remove from Favorites", {
-    pre: [favoritesOnly],
     steps: [
       { op: "waitFor", selector: FAVORITE_ROW },
       { op: "click", selector: FAVORITE_ROW, button: "right" },
