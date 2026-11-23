@@ -150,6 +150,37 @@ function metric(side: PerfSide, key: MetricKey): { value: number; stat?: Stat } 
   return stat ? { value: stat.median, stat } : null;
 }
 
+/** What one platform's run failed: its states, its golden replay, its checks and its masks. */
+export function runFailures(name: string, run: PlatformRun): string[] {
+  const failures: string[] = [];
+  const byId = new Map(run.states.map((s) => [s.id, s]));
+  for (const id of run.expected) {
+    const state = byId.get(id);
+    if (!state) failures.push(`${name}: ${id} did not run`);
+    else if (!state.pass) failures.push(`${name}: ${id} failed (${state.cause ?? "unknown"})`);
+  }
+  const golden = run.golden;
+  if (!golden) failures.push(`${name}: goldens not replayed`);
+  else if (!golden.completed) {
+    failures.push(`${name}: the golden replay exited ${golden.exitCode} before its summary`);
+  } else if (
+    golden.pass !== EXPECTED_GOLDEN_CHANNELS ||
+    golden.fail !== 0 ||
+    golden.notPorted !== 0 ||
+    golden.noGolden !== 0 ||
+    golden.exitCode !== 0
+  ) {
+    failures.push(
+      `${name}: goldens ${golden.pass} pass, ${golden.fail} fail, ${golden.notPorted} not ported, want ${EXPECTED_GOLDEN_CHANNELS} pass`,
+    );
+  }
+  for (const check of run.checks) if (!check.pass) failures.push(`${name}: ${check.name} failed`);
+  for (const mask of run.masks) {
+    if (!mask.reason) failures.push(`${name}: mask on ${mask.state} has no reason`);
+  }
+  return failures;
+}
+
 export function verdictOf(report: Report): Verdict {
   const failures: string[] = [];
   for (const platform of ["mac", "win"] as const) {
@@ -159,31 +190,7 @@ export function verdictOf(report: Report): Verdict {
       failures.push(`${name}: no run`);
       continue;
     }
-    const byId = new Map(run.states.map((s) => [s.id, s]));
-    for (const id of run.expected) {
-      const state = byId.get(id);
-      if (!state) failures.push(`${name}: ${id} did not run`);
-      else if (!state.pass) failures.push(`${name}: ${id} failed (${state.cause ?? "unknown"})`);
-    }
-    const golden = run.golden;
-    if (!golden) failures.push(`${name}: goldens not replayed`);
-    else if (!golden.completed) {
-      failures.push(`${name}: the golden replay exited ${golden.exitCode} before its summary`);
-    } else if (
-      golden.pass !== EXPECTED_GOLDEN_CHANNELS ||
-      golden.fail !== 0 ||
-      golden.notPorted !== 0 ||
-      golden.noGolden !== 0 ||
-      golden.exitCode !== 0
-    ) {
-      failures.push(
-        `${name}: goldens ${golden.pass} pass, ${golden.fail} fail, ${golden.notPorted} not ported, want ${EXPECTED_GOLDEN_CHANNELS} pass`,
-      );
-    }
-    for (const check of run.checks) if (!check.pass) failures.push(`${name}: ${check.name} failed`);
-    for (const mask of run.masks) {
-      if (!mask.reason) failures.push(`${name}: mask on ${mask.state} has no reason`);
-    }
+    failures.push(...runFailures(name, run));
     const perf = report.perf[platform];
     if (!perf?.electron || !perf.tauri) {
       failures.push(`${name}: perf needs both Electron and Tauri numbers`);
@@ -897,13 +904,21 @@ function flags(argv: string[], known: string[]) {
 
 const USAGE = `usage:
   bun parity/report.ts run [--data fixture] [--out <dir>] [--binary <driver build>] [--electron-baseline <dir>] [--tauri-capture <dir>] [--golden-dir <dir>] [--skip-golden] [--tools <dir>] [--trunk <rev>]
-  bun parity/report.ts render --run <report-<platform>.json> ... [--perf <perf.json> ...] [--out <file.md>]`;
+  bun parity/report.ts render --run <report-<platform>.json> ... [--perf <perf.json> ...] [--out <file.md>]
+  bun parity/report.ts check <report-<platform>.json>`;
 
 if (import.meta.main) {
   const [command, ...rest] = process.argv.slice(2);
   if (command === "run") await runPlatform(rest);
   else if (command === "render") process.exit(render(rest) ? 0 : 1);
-  else {
+  else if (command === "check" && rest[0]) {
+    // One platform's run alone, for a CI job that has no perf sweep and no other platform
+    const run = JSON.parse(fs.readFileSync(rest[0], "utf8")) as PlatformRun;
+    const failures = runFailures(PLATFORM_NAMES[run.platform], run);
+    for (const failure of failures) console.log(failure);
+    console.log(`report ${PLATFORM_NAMES[run.platform]}: ${failures.length ? "FAIL" : "PASS"}`);
+    process.exit(failures.length ? 1 : 0);
+  } else {
     console.error(USAGE);
     process.exit(2);
   }

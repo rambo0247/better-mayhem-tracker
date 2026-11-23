@@ -335,6 +335,10 @@ jobs:
       - name: Run the report
         run: bun parity/report.ts run --data fixture --out parity/out/report --trunk origin/main --golden-dir parity/goldens/data
 
+      # `run` records a failed verdict and exits 0; `check` exits 1 on it, so the job shows it
+      - name: Fail the job when the report fails
+        run: bun parity/report.ts check parity/out/report/report-win.json
+
       - if: always()
         uses: actions/upload-artifact@v4
         with:

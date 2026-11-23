@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   EXPECTED_GOLDEN_CHANNELS,
@@ -7,6 +9,7 @@ import {
   readDeviations,
   readPerf,
   renderReport,
+  runFailures,
   stateLines,
   verdictOf,
   type PlatformRun,
@@ -101,6 +104,20 @@ describe("the parity report", () => {
     const r = report({ mac: platformRun("mac"), win: platformRun("win") });
     expect(verdictOf(r)).toEqual({ pass: true, failures: [] });
     expect(renderReport(r, "x")).toContain("## Verdict: PASS");
+  });
+
+  test("check judges one platform's run alone, without perf or the other platform", () => {
+    expect(runFailures("Windows", platformRun("win"))).toEqual([]);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bmt-report-check-"));
+    const exitOf = (run: PlatformRun) => {
+      const file = path.join(dir, "report-win.json");
+      fs.writeFileSync(file, JSON.stringify(run));
+      return Bun.spawnSync(["bun", path.join(import.meta.dir, "..", "report.ts"), "check", file])
+        .exitCode;
+    };
+    expect(exitOf(platformRun("win"))).toBe(0);
+    expect(exitOf(platformRun("win", "champions-expanded"))).toBe(1);
+    fs.rmSync(dir, { recursive: true });
   });
 
   test("a state that never ran fails, and so does a missing platform", () => {
