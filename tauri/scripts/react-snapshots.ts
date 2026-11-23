@@ -1,7 +1,9 @@
 // Renders every case in test/parity-cases.ts with the React components in
 // src/renderer, in happy-dom with a fake window.api, and writes the reduced
 // trees to test/react-snapshots.json for src/components/react-parity.test.tsx.
-// Needs the repository root's node_modules (npm ci): `bun scripts/react-snapshots.ts`.
+// Needs the repository root's node_modules (npm ci at the root), so tauri/'s
+// typecheck leaves it out: `bun run react-snapshots`.
+import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Window } from "happy-dom";
@@ -101,9 +103,9 @@ for (const file of ICON_FILES) {
   }
 }
 
-writeFileSync(
-  join(root, "test", "react-snapshots.json"),
-  `${JSON.stringify(snapshots, null, 1)}\n`,
-);
+const out = join(root, "test", "react-snapshots.json");
+writeFileSync(out, `${JSON.stringify(snapshots, null, 2)}\n`);
+// In the formatter's own shape, so a rerun with no change leaves no diff
+spawnSync("bunx", ["oxfmt", out], { cwd: root, stdio: "inherit" });
 console.log(`wrote ${Object.keys(snapshots).length} React snapshots to test/react-snapshots.json`);
 process.exit(0);

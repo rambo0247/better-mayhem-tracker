@@ -15,5 +15,8 @@
     "resolveJsonModule": true,
     "paths": { "@shared/*": ["../src/shared/*"] }
   },
-  "include": ["src", "lint", "scripts", "test", "vite.config.ts"]
+  "include": ["src", "lint", "scripts", "test", "vite.config.ts"],
+  // Renders the React tree, so it needs the repository root's node_modules,
+  // which tauri/ alone does not install
+  "exclude": ["scripts/react-snapshots.ts"]
 }
