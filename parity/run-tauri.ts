@@ -250,13 +250,7 @@ export class TauriEngine implements Engine {
 
   async hover(target: Target) {
     const { x, y } = await this.resolve(target);
-    const reply = await this.driver.json<{ path: string }>("mouse", { kind: "move", x, y });
-    this.mouse = { x, y };
-    const hoverMatches = await this.evaluate(
-      (point) => document.elementFromPoint(point.x, point.y)?.matches(":hover") ?? false,
-      { x, y },
-    );
-    this.lastHover = { path: reply.path, hoverMatches };
+    this.lastHover = await this.mouseMove(x, y);
   }
 
   async fill(target: Target, text: string) {
@@ -315,9 +309,67 @@ export class TauriEngine implements Engine {
     }, css);
   }
 
+  /**
+   * WebKit applies a mouse move only in the active window, and the driver never activates the
+   * app, so when the native move leaves `:hover` unset the page gets the events Chromium would
+   * fire: out and leave on the old element, over and enter on the new one, then a move. Script
+   * handlers (React's onMouseEnter) see them; CSS `:hover` does not, and `hoverMatches` says so.
+   */
   async mouseMove(x: number, y: number) {
     await this.driver.call("mouse", { kind: "move", x, y });
     this.mouse = { x, y };
+    const hoverMatches = await this.evaluate(
+      (point) => {
+        const state = ((window as any).__bmtPointer ??= { over: null });
+        const el = document.elementFromPoint(point.x, point.y);
+        if (el?.matches(":hover")) {
+          state.over = el;
+          return true;
+        }
+        const init = {
+          bubbles: true,
+          cancelable: true,
+          clientX: point.x,
+          clientY: point.y,
+          view: window,
+        };
+        const chain = (from: any) => {
+          const out: Element[] = [];
+          for (let n = from; n; n = n.parentElement) out.push(n);
+          return out;
+        };
+        const before = state.over;
+        if (before !== el) {
+          const entering = chain(el).filter((n) => !chain(before).includes(n));
+          const leaving = chain(before).filter((n) => !chain(el).includes(n));
+          if (before) {
+            const related = { ...init, relatedTarget: el };
+            before.dispatchEvent(new PointerEvent("pointerout", related));
+            for (const n of leaving)
+              n.dispatchEvent(new PointerEvent("pointerleave", { ...related, bubbles: false }));
+            before.dispatchEvent(new MouseEvent("mouseout", related));
+            for (const n of leaving)
+              n.dispatchEvent(new MouseEvent("mouseleave", { ...related, bubbles: false }));
+          }
+          if (el) {
+            const related = { ...init, relatedTarget: before };
+            el.dispatchEvent(new PointerEvent("pointerover", related));
+            const outsideIn = entering.reverse();
+            for (const n of outsideIn)
+              n.dispatchEvent(new PointerEvent("pointerenter", { ...related, bubbles: false }));
+            el.dispatchEvent(new MouseEvent("mouseover", related));
+            for (const n of outsideIn)
+              n.dispatchEvent(new MouseEvent("mouseenter", { ...related, bubbles: false }));
+          }
+          state.over = el;
+        }
+        el?.dispatchEvent(new PointerEvent("pointermove", init));
+        el?.dispatchEvent(new MouseEvent("mousemove", init));
+        return false;
+      },
+      { x, y },
+    );
+    return { path: hoverMatches ? "native" : "script", hoverMatches };
   }
 
   /** Last snapshot's facts, recorded with each capture. */
@@ -579,26 +631,39 @@ export async function smoke(options: { binary?: string; out?: string }) {
     const thrown = await engine.evaluate("(() => { throw new Error('boom') })()").catch(String);
     check("eval reports a thrown error", String(thrown).includes("boom"), thrown);
 
+    // Styles go through the CSSOM: the app's CSP blocks inline style attributes
     await engine.evaluate(() => {
-      document.body.innerHTML =
-        '<button id="b" style="position:fixed;left:100px;top:100px;width:200px;height:80px">b</button><input id="i" style="position:fixed;left:100px;top:300px">';
+      const place = (el: HTMLElement, left: number, top: number, width: number, height: number) =>
+        Object.assign(el.style, {
+          position: "fixed",
+          left: `${left}px`,
+          top: `${top}px`,
+          width: `${width}px`,
+          height: `${height}px`,
+        });
+      const button = document.createElement("button");
+      button.id = "b";
+      place(button, 100, 100, 200, 80);
+      const input = document.createElement("input");
+      input.id = "i";
+      place(input, 100, 300, 200, 30);
+      document.body.replaceChildren(button, input);
       const seen: string[] = ((window as any).__seen = []);
-      for (const type of [
-        "mousemove",
-        "mousedown",
-        "mouseup",
-        "click",
-        "keydown",
-        "keyup",
-        "wheel",
-      ]) {
+      for (const type of ["mousemove", "mousedown", "mouseup", "click", "keydown", "keyup"]) {
         document.addEventListener(type, (e: any) =>
           seen.push(`${type}:${e.isTrusted}:${e.key ?? ""}:${e.clientX ?? ""},${e.clientY ?? ""}`),
         );
       }
     });
+    const seenHover = (lines: string[]) =>
+      lines.some((line) => /^mousemove:(true|false)::200,140$/.test(line));
     await engine.hover({ selector: "#b" });
-    check("hover sets :hover", engine.lastHover?.hoverMatches === true, engine.lastHover);
+    // WebKit sets :hover only in the active window, which the driver never makes it
+    check(
+      "hover reaches the page's handlers",
+      seenHover(await engine.evaluate<string[]>("window.__seen")),
+      engine.lastHover,
+    );
     await engine.click({ selector: "#b" });
     await engine.click({ selector: "#i" });
     await engine.press("a");

@@ -51,6 +51,7 @@
     const state = saved ? JSON.parse(saved) : { settings: {}, cursors: {} };
     const save = () => storage?.setItem(STORE_KEY, JSON.stringify(state));
     const misses = [];
+    const calls = [];
 
     // Exact arguments first, the read group before write groups, then the case named default
     function find(channel, args) {
@@ -84,6 +85,7 @@
             (c) => c.args[0] === args[0] && c.outcome.kind !== "error",
           );
         }
+        calls.push(`${method}(${JSON.stringify(args)}) -> ${golden ? golden.case : "miss"}`);
         if (!golden) {
           const miss = new ReplayMiss(method, args);
           misses.push(miss.message);
@@ -124,6 +126,7 @@
     }
     for (const [method, event] of Object.entries(bundle.events)) api[method] = subscribe(event);
     Object.defineProperty(api, "__misses", { value: misses });
+    Object.defineProperty(api, "__calls", { value: calls });
     return api;
   }
 

@@ -619,6 +619,7 @@ fn dispatch(window: &WebviewWindow, body: &Value) -> Result<Response, String> {
                     "focused": window.is_focused().map_err(|e| e.to_string())?,
                     "visible": window.is_visible().map_err(|e| e.to_string())?,
                     "occluded": platform::occluded(window)?,
+                    "topInset": platform::top_inset_of(window)?,
                     "loads": loads_so_far(),
                 }),
             ))
@@ -840,9 +841,11 @@ mod mac {
 
     use block2::RcBlock;
     use objc2::MainThreadMarker;
-    use objc2::runtime::AnyObject;
+    use objc2::runtime::{AnyObject, NSObjectProtocol};
     use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSWindowOcclusionState};
-    use objc2_foundation::{NSActivityOptions, NSError, NSPoint, NSProcessInfo, NSString};
+    use objc2_foundation::{
+        NSActivityOptions, NSEdgeInsets, NSError, NSPoint, NSProcessInfo, NSString,
+    };
     use objc2_web_kit::{WKContentWorld, WKWebView};
     use tauri::WebviewWindow;
 
@@ -928,9 +931,22 @@ mod mac {
         NSProcessInfo::processInfo().systemUptime()
     }
 
+    /// The strip at the top of the webview that the page does not lay out in.
+    /// On macOS 26 a titled window puts 32 pt of the webview under its title bar.
+    pub fn top_inset(web: &WKWebView) -> f64 {
+        let public = objc2::sel!(obscuredContentInsets);
+        if !web.respondsToSelector(public) {
+            return 0.0;
+        }
+        // SAFETY: a public WKWebView property since macOS 26, checked above
+        let insets: NSEdgeInsets = unsafe { objc2::msg_send![web, obscuredContentInsets] };
+        insets.top
+    }
+
     /// CSS px from the viewport's top left to the window's own coordinates.
     fn window_point(web: &WKWebView, x: f64, y: f64) -> NSPoint {
         let bounds = web.bounds();
+        let y = y + top_inset(web);
         let view_y = if web.isFlipped() {
             y
         } else {
@@ -1060,6 +1076,17 @@ mod mac {
                     KeyKind::Up => web.keyUp(&event),
                 }
                 let _ = tx.send(Ok("native"));
+            },
+        )
+    }
+
+    pub fn top_inset_of(window: &WebviewWindow) -> Result<f64, String> {
+        on_webview(
+            window,
+            Duration::from_secs(5),
+            "the inset",
+            move |web, _mtm, tx| {
+                let _ = tx.send(Ok(top_inset(web)));
             },
         )
     }
@@ -1197,6 +1224,10 @@ mod win {
     pub fn occluded(_window: &WebviewWindow) -> Result<bool, String> {
         Ok(false)
     }
+
+    pub fn top_inset_of(_window: &WebviewWindow) -> Result<f64, String> {
+        Ok(0.0)
+    }
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -1229,6 +1260,9 @@ mod other {
     }
     pub fn occluded(_: &WebviewWindow) -> Result<bool, String> {
         Ok(false)
+    }
+    pub fn top_inset_of(_: &WebviewWindow) -> Result<f64, String> {
+        Ok(0.0)
     }
 }
 
