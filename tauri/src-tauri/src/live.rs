@@ -1461,6 +1461,9 @@ pub mod golden {
         };
         Some(match state {
             "live-in-game" => spec("in-game", true, false, false),
+            // The page's first call lands while these scenarios' match runs
+            "live-waiting" | "live-results-late" => spec("results-late", true, false, false),
+            "live-game-over-recorded" => spec("end-of-game", true, false, false),
             "live-loading" => spec("in-game-loading", true, false, false),
             "live-champ-select" => spec("champ-select", true, false, false),
             "live-standby-connected" => spec("connected-idle", true, false, false),
@@ -1514,7 +1517,7 @@ pub mod golden {
     /// The T03 state each case of `channel` was recorded in, from T05's
     /// `states/<state>.json`.
     pub fn states_of_cases(golden_dir: &Path, channel: &str) -> Vec<(String, String)> {
-        let mut out = Vec::new();
+        let mut by_state: Vec<(String, Vec<String>)> = Vec::new();
         for entry in std::fs::read_dir(golden_dir.join("states"))
             .into_iter()
             .flatten()
@@ -1526,14 +1529,26 @@ pub mod golden {
             let Ok(state) = serde_json::from_str::<Value>(&text) else {
                 continue;
             };
-            let name = state["state"].as_str().unwrap_or_default().to_string();
+            let mut cases: Vec<String> = Vec::new();
             for call in state["calls"].as_array().into_iter().flatten() {
                 let case = call["case"].as_str().unwrap_or_default().to_string();
-                if call["channel"] == channel
-                    && case.starts_with("state-")
-                    && !out.contains(&(case.clone(), name.clone()))
-                {
-                    out.push((case, name.clone()));
+                if call["channel"] == channel && !cases.contains(&case) {
+                    cases.push(case);
+                }
+            }
+            by_state.push((state["state"].as_str().unwrap_or_default().into(), cases));
+        }
+        by_state.sort();
+        // A state whose client changed while the page asked (offline-stored
+        // stops the client after its first calls) only names its last case;
+        // its earlier ones are seeded from a state that held still
+        let mut out = Vec::new();
+        for (state, cases) in &by_state {
+            for (i, case) in cases.iter().enumerate() {
+                let steady = cases.len() == 1 || i + 1 == cases.len();
+                let elsewhere = by_state.iter().any(|(_, c)| c.len() == 1 && c[0] == *case);
+                if case.starts_with("state-") && (steady || !elsewhere) {
+                    out.push((case.clone(), state.clone()));
                 }
             }
         }
