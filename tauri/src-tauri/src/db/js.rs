@@ -144,19 +144,12 @@ pub fn string_to_number(text: &str) -> f64 {
     if t.is_empty() {
         return 0.0;
     }
-    for (prefixes, radix) in [(["0x", "0X"], 16), (["0o", "0O"], 8), (["0b", "0B"], 2)] {
+    for (prefixes, log2) in [(["0x", "0X"], 4), (["0o", "0O"], 3), (["0b", "0B"], 1)] {
         if let Some(digits) = prefixes.iter().find_map(|p| t.strip_prefix(p)) {
-            if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
+            if digits.is_empty() || !digits.chars().all(|c| c.is_digit(1 << log2)) {
                 return f64::NAN;
             }
-            // Exact below 2^128, then rounded once, as the spec rounds the
-            // literal's mathematical value
-            return match u128::from_str_radix(digits, radix) {
-                Ok(n) => n as f64,
-                Err(_) => digits.chars().fold(0.0, |n, c| {
-                    n * f64::from(radix) + f64::from(c.to_digit(radix).unwrap_or(0))
-                }),
-            };
+            return radix_to_f64(digits, log2);
         }
     }
     let unsigned = t.strip_prefix(['+', '-']).unwrap_or(t);
@@ -198,20 +191,62 @@ pub fn parse_int(text: &str) -> f64 {
         Some("0x" | "0X") => (16, &rest[2..]),
         _ => (10, rest),
     };
-    let digits: Vec<f64> = rest
-        .chars()
-        .map_while(|c| c.to_digit(radix))
-        .map(f64::from)
-        .collect();
-    if digits.is_empty() {
+    let len = rest
+        .bytes()
+        .take_while(|b| char::from(*b).is_digit(radix))
+        .count();
+    if len == 0 {
         return f64::NAN;
     }
-    let value = if radix == 10 {
-        rest[..digits.len()].parse().unwrap_or(f64::NAN)
+    let digits = &rest[..len];
+    let value = if radix == 16 {
+        radix_to_f64(digits, 4)
     } else {
-        digits.iter().fold(0.0, |n, d| n * 16.0 + d)
+        digits.parse().unwrap_or(f64::NAN)
     };
     sign * value
+}
+
+/// The digits of a power-of-two radix, `log2` bits each, as the double
+/// nearest their exact value, ties to even. V8's InternalStringToIntDouble
+/// keeps the top 53 bits, then rounds once on the bits it drops and whether
+/// any later digit is nonzero.
+fn radix_to_f64(digits: &str, log2: u32) -> f64 {
+    let mut values = digits
+        .chars()
+        .map(|c| u64::from(c.to_digit(1 << log2).unwrap_or(0)));
+    let mut number = 0u64;
+    for digit in values.by_ref() {
+        number = (number << log2) | digit;
+        if number >> 53 == 0 {
+            continue;
+        }
+        let dropped_bits = 64 - number.leading_zeros() - 53;
+        let dropped = number & ((1 << dropped_bits) - 1);
+        let half = 1 << (dropped_bits - 1);
+        number >>= dropped_bits;
+        let mut exponent = dropped_bits as i32;
+        let mut sticky = false;
+        for digit in values {
+            sticky |= digit != 0;
+            exponent += log2 as i32;
+        }
+        if dropped > half || (dropped == half && (sticky || number & 1 == 1)) {
+            number += 1;
+            if number >> 53 != 0 {
+                number >>= 1;
+                exponent += 1;
+            }
+        }
+        // number is below 2^53 and at least 2^52, so the product is exact
+        // until it overflows to Infinity, which it then should
+        return if exponent > 1023 {
+            f64::INFINITY
+        } else {
+            number as f64 * f64::from_bits(((exponent + 1023) as u64) << 52)
+        };
+    }
+    number as f64
 }
 
 /// JavaScript's WhiteSpace and LineTerminator: Unicode's White_Space bar
