@@ -4,6 +4,15 @@
 app:open-logs-folder
 app:open-url
 app:version
+db:all-summoner-puuids
+db:champion-match-history
+db:match-detail
+db:match-filters
+db:match-history
+db:match-sessions
+db:profile
+db:stored-queues
+db:toggle-favorite
 settings:get
 settings:set
 window:close
