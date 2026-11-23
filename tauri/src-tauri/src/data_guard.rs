@@ -1,7 +1,7 @@
 //! Keeps debug and parity builds out of the folder Electron 1.2.1 keeps a
 //! player's matches in. [`crate::paths::Paths`] runs [`enforce`] before it
 //! hands out a single path, so nothing is created or opened under a root
-//! that fails it. Release builds skip it and open that folder, as 1.2.1 does.
+//! that fails it. Release builds do not compile it, and open that folder as 1.2.1 does.
 //!
 //! A root fails when it is the real folder or inside it, however it is
 //! spelled. The check walks the root the way the kernel will: symlinks are
@@ -17,8 +17,7 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::paths::DATA_FOLDER;
 
-/// `EX_CONFIG` from sysexits.h.
-pub const EXIT_CODE: i32 = 78;
+pub use crate::paths::EXIT_CODE;
 
 /// Symlinks followed before the walk gives up, as `MAXSYMLINKS` on macOS.
 const MAX_LINKS: usize = 32;
@@ -43,12 +42,10 @@ impl fmt::Display for Tripped {
     }
 }
 
-/// Exits the process when `root` is the real folder, in debug and parity
-/// builds. Release builds return at once.
+/// Exits the process when `root` is the real folder. Only debug and parity
+/// builds compile this module.
 pub fn enforce(root: &Path) {
-    if cfg!(any(debug_assertions, feature = "parity-driver")) {
-        enforce_against(root, &real_config_dirs());
-    }
+    enforce_against(root, &real_config_dirs());
 }
 
 /// [`enforce`] against the given folders that the real folder sits in.
