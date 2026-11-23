@@ -863,6 +863,18 @@ fn copy_dir(from: &Path, to: &Path) {
     }
 }
 
+/// Lays the snapshot out under `root` as `parity/run-electron.ts` does for
+/// Electron: `data/`, and the art and game data copies in `asset-cache/`
+/// beside it when the snapshot has them.
+fn copy_fixture(data: &Path, root: &Path) {
+    copy_dir(data, &root.join("data"));
+    if let Some(cache) = data.parent().map(|snapshot| snapshot.join("asset-cache"))
+        && cache.is_dir()
+    {
+        copy_dir(&cache, &root.join("asset-cache"));
+    }
+}
+
 /// Points the next app built at `root`. Each app reads it when it is built.
 fn use_data_root(root: &Path) {
     // SAFETY: only this thread runs code that reads the environment here: the
@@ -1605,7 +1617,7 @@ fn replay_states(
     for (n, launch) in plan.launches.into_iter().enumerate() {
         let root = scratch.join(format!("launch-{n}"));
         match (launch.data, data) {
-            (states::Data::Recorded, Some(data)) => copy_dir(data, &root.join("data")),
+            (states::Data::Recorded, Some(data)) => copy_fixture(data, &root),
             _ => std::fs::create_dir_all(&root).expect("create the data folder"),
         }
         use_data_root(&root);
@@ -1709,7 +1721,7 @@ fn replay_goldens(
     for (group, group_cases) in groups {
         let root = scratch.join(group);
         match data {
-            Some(data) => copy_dir(data, &root.join("data")),
+            Some(data) => copy_fixture(data, &root),
             None => std::fs::create_dir_all(&root).expect("create the data folder"),
         }
         use_data_root(&root);
