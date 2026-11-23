@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -24,7 +25,15 @@ export interface RunningElectron {
   userData: string;
   blockedRequests: string[];
   ctx: DriveContext;
-  close(): Promise<void>;
+  /** Seam faults logged so far: uncaught errors, stubbed error dialogs. */
+  faults(): string[];
+  close(): Promise<RunReport>;
+}
+
+export interface RunReport {
+  faults: string[];
+  /** Files that appeared or changed outside the run folder during the run. */
+  leaks: string[];
 }
 
 export interface StartOptions {
@@ -34,8 +43,102 @@ export interface StartOptions {
   viewport?: { width: number; height: number };
 }
 
+export function readFaults(seamLog: string): string[] {
+  if (!fs.existsSync(seamLog)) return [];
+  return fs
+    .readFileSync(seamLog, "utf8")
+    .split(/\n(?=\S)/)
+    .filter((entry) => entry.startsWith("fault "));
+}
+
 function copyTree(from: string, to: string) {
-  if (fs.existsSync(from)) fs.cpSync(from, to, { recursive: true });
+  if (fs.existsSync(from)) fs.cpSync(from, to, { recursive: true, dereference: true });
+}
+
+const isInside = (child: string, parent: string) =>
+  child === parent || child.startsWith(parent + path.sep);
+
+/**
+ * The app finds its data folder from where its own script really lives, so a symlink
+ * anywhere in the run folder would move data/, backups/, logs/ and asset-cache/ to the
+ * link's target. Refuses a run folder, or an out/ above it, that is a link or resolves
+ * elsewhere.
+ */
+export function assertRunFolderPinned(runDir: string) {
+  const parityOut = path.join(PARITY_DIR, "out");
+  if (
+    isInside(path.resolve(runDir), parityOut) &&
+    fs.lstatSync(parityOut, { throwIfNoEntry: false })?.isSymbolicLink()
+  ) {
+    throw new Error(`${parityOut} is a symlink. Captures would write beside its target.`);
+  }
+  const parent = fs.realpathSync(path.dirname(runDir));
+  const expected = path.join(parent, path.basename(runDir));
+  if (fs.realpathSync(runDir) !== expected) {
+    throw new Error(`run folder ${runDir} resolves to ${fs.realpathSync(runDir)}, not ${expected}`);
+  }
+}
+
+/** After the build is copied in: nothing in the run folder may resolve outside it, bar node_modules. */
+export function assertNoEscapingLinks(runDir: string) {
+  const root = fs.realpathSync(runDir);
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (full === path.join(runDir, "node_modules")) continue;
+      if (fs.realpathSync(full) !== path.join(fs.realpathSync(dir), entry.name)) {
+        throw new Error(`${full} resolves to ${fs.realpathSync(full)}, outside the run folder`);
+      }
+      if (entry.isDirectory()) walk(full);
+    }
+  };
+  walk(runDir);
+  if (!isInside(fs.realpathSync(path.join(runDir, "out", "main", "index.js")), root)) {
+    throw new Error("the app's script resolves outside the run folder");
+  }
+}
+
+/** Everything git or the app's data folders could show changed in the checkout, bar parity/out. */
+export function checkoutStamp(repo: string): Map<string, string> {
+  const stamp = new Map<string, string>();
+  const status = spawnSync(
+    "git",
+    [
+      "status",
+      "--porcelain=v1",
+      "--untracked-files=all",
+      "--ignored=traditional",
+      "--",
+      ".",
+      ":(exclude)parity/out",
+    ],
+    { cwd: repo, encoding: "utf8" },
+  );
+  if (status.status !== 0) throw new Error(`git status failed in ${repo}: ${status.stderr}`);
+  for (const line of status.stdout.split("\n").filter(Boolean)) stamp.set(`git ${line}`, "");
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else {
+        const info = fs.lstatSync(full);
+        stamp.set(full, `${info.size}:${info.mtimeMs}`);
+      }
+    }
+  };
+  for (const name of ["data", "backups", "logs", "asset-cache", "userdata"]) {
+    const dir = path.join(repo, name);
+    if (fs.existsSync(dir)) walk(dir);
+  }
+  return stamp;
+}
+
+export function stampDiff(before: Map<string, string>, after: Map<string, string>): string[] {
+  const changed: string[] = [];
+  for (const [key, value] of after)
+    if (before.get(key) !== value) changed.push(`added or changed ${key}`);
+  for (const key of before.keys()) if (!after.has(key)) changed.push(`removed ${key}`);
+  return changed;
 }
 
 /** Builds the run folder: the built app, the data, and a stub package.json that renames the app. */
@@ -45,6 +148,7 @@ export function prepareRun(options: { data: string; runDir: string; repo: string
   const dataRoot = resolveDataRoot(options.data);
   fs.rmSync(runDir, { recursive: true, force: true });
   fs.mkdirSync(runDir, { recursive: true });
+  assertRunFolderPinned(runDir);
 
   const built = path.join(repo, "out");
   if (!fs.existsSync(path.join(built, "main", "index.js"))) {
@@ -52,7 +156,11 @@ export function prepareRun(options: { data: string; runDir: string; repo: string
   }
   copyTree(built, path.join(runDir, "out"));
   copyTree(path.join(repo, "assets"), path.join(runDir, "assets"));
-  fs.symlinkSync(path.join(repo, "node_modules"), path.join(runDir, "node_modules"), "junction");
+  fs.symlinkSync(
+    fs.realpathSync(path.join(repo, "node_modules")),
+    path.join(runDir, "node_modules"),
+    "junction",
+  );
 
   const pkg = JSON.parse(fs.readFileSync(path.join(repo, "package.json"), "utf8")) as {
     version: string;
@@ -73,6 +181,7 @@ export function prepareRun(options: { data: string; runDir: string; repo: string
   const database = new Database(db);
   database.run("UPDATE settings SET value = ? WHERE key = 'last_run_version'", [pkg.version]);
   database.close();
+  assertNoEscapingLinks(runDir);
   return { dataRoot, version: pkg.version };
 }
 
@@ -99,6 +208,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
         `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
       ),
   );
+  const before = checkoutStamp(repo);
   prepareRun({ data: options.data, runDir, repo });
 
   const seamLog = path.join(runDir, "seam.log");
@@ -106,6 +216,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
     SEAM_LOG: seamLog,
+    SEAM_RUN_DIR: runDir,
     SEAM_FIXED_TIME: String(FIXED_TIME.getTime()),
     SEAM_REAL_ROOTS: JSON.stringify(realDataRoots()),
     TZ: TIME_ZONE,
@@ -167,6 +278,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
   await page.waitForLoadState("load");
 
   const ctx: DriveContext = { page, viewport, resizeWindow, touchedSettings: new Map() };
+  const faults = () => readFaults(seamLog);
   return {
     app,
     page,
@@ -175,13 +287,19 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     userData,
     blockedRequests,
     ctx,
+    faults,
     async close() {
       fs.writeFileSync(
         path.join(runDir, "blocked-renderer.json"),
         JSON.stringify(blockedRequests, null, 1),
       );
+      // Hidden first, so the visibility events fire while the windows are alive
+      await app
+        .evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((w) => w.hide()))
+        .catch(() => {});
       await app.evaluate(({ app: electron }) => electron.exit(0)).catch(() => {});
       await app.close().catch(() => {});
+      return { faults: faults(), leaks: stampDiff(before, checkoutStamp(repo)) };
     },
   };
 }

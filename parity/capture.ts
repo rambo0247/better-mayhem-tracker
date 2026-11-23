@@ -3,7 +3,7 @@ import path from "node:path";
 import { waitForNoGame } from "./lib/no-game.ts";
 import { dumpGeometry } from "./drive.ts";
 import { isDataSource, PARITY_DIR } from "./lib/data.ts";
-import { startElectron } from "./run-electron.ts";
+import { startElectron, type RunReport } from "./run-electron.ts";
 import { applyState, resolveVars, selectStates, stateGroups, type StateRow } from "./states.ts";
 
 export const baselineDir = (app: string, platform: NodeJS.Platform = process.platform) =>
@@ -66,6 +66,8 @@ async function main() {
   });
   const timings: Timing[] = [];
   let failures = 0;
+  let seenFaults = 0;
+  let report: RunReport;
   try {
     const vars = await resolveVars(running.page);
     for (const state of states) {
@@ -76,6 +78,12 @@ async function main() {
         const outcome = await applyState(running.ctx, state as StateRow, vars);
         record.settleMs = outcome.settle.ms;
         record.settleTimedOut = outcome.settle.timedOut;
+        const faults = running.faults();
+        if (faults.length > seenFaults) {
+          const fresh = faults.slice(seenFaults);
+          seenFaults = faults.length;
+          throw new Error(`main process fault: ${fresh.join(" | ").slice(0, 400)}`);
+        }
         if (!outcome.expectFound) throw new Error(`expected ${state.expect} on the page`);
         if (state.card && outcome.card?.state !== "ready") {
           throw new Error(`card status ${JSON.stringify(outcome.card)}`);
@@ -116,7 +124,17 @@ async function main() {
       );
     }
   } finally {
-    await running.close();
+    report = await running.close();
+  }
+  if (report.faults.length > seenFaults) {
+    failures++;
+    console.log(
+      `FAIL main process fault after the last state: ${report.faults.slice(seenFaults).join(" | ").slice(0, 400)}`,
+    );
+  }
+  if (report.leaks.length) {
+    failures++;
+    console.log(`FAIL the app wrote outside the run folder:\n  ${report.leaks.join("\n  ")}`);
   }
   const wallMs = Date.now() - startedAt;
   fs.copyFileSync(running.seamLog, path.join(dir, "seam.log"));
@@ -129,13 +147,15 @@ async function main() {
     wallMs,
     states: timings.length,
     failures,
+    faults: report.faults.length,
+    leaks: report.leaks,
     maxState: { id: max?.id, ms: max?.ms },
     blockedWrites,
     timings,
   };
   fs.writeFileSync(path.join(dir, "timing.json"), JSON.stringify(summary, null, 1));
   console.log(
-    `${timings.length} states, ${failures} failed, wall ${(wallMs / 1000).toFixed(1)} s, slowest ${max?.id} ${max?.ms} ms, blocked writes ${blockedWrites}`,
+    `${timings.length} states, ${failures} failed, wall ${(wallMs / 1000).toFixed(1)} s, slowest ${max?.id} ${max?.ms} ms, blocked writes ${blockedWrites}, main-process faults ${report.faults.length}, writes outside the run folder ${report.leaks.length}`,
   );
   process.exit(failures ? 1 : 0);
 }
