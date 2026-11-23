@@ -23,7 +23,7 @@ afterEach(() => {
 
 const checks = () => fake.calls.filter((c) => c.method === "checkForUpdate").length;
 
-test("update checks go on after the update button is pressed", async () => {
+test("update checks pause while the update dialog is open and go on once it closes", async () => {
   const Router = createRouter({
     routes: [{ path: "/*", component: Header }],
     history: hashHistoryWithState(),
@@ -37,10 +37,20 @@ test("update checks go on after the update button is pressed", async () => {
     .querySelector<HTMLButtonElement>('button[title="Update to version 9.9.9"]')!
     .click();
   await settle();
-  // Coming back to the window after the recheck interval asks again
-  setSystemTime(Date.now() + 11 * 60 * 1000);
-  window.dispatchEvent(new Event("focus"));
+  // Coming back to the window after the recheck interval asks again, but not
+  // while the dialog is up, as React's poll skips then
+  const returnLater = async () => {
+    setSystemTime(Date.now() + 11 * 60 * 1000);
+    window.dispatchEvent(new Event("focus"));
+    await settle();
+  };
+  await returnLater();
+  expect(checks()).toBe(1);
+
+  const notNow = [...document.querySelectorAll("button")].find((b) => b.textContent === "Not Now");
+  notNow!.click();
   await settle();
+  await returnLater();
   expect(checks()).toBe(2);
 });
 
