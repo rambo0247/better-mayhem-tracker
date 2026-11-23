@@ -546,7 +546,10 @@ fn node_gzip_and_ours_hold_the_same_text() {
     } else {
         3
     };
-    assert_eq!(ours[9], platform, "the OS byte Electron writes on this platform");
+    assert_eq!(
+        ours[9], platform,
+        "the OS byte Electron writes on this platform"
+    );
     assert_eq!(
         payloads::unpack_raw(Some(&node)),
         Some(raw),
@@ -709,8 +712,101 @@ fn errors_surface_as_better_sqlite3_throws_them() {
         .unwrap_err();
     assert_eq!(
         (err.name.as_str(), err.message.as_str()),
-        ("TypeError", "Cannot read properties of null (reading 'puuid')")
+        (
+            "TypeError",
+            "Cannot read properties of null (reading 'puuid')"
+        )
     );
+}
+
+/// `js::transaction` against better-sqlite3's wrapper in trunk Electron: a
+/// function that ends the transaction itself fails with SQLite's message
+/// for the savepoint better-sqlite3 names, an inner throw undoes only the
+/// inner writes, and a panic leaves no transaction open.
+#[test]
+fn transactions_nest_and_fail_as_better_sqlite3s_do() {
+    use bmt_lib::db::js::transaction;
+    let mem = || {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE t (a INTEGER PRIMARY KEY); INSERT INTO t VALUES (1)")
+            .unwrap();
+        conn
+    };
+    let conn = mem();
+    let inner_commits = transaction(&conn, || {
+        transaction(&conn, || conn.execute_batch("COMMIT"))
+    });
+    assert_eq!(
+        surfaced(inner_commits),
+        electron_error("tx_inner_commits_outer")
+    );
+    let conn = mem();
+    let rolls_back = transaction(&conn, || conn.execute_batch("ROLLBACK"));
+    assert_eq!(surfaced(rolls_back), electron_error("tx_rolls_back_itself"));
+    let conn = mem();
+    let inner_rolls_back = transaction(&conn, || {
+        transaction(&conn, || conn.execute_batch("ROLLBACK"))
+    });
+    assert_eq!(
+        surfaced(inner_rolls_back),
+        electron_error("tx_inner_rolls_back_outer")
+    );
+
+    let conn = mem();
+    transaction(&conn, || {
+        conn.execute("INSERT INTO t VALUES (10)", [])?;
+        let inner = transaction(&conn, || {
+            conn.execute("INSERT INTO t VALUES (11)", [])?;
+            Err::<(), _>(rusqlite::Error::InvalidQuery)
+        });
+        assert!(inner.is_err());
+        Ok(())
+    })
+    .unwrap();
+    let kept: Vec<i64> = conn
+        .prepare("SELECT a FROM t ORDER BY a")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap();
+    let path = manifest_dir().join("tests/fixtures/electron-errors.json");
+    let all: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    assert_eq!(
+        json!(kept),
+        all["cases"]["tx_inner_throw_keeps_outer"]["value"]
+    );
+
+    for nested in [false, true] {
+        let conn = mem();
+        if nested {
+            conn.execute_batch("BEGIN").unwrap();
+        }
+        let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            transaction(&conn, || -> rusqlite::Result<()> {
+                conn.execute("INSERT INTO t VALUES (20)", [])?;
+                panic!("a panic inside the transaction");
+            })
+        }));
+        assert!(unwound.is_err());
+        assert_eq!(
+            conn.is_autocommit(),
+            !nested,
+            "nested {nested}: only the caller's transaction is open"
+        );
+        let rows: i64 = conn
+            .query_row("SELECT count(*) FROM t", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 1, "nested {nested}: the panicked insert is undone");
+        if nested {
+            conn.execute_batch("COMMIT").unwrap();
+        }
+        transaction(&conn, || conn.execute_batch("INSERT INTO t VALUES (30)")).unwrap();
+        assert!(
+            conn.is_autocommit(),
+            "nested {nested}: the next transaction commits for real"
+        );
+    }
 }
 
 /// One argument as a test writes it: JSON, `undefined`, or a value Rust
@@ -773,7 +869,10 @@ fn binder_args(case: &str) -> Option<Vec<A>> {
         "bigint_creation" => at(vec![(4, S(Sql::Integer(1_790_000_000_000)))]),
         "nan_not_null" => at(vec![(4, S(Sql::Real(f64::NAN)))]),
         "nan_nullable" => at(vec![(8, S(Sql::Real(f64::NAN)))]),
-        "infinity" => at(vec![(4, S(Sql::Real(f64::INFINITY))), (5, S(Sql::Real(f64::NEG_INFINITY)))]),
+        "infinity" => at(vec![
+            (4, S(Sql::Real(f64::INFINITY))),
+            (5, S(Sql::Real(f64::NEG_INFINITY))),
+        ]),
         "negative_zero" => at(vec![(4, S(Sql::Real(-0.0)))]),
         "too_many" => {
             let mut args = base();
@@ -837,7 +936,8 @@ fn arguments_bind_as_better_sqlite3_binds_them() {
             })
             .collect();
         let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(probe["games"].as_str().unwrap()).unwrap();
+        conn.execute_batch(probe["games"].as_str().unwrap())
+            .unwrap();
         conn.execute_batch("CREATE TABLE r (a, b)").unwrap();
         let stmt_id = case["stmt"].as_str().unwrap();
         let sql = probe["sql"][stmt_id].as_str().unwrap();
@@ -845,7 +945,10 @@ fn arguments_bind_as_better_sqlite3_binds_them() {
         let electron = &case["outcome"];
         match result {
             Ok(changes) => {
-                assert_eq!(electron["kind"], "ok", "{id}: ours ran, Electron's threw {electron}");
+                assert_eq!(
+                    electron["kind"], "ok",
+                    "{id}: ours ran, Electron's threw {electron}"
+                );
                 assert_eq!(json!(changes), electron["changes"], "{id}");
                 let table = if stmt_id == "ingest" { "games" } else { "r" };
                 let cols: Vec<String> = conn
@@ -855,10 +958,15 @@ fn arguments_bind_as_better_sqlite3_binds_them() {
                     .unwrap()
                     .collect::<rusqlite::Result<_>>()
                     .unwrap();
-                let parts: Vec<String> =
-                    cols.iter().map(|c| format!("typeof({c}), quote({c})")).collect();
+                let parts: Vec<String> = cols
+                    .iter()
+                    .map(|c| format!("typeof({c}), quote({c})"))
+                    .collect();
                 let rows: Vec<Value> = conn
-                    .prepare(&format!("SELECT {} FROM {table} ORDER BY rowid", parts.join(", ")))
+                    .prepare(&format!(
+                        "SELECT {} FROM {table} ORDER BY rowid",
+                        parts.join(", ")
+                    ))
                     .unwrap()
                     .query_map([], |r| {
                         Ok(Value::Array(
@@ -867,7 +975,9 @@ fn arguments_bind_as_better_sqlite3_binds_them() {
                                     rusqlite::types::ValueRef::Text(t) => {
                                         json!(String::from_utf8_lossy(t))
                                     }
-                                    other => panic!("{id}: typeof and quote are text, got {other:?}"),
+                                    other => {
+                                        panic!("{id}: typeof and quote are text, got {other:?}")
+                                    }
                                 })
                                 .collect(),
                         ))
@@ -889,7 +999,14 @@ fn arguments_bind_as_better_sqlite3_binds_them() {
     }
     assert_eq!(
         not_representable,
-        ["date", "arraybuffer", "string_object", "bigint_too_big", "named_undefined_value", "named_date"],
+        [
+            "date",
+            "arraybuffer",
+            "string_object",
+            "bigint_too_big",
+            "named_undefined_value",
+            "named_date"
+        ],
         "a JavaScript Date, ArrayBuffer, String object, oversized BigInt or undefined property has no Rust value"
     );
 }
@@ -975,7 +1092,11 @@ fn same_cells_as_electron(conn: &Connection, fixture: &str) {
                 .filter(|(c, _)| a[*c] != b[*c])
                 .map(|(c, name)| format!("{name}: ours {} electron {}", a[c], b[c]))
                 .collect();
-            assert!(differ.is_empty(), "{sql}\n  row {i}: {}", differ.join("\n    "));
+            assert!(
+                differ.is_empty(),
+                "{sql}\n  row {i}: {}",
+                differ.join("\n    ")
+            );
         }
         assert_eq!(ours.len(), theirs.len(), "{sql}: row count");
     }
@@ -1019,12 +1140,36 @@ fn owners_that_are_not_strings_bind_as_better_sqlite3_binds_them() {
         .into_bytes()
     };
     let games = [
-        (16, game(16, r#"{"puuid":["arr-16"],"gameName":"N16","tagLine":"T16"}"#)),
-        (17, game(17, r#"{"puuid":{"a":1},"gameName":"N17","tagLine":"T17"}"#)),
-        (19, game(19, r#"{"puuid":true,"gameName":"N19","tagLine":"T19"}"#)),
-        (21, game(21, r#"{"puuid":12345,"gameName":"N21","tagLine":"T21"}"#)),
-        (23, game(23, r#"{"puuid":[],"gameName":"N23","tagLine":"T23"}"#)),
-        (24, game(24, r#"{"puuid":["a-24","b-24"],"gameName":"N24","tagLine":"T24"}"#)),
+        (
+            16,
+            game(
+                16,
+                r#"{"puuid":["arr-16"],"gameName":"N16","tagLine":"T16"}"#,
+            ),
+        ),
+        (
+            17,
+            game(17, r#"{"puuid":{"a":1},"gameName":"N17","tagLine":"T17"}"#),
+        ),
+        (
+            19,
+            game(19, r#"{"puuid":true,"gameName":"N19","tagLine":"T19"}"#),
+        ),
+        (
+            21,
+            game(21, r#"{"puuid":12345,"gameName":"N21","tagLine":"T21"}"#),
+        ),
+        (
+            23,
+            game(23, r#"{"puuid":[],"gameName":"N23","tagLine":"T23"}"#),
+        ),
+        (
+            24,
+            game(
+                24,
+                r#"{"puuid":["a-24","b-24"],"gameName":"N24","tagLine":"T24"}"#,
+            ),
+        ),
     ];
     let (_dir, db) = migrate_v0("binder-v0", &games);
     db.with(|conn| {
@@ -1054,7 +1199,10 @@ fn js_semantics_match_node() {
             number_misses.insert(format!("{hex}: node {node}, ours {ours}"));
         }
     }
-    println!("numbers: {} distinct of {count} differ", number_misses.len());
+    println!(
+        "numbers: {} distinct of {count} differ",
+        number_misses.len()
+    );
     for miss in number_misses.iter().take(20) {
         println!("  {miss}");
     }
@@ -1065,7 +1213,10 @@ fn js_semantics_match_node() {
     let mut lossy = 0;
     for case in &cases {
         let text = case["text"].as_str().unwrap();
-        let (want, bound) = (case["want"].as_str().unwrap(), case["wantBound"].as_str().unwrap());
+        let (want, bound) = (
+            case["want"].as_str().unwrap(),
+            case["wantBound"].as_str().unwrap(),
+        );
         let ours = match payloads::unpack_raw(Some(&payloads::gzip(text.as_bytes()))) {
             Some(v) => bmt_lib::db::js::stringify(&v),
             None if want.starts_with("THROW ") => want.to_owned(),

@@ -113,9 +113,7 @@ pub fn sqlite_error(err: &rusqlite::Error) -> CommandError {
         };
     }
     let message = match err {
-        rusqlite::Error::SqliteFailure(code, _)
-            if code.code == rusqlite::ErrorCode::CannotOpen =>
-        {
+        rusqlite::Error::SqliteFailure(code, _) if code.code == rusqlite::ErrorCode::CannotOpen => {
             errstr(code.extended_code)
         }
         rusqlite::Error::SqliteFailure(_, Some(message)) => message.clone(),

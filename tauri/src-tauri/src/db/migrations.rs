@@ -142,50 +142,7 @@ fn migrate_to_v2(conn: &Connection) -> rusqlite::Result<()> {
         conn.execute_batch("ALTER TABLE games ADD COLUMN raw_gz BLOB")?;
     }
 
-    // Pass one moves the payloads across as-is. The stored text is compressed
-    // rather than reserialized, so a backup taken after this migration is byte
-    // for byte the backup that would have been taken before it.
-    let mut page = conn.prepare(
-        "
-    SELECT game_id, raw_json
-    FROM games
-    WHERE raw_json IS NOT NULL AND raw_gz IS NULL AND game_id > ?
-    ORDER BY game_id
-    LIMIT ?
-  ",
-    )?;
-    let mut compress = conn.prepare("UPDATE games SET raw_gz = ? WHERE game_id = ?")?;
-
-    let mut last_id = 0i64;
-    loop {
-        let rows = page
-            .query_map(params![last_id, PAYLOAD_PAGE_SIZE], |row| {
-                Ok((row.get::<_, i64>(0)?, row.get::<_, Cell>(1)?))
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        let Some((last, _)) = rows.last() else {
-            break;
-        };
-        last_id = *last;
-
-        let tx = conn.unchecked_transaction()?;
-        for (game_id, raw_json) in &rows {
-            let bytes = match raw_json {
-                Cell::Text(s) => s.as_bytes(),
-                Cell::Blob(b) => b,
-                // zlib.gzipSync throws on anything but a string or a buffer
-                _ => {
-                    return Err(rusqlite::Error::InvalidColumnType(
-                        1,
-                        "raw_json".into(),
-                        rusqlite::types::Type::Real,
-                    ));
-                }
-            };
-            compress.execute(params![gzip(bytes), game_id])?;
-        }
-        tx.commit()?;
-    }
+    compress_payloads(conn)?;
 
     // Pass two derives the rows every query now reads.
     let result = rebuild_participants_from_payloads(conn)?;
@@ -225,6 +182,55 @@ fn migrate_to_v2(conn: &Connection) -> rusqlite::Result<()> {
         "Normalized {} games into match_participants{unreadable}",
         result.normalized
     );
+    Ok(())
+}
+
+/// Pass one of `migrateToV2`: moves the payloads across as-is. The stored
+/// text is compressed rather than reserialized, so a backup taken after this
+/// migration is byte for byte the backup that would have been taken before.
+fn compress_payloads(conn: &Connection) -> rusqlite::Result<()> {
+    let mut page = conn.prepare(
+        "
+    SELECT game_id, raw_json
+    FROM games
+    WHERE raw_json IS NOT NULL AND raw_gz IS NULL AND game_id > ?
+    ORDER BY game_id
+    LIMIT ?
+  ",
+    )?;
+    let mut compress = conn.prepare("UPDATE games SET raw_gz = ? WHERE game_id = ?")?;
+
+    let mut last_id = 0i64;
+    loop {
+        let rows = page
+            .query_map(params![last_id, PAYLOAD_PAGE_SIZE], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, Cell>(1)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let Some((last, _)) = rows.last() else {
+            break;
+        };
+        last_id = *last;
+
+        js::transaction(conn, || {
+            for (game_id, raw_json) in &rows {
+                let bytes = match raw_json {
+                    Cell::Text(s) => s.as_bytes(),
+                    Cell::Blob(b) => b,
+                    // zlib.gzipSync throws on anything but a string or a buffer
+                    _ => {
+                        return Err(rusqlite::Error::InvalidColumnType(
+                            1,
+                            "raw_json".into(),
+                            rusqlite::types::Type::Real,
+                        ));
+                    }
+                };
+                compress.execute(params![gzip(bytes), game_id])?;
+            }
+            Ok(())
+        })?;
+    }
     Ok(())
 }
 
@@ -299,24 +305,25 @@ fn backfill_player_stats_spells(conn: &Connection) -> rusqlite::Result<()> {
 
     let mut update =
         conn.prepare("UPDATE player_stats SET spell1 = ?, spell2 = ? WHERE game_id = ?")?;
-    let tx = conn.unchecked_transaction()?;
-    for (game_id, puuid, stats) in &games {
-        let rows = participants
-            .get(game_id)
-            .map(Vec::as_slice)
-            .unwrap_or_default();
-        let by_puuid = truthy(puuid)
-            .then(|| rows.iter().find(|p| js::cells_eq(&p.0, puuid)))
-            .flatten();
-        let owner = by_puuid.or_else(|| {
-            rows.iter()
-                .find(|p| p.1.iter().zip(stats).all(|(a, b)| js::cells_eq(a, b)))
-        });
-        if let Some((_, _, spell1, spell2)) = owner {
-            update.execute(params![spell1.to_sql(), spell2.to_sql(), game_id])?;
+    js::transaction(conn, || {
+        for (game_id, puuid, stats) in &games {
+            let rows = participants
+                .get(game_id)
+                .map(Vec::as_slice)
+                .unwrap_or_default();
+            let by_puuid = truthy(puuid)
+                .then(|| rows.iter().find(|p| js::cells_eq(&p.0, puuid)))
+                .flatten();
+            let owner = by_puuid.or_else(|| {
+                rows.iter()
+                    .find(|p| p.1.iter().zip(stats).all(|(a, b)| js::cells_eq(a, b)))
+            });
+            if let Some((_, _, spell1, spell2)) = owner {
+                update.execute(params![spell1.to_sql(), spell2.to_sql(), game_id])?;
+            }
         }
-    }
-    tx.commit()
+        Ok(())
+    })
 }
 
 fn truthy(cell: &Cell) -> bool {
@@ -341,26 +348,27 @@ fn backfill_remakes(conn: &Connection) -> rusqlite::Result<()> {
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     let mut update = conn.prepare("UPDATE games SET is_remake = 1 WHERE game_id = ?")?;
-    let tx = conn.unchecked_transaction()?;
-    for (game_id, duration, raw_json) in &games {
-        // Runs inside migrateToV1, before the blobs have been normalized, so
-        // the participant rows have to come from the payload itself.
-        let rows = if truthy(raw_json) {
-            parse_json(raw_json)
-                .and_then(|raw| participant_rows_from_raw(Some(&raw)).ok())
-                .unwrap_or_default()
-        } else {
-            Vec::new()
-        };
-        let duration = match duration {
-            Cell::Number(n) => *n,
-            _ => f64::NAN,
-        };
-        if detect_remake(duration, rows.iter().map(|r| r.early_surrender)) {
-            update.execute([game_id])?;
+    js::transaction(conn, || {
+        for (game_id, duration, raw_json) in &games {
+            // Runs inside migrateToV1, before the blobs have been normalized, so
+            // the participant rows have to come from the payload itself.
+            let rows = if truthy(raw_json) {
+                parse_json(raw_json)
+                    .and_then(|raw| participant_rows_from_raw(Some(&raw)).ok())
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            let duration = match duration {
+                Cell::Number(n) => *n,
+                _ => f64::NAN,
+            };
+            if detect_remake(duration, rows.iter().map(|r| r.early_surrender)) {
+                update.execute([game_id])?;
+            }
         }
-    }
-    tx.commit()
+        Ok(())
+    })
 }
 
 /// Recovers each game's owner by matching stored `player_stats` against the
@@ -398,65 +406,71 @@ fn backfill_game_puuids(conn: &Connection, now_ms: i64) -> rusqlite::Result<()> 
   ",
     )?;
 
-    let tx = conn.unchecked_transaction()?;
-    for (game_id, raw_json, [champion_id, kills, deaths, assists]) in &games {
-        // Each game sits in its own try in the JavaScript, so a game that
-        // throws partway keeps what it wrote and the loop moves on
-        let _ = (|| -> Result<(), Box<dyn std::error::Error>> {
-            let raw = parse_json(raw_json).ok_or("unparseable")?;
-            let raw = Some(&raw);
-            let empty = Value::Array(Vec::new());
-            let participants = js::or(&[js::prop(raw, "participants")?, Some(&empty)]);
-            let identities = js::or(&[js::prop(raw, "participantIdentities")?, Some(&empty)]);
-            let Some(Value::Array(participants)) = participants else {
-                return Ok(());
-            };
-            for (i, p) in participants.iter().enumerate() {
-                let p = Some(p);
-                let identity = js::index(identities, i);
-                let s = js::or(&[js::prop(p, "stats")?, p]);
-                let zero = Value::from(0);
-                let champion = js::nullish(&[
-                    js::prop(p, "championId")?,
-                    js::prop(s, "championId")?,
-                    Some(&zero),
-                ]);
-                let stat = |key: &str| -> Result<Option<&Value>, js::TypeError> {
-                    Ok(js::nullish(&[js::prop(s, key)?, Some(&zero)]))
+    js::transaction(conn, || {
+        for (game_id, raw_json, [champion_id, kills, deaths, assists]) in &games {
+            // Each game sits in its own try in the JavaScript, so a game that
+            // throws partway keeps what it wrote and the loop moves on
+            let _ = (|| -> Result<(), Box<dyn std::error::Error>> {
+                let raw = parse_json(raw_json).ok_or("unparseable")?;
+                let raw = Some(&raw);
+                let empty = Value::Array(Vec::new());
+                let participants = js::or(&[js::prop(raw, "participants")?, Some(&empty)]);
+                let identities = js::or(&[js::prop(raw, "participantIdentities")?, Some(&empty)]);
+                let Some(Value::Array(participants)) = participants else {
+                    return Ok(());
                 };
-                if champion_id.strict_eq(champion)
-                    && kills.strict_eq(stat("kills")?)
-                    && deaths.strict_eq(stat("deaths")?)
-                    && assists.strict_eq(stat("assists")?)
-                {
-                    let player = js::opt_prop(identity, "player");
-                    let puuid = js::or(&[js::prop(p, "puuid")?, js::opt_prop(player, "puuid")]);
-                    if js::truthy(puuid) {
-                        js::run(&mut update, &[puuid.into(), (*game_id).into()])?;
-                        let game_name = js::or(&[
-                            js::opt_prop(player, "gameName"),
-                            js::opt_prop(player, "summonerName"),
-                            js::prop(p, "summonerName")?,
-                            js::prop(p, "riotIdGameName")?,
-                            None,
-                        ]);
-                        let tag_line = js::or(&[
-                            js::opt_prop(player, "tagLine"),
-                            js::prop(p, "riotIdTagline")?,
-                            None,
-                        ]);
-                        js::run(
-                            &mut upsert,
-                            &[puuid.into(), game_name.into(), tag_line.into(), now_ms.into()],
-                        )?;
+                for (i, p) in participants.iter().enumerate() {
+                    let p = Some(p);
+                    let identity = js::index(identities, i);
+                    let s = js::or(&[js::prop(p, "stats")?, p]);
+                    let zero = Value::from(0);
+                    let champion = js::nullish(&[
+                        js::prop(p, "championId")?,
+                        js::prop(s, "championId")?,
+                        Some(&zero),
+                    ]);
+                    let stat = |key: &str| -> Result<Option<&Value>, js::TypeError> {
+                        Ok(js::nullish(&[js::prop(s, key)?, Some(&zero)]))
+                    };
+                    if champion_id.strict_eq(champion)
+                        && kills.strict_eq(stat("kills")?)
+                        && deaths.strict_eq(stat("deaths")?)
+                        && assists.strict_eq(stat("assists")?)
+                    {
+                        let player = js::opt_prop(identity, "player");
+                        let puuid = js::or(&[js::prop(p, "puuid")?, js::opt_prop(player, "puuid")]);
+                        if js::truthy(puuid) {
+                            js::run(&mut update, &[puuid.into(), (*game_id).into()])?;
+                            let game_name = js::or(&[
+                                js::opt_prop(player, "gameName"),
+                                js::opt_prop(player, "summonerName"),
+                                js::prop(p, "summonerName")?,
+                                js::prop(p, "riotIdGameName")?,
+                                None,
+                            ]);
+                            let tag_line = js::or(&[
+                                js::opt_prop(player, "tagLine"),
+                                js::prop(p, "riotIdTagline")?,
+                                None,
+                            ]);
+                            js::run(
+                                &mut upsert,
+                                &[
+                                    puuid.into(),
+                                    game_name.into(),
+                                    tag_line.into(),
+                                    now_ms.into(),
+                                ],
+                            )?;
+                        }
+                        break;
                     }
-                    break;
                 }
-            }
-            Ok(())
-        })();
-    }
-    tx.commit()
+                Ok(())
+            })();
+        }
+        Ok(())
+    })
 }
 
 fn backfill_game_versions(conn: &Connection) -> rusqlite::Result<()> {
@@ -467,20 +481,21 @@ fn backfill_game_versions(conn: &Connection) -> rusqlite::Result<()> {
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     let mut update = conn.prepare("UPDATE games SET game_version = ? WHERE game_id = ?")?;
-    let tx = conn.unchecked_transaction()?;
-    for (game_id, raw_json) in &games {
-        let Some(raw) = parse_json(raw_json) else {
-            continue;
-        };
-        // raw.gameVersion throws on a payload that parsed to null
-        let Ok(version) = js::prop(Some(&raw), "gameVersion") else {
-            continue;
-        };
-        if let Some(patch) = parse_patch(version) {
-            update.execute(params![patch, game_id])?;
+    js::transaction(conn, || {
+        for (game_id, raw_json) in &games {
+            let Some(raw) = parse_json(raw_json) else {
+                continue;
+            };
+            // raw.gameVersion throws on a payload that parsed to null
+            let Ok(version) = js::prop(Some(&raw), "gameVersion") else {
+                continue;
+            };
+            if let Some(patch) = parse_patch(version) {
+                update.execute(params![patch, game_id])?;
+            }
         }
-    }
-    tx.commit()
+        Ok(())
+    })
 }
 
 /// `backfillAugmentSlots`: `game_augments` holds our own picks and
@@ -499,4 +514,109 @@ pub fn backfill_augment_slots(conn: &Connection) -> rusqlite::Result<()> {
     WHERE g.puuid != '' AND p.puuid = g.puuid
   ",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::schema::CREATE_TABLES;
+
+    /// Today's tables with the payload still in `raw_json`, holding one
+    /// surrendered game, which every step below has something to do for.
+    fn with_raw_json() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(CREATE_TABLES).unwrap();
+        conn.execute_batch("ALTER TABLE games ADD COLUMN raw_json TEXT")
+            .unwrap();
+        let raw = r#"{"gameId":1,"gameVersion":"16.23.1.2","participants":[{"participantId":1,"championId":103,"teamId":100,"spell1Id":4,"spell2Id":32,"stats":{"win":true,"kills":7,"deaths":2,"assists":9,"gameEndedInEarlySurrender":true}}],"participantIdentities":[{"player":{"puuid":"owner","gameName":"Owner","tagLine":"NA1"}}]}"#;
+        conn.execute(
+            "INSERT INTO games (game_id, queue_id, game_mode, game_creation, game_duration, raw_json) VALUES (1, 2400, 'KIWI', 1, 450, ?)",
+            [raw],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO player_stats (game_id, champion_id, win, kills, deaths, assists) VALUES (1, 103, 1, 7, 2, 9)",
+            [],
+        )
+        .unwrap();
+        conn
+    }
+
+    fn probe(conn: &Connection, sql: &str) -> rusqlite::types::Value {
+        conn.query_row(sql, [], |row| row.get(0)).unwrap()
+    }
+
+    /// Each step's transaction nests as a savepoint inside one a caller
+    /// holds, as better-sqlite3's does, so the caller's rollback undoes it.
+    #[test]
+    fn every_step_nests_inside_a_callers_transaction() {
+        use rusqlite::types::Value::{Integer, Text};
+        type Step = fn(&Connection) -> rusqlite::Result<()>;
+        let rebuild: Step = |c| rebuild_participants_from_payloads(c).map(|_| ());
+        let steps: [(&str, &[Step], Step, &str, rusqlite::types::Value); 6] = [
+            (
+                "compress_payloads",
+                &[],
+                compress_payloads,
+                "SELECT raw_gz IS NOT NULL FROM games",
+                Integer(1),
+            ),
+            (
+                "backfill_remakes",
+                &[],
+                backfill_remakes,
+                "SELECT is_remake FROM games",
+                Integer(1),
+            ),
+            (
+                "backfill_game_puuids",
+                &[],
+                |c| backfill_game_puuids(c, 5),
+                "SELECT puuid FROM games",
+                Text("owner".into()),
+            ),
+            (
+                "backfill_game_versions",
+                &[],
+                backfill_game_versions,
+                "SELECT game_version FROM games",
+                Text("16.23".into()),
+            ),
+            (
+                "rebuild_participants_from_payloads",
+                &[compress_payloads],
+                rebuild,
+                "SELECT count(*) FROM match_participants",
+                Integer(1),
+            ),
+            (
+                "backfill_player_stats_spells",
+                &[compress_payloads, rebuild],
+                backfill_player_stats_spells,
+                "SELECT spell1 FROM player_stats",
+                Integer(4),
+            ),
+        ];
+        for (name, setup, step, sql, after) in steps {
+            let conn = with_raw_json();
+            for s in setup {
+                s(&conn).unwrap();
+            }
+            let before = probe(&conn, sql);
+            assert_ne!(before, after, "{name} has work to do");
+            conn.execute_batch("BEGIN").unwrap();
+            step(&conn).unwrap_or_else(|e| panic!("{name} inside a transaction: {e}"));
+            assert_eq!(probe(&conn, sql), after, "{name}");
+            assert!(
+                !conn.is_autocommit(),
+                "{name} left the caller's transaction open"
+            );
+            conn.execute_batch("ROLLBACK").unwrap();
+            assert_eq!(
+                probe(&conn, sql),
+                before,
+                "{name} rolled back with its caller"
+            );
+        }
+    }
 }

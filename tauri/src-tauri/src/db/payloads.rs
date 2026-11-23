@@ -354,18 +354,19 @@ pub fn rebuild_participants_from_payloads(conn: &Connection) -> rusqlite::Result
         };
         last_id = *last;
 
-        let tx = conn.unchecked_transaction()?;
-        for (game_id, meta, blob) in &rows {
-            let raw = unpack_raw(Some(blob));
-            let participants = participant_rows_from_raw(raw.as_ref()).map_err(js::thrown)?;
-            if participants.is_empty() {
-                result.unusable += 1;
-                continue;
+        js::transaction(conn, || {
+            for (game_id, meta, blob) in &rows {
+                let raw = unpack_raw(Some(blob));
+                let participants = participant_rows_from_raw(raw.as_ref()).map_err(js::thrown)?;
+                if participants.is_empty() {
+                    result.unusable += 1;
+                    continue;
+                }
+                write_participants(conn, &Sql::Integer(*game_id), meta, &participants)?;
+                result.normalized += 1;
             }
-            write_participants(conn, &Sql::Integer(*game_id), meta, &participants)?;
-            result.normalized += 1;
-        }
-        tx.commit()?;
+            Ok(())
+        })?;
     }
     Ok(result)
 }
@@ -478,7 +479,11 @@ mod tests {
         });
         for raw in [sgp, lcu] {
             let row = &participant_rows_from_raw(Some(&raw)).unwrap()[0];
-            assert_eq!((row.game_name.as_deref(), row.tag_line.as_deref()), (None, None), "{raw}");
+            assert_eq!(
+                (row.game_name.as_deref(), row.tag_line.as_deref()),
+                (None, None),
+                "{raw}"
+            );
         }
     }
 
@@ -503,7 +508,10 @@ mod tests {
             ("[-3.652336815595322e+125]", "[-3.652336815595322e+125]"),
             ("[9.24151699297440102308e+110]", "[9.241516992974401e+110]"),
             ("[2.04730697123433796357e+192]", "[2.047306971234338e+192]"),
-            ("[123456789012345678901234567890]", "[1.2345678901234568e+29]"),
+            (
+                "[123456789012345678901234567890]",
+                "[1.2345678901234568e+29]",
+            ),
         ];
         for (text, node) in cases {
             let parsed = unpack_raw(Some(&gzip(text.as_bytes()))).unwrap();

@@ -280,27 +280,33 @@ pub fn bind_args(stmt: &mut rusqlite::Statement<'_>, args: &[Arg<'_>]) -> rusqli
 }
 
 /// `Binder::BindValue`, with the error each SQLite bind result throws.
-fn bind_value(stmt: &mut rusqlite::Statement<'_>, index: usize, value: Sql) -> rusqlite::Result<()> {
+fn bind_value(
+    stmt: &mut rusqlite::Statement<'_>,
+    index: usize,
+    value: Sql,
+) -> rusqlite::Result<()> {
     if index > stmt.parameter_count() {
         return Err(thrown(JsError::range_error(
             "Too many parameter values were provided",
         )));
     }
-    stmt.raw_bind_parameter(index, value).map_err(|err| match err.sqlite_error_code() {
-        Some(rusqlite::ErrorCode::TooBig) => thrown(JsError::range_error(
-            "The bound string, buffer, or bigint is too big",
-        )),
-        Some(rusqlite::ErrorCode::OutOfMemory) => thrown(JsError::error("Out of memory")),
-        _ => thrown(JsError::error(
-            "An unexpected error occured while trying to bind parameters",
-        )),
-    })
+    stmt.raw_bind_parameter(index, value)
+        .map_err(|err| match err.sqlite_error_code() {
+            Some(rusqlite::ErrorCode::TooBig) => thrown(JsError::range_error(
+                "The bound string, buffer, or bigint is too big",
+            )),
+            Some(rusqlite::ErrorCode::OutOfMemory) => thrown(JsError::error("Out of memory")),
+            _ => thrown(JsError::error(
+                "An unexpected error occured while trying to bind parameters",
+            )),
+        })
 }
 
-/// better-sqlite3's `db.transaction(f)()`: `BEGIN` and `COMMIT` in
-/// autocommit, a savepoint inside an open transaction. An import holds 50
-/// inserts in one transaction, and a throw in one insert undoes only that
-/// insert. The error propagates either way.
+/// better-sqlite3's `db.transaction(f)()` (lib/methods/transaction.js):
+/// `BEGIN` and `COMMIT` in autocommit, a savepoint inside an open
+/// transaction. An import holds 50 inserts in one transaction, and a throw
+/// in one insert undoes only that insert. The error propagates either way,
+/// and a panic undoes the same way before it unwinds on.
 pub fn transaction<T>(
     conn: &Connection,
     f: impl FnOnce() -> rusqlite::Result<T>,
@@ -309,13 +315,20 @@ pub fn transaction<T>(
         ("BEGIN", "COMMIT", "ROLLBACK")
     } else {
         (
-            "SAVEPOINT `\t_bs3.`",
-            "RELEASE `\t_bs3.`",
-            "ROLLBACK TO `\t_bs3.`",
+            "SAVEPOINT `\t_bs3.\t`",
+            "RELEASE `\t_bs3.\t`",
+            "ROLLBACK TO `\t_bs3.\t`",
         )
     };
     conn.execute_batch(begin)?;
+    let mut on_unwind = UndoOnUnwind {
+        conn,
+        undo,
+        release: (undo != "ROLLBACK").then_some(commit),
+        armed: true,
+    };
     let result = f().and_then(|value| conn.execute_batch(commit).map(|()| value));
+    on_unwind.armed = false;
     if result.is_err() && !conn.is_autocommit() {
         conn.execute_batch(undo)?;
         if undo != "ROLLBACK" {
@@ -323,6 +336,28 @@ pub fn transaction<T>(
         }
     }
     result
+}
+
+/// Undoes a [`transaction`] whose function panicked, so the connection
+/// isn't left inside it. A release build aborts on panic instead.
+struct UndoOnUnwind<'a> {
+    conn: &'a Connection,
+    undo: &'static str,
+    release: Option<&'static str>,
+    armed: bool,
+}
+
+impl Drop for UndoOnUnwind<'_> {
+    fn drop(&mut self) {
+        if !self.armed || self.conn.is_autocommit() {
+            return;
+        }
+        // Nothing can report a failure from here, and the panic carries on
+        let _ = self.conn.execute_batch(self.undo);
+        if let Some(release) = self.release {
+            let _ = self.conn.execute_batch(release);
+        }
+    }
 }
 
 /// A column as better-sqlite3 hands it to JavaScript, reduced to what `===`
