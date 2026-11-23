@@ -374,7 +374,8 @@ export class TauriEngine implements Engine {
 // Launch
 
 export interface StartTauriOptions {
-  data: string;
+  /** The data whose asset cache is served. Only the Electron renderer needs it. */
+  data?: string;
   renderer?: Renderer;
   runDir?: string;
   repo?: string;
@@ -465,9 +466,9 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
       `${binary} is missing. Run \`CI=true bun run tauri build --debug --no-bundle --features parity-driver\` in tauri/.`,
     );
   }
-  const dataRoot = resolveDataRoot(options.data);
   const assets = path.join(runDir, "asset-cache");
-  if (fs.existsSync(path.join(dataRoot, "asset-cache"))) {
+  const dataRoot = options.data === undefined ? undefined : resolveDataRoot(options.data);
+  if (dataRoot && fs.existsSync(path.join(dataRoot, "asset-cache"))) {
     fs.cpSync(path.join(dataRoot, "asset-cache"), assets, { recursive: true });
   }
 
@@ -550,9 +551,102 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
   }
 }
 
+/**
+ * Proves the driver's primitives on this machine with no data: the app's own page, a script,
+ * native input seen by the page as trusted events, a resize, a snapshot, and refusals. CI runs
+ * it on both platforms, which is the first run of WebView2's driver path.
+ */
+export async function smoke(options: { binary?: string; out?: string }) {
+  const viewport = { width: 900, height: 600 };
+  const running = await startTauri({
+    renderer: "solid",
+    binary: options.binary,
+    runDir: options.out,
+    viewport,
+  });
+  const { engine, driver } = running;
+  const checks: { name: string; pass: boolean; detail: unknown }[] = [];
+  const check = (name: string, pass: boolean, detail: unknown) =>
+    checks.push({ name, pass, detail });
+  try {
+    check("eval awaits a promise", (await engine.evaluate("Promise.resolve(21 * 2)")) === 42, 42);
+    const thrown = await engine.evaluate("(() => { throw new Error('boom') })()").catch(String);
+    check("eval reports a thrown error", String(thrown).includes("boom"), thrown);
+
+    await engine.evaluate(() => {
+      document.body.innerHTML =
+        '<button id="b" style="position:fixed;left:100px;top:100px;width:200px;height:80px">b</button><input id="i" style="position:fixed;left:100px;top:300px">';
+      const seen: string[] = ((window as any).__seen = []);
+      for (const type of [
+        "mousemove",
+        "mousedown",
+        "mouseup",
+        "click",
+        "keydown",
+        "keyup",
+        "wheel",
+      ]) {
+        document.addEventListener(type, (e: any) =>
+          seen.push(`${type}:${e.isTrusted}:${e.key ?? ""}:${e.clientX ?? ""},${e.clientY ?? ""}`),
+        );
+      }
+    });
+    await engine.hover({ selector: "#b" });
+    check("hover sets :hover", engine.lastHover?.hoverMatches === true, engine.lastHover);
+    await engine.click({ selector: "#b" });
+    await engine.click({ selector: "#i" });
+    await engine.press("a");
+    await engine.press("Enter");
+    await Bun.sleep(300);
+    const seen = await engine.evaluate<string[]>("window.__seen");
+    const has = (prefix: string) => seen.some((line) => line.startsWith(prefix));
+    check("a click arrives as trusted events", has("mousedown:true") && has("click:true"), seen);
+    check("the click lands at the element's center", has("click:true::200,140"), seen);
+    check(
+      "keys arrive as trusted events",
+      has("keydown:true:a") && has("keydown:true:Enter"),
+      seen,
+    );
+    const typed = await engine.evaluate<string>("document.getElementById('i').value");
+    check("a key types into the focused input", typed === "a", typed);
+
+    await engine.resizeWindow(1000, 640);
+    const size = await engine.evaluate<number[]>("[innerWidth, innerHeight]");
+    check("resize reaches the page", size[0] === 1000 && size[1] === 640, size);
+
+    const file = path.join(running.runDir, "smoke.png");
+    await engine.screenshot(file);
+    const png = fs.readFileSync(file);
+    const pngSize = [png.readUInt32BE(16), png.readUInt32BE(20)];
+    check("the snapshot is the viewport at 2x", pngSize[0] === 2000 && pngSize[1] === 1280, {
+      pngSize,
+      ...engine.lastSnapshot,
+    });
+
+    const url = `http://127.0.0.1:${driver.port}/`;
+    const post = (headers: Record<string, string>) =>
+      fetch(url, { method: "POST", headers, body: '{"op":"info"}' }).then((r) => r.status);
+    const noToken = await post({});
+    const wrong = await post({ authorization: "Bearer 0000000000000000" });
+    check("a request without the token is refused", noToken === 401, noToken);
+    check("a request with a wrong token is refused", wrong === 401, wrong);
+    check("the facts are recorded", true, running.facts);
+  } finally {
+    await running.close();
+  }
+  fs.writeFileSync(path.join(running.runDir, "smoke.json"), JSON.stringify(checks, null, 1));
+  for (const c of checks)
+    console.log(`${c.pass ? "PASS" : "FAIL"} ${c.name} ${JSON.stringify(c.detail)}`);
+  return checks.every((c) => c.pass);
+}
+
 if (import.meta.main) {
   const args = process.argv.slice(2);
   const value = (flag: string) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
+  if (args[0] === "--smoke") {
+    const ok = await smoke({ binary: value("--binary"), out: value("--out") });
+    process.exit(ok ? 0 : 1);
+  }
   const renderer = (value("--renderer") ?? "electron") as Renderer;
   if (!["electron", "solid"].includes(renderer)) {
     console.error(
@@ -568,7 +662,7 @@ if (import.meta.main) {
     process.exit(2);
   }
   const running = await startTauri({
-    data: value("--data") ?? "fixture",
+    data: value("--data") ?? (renderer === "electron" ? "fixture" : undefined),
     renderer,
     runDir: value("--out"),
     goldenDir: value("--golden"),

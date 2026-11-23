@@ -1,6 +1,6 @@
 # parity
 
-Tools that capture the Electron 1.2.1 baseline and compare the Tauri port against it. Everything runs under bun. Nothing here edits `src/` or opens the installed app's data folder for writing.
+Tools that capture the Electron 1.2.1 baseline and compare the Tauri port against it. The same states, settle, and capture code drive both apps through one `Engine` (`drive.ts`): `PlaywrightEngine` for Electron, `TauriEngine` for the Tauri webview through its parity driver. Everything runs under bun. Nothing here edits `src/` or opens the installed app's data folder for writing.
 
 ## The data rule
 
@@ -36,6 +36,9 @@ Run from the repository root.
 | `bun parity/drive.ts --run <folder> click "button.group" `                                                                                               | Delivers `click`, `hover`, `type`, `key`, `scroll`, `resize`, `navigate`, `wait`, `waitFor`, `settle`, `shot`, `dom`, `geometry`, or `quit` to a running `run-electron.ts`. |
 | `bun parity/diff.ts <trunk.png> <head.png> [--policy same-engine\|cross-engine] [--geometry <trunk.json> <head.json>] [--blur x,y,w,h] [--out <prefix>]` | Prints `PASS` or `FAIL`, writes `<prefix>.diff.png` and `<prefix>.side-by-side.png` (trunk, head, diff).                                                                    |
 | `bun parity/determinism.ts <run folder> <run folder>`                                                                                                    | Compares every state two capture runs share under the same-engine policy.                                                                                                   |
+| `bun parity/run-tauri.ts --renderer electron --state match-history-default`                                                                              | Starts the Tauri driver build with Electron's built renderer and `window.api` replayed from the T05 goldens, applies the state, writes `<state>.png` and `<state>.geometry.json` into the run folder, and serves the same `control.json` and `drive.ts` ops as `run-electron.ts`. |
+| `bun parity/capture.ts --app tauri --data fixture --states default --compare parity/out/baseline/electron-mac`                                           | Captures into `parity/out/baseline/tauri-mac/` and writes `cross-engine-report.json`: every state's cross-engine numbers, the worst tile located on the page, and failures grouped by the first gate they failed.                                                                 |
+| `bun parity/run-tauri.ts --smoke`                                                                                                                        | Checks the driver on this machine with no data: eval, trusted native mouse and key events, resize, a 2x snapshot, and refused tokens. CI runs it on both platforms.                                                                                                               |
 | `bun test`, `bun run lint`, `bun run fmt:check`                                                                                                          | Unit tests, Bun's linter and formatter.                                                                                                                                     |
 
 `--data` takes `fixture`, `snapshot`, `empty`, or a folder holding `data/matches.db`. The app runs on a copy inside the run folder, so the source is never changed. `empty` starts the app on an empty data folder, as on a fresh install, and states marked `data: "empty"` in `states.ts` always run on it.
@@ -65,6 +68,21 @@ Client states live in `states-client.ts`. Rows with `empty` run on a copy of the
 ## Determinism
 
 `run-electron.ts` passes `--force-device-scale-factor=2`, `--force-color-profile=srgb`, `--lang=en-US`, `TZ=America/New_York`, freezes the renderer clock with `context.clock.setFixedTime` and the main-process clock in the seam, aborts renderer `http` and `https`, and blocks main-process network except loopback. `settle.ts` waits for fonts, decoded images, a client status past "Connecting...", and 1.2 s of unchanged DOM, then kills animation and parks the mouse. Each state starts from cleared `localStorage` and a reload, and restores any setting it changed.
+
+## The Tauri side
+
+Build the driver into a debug binary first. It is a Cargo feature that a release build refuses to compile:
+
+```sh
+cd tauri && CI=true bun run tauri build --debug --no-bundle --features parity-driver
+```
+
+`run-tauri.ts` launches `tauri/src-tauri/target/debug/better-mayhem-tracker-tauri` (or `$CARGO_TARGET_DIR/debug/...`, or `--binary`) with a fresh token. The driver listens on `127.0.0.1`, refuses any request without the token or from another host, and offers primitives: `eval` (awaits promises), `mouse` and `key` (native events sent to the webview, so the window is never made key and the app never activates), `wheel`, `resize`, `navigate`, `reload`, `snapshot` (the webview's own pixels, converted to sRGB), `info`, `quit`. Selector rules, settle, and states stay in TypeScript, shared with Electron.
+
+- `--renderer electron` loads `out/renderer` from a `parity:` scheme (`http://parity.localhost` on Windows), serves the data's asset cache under `asset:` the way Electron's cache files it, and installs `replay-api.js`, which answers `window.api` from `parity/out/golden` (T05's format, `goldens/FORMAT.md`). A call with no golden throws `ReplayMiss`. Settings written are read back, across the reload each state does.
+- The page clock is frozen at the same instant as Electron's, `TZ` is `America/New_York`, and macOS gets `-AppleLanguages (en-US)`. WebView2 gets the same Chromium switches as Electron: device scale 2, sRGB, `--disable-gpu`, `--lang=en-US`.
+- On macOS the driver build is an accessory app: no Dock icon, never focused, never brought forward. It holds off App Nap. The window sits at 40,40 like Electron's.
+- On macOS 26 the webview loses 32 px of its frame to the title bar, so `TauriEngine.resizeWindow` sizes the window by what the page reports, and snapshots take exactly the viewport.
 
 ## Windows
 
