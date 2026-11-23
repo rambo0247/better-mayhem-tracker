@@ -4,8 +4,10 @@ import fs from "node:fs";
 import https from "node:https";
 import os from "node:os";
 import path from "node:path";
+import zlib from "node:zlib";
+import { Database } from "bun:sqlite";
 import { generatePki, integer } from "../fake-lcu/ca.ts";
-import { syntheticContext } from "../fake-lcu/context.ts";
+import { loadContext, syntheticContext } from "../fake-lcu/context.ts";
 import { buildScenario, SCENARIOS } from "../fake-lcu/scenarios/index.ts";
 import { startFakeLcu, type FakeLcu } from "../fake-lcu.ts";
 
@@ -195,6 +197,38 @@ describe("the fake CA", () => {
 
   test("two runs make different keys", () => {
     expect(generatePki().caPem).not.toBe(generatePki().caPem);
+  });
+});
+
+describe("a context loaded from a data root", () => {
+  test("answers the detail of a known game after loading", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "bmt-fake-root-"));
+    folders.push(root);
+    fs.mkdirSync(path.join(root, "data"));
+    const source = syntheticContext();
+    const database = new Database(path.join(root, "data", "matches.db"));
+    database.run(
+      "CREATE TABLE summoner (puuid TEXT, game_name TEXT, tag_line TEXT, summoner_id INTEGER, account_id INTEGER, profile_icon INTEGER)",
+    );
+    database.run(
+      "CREATE TABLE games (game_id INTEGER, queue_id INTEGER, game_creation INTEGER, raw_gz BLOB)",
+    );
+    const me = source.summoner;
+    database
+      .query("INSERT INTO summoner VALUES (?, ?, ?, ?, ?, ?)")
+      .run(me.puuid, me.gameName, me.tagLine, me.summonerId, me.accountId, me.profileIconId);
+    for (const game of source.known) {
+      const raw = zlib.gzipSync(JSON.stringify(source.gameDetail(game.gameId)));
+      database
+        .query("INSERT INTO games VALUES (?, ?, ?, ?)")
+        .run(game.gameId, game.queueId, game.gameCreation, raw);
+    }
+    database.close();
+
+    const context = loadContext(root, {}, source.now);
+    for (const game of source.known) {
+      expect((context.gameDetail(game.gameId) as { gameId: number }).gameId).toBe(game.gameId);
+    }
   });
 });
 

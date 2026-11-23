@@ -98,9 +98,17 @@ export function loadContext(
         gameCreation: r.game_creation as number,
       }));
     if (known.length === 0) throw new Error(`no games in ${dataRoot}`);
+    // The database closes when this returns, and the fake answers detail requests long after, so
+    // the compressed payloads are read now and unpacked on demand.
+    const compressed = new Map<number, Buffer>(
+      database
+        .query("SELECT game_id, raw_gz FROM games WHERE raw_gz IS NOT NULL")
+        .all()
+        .map((r: any) => [r.game_id as number, Buffer.from(r.raw_gz)]),
+    );
     const unpack = (gameId: number) => {
-      const found = database.query("SELECT raw_gz FROM games WHERE game_id = ?").get(gameId) as any;
-      return found?.raw_gz ? JSON.parse(zlib.gunzipSync(found.raw_gz).toString("utf8")) : null;
+      const raw = compressed.get(gameId);
+      return raw ? JSON.parse(zlib.gunzipSync(raw).toString("utf8")) : null;
     };
     const template = unpack(known[0]!.gameId);
     const details = new Map<number, any>();
