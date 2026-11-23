@@ -1,9 +1,10 @@
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import solid from "@solidjs/vite-plugin";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, normalizePath, type Plugin } from "vite";
 
-const TEST_DIR = fileURLToPath(new URL("./test/", import.meta.url));
+// Resolved ids use forward slashes on Windows too
+const TEST_DIR = normalizePath(fileURLToPath(new URL("./test/", import.meta.url)));
 
 // The webview has no node: or bun: modules, and test code has no place in the
 // app. Vite turns such an import into an empty browser-external stub instead
