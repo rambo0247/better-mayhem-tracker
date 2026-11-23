@@ -83,6 +83,8 @@ export interface StateIndex {
   route: string;
   viewport: { width: number; height: number };
   calls: { seq: number; channel: string; method: string | null; args: Json[]; case: string }[];
+  /** Set when the state never reached its expected page. The calls are those made until then. */
+  error?: string;
 }
 
 /** `:` is not a legal file name character on Windows, and no channel contains a dot. */

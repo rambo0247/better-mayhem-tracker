@@ -10,6 +10,8 @@ parity/out/golden/
   timing.json
   ipc/<dir>/<case>.json
   events/<scenario>.jsonl
+  states/<state>.json
+  states/ is written by record-states.ts, after record-ipc.ts
 ```
 
 `<dir>` is the channel with every `:` replaced by `.`, because `:` is not a legal file name character on Windows. `db:match-history` is `db.match-history`. No channel contains a dot. `channelDirName` and `channelFromDirName` convert both ways. `<case>` is the case id from `ipc-cases.ts`, lowercase letters, digits and `-`.
@@ -77,6 +79,19 @@ For a write group, a replay serves the group's cases in `seq` order and keeps a 
 ## Canonical comparison (`canon.ts`)
 
 Both sides compare canonical JSON. Object keys are sorted. Numbers compare as parsed values, so `3` equals `3.0`. Fields named in `CLOCK_FIELDS` are replaced by the marker `"<clock>"` on both sides. A `void` outcome equals `null`. The Rust port of these rules lives in T08's `golden.rs`.
+
+## Per-state call lists (`states/<state>.json`)
+
+`record-states.ts` runs every state of `states.ts` in trunk Electron (the client group against T03's fake client) with the seam recording each renderer invoke. Every call the page made while the state loaded and settled becomes one entry, in the order main received it:
+
+```
+{ "format": 1, "state", "group", "route", "viewport": {width, height},
+  "calls": [ { "seq", "channel", "method", "args", "case" } ] }
+```
+
+`args` hold the arguments the page sent, with trailing `undefined` dropped, so `getAugmentStats(26)` is `[26]`. `case` names the file in `ipc/<dir>/` that answers it. When an earlier case already has the same canonical arguments, `case` points at it. Otherwise the recorder writes a new case `state-<10 hex digits of the sha256 of the canonical arguments>` with `group` `"state"`, `seq` 0, and the outcome the page got. Such a case has empty `events`, `effects` and `files`. Replay needs no new rule: the matching rules above find these cases by arguments like any other. A replay that knows which state it serves can use the index to check that every call has an answer.
+
+The calls include the driver's own setup calls (`getSetting`, `setSetting` from `pre` steps and `restoreSettings`, and the `resolveVars` reads), since they are real invokes against the same handlers. `manifest.json` gains an optional `states` list of the ids recorded. A full `record-ipc.ts` run deletes `states/`, so run `record-states.ts` after it.
 
 ## timing.json
 

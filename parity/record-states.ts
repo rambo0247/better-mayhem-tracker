@@ -157,7 +157,8 @@ async function main() {
   );
   const methods = new Map(Object.entries(channels).map(([method, channel]) => [channel, method]));
   const book = new CaseBook(out);
-  fs.rmSync(path.join(out, "states"), { recursive: true, force: true });
+  for (const state of states)
+    fs.rmSync(path.join(out, "states", `${state.id}.json`), { force: true });
   const scratch = path.join(PARITY_DIR, "out", "states-tmp");
   fs.mkdirSync(scratch, { recursive: true });
 
@@ -166,6 +167,7 @@ async function main() {
     console.log(`state ${index.state}: ${index.calls.length} calls`);
   };
 
+  const failures: string[] = [];
   let running: RunningElectron | undefined;
   let runData = "";
   let vars: Record<string, string> = {};
@@ -181,13 +183,18 @@ async function main() {
         const clientRun = await openClientState(state, { data, repo, dir: scratch });
         try {
           await drain(clientRun.running);
-          await clientRun.drive();
+          let error: string | undefined;
+          try {
+            await clientRun.drive();
+          } catch (caught) {
+            error = String(caught).split("\n")[0];
+            failures.push(`${state.id}: ${error}`);
+          }
           await sleep(QUIET_MS);
           const calls = callsFrom(await drain(clientRun.running));
-          finish(
-            recordState(state, calls, book, methods, out, clientRun.running.runDir),
-            clientRun.running.runDir,
-          );
+          const index = recordState(state, calls, book, methods, out, clientRun.running.runDir);
+          if (error) index.error = error;
+          finish(index, clientRun.running.runDir);
         } finally {
           await clientRun.finish(scratch);
         }
@@ -211,6 +218,7 @@ async function main() {
     fs.rmSync(scratch, { recursive: true, force: true });
   }
 
+  for (const failure of failures) console.log(`FAIL ${failure}`);
   const manifestFile = path.join(out, "manifest.json");
   if (fs.existsSync(manifestFile)) {
     const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8")) as GoldenManifest;
@@ -224,6 +232,7 @@ async function main() {
       : [];
     fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2) + "\n");
   }
+  if (failures.length) process.exitCode = 1;
 }
 
 if (import.meta.main) await main();
