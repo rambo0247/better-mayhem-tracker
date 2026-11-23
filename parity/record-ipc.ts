@@ -16,6 +16,7 @@ import {
   type Json,
   type Outcome,
 } from "./golden-format.ts";
+import { RENDERER_CALLS } from "./renderer-calls.ts";
 import { IPC_CASES, READ_GROUP, type IpcCase, type Prior, type Vars } from "./ipc-cases.ts";
 import { startFakeLcu } from "./fake-lcu.ts";
 import { loadContext } from "./fake-lcu/context.ts";
@@ -187,6 +188,11 @@ async function warmItemPatches(run: RunningElectron, channels: Record<string, st
       if (table && Object.keys(table).length > 0) break;
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
+  }
+  // Icon lookups walk archived patches one at a time, so a card that asks for a dozen at once
+  // photographs itself while the walk is part way. Done here, the card finds every answer cached.
+  for (const [method, args] of RENDERER_CALLS) {
+    if (method === "resolveAugmentIcon") await ask(channels.resolveAugmentIcon!, ...args);
   }
 }
 
@@ -694,8 +700,13 @@ if (import.meta.main) {
         result.runDir,
       );
     }
-    if (result.scenario.length) {
-      writeJsonl(path.join(out, "events", `${group}.jsonl`), result.scenario, result.runDir);
+    // The client poller's own events land when its timer fires, which differs between runs, so a
+    // group file keeps only what an invoke caused. The launch events are in startup.jsonl.
+    const caused = result.scenario
+      .filter((line) => line.cause !== "scenario")
+      .map((line, seq) => ({ ...line, seq }));
+    if (caused.length) {
+      writeJsonl(path.join(out, "events", `${group}.jsonl`), caused, result.runDir);
     }
     if (group === READ_GROUP && result.startup.length) {
       writeJsonl(path.join(out, "events", "startup.jsonl"), result.startup, result.runDir);
