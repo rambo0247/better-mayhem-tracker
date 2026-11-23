@@ -36,6 +36,10 @@ db:teammate-groups
 db:teammate-stats
 db:toggle-favorite
 db:trends
+lcu:backfill
+lcu:backfill-running
+lcu:cancel-backfill
+lcu:status
 settings:get
 settings:set
 window:close
