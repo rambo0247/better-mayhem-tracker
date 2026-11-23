@@ -240,7 +240,6 @@ jobs:
           test "$code" -eq 78
           grep -F 'Debug and parity builds never' hostile-cfg-guard.log
 
-
       # lcu/tls.rs stops a release build that would trust the fake League CA
       - name: Refuse a release build with the parity CA
         working-directory: tauri/src-tauri
