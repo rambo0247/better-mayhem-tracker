@@ -15,7 +15,9 @@ pub mod commands;
 #[cfg(any(not(bmt_release_profile), debug_assertions))]
 pub mod data_guard;
 pub mod db;
+pub mod dialogs;
 pub mod events;
+pub mod import;
 pub mod install_location;
 pub mod intl;
 pub mod js_arg;
@@ -37,6 +39,7 @@ pub mod single_instance;
 #[cfg_attr(not(feature = "parity-driver"), allow(dead_code))]
 mod snapshot;
 pub mod text;
+pub mod transfer;
 pub mod tray;
 
 use std::time::Instant;
@@ -219,6 +222,7 @@ pub fn run() {
     };
     let builder = app_builder(builder, host)
         .manage(shell::Shell::new(hidden, |line| log(line)))
+        .plugin(tauri_plugin_dialog::init())
         .on_window_event(shell::on_window_event);
     // Electron's window with `show: false` never takes focus, so a login
     // launch leaves the app the user is in active
@@ -226,6 +230,12 @@ pub fn run() {
     let builder = builder.activate_ignoring_other_apps(!hidden);
     #[cfg(feature = "parity-driver")]
     let builder = parity_driver::install(builder);
+    // A lane answers the export and import dialogs from a file it writes
+    #[cfg(feature = "parity-driver")]
+    let builder = match std::env::var_os("BMT_PARITY_DIALOGS") {
+        Some(file) => builder.manage(dialogs::Dialogs::File(file.into())),
+        None => builder,
+    };
     builder
         .setup(move |app| {
             first_instance_started(hidden);

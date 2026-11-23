@@ -13,6 +13,7 @@ pub mod num;
 pub mod payloads;
 pub mod recap;
 pub mod records;
+pub mod repair;
 pub mod schema;
 pub mod scoring;
 pub mod season;
