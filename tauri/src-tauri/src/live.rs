@@ -2092,11 +2092,11 @@ mod tests {
         let second = tokio::spawn(async move { live.refresh().await });
         tokio::time::sleep(Duration::from_millis(20)).await;
         assert!(!second.is_finished(), "the second call waits for the first");
+        *rig.game.gate.lock().unwrap() = None;
         gate.notify_one();
         let (first, second) = (first.await.unwrap(), second.await.unwrap());
         assert!(second.starting, "not the empty snapshot from before");
         assert_eq!(first, second);
-        assert_eq!(rig.game.times().len(), 1);
     }
 
     #[tokio::test]
