@@ -8,13 +8,23 @@
  * Lane 8 runs the parity-driver debug build that `run-tauri.ts` finds, on the Settings page,
  * beside Electron's dev-run baseline of the same page (`--electron-settings`, from T02).
  *
- * The lane build is a debug build with debug assertions off, so install_location counts it as
- * an installed app, as it does a release build. It runs from a scratch `.app` with its own
- * bundle id, with HOME pointing at a scratch folder: its data folder and its LaunchAgents
- * folder both resolve under HOME (`dirs`), so nothing here reads or writes the operator's.
- * The script checks that the app's log landed in the scratch data folder before it trusts a
- * result. Electron's side is what its own autostart.ts writes (`autostart-golden.ts`),
- * because a packaged Electron resolves its data folder outside HOME.
+ * The lane build is a release-profile build, the only one install_location counts as installed
+ * once T09's `bmt_release_profile` lands, with the Tauri identifier set to the lane's:
+ *
+ *   TAURI_CONFIG='{"identifier":"com.better-mayhem-tracker.lane-t23"}' \
+ *     cargo build --release --features custom-protocol
+ *
+ * A release build has no data root override and no data guard, so the lanes give it none to
+ * need. It runs from a scratch `.app` with the lane's bundle id, with HOME pointing at a
+ * scratch folder: its data folder and its LaunchAgents folder both resolve under HOME
+ * (`dirs`). It runs under the Seatbelt profile T06's perf runs use, which denies the real data
+ * folders, writes to the real LaunchAgents, the League install, and `ps`, so a build that
+ * looked past HOME fails instead of touching the operator's files. The lane identifier keeps
+ * its single-instance socket, `/tmp/<identifier>_si.sock`, apart from any installed app's, so
+ * a launch can never hand over to one and bring its window up; the script refuses a binary
+ * without it. The script checks that the app's log landed in the scratch data folder before
+ * it trusts a result. Electron's side is what its own autostart.ts writes
+ * (`autostart-golden.ts`), because a packaged Electron resolves its data folder outside HOME.
  *
  * WebKit ignores HOME and keeps its website data and caches under the real
  * `~/Library/{WebKit,Caches}/<bundle id>`, so the lane bundle has an id of its own, the
@@ -27,9 +37,9 @@ import os from "node:os";
 import path from "node:path";
 import { PARITY_DIR, REPO_DIR } from "./lib/data.ts";
 import { waitForNoGame } from "./lib/no-game.ts";
-import { startTauri } from "./run-tauri.ts";
+import { fileContains, startTauri } from "./run-tauri.ts";
 import { applyState, STATES } from "./states.ts";
-import { refuseRealFolder } from "./lib/real-folder.ts";
+import { realDataRoots, refuseRealFolder } from "./lib/real-folder.ts";
 
 const args = process.argv.slice(2);
 const value = (flag: string) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
@@ -39,7 +49,10 @@ if (!fs.existsSync(binary) || !fs.statSync(binary).isFile()) {
   process.exit(2);
 }
 const out = path.resolve(value("--out") ?? path.join(PARITY_DIR, "out", "review"));
-const work = path.join(out, "T23-work");
+fs.mkdirSync(out, { recursive: true });
+// Resolved, as Electron's process.execPath is, so the paths the lanes expect are the ones
+// both apps register
+const work = path.join(fs.realpathSync(out), "T23-work");
 fs.rmSync(work, { recursive: true, force: true });
 fs.mkdirSync(work, { recursive: true });
 
@@ -51,10 +64,17 @@ const LABEL = "com.better-mayhem-tracker.app.autostart";
 const plistFile = path.join(launchAgents, `${LABEL}.plist`);
 const EXE = "Contents/MacOS/Better Mayhem Tracker";
 const LANE_BUNDLE_ID = "com.better-mayhem-tracker.lane-t23";
+/** The operator's home from the user database, whatever HOME says. */
+const realHome = os.userInfo().homedir;
 
-for (const dir of [work, home, dataRoot]) refuseRealFolder(dir, "T23 lane folder");
+for (const dir of [work, home, dataRoot]) {
+  refuseRealFolder(dir, "T23 lane folder", realDataRoots("darwin", {}, realHome));
+}
+if (!fileContains(binary, LANE_BUNDLE_ID)) {
+  throw new Error(`${binary} does not carry the identifier ${LANE_BUNDLE_ID}; see the header`);
+}
 const webkitLeftovers = ["WebKit", "Caches"].map((dir) =>
-  path.join(os.homedir(), "Library", dir, LANE_BUNDLE_ID),
+  path.join(realHome, "Library", dir, LANE_BUNDLE_ID),
 );
 for (const dir of webkitLeftovers) {
   if (fs.existsSync(dir)) throw new Error(`${dir} exists before the lanes ran; not touching it`);
@@ -62,7 +82,25 @@ for (const dir of webkitLeftovers) {
 process.on("exit", () => {
   for (const dir of webkitLeftovers) fs.rmSync(dir, { recursive: true, force: true });
 });
-if (home.startsWith(path.join(os.homedir(), "Library"))) throw new Error(`${home} is not scratch`);
+if (home.startsWith(path.join(realHome, "Library"))) throw new Error(`${home} is not scratch`);
+
+/** T06's perf profile (`parity/perf/app.ts` on port/T06-perf), for an app with no seam. */
+const sandboxFile = path.join(work, "lane.sb");
+fs.writeFileSync(
+  sandboxFile,
+  [
+    "(version 1)",
+    "(allow default)",
+    `(deny file* (subpath ${JSON.stringify("/Applications/League of Legends.app")}))`,
+    `(deny file* (subpath ${JSON.stringify("/Users/Shared/Riot Games")}))`,
+    `(deny process-exec (literal ${JSON.stringify("/bin/ps")}))`,
+    ...realDataRoots("darwin", {}, realHome).map(
+      (root) => `(deny file* (subpath ${JSON.stringify(root)}))`,
+    ),
+    `(deny file-write* (subpath ${JSON.stringify(path.join(realHome, "Library", "LaunchAgents"))}))`,
+    "",
+  ].join("\n"),
+);
 
 fs.cpSync(path.join(PARITY_DIR, "snapshots", "fixture", "data"), path.join(dataRoot, "data"), {
   recursive: true,
@@ -156,13 +194,16 @@ function waitExit(child: ChildProcess, ms: number) {
   });
 }
 
-/** Launches the bundle with `--hidden`, as the login item does, until startup has run. */
-async function launch(bundle: string, name: string) {
+/**
+ * Launches `exe` with `--hidden`, as the login item does, under the lane's Seatbelt profile,
+ * until startup has run. sandbox-exec execs the app, so the child's pid is the app's.
+ */
+async function launch(exe: string, name: string) {
   await waitForNoGame();
   const mainLog = path.join(dataRoot, "logs", "main.log");
   const logBefore = fs.existsSync(mainLog) ? fs.statSync(mainLog).size : 0;
-  const child = spawn(path.join(bundle, EXE), ["--hidden"], {
-    env: { ...process.env, HOME: home, BMT_DATA_ROOT: dataRoot, TZ: "UTC" },
+  const child = spawn("/usr/bin/sandbox-exec", ["-f", sandboxFile, exe, "--hidden"], {
+    env: { ...process.env, HOME: home, TZ: "UTC" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let text = "";
@@ -294,7 +335,7 @@ makeBundle(bundle);
 // Lane 1: turning autostart on writes Electron's LaunchAgent, apart from the bundle path
 {
   settings({ auto_start: "true", auto_start_path: null });
-  await launch(bundle, "lane1");
+  await launch(target, "lane1");
   const state = agents();
   const same = state.plist === electronPlist(target);
   const diff = unifiedDiff(electronOn, state.plist ?? "", [
@@ -340,7 +381,7 @@ makeBundle(bundle);
   fs.utimesSync(plistFile, old, old);
   settings({ auto_start: "true", auto_start_path: target });
   const before = agents();
-  await launch(bundle, "lane9");
+  await launch(target, "lane9");
   const after = agents();
   const pass =
     after.plist === inherited &&
@@ -374,7 +415,7 @@ makeBundle(bundle);
   const before = agents();
   fs.mkdirSync(path.dirname(movedBundle), { recursive: true });
   fs.renameSync(bundle, movedBundle);
-  await launch(movedBundle, "lane4");
+  await launch(movedTarget, "lane4");
   const after = agents();
   const pass =
     after.plist === electronPlist(movedTarget) &&
@@ -401,11 +442,61 @@ makeBundle(bundle);
   frame(image, "Moved app: the next launch points the LaunchAgent at the new path");
 }
 
+// Lane 11: a launch through a symlinked folder or a ".." registers the resolved path, as
+// Electron's process.execPath does, so it leaves Electron's LaunchAgent for that path alone
+{
+  const linked = path.join(work, "Linked Apps");
+  fs.symlinkSync(path.dirname(movedBundle), linked);
+  const routes = [
+    ["a symlinked folder", path.join(linked, path.basename(movedBundle), EXE)],
+    [
+      "a .. component",
+      // Joined by hand: path.join would fold the ".." away
+      [path.dirname(movedBundle), "..", "Moved Apps", path.basename(movedBundle), EXE].join("/"),
+    ],
+  ] as const;
+  const lines: string[] = [`Electron registers ${movedTarget} for each, its realpath`, ""];
+  for (const [route, exe] of routes) {
+    const inherited = electronPlist(movedTarget);
+    fs.writeFileSync(plistFile, inherited);
+    const old = new Date("2026-01-01T00:00:00Z");
+    fs.utimesSync(plistFile, old, old);
+    settings({ auto_start: "true", auto_start_path: movedTarget });
+    if (!exe.includes("/../") && route.includes("..")) throw new Error(`${exe} lost its ..`);
+    const before = agents();
+    await launch(exe, `lane11-${route.replaceAll(/\W+/g, "-")}`);
+    const after = agents();
+    const untouched =
+      after.plist === inherited &&
+      after.mtimeMs === before.mtimeMs &&
+      after.names.length === 1 &&
+      after.autoStartPath === movedTarget;
+    check(`lane 11: launched through ${route}, Electron's LaunchAgent is untouched`, untouched, {
+      exe,
+      unchangedBytes: after.plist === inherited,
+      unchangedMtime: after.mtimeMs === before.mtimeMs,
+      autoStartPath: after.autoStartPath,
+    });
+    lines.push(
+      `Launched as ${exe}`,
+      `  bytes unchanged: ${after.plist === inherited}, mtime unchanged: ${after.mtimeMs === before.mtimeMs}`,
+      `  auto_start_path: ${after.autoStartPath}`,
+      "",
+    );
+  }
+  fs.rmSync(linked);
+  const text = lines.join("\n");
+  fs.writeFileSync(path.join(out, "hostile-symlink.log"), text);
+  const image = panel("symlink.png", "Launched through a symlink and a ..", text);
+  fs.copyFileSync(image, path.join(out, "T23-review-symlink.png"));
+  frame(image, "Launched by another route to the same app: the LaunchAgent stays Electron's");
+}
+
 // Lane 5: turning autostart off removes the LaunchAgent
 {
   settings({ auto_start: "false" });
   const before = agents();
-  await launch(movedBundle, "lane5");
+  await launch(movedTarget, "lane5");
   const after = agents();
   const pass = after.plist === null && after.names.length === 0 && after.autoStartPath === "";
   check("lane 5: autostart off removes the LaunchAgent", pass, after);
