@@ -1,6 +1,6 @@
 # Check text files out with LF on every platform. Without this, Windows clones
 # (core.autocrlf defaults to true, including on GitHub's Windows runners) get
-# CRLF working copies, which oxfmt --check rejects — so `npm run format:check`
+# CRLF working copies, which the format check rejects — so `bun run fmt:check`
 # would fail on a fresh clone even with nothing wrong. The repository already
 # stores LF, so this only changes what lands in the working tree.
 * text=auto eol=lf
