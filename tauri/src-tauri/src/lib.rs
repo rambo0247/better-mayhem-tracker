@@ -86,10 +86,29 @@ fn page_event(
     confirmation: tauri::State<'_, local_storage::Confirmation>,
     name: String,
 ) {
-    log(format!(
+    let line = format!(
         "page {name} {} ms after process start",
         started.0.elapsed().as_millis()
-    ));
+    );
+    // T06's launch probe reads first-content from stdout, or from the file
+    // BMT_PERF_LOG names, since a Windows release build has no stdout
+    if name == "first-content" {
+        if std::env::var_os("BMT_PERF").is_none_or(|value| value != "1") {
+            return;
+        }
+        if let Some(path) = std::env::var_os("BMT_PERF_LOG") {
+            use std::io::Write;
+            let written = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+                .and_then(|mut file| writeln!(file, "[bmt pid={}] {line}", std::process::id()));
+            if let Err(error) = written {
+                log(format!("could not write BMT_PERF_LOG: {error}"));
+            }
+        }
+    }
+    log(line);
     if name == local_storage::FILLED_EVENT {
         match confirmation.confirm(&paths, clock.now_ms()) {
             Ok(Some(carried)) => log(format!(
