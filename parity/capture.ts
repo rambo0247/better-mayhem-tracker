@@ -283,7 +283,7 @@ async function main() {
       }
       timings.push(record);
       console.log(
-        `${record.ok ? "ok  " : "FAIL"} ${state.id} ${record.ms} ms${record.error ? ` ${record.error}` : ""}`,
+        `${record.ok ? "ok  " : "FAIL"} ${state.id} ${record.ms} ms${record.connectMs != null ? ` connect ${record.connectMs} ms` : ""}${record.error ? ` ${record.error}` : ""}`,
       );
     }
   } finally {
