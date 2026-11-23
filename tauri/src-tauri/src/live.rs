@@ -235,7 +235,6 @@ pub enum GameApiTarget {
 pub const PARITY_LIVE_PORT_ENV: &str = "BMT_PARITY_LIVE_PORT";
 
 impl GameApiTarget {
-    #[cfg(not(feature = "parity-ca"))]
     const LIVE_PORT: u16 = 2999;
 
     #[cfg(feature = "parity-ca")]
@@ -244,12 +243,13 @@ impl GameApiTarget {
     }
 
     /// The fake live client's port, as the seam redirects Electron's 2999
-    /// requests, or no request at all.
+    /// requests, or no request at all. Never 2999 itself, which is a real
+    /// game's.
     #[cfg(feature = "parity-ca")]
     fn parity(port: Option<&str>) -> Self {
         match port
             .and_then(|port| port.parse::<u16>().ok())
-            .filter(|p| *p != 0)
+            .filter(|p| *p != 0 && *p != Self::LIVE_PORT)
         {
             Some(port) => Self::Port(port),
             None => {
@@ -2355,6 +2355,11 @@ mod tests {
         assert_eq!(GameApiTarget::parity(Some("")), GameApiTarget::Refused);
         assert_eq!(GameApiTarget::parity(Some("0")), GameApiTarget::Refused);
         assert_eq!(GameApiTarget::parity(Some("2999x")), GameApiTarget::Refused);
+        assert_eq!(
+            GameApiTarget::parity(Some("2999")),
+            GameApiTarget::Refused,
+            "a real game's port is no fake's"
+        );
         assert_eq!(
             GameApiTarget::parity(Some("40123")),
             GameApiTarget::Port(40123)
