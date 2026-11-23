@@ -132,6 +132,14 @@ The `view:` localStorage keys in `states.ts` only take effect while the `remembe
 
 Every spawning command runs under `lib/capped.sh <headroom>`, which caps processes at the user's current count plus the headroom and exits 99 if anything was refused a process. `bun run test` and `bun run capture` use a headroom of 200. A bare `ulimit -u 200` would refuse the first fork on macOS, which counts every process the user owns.
 
+## The parity report (T40)
+
+`report.ts run` captures every state for this platform in trunk Electron and in the head Tauri driver build on its own Solid UI and Rust commands, diffs each pair (side-by-side images in `<out>/tauri-<platform>/cross-engine/`), replays the goldens with `cargo test --features parity-driver --test golden`, runs `tauri/scripts/react-isms.ts` and `export_bindings --check`, and writes `<out>/report-<platform>.json` with a contact sheet beside it. On the operator's Mac it needs `--tools <dir>` naming `wait-no-game.sh`, `capture-slot.sh` and `build-slot.sh`, which it puts in front of every app launch and cargo run. `--electron-baseline <dir>` reuses an Electron capture instead of launching Electron.
+
+`report.ts render --run <report-mac.json> --run <report-win.json> --perf <perf.ts json> ...` writes `docs/tauri-port/parity-report.md`: the state table for both platforms, the golden count against 61, the before and after table from `perf.ts` sweeps, the checks, masks, and the entries of the Engine-difference register section of this README. It exits 1 when any state, golden, check or metric fails, or a platform is missing. It judges the page budget at E1's 1.5% (the operator's decision of 2026-11-23); every other gate is `diff.ts`'s.
+
+Windows runs the same `report.ts run` in parity.yml's `report-windows` job: `gh workflow run parity.yml --ref <branch> -f lanes=report -f fixture_run=<id> [-f golden_run=<id>]`, then `gh run download <run> --name parity-report-windows`.
+
 ## Known limits
 
 - `bun lint --flavor eslint` is what lints parity. Without the flavor, Bun walks up to the root `.oxlintrc.json`, whose ignore patterns name `parity`, and lints nothing.
