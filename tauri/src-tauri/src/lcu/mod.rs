@@ -244,6 +244,27 @@ pub struct Timing {
     pub client_file_concurrency: usize,
 }
 
+/// `1` holds the connect loop's first tick, so the status stays on
+/// "Connecting...", as `SEAM_HOLD_CONNECT=1` holds Electron's.
+#[cfg(feature = "parity-ca")]
+pub const PARITY_HOLD_CONNECT_ENV: &str = "BMT_PARITY_HOLD_CONNECT";
+
+impl Timing {
+    /// The app's timing: the default, or in a parity build told to hold the
+    /// connect loop, a first tick 12 days away, as the seam's.
+    pub fn from_env() -> Self {
+        #[cfg(feature = "parity-ca")]
+        if std::env::var_os(PARITY_HOLD_CONNECT_ENV).is_some_and(|v| v == "1") {
+            log("parity: the connect loop is held");
+            return Self {
+                connect_interval: Duration::from_millis(1 << 30),
+                ..Self::default()
+            };
+        }
+        Self::default()
+    }
+}
+
 impl Default for Timing {
     fn default() -> Self {
         Self {
