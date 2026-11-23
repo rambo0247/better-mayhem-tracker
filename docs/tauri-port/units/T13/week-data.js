@@ -53,10 +53,34 @@ function collectWeekData() {
     const day = new Intl.Locale(`und-${region}`).getWeekInfo().firstDay % 7;
     if (day !== 1) regionDays[region] = day;
   }
+  // Deprecated regions, which Intl.getCanonicalLocales replaces before the
+  // tag reaches firstDayOfWeek
+  const regionAliases = {};
+  for (const region of regions) {
+    const canonical = Intl.getCanonicalLocales(`und-${region}`)[0].split("-")[1];
+    if (canonical !== region) regionAliases[region] = canonical;
+  }
+  const languageAliases = {};
+  for (const lang of candidates) {
+    let canonical;
+    try {
+      canonical = Intl.getCanonicalLocales(lang)[0];
+    } catch {
+      continue;
+    }
+    if (canonical !== lang) languageAliases[lang] = canonical;
+  }
   const baseDays = {};
   for (const base of bases) {
     const day = firstDay(base);
     if (day !== 1) baseDays[base] = day;
+  }
+  // Every base with every region, and every alias with a few: what the
+  // matrix test compares the Rust resolution against
+  const cross = {};
+  for (const base of bases) for (const region of regions) cross[`${base}-${region}`] = firstDay(`${base}-${region}`);
+  for (const alias of Object.keys(languageAliases)) {
+    for (const tag of [alias, `${alias}-US`, `${alias}-DE`, `${alias}-EG`, `${alias}-Latn-RS`]) cross[tag] = firstDay(tag);
   }
   const defaultLocale = new Intl.DateTimeFormat().resolvedOptions().locale;
   // Spot checks the Rust port is compared against, tags an OS reports
@@ -74,10 +98,13 @@ function collectWeekData() {
     defaultLocale,
     defaultDay: firstDay(undefined),
     regionDays,
+    regionAliases,
+    languageAliases,
     baseDays,
     bases,
     withRegion,
     probes,
+    cross,
   };
 }
 

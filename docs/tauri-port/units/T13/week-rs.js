@@ -21,6 +21,26 @@ pub const REGION_DAYS: &[(&str, u8)] = &[
 ${days(d.regionDays)}
 ];
 
+/// Deprecated regions and the region \`Intl.getCanonicalLocales\` puts in
+/// their place, sorted.
+pub const REGION_ALIASES: &[(&str, &str)] = &[
+${Object.entries(d.regionAliases)
+  .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  .map(([k, v]) => `    ("${k}", "${v}"),`)
+  .join("\n")}
+];
+
+/// Deprecated languages and the tag \`Intl.getCanonicalLocales\` puts in
+/// their place, sorted. Only aliases onto a language ICU has are kept: any
+/// other resolves to the default locale either way.
+pub const LANGUAGE_ALIASES: &[(&str, &str)] = &[
+${Object.entries(d.languageAliases)
+  .filter(([, to]) => d.bases.includes(to.split("-").filter((s) => !/^([A-Z]{2}|\d{3})$/.test(s)).join("-")))
+  .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  .map(([k, v]) => `    ("${k}", "${v}"),`)
+  .join("\n")}
+];
+
 /// Language and language-script tags ICU has, sorted.
 pub const BASES: &[&str] = &[
 ${list(sorted(d.bases))}

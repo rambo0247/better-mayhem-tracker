@@ -800,3 +800,403 @@ pub fn toggle_favorite(conn: &Connection, game_id: i64) -> rusqlite::Result<bool
         .optional()?;
     Ok(favorite.is_some_and(|f| f != 0))
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::{Path, PathBuf};
+
+    use serde_json::Value;
+
+    use super::*;
+    use crate::db::schema::init_database;
+    use crate::db::settings::set_setting;
+    use crate::db::summoner::{get_all_puuids, get_profile};
+    use crate::db::week::first_day_of_week;
+    use crate::db::{Database, filters};
+
+    /// `{ "$f64": hex }`, as record-matrix.ts writes a fractional number.
+    fn exact_float(v: &Value) -> Option<u64> {
+        let hex = v.as_object()?.get("$f64")?.as_str()?;
+        u64::from_str_radix(hex, 16).ok()
+    }
+
+    /// `a === b` over what IPC carried: keys unordered, numbers by their f64
+    /// bits, everything else exactly.
+    fn same(a: &Value, b: &Value) -> bool {
+        if let (Some(bits), Value::Number(n)) = (exact_float(a), b) {
+            return n.as_f64().map(f64::to_bits) == Some(bits);
+        }
+        match (a, b) {
+            (Value::Number(x), Value::Number(y)) => {
+                x.as_f64().map(f64::to_bits) == y.as_f64().map(f64::to_bits)
+            }
+            (Value::Array(x), Value::Array(y)) => {
+                x.len() == y.len() && x.iter().zip(y).all(|(x, y)| same(x, y))
+            }
+            (Value::Object(x), Value::Object(y)) => {
+                x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same(v, w)))
+            }
+            _ => a == b,
+        }
+    }
+
+    /// Where two values first differ, as a path, with both sides there.
+    fn first_diff(a: &Value, b: &Value, at: String) -> Option<String> {
+        match (a, b) {
+            (Value::Array(x), Value::Array(y)) if x.len() == y.len() => x
+                .iter()
+                .zip(y)
+                .enumerate()
+                .find_map(|(i, (x, y))| first_diff(x, y, format!("{at}[{i}]"))),
+            (Value::Object(x), Value::Object(y)) if x.len() == y.len() => {
+                x.iter().find_map(|(k, v)| match y.get(k) {
+                    Some(w) => first_diff(v, w, format!("{at}.{k}")),
+                    None => Some(format!("{at}.{k}: missing on one side")),
+                })
+            }
+            _ if same(a, b) => None,
+            _ if exact_float(a).is_some() => Some(format!(
+                "{at}: electron {} rust {b}",
+                f64::from_bits(exact_float(a).unwrap_or_default())
+            )),
+            _ => Some(format!("{at}: electron {a} rust {b}")),
+        }
+    }
+
+    fn arg<T: serde::de::DeserializeOwned + Default>(args: &[Value], i: usize) -> T {
+        match args.get(i) {
+            None | Some(Value::Null) => T::default(),
+            Some(v) => serde_json::from_value(v.clone()).expect("an argument the command takes"),
+        }
+    }
+
+    fn opt<T: serde::de::DeserializeOwned>(args: &[Value], i: usize) -> Option<T> {
+        args.get(i)
+            .filter(|v| !v.is_null())
+            .map(|v| serde_json::from_value(v.clone()).expect("an argument the command takes"))
+    }
+
+    fn json<T: serde::Serialize>(result: rusqlite::Result<T>) -> Value {
+        serde_json::to_value(result.expect("the query runs")).unwrap()
+    }
+
+    /// One `window.api` call, answered by the Rust query as the command
+    /// would answer it.
+    fn answer(conn: &Connection, method: &str, args: &[Value], week_start: u8) -> Value {
+        let int = |i: usize| args[i].as_i64().expect("an integer argument");
+        match method {
+            "getMatchHistory" => json(get_match_history(conn, int(0), int(1), &arg(args, 2))),
+            "getMatchSessions" => json(get_match_sessions(conn, &arg(args, 0), week_start)),
+            "getMatchFilterOptions" => json(get_match_filter_options(conn, &arg(args, 0))),
+            "getStoredQueues" => json(filters::get_stored_queues(conn)),
+            "getMatchDetail" => json(get_match_detail(conn, int(0))),
+            "toggleFavorite" => json(toggle_favorite(conn, int(0))),
+            "getChampionMatchHistory" => json(get_champion_match_history(
+                conn,
+                int(0),
+                int(1),
+                int(2),
+                opt::<String>(args, 3).as_deref(),
+                opt(args, 4),
+                opt::<String>(args, 5).as_deref(),
+            )),
+            "getAllSummonerPuuids" => json(get_all_puuids(conn)),
+            "getProfile" => json(get_profile(conn)),
+            other => panic!("no query for {other}"),
+        }
+    }
+
+    fn copy_dir(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap().flatten() {
+            let target = to.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_dir(&entry.path(), &target);
+            } else {
+                std::fs::copy(entry.path(), target).unwrap();
+            }
+        }
+    }
+
+    /// A fresh copy of the fixture's `data/` folder, after `sql`.
+    fn fixture_copy(fixture: &Path, name: &str, sql: &str) -> (PathBuf, Database) {
+        let dir = std::env::temp_dir().join(format!("bmt-t13-{name}-{}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        copy_dir(&fixture.join("data"), &dir);
+        if !sql.is_empty() {
+            Connection::open(dir.join("matches.db"))
+                .unwrap()
+                .execute_batch(sql)
+                .unwrap();
+        }
+        let db = Database::open(&dir, 0).unwrap();
+        (dir, db)
+    }
+
+    fn env_path(key: &str) -> Option<PathBuf> {
+        std::env::var_os(key).map(PathBuf::from)
+    }
+
+    /// Every case `docs/tauri-port/units/T13/record-matrix.ts` recorded from
+    /// trunk Electron, replayed against the same fixture. Needs
+    /// `BMT_T13_MATRIX` and `BMT_GOLDEN_DATA`, and `TZ` as the recording ran.
+    #[test]
+    fn electron_matrix() {
+        let (Some(matrix), Some(fixture)) =
+            (env_path("BMT_T13_MATRIX"), env_path("BMT_GOLDEN_DATA"))
+        else {
+            eprintln!("electron_matrix: set BMT_T13_MATRIX and BMT_GOLDEN_DATA to run it");
+            return;
+        };
+        let matrix: Value =
+            serde_json::from_str(&std::fs::read_to_string(matrix).unwrap()).unwrap();
+        let locale = matrix["locale"].as_str();
+        let week_start = first_day_of_week(locale);
+        assert_eq!(
+            Some(u64::from(week_start)),
+            matrix["weekStart"].as_u64(),
+            "week start for {locale:?}"
+        );
+
+        let cross = matrix["week"]["cross"].as_object().unwrap();
+        let wrong: Vec<_> = cross
+            .iter()
+            .filter(|(tag, day)| Some(u64::from(first_day_of_week(Some(tag)))) != day.as_u64())
+            .map(|(tag, day)| format!("{tag}={day}"))
+            .collect();
+        println!(
+            "week: {} of {} tags open where Electron opens them",
+            cross.len() - wrong.len(),
+            cross.len()
+        );
+        assert!(wrong.is_empty(), "weeks that open elsewhere: {wrong:?}");
+
+        let mut tally: std::collections::BTreeMap<String, (usize, usize)> = Default::default();
+        let mut failures = Vec::new();
+        for (variant, sql) in matrix["variants"].as_object().unwrap() {
+            let (dir, db) = fixture_copy(&fixture, variant, sql.as_str().unwrap());
+            let mut applied: HashMap<String, String> = HashMap::new();
+            for case in matrix["cases"].as_array().unwrap() {
+                if case["variant"] != *variant {
+                    continue;
+                }
+                let method = case["method"].as_str().unwrap();
+                let args = case["args"].as_array().unwrap();
+                let got = db
+                    .with(|conn| {
+                        for (key, value) in case["settings"].as_object().unwrap() {
+                            let value = value.as_str().unwrap();
+                            if applied.get(key).map(String::as_str) != Some(value) {
+                                set_setting(conn, key, value)?;
+                                applied.insert(key.clone(), value.to_owned());
+                            }
+                        }
+                        Ok(answer(conn, method, args, week_start))
+                    })
+                    .unwrap();
+                let entry = tally.entry(format!("{variant} {method}")).or_default();
+                entry.0 += 1;
+                if same(&case["result"], &got) {
+                    entry.1 += 1;
+                } else if failures.len() < 20 {
+                    failures.push(format!(
+                        "{variant} {method} {} settings {}: {}",
+                        case["args"],
+                        case["settings"],
+                        first_diff(&case["result"], &got, String::new()).unwrap_or_default()
+                    ));
+                }
+            }
+            db.close();
+            std::fs::remove_dir_all(dir).ok();
+        }
+        for (what, (cases, matched)) in &tally {
+            println!("{what}: {matched}/{cases} match");
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    /// The T05 goldens for these channels' read cases, run straight against
+    /// the query: each row count, and the first and last row. Needs
+    /// `BMT_GOLDEN_DIR` and `BMT_GOLDEN_DATA`.
+    #[test]
+    fn fixture_goldens() {
+        let (Some(goldens), Some(fixture)) =
+            (env_path("BMT_GOLDEN_DIR"), env_path("BMT_GOLDEN_DATA"))
+        else {
+            eprintln!("fixture_goldens: set BMT_GOLDEN_DIR and BMT_GOLDEN_DATA to run it");
+            return;
+        };
+        let channels = [
+            ("db.match-history", "getMatchHistory"),
+            ("db.match-sessions", "getMatchSessions"),
+            ("db.match-filters", "getMatchFilterOptions"),
+            ("db.stored-queues", "getStoredQueues"),
+            ("db.match-detail", "getMatchDetail"),
+            ("db.champion-match-history", "getChampionMatchHistory"),
+            ("db.all-summoner-puuids", "getAllSummonerPuuids"),
+            ("db.profile", "getProfile"),
+        ];
+        let (dir, db) = fixture_copy(&fixture, "goldens", "");
+        let mut checked = 0;
+        for (folder, method) in channels {
+            for file in std::fs::read_dir(goldens.join("ipc").join(folder))
+                .unwrap()
+                .flatten()
+            {
+                let golden: Value =
+                    serde_json::from_str(&std::fs::read_to_string(file.path()).unwrap()).unwrap();
+                if golden["group"] != "read" {
+                    continue;
+                }
+                let args = golden["args"].as_array().unwrap();
+                let want = &golden["outcome"]["result"];
+                let got = db.with(|conn| Ok(answer(conn, method, args, 0))).unwrap();
+                let rows = |v: &Value| {
+                    v.get("matches")
+                        .or(Some(v))
+                        .and_then(Value::as_array)
+                        .cloned()
+                };
+                let what = format!("{folder} {}", golden["case"]);
+                match (rows(want), rows(&got)) {
+                    (Some(want_rows), Some(got_rows)) => {
+                        assert_eq!(want_rows.len(), got_rows.len(), "{what}: row count");
+                        assert!(
+                            same(
+                                &want_rows.first().cloned().into(),
+                                &got_rows.first().cloned().into()
+                            ),
+                            "{what}: first row"
+                        );
+                        assert!(
+                            same(
+                                &want_rows.last().cloned().into(),
+                                &got_rows.last().cloned().into()
+                            ),
+                            "{what}: last row"
+                        );
+                        assert_eq!(
+                            want.get("total"),
+                            got.get("total").filter(|_| want.get("total").is_some()),
+                            "{what}: total"
+                        );
+                    }
+                    _ => assert!(same(want, &got), "{what}: {got}"),
+                }
+                checked += 1;
+            }
+        }
+        db.close();
+        std::fs::remove_dir_all(dir).ok();
+        println!("fixture_goldens: {checked} read cases match");
+        assert!(checked > 0);
+    }
+
+    /// The schema with three games: an unscored remake, a penta, and a
+    /// favorite, for the rules the fixture alone doesn't pin.
+    fn small_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        init_database(&conn, 0).unwrap();
+        conn.execute_batch(
+            "
+            INSERT INTO games (game_id, queue_id, game_mode, game_creation, game_duration, is_remake, puuid, game_version, favorite)
+            VALUES (1, 2400, 'KIWI', 1767000000000, 1200, 0, 'p1', '16.1.1', 0),
+                   (2, 2400, 'KIWI', 1768000000000, 200, 1, 'p1', '16.10.2', 1),
+                   (3, 2450, 'KIWI', 1769000000000, 1500, 0, 'p2', '16.2.1', 0);
+            INSERT INTO player_stats (game_id, champion_id, win, kills, deaths, assists, penta_kills, score, score_raw, score_badge)
+            VALUES (1, 10, 1, 10, 2, 5, 1, 9.5, 9.53, 'MVP'),
+                   (2, 20, 0, 0, 0, 0, 0, NULL, NULL, NULL),
+                   (3, 10, 0, 3, 6, 9, 0, 4.0, 4.01, 'ACE');
+            ",
+        )
+        .unwrap();
+        conn
+    }
+
+    fn game_ids(page: &MatchPage) -> Vec<i64> {
+        page.matches.iter().map(|m| m.game_id).collect()
+    }
+
+    #[test]
+    fn unscored_games_sort_last_either_way() {
+        let conn = small_db();
+        for dir in [MatchSortDir::Asc, MatchSortDir::Desc] {
+            let filters = MatchFilters {
+                sort: Some(MatchSort::Score),
+                sort_dir: Some(dir),
+                ..Default::default()
+            };
+            let page = get_match_history(&conn, 10, 0, &filters).unwrap();
+            assert_eq!(game_ids(&page).last(), Some(&2), "{dir:?}");
+            assert_eq!(page.total, 3);
+        }
+    }
+
+    #[test]
+    fn filters_narrow_the_list_and_paging_keeps_the_total() {
+        let conn = small_db();
+        let pentas = MatchFilters {
+            multikills: Some(vec![MultikillType::Pentas]),
+            ..Default::default()
+        };
+        assert_eq!(
+            game_ids(&get_match_history(&conn, 10, 0, &pentas).unwrap()),
+            [1]
+        );
+        let page = get_match_history(&conn, 1, 1, &MatchFilters::default()).unwrap();
+        assert_eq!((game_ids(&page), page.total), (vec![2], 3));
+        set_setting(&conn, "hide_remakes", "true").unwrap();
+        assert_eq!(
+            get_match_history(&conn, 10, 0, &MatchFilters::default())
+                .unwrap()
+                .total,
+            2
+        );
+        set_setting(&conn, "hidden_queues", "2450").unwrap();
+        assert_eq!(
+            game_ids(&get_match_history(&conn, 10, 0, &MatchFilters::default()).unwrap()),
+            [1]
+        );
+    }
+
+    #[test]
+    fn sessions_count_remakes_as_games_only() {
+        let conn = small_db();
+        set_setting(&conn, SESSION_GROUPING_SETTING, "patch").unwrap();
+        let sessions = get_match_sessions(&conn, &MatchFilters::default(), 0).unwrap();
+        let remake = sessions.iter().find(|s| s.key == "16.10.2").unwrap();
+        assert_eq!(
+            (remake.games, remake.wins, remake.losses, remake.score_sum),
+            (1, 0, 0, None)
+        );
+        set_setting(&conn, SESSION_GROUPING_SETTING, "none").unwrap();
+        assert!(
+            get_match_sessions(&conn, &MatchFilters::default(), 0)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn patches_sort_newest_first_by_number() {
+        let conn = small_db();
+        let options = get_match_filter_options(&conn, &MatchScope::default()).unwrap();
+        assert_eq!(options.patches, ["16.10.2", "16.2.1", "16.1.1"]);
+        assert_eq!(options.champions, [10, 20]);
+        assert!(options.has_favorites);
+        let names: Vec<_> = options.accounts.iter().map(|a| a.puuid.as_str()).collect();
+        assert_eq!(names, ["p2", "p1"]);
+    }
+
+    #[test]
+    fn a_favorite_flips_and_a_missing_game_reads_false() {
+        let conn = small_db();
+        assert!(toggle_favorite(&conn, 1).unwrap());
+        assert!(!toggle_favorite(&conn, 1).unwrap());
+        assert!(!toggle_favorite(&conn, 99).unwrap());
+        assert!(get_match_detail(&conn, 99).unwrap().is_none());
+        let detail = get_match_detail(&conn, 1).unwrap().unwrap();
+        assert_eq!(detail.stats.score_badge, Some(ScoreBadge::Mvp));
+    }
+}
