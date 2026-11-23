@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, setDefaultTimeout, test } from "bun:test";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -8,6 +8,10 @@ import { isUnderRealFolder, realDataRoots } from "../lib/real-folder.ts";
 import { diffHashes, hashAppFiles, takeSnapshot } from "../snapshot.ts";
 
 const seam = path.resolve(import.meta.dir, "../seam.cjs");
+
+// The first node a CI runner starts took 1.8 s against bun's 5 s default, and a loaded Mac
+// stretches it further. Every test here spawns one.
+setDefaultTimeout(30_000);
 
 function scratch() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "bmt-guard-"));
@@ -217,6 +221,7 @@ describe("seam", () => {
       {
         env: { ...process.env, SEAM_LOG: log, SEAM_REAL_ROOTS: JSON.stringify([real]), ...env },
         encoding: "utf8",
+        timeout: 25_000,
       },
     );
     return { result, real, log: fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "" };
