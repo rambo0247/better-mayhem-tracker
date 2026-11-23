@@ -9,6 +9,7 @@ compile_error!(
 );
 
 pub mod app_menu;
+pub mod backup;
 #[deny(clippy::disallowed_methods)]
 pub mod commands;
 #[cfg(any(not(bmt_release_profile), debug_assertions))]
@@ -109,8 +110,9 @@ pub fn app_version() -> &'static str {
 /// app is built, so a lane process can build apps over several roots.
 pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
     let paths = Paths::resolve();
+    let clock = host.clock;
     let builder = match open_database(&paths, &host.clock) {
-        Some(database) => builder.manage(database),
+        Some((database, backups)) => builder.manage(database).manage(backups),
         None => builder,
     };
     commands::register(builder, &host)
@@ -118,20 +120,24 @@ pub fn app_builder<R: Runtime>(builder: Builder<R>, host: Host) -> Builder<R> {
         .manage(host.clock)
         .manage(paths)
         .manage(host.effects)
+        .plugin(backup::schedule(clock))
         .invoke_handler(commands::handler())
 }
 
-/// `matches.db` in the data folder, which the guard has already passed.
-fn open_database(paths: &Paths, clock: &Clock) -> Option<db::Database> {
+/// `matches.db` in the data folder, which the guard has already passed, with
+/// its backups beside it. Recovery runs first, before anything reads the
+/// database.
+fn open_database(paths: &Paths, clock: &Clock) -> Option<(db::Database, backup::Backups)> {
     let opened = paths
         .data_dir()
+        .and_then(|dir| Ok((dir, paths.backup_dir()?)))
         .map_err(|err| err.to_string())
-        .and_then(|dir| {
-            db::Database::open(&dir, clock.now_ms())
+        .and_then(|(dir, backups)| {
+            backup::init_database_with_recovery(&dir, backups, clock.now_ms())
                 .map_err(|err| format!("{}: {err}", dir.display()))
         });
     match opened {
-        Ok(database) => Some(database),
+        Ok(opened) => Some(opened),
         Err(err) => {
             log::error(format!("Failed to open the database in {err}"));
             None
@@ -157,10 +163,8 @@ pub fn boot_script(locale: Option<&str>) -> String {
 
 /// The first thing a launch does once it holds the single-instance lock. A
 /// later launch hands over and exits before Tauri builds anything, so it
-/// writes nothing, as Electron's second instance writes nothing. T09's
-/// `log::start` goes here.
-/// Only the instance that runs writes the log. The data guard has already run
-/// in `app_builder`'s `Paths::resolve`, before anything was created or opened.
+/// writes nothing, as Electron's second instance writes nothing. The data
+/// guard has already run in `app_builder`'s `Paths::resolve`.
 fn first_instance_started(hidden: bool) {
     log::start(Paths::resolve(), app_version());
     log(format!(
