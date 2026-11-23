@@ -49,19 +49,23 @@ impl JsValue {
 
     /// Reads api.ts's sentinel back as the number it stands for.
     fn decode(value: Value) -> Self {
-        let number = match &value {
-            Value::Object(map) if map.len() == 1 => match map.get(NON_FINITE_KEY) {
-                Some(Value::String(text)) => match text.as_str() {
-                    "NaN" => Some(f64::NAN),
-                    "Infinity" => Some(f64::INFINITY),
-                    "-Infinity" => Some(f64::NEG_INFINITY),
-                    _ => None,
-                },
+        non_finite(&value).map_or(JsValue::Json(value), JsValue::NonFinite)
+    }
+}
+
+/// The number a [`NON_FINITE_KEY`] object stands for.
+fn non_finite(value: &Value) -> Option<f64> {
+    match value {
+        Value::Object(map) if map.len() == 1 => match map.get(NON_FINITE_KEY) {
+            Some(Value::String(text)) => match text.as_str() {
+                "NaN" => Some(f64::NAN),
+                "Infinity" => Some(f64::INFINITY),
+                "-Infinity" => Some(f64::NEG_INFINITY),
                 _ => None,
             },
             _ => None,
-        };
-        number.map_or(JsValue::Json(value), JsValue::NonFinite)
+        },
+        _ => None,
     }
 }
 
@@ -91,6 +95,85 @@ impl Serialize for JsValue {
                 serde_json::json!({ NON_FINITE_KEY: text }).serialize(serializer)
             }
         }
+    }
+}
+
+/// A JavaScript number in an answer or an event, which Electron's structured
+/// clone hands the page as it is: a fraction stays a fraction, and NaN or an
+/// infinity goes as the [`NON_FINITE_KEY`] object, where JSON would write
+/// `null`. A whole number is written as JavaScript writes it, `3` and not
+/// `3.0`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct JsNumber(pub f64);
+
+impl From<f64> for JsNumber {
+    fn from(number: f64) -> Self {
+        Self(number)
+    }
+}
+
+/// JavaScript has one NaN, whatever its bits.
+impl PartialEq for JsNumber {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 || (self.0.is_nan() && other.0.is_nan())
+    }
+}
+
+impl Serialize for JsNumber {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let number = self.0;
+        // Whole numbers up to 2^53 are exact as integers; -0 must stay -0
+        if number.fract() == 0.0
+            && number.abs() < 2f64.powi(53)
+            && !(number == 0.0 && number.is_sign_negative())
+        {
+            serializer.serialize_i64(number as i64)
+        } else if number.is_finite() {
+            serializer.serialize_f64(number)
+        } else {
+            JsValue::NonFinite(self.0).serialize(serializer)
+        }
+    }
+}
+
+/// A JSON number, or the [`NON_FINITE_KEY`] object.
+impl<'de> Deserialize<'de> for JsNumber {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        match JsValue::decode(value) {
+            JsValue::NonFinite(number) => Ok(Self(number)),
+            JsValue::Json(Value::Number(number)) => Ok(Self(number.as_f64().unwrap_or(f64::NAN))),
+            JsValue::Json(other) => Err(serde::de::Error::custom(format!(
+                "expected a number, found {other}"
+            ))),
+        }
+    }
+}
+
+impl TS for JsNumber {
+    type WithoutGenerics = Self;
+    type OptionInnerType = Self;
+
+    fn name(cfg: &Config) -> String {
+        f64::name(cfg)
+    }
+
+    fn inline(cfg: &Config) -> String {
+        f64::inline(cfg)
+    }
+}
+
+/// `JSON.stringify`'s `null` for NaN and the infinities, in a value
+/// serialized from types that hold [`JsNumber`]s.
+pub fn non_finite_as_null(value: &mut Value) {
+    if non_finite(value).is_some() {
+        *value = Value::Null;
+        return;
+    }
+    match value {
+        Value::Array(items) => items.iter_mut().for_each(non_finite_as_null),
+        Value::Object(map) => map.values_mut().for_each(non_finite_as_null),
+        _ => {}
     }
 }
 
@@ -288,6 +371,45 @@ mod tests {
                 "{other} is an object"
             );
         }
+    }
+
+    #[test]
+    fn an_answered_number_keeps_its_fraction_and_sends_non_finite_as_the_sentinel() {
+        for (number, json) in [(2.5, "2.5"), (3.0, "3"), (-0.0, "-0.0"), (1e300, "1e+300")] {
+            assert_eq!(serde_json::to_string(&JsNumber(number)).unwrap(), json);
+        }
+        for (json, number) in SENT {
+            assert_eq!(serde_json::to_string(&JsNumber(number)).unwrap(), json);
+            let read: JsNumber = serde_json::from_str(json).unwrap();
+            assert_eq!(read, JsNumber(number));
+        }
+        let read: Vec<Option<JsNumber>> = serde_json::from_str("[null, 1.5, 22]").unwrap();
+        assert_eq!(read, [None, Some(JsNumber(1.5)), Some(JsNumber(22.0))]);
+        for refused in ["null", r#""7""#, r#"{"$bmtNum":"nan"}"#] {
+            assert!(
+                serde_json::from_str::<JsNumber>(refused).is_err(),
+                "{refused}"
+            );
+        }
+        assert_eq!(
+            <Option<Vec<JsNumber>>>::name(&Config::new()),
+            "Array<number> | null"
+        );
+    }
+
+    #[test]
+    fn json_stringify_writes_a_non_finite_number_as_null() {
+        let mut value = serde_json::to_value(serde_json::json!({
+            "ids": [JsNumber(f64::NAN), JsNumber(1.5)],
+            "timer": JsNumber(f64::INFINITY),
+            "kept": {"$bmtNum": "NaN", "other": 1},
+        }))
+        .unwrap();
+        non_finite_as_null(&mut value);
+        assert_eq!(
+            value,
+            serde_json::json!({"ids": [null, 1.5], "timer": null, "kept": {"$bmtNum": "NaN", "other": 1}})
+        );
     }
 
     /// better-sqlite3 binds a number with `sqlite3_bind_double`, which stores
