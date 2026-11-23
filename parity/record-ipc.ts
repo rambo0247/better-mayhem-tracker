@@ -491,11 +491,7 @@ async function recordTiming(
       for (const testCase of reads) {
         const channel = channels[testCase.method]!;
         const ms = await run.page.evaluate(
-          async ([c, a]) => {
-            const t0 = performance.now();
-            await (window as any).__bmtRawInvoke(c, ...(a as unknown[]));
-            return performance.now() - t0;
-          },
+          ([c, a]) => (window as any).__bmtTimedInvoke(c, ...(a as unknown[])) as Promise<number>,
           [channel, testCase.args(vars, {})] as const,
         );
         samples.get(testCase)!.push(ms);

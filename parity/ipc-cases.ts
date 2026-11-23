@@ -356,9 +356,15 @@ const REPAIR = "repair";
 write(REPAIR, "getAllSummonerPuuids", "before", "accounts before the repair");
 write(REPAIR, "repairPuuids", "run", "repair on the fixture");
 write(REPAIR, "getAllSummonerPuuids", "after", "accounts after the repair");
-write(REPAIR, "listBackups", "after", "the repair takes a pre-repair snapshot");
+write(REPAIR, "listBackups", "after-repair", "the repair takes a pre-repair snapshot");
 
 const CARD = "export-card";
+// The card window asks main for these while it draws. Loaded first, so a card never captures
+// before they land and the image is the same on every run.
+write(CARD, "getChampionData", "warm-champions", "champion table before the first card");
+write(CARD, "getItemData", "warm-items", "item table before the first card");
+write(CARD, "getAugmentData", "warm-augments", "augment table before the first card");
+write(CARD, "getSummonerSpellData", "warm-spells", "spell table before the first card");
 write(
   CARD,
   "exportCardImage",
