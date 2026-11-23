@@ -383,6 +383,9 @@ pub(crate) mod tests {
         tokio::time::sleep(Duration::from_millis(100)).await;
         let mtime = std::fs::metadata(&copy).unwrap().modified().unwrap();
         assert!(SystemTime::now().duration_since(mtime).unwrap() < Duration::from_secs(60));
+        // utimes with a Date sets whole milliseconds
+        let since = mtime.duration_since(SystemTime::UNIX_EPOCH).unwrap();
+        assert_eq!(since.subsec_nanos() % 1_000_000, 0, "{since:?}");
         std::fs::remove_dir_all(root).unwrap();
     }
 
@@ -453,6 +456,77 @@ pub(crate) mod tests {
         let cache = AssetCache::new(root.clone());
         assert_eq!(cache.prune(now).await, None);
         assert_eq!(names(&root.join("16.23")), ["a.png"]);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// A file of `size` bytes that takes no disk: the prune reads only sizes.
+    fn sparse(file: &Path, size: u64, mtime: SystemTime) {
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::File::create(file).unwrap().set_len(size).unwrap();
+        set_mtime(file, mtime);
+    }
+
+    const MIB_20: u64 = 20 * 1024 * 1024;
+
+    /// Fifteen files on one millisecond, as `utimes(new Date())` writes them.
+    /// Node's readdir lists names in strcmp order (libuv's scandir), and the
+    /// stable sort keeps that order among ties, so the first six by folder and
+    /// name go. electron-prune.mjs removes the same six from the same folder.
+    #[tokio::test]
+    async fn prune_ties_go_in_name_order() {
+        let root = temp_dir("prune-ties");
+        let tie = SystemTime::UNIX_EPOCH + Duration::from_millis(1_763_500_000_123);
+        let mut all = Vec::new();
+        for dir in ["16.23", "16.21", "16.22"] {
+            for i in [3, 0, 4, 1, 2] {
+                let name = file_name(&format!("{dir}/{i}.png"));
+                sparse(&root.join(dir).join(&name), MIB_20, tie);
+                all.push((dir, name));
+            }
+        }
+        all.sort();
+        let pruned = AssetCache::new(root.clone()).prune(SystemTime::now()).await;
+        assert_eq!(pruned.map(|p| p.after), Some(180 * 1024 * 1024));
+        let kept: Vec<(&str, String)> = all
+            .iter()
+            .filter(|(dir, name)| root.join(dir).join(name).exists())
+            .cloned()
+            .collect();
+        assert_eq!(kept, all[6..]);
+        assert_eq!(names(&root), ["16.22", "16.23"]);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Node's mtimeMs is `sec * 1e3 + nsec / 1e6` in doubles, so two files 100
+    /// ns apart in 2023 read as one time, and the earlier name goes first.
+    #[tokio::test]
+    async fn prune_orders_by_node_mtime_ms() {
+        let root = temp_dir("prune-ms");
+        let second = |s: u64, ns: u32| SystemTime::UNIX_EPOCH + Duration::new(s, ns);
+        let dir = root.join("16.23");
+        for i in 0..4 {
+            sparse(
+                &dir.join(format!("o{i}.png")),
+                MIB_20,
+                second(1_699_999_990 + i, 0),
+            );
+        }
+        sparse(&dir.join("a.png"), MIB_20, second(1_700_000_000, 100));
+        sparse(&dir.join("b.png"), MIB_20, second(1_700_000_000, 0));
+        for i in 0..8 {
+            sparse(
+                &dir.join(format!("n{i}.png")),
+                MIB_20,
+                second(1_700_000_001 + i, 0),
+            );
+        }
+        AssetCache::new(root.clone())
+            .prune(SystemTime::now())
+            .await
+            .unwrap();
+        let mut kept = names(&dir);
+        kept.retain(|name| !name.starts_with('n'));
+        assert_eq!(kept, ["b.png"]);
         std::fs::remove_dir_all(root).unwrap();
     }
 

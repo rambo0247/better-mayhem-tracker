@@ -1411,6 +1411,118 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
+    /// dragon.ts:54-56 reads champion-cache.json before its first await, so
+    /// getChampionClasses() has the disk copy the moment loadChampionData()
+    /// returns.
+    #[test]
+    fn the_disk_copy_is_there_as_soon_as_the_load_is_registered() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let rig = Rig::new("champions-sync");
+        rig.web.down.store(true, Ordering::SeqCst);
+        let dragon = dragon(&rig);
+        std::fs::write(
+            rig.root.join("data/champion-cache.json"),
+            r#"{"version":"16.20.1","champions":{"1":{"name":"Annie","key":"Annie","class":"Mage"}}}"#,
+        )
+        .unwrap();
+        let load = dragon.load_champion_data();
+        let classes = dragon.champion_classes();
+        assert_eq!(classes.version, "16.20.1");
+        assert_eq!(classes.classes[&1], "Mage");
+        runtime.block_on(load);
+        assert_eq!(dragon.champion_classes().version, "16.20.1");
+    }
+
+    /// Electron's file for this input, from `cache[parseInt(champ.key)] = {
+    /// name, key, class: champ.tags?.[0] }` and `JSON.stringify`, run in Node:
+    /// integer keys ascending, then the others in the order first set; the
+    /// later of two champions on one id wins; a class is whatever tags[0] is.
+    #[tokio::test]
+    async fn champions_are_keyed_and_ordered_as_javascript_does() {
+        let rig = Rig::new("champions-js");
+        rig.web.serve_json(VERSIONS, &json!(["16.23.1"]));
+        rig.web.serve(
+            &format!("{DDRAGON_CDN}/16.23.1/data/en_US/champion.json"),
+            200,
+            br#"{"data":{"Zed2":{"key":"-7","name":"Negative","tags":["Tank"]},"Annie":{"key":"1","name":"Annie","tags":["Mage","Support"]},"Bad":{"key":"abc","name":"Bad","tags":["Mage"]},"ZDup":{"key":"9006","name":"First","tags":["Tank"]},"ADup":{"key":"9006","name":"Second","tags":["Mage"]},"NoTags":{"key":"9002","name":"No Tags"},"EmptyTag":{"key":"9003","name":"Empty","tags":[""]},"Spaced":{"key":" 9004","name":"Spaced","tags":["Tank"]},"Padded":{"key":"009005x","name":"Padded","tags":["Tank"]},"NumTag":{"key":"9007","name":"NumTag","tags":[5]},"NullTags":{"key":"9008","name":"NullTags","tags":null},"NullTag":{"key":"9009","name":"NullTag","tags":[null]},"StrTags":{"key":"9010","name":"StrTags","tags":"Mage"},"Big":{"key":"4294967295","name":"Big","tags":["Tank"]},"Idx":{"key":"4294967294","name":"Idx","tags":["Tank"]}}}"#,
+        );
+        let dragon = dragon(&rig);
+        dragon.load_champion_data().await;
+        let file = std::fs::read_to_string(rig.root.join("data/champion-cache.json")).unwrap();
+        assert_eq!(
+            file,
+            r#"{"version":"16.23.1","champions":{"1":{"name":"Annie","key":"Annie","class":"Mage"},"9002":{"name":"No Tags","key":"NoTags"},"9003":{"name":"Empty","key":"EmptyTag","class":""},"9004":{"name":"Spaced","key":"Spaced","class":"Tank"},"9005":{"name":"Padded","key":"Padded","class":"Tank"},"9006":{"name":"Second","key":"ADup","class":"Mage"},"9007":{"name":"NumTag","key":"NumTag","class":5},"9008":{"name":"NullTags","key":"NullTags"},"9009":{"name":"NullTag","key":"NullTag","class":null},"9010":{"name":"StrTags","key":"StrTags","class":"M"},"4294967294":{"name":"Idx","key":"Idx","class":"Tank"},"-7":{"name":"Negative","key":"Zed2","class":"Tank"},"NaN":{"name":"Bad","key":"Bad","class":"Mage"},"4294967295":{"name":"Big","key":"Big","class":"Tank"}}}"#
+        );
+        // getChampionClasses() keeps truthy classes only, by numeric id
+        let classes = dragon.champion_classes().classes;
+        let mut ids: Vec<i64> = classes.keys().copied().collect();
+        ids.sort_unstable();
+        assert_eq!(
+            ids,
+            [
+                -7,
+                1,
+                9004,
+                9005,
+                9006,
+                9007,
+                9010,
+                4_294_967_294,
+                4_294_967_295
+            ]
+        );
+        assert_eq!(classes[&9006], "Mage");
+        assert_eq!(classes[&9007], "5");
+        // The renderer's copy is the same object
+        let served = serde_json::to_string(&dragon.champion_data().await).unwrap();
+        assert!(file.contains(&served), "{served}");
+        // And a later start reads the file back as it was written
+        let later = Dragon::new(rig.web.clone(), rig.assets.clone(), rig.root.join("data"));
+        rig.web.down.store(true, Ordering::SeqCst);
+        later.load_champion_data().await;
+        assert_eq!(
+            serde_json::to_string(&later.champion_data().await).unwrap(),
+            served
+        );
+    }
+
+    /// JavaScript's `\d` is ASCII. A version in other digits names no live
+    /// patch, so each lookup asks again, and a branch so named is not walked.
+    #[tokio::test]
+    async fn only_ascii_digits_name_a_patch() {
+        let rig = Rig::new("digits");
+        rig.web
+            .serve_json(VERSIONS, &json!(["\u{0661}\u{0666}.\u{0662}\u{0663}.1"]));
+        let dragon = dragon(&rig);
+        assert_eq!(dragon.resolve_data_branch(Some("16.23")).await, "16.23");
+        assert_eq!(dragon.resolve_data_branch(Some("16.22")).await, "16.22");
+        assert_eq!(rig.web.asked(VERSIONS), 2);
+
+        let rig = Rig::new("digits-branches");
+        retired(&rig);
+        rig.web.serve_json(
+            ARCHIVED_BRANCHES,
+            &json!([{ "name": "\u{0661}\u{0666}.\u{0661}" }, { "name": "16.1" }]),
+        );
+        let dragon = super::tests::dragon(&rig);
+        dragon.augments(None).await.unwrap();
+        assert!(
+            dragon
+                .resolve_augment_icon(1341, None)
+                .await
+                .unwrap()
+                .is_some()
+        );
+        let asked = rig.web.asked.lock().unwrap().clone();
+        assert!(
+            !asked.iter().any(|url| url.contains('\u{0661}')),
+            "{asked:?}"
+        );
+    }
+
     #[test]
     fn javascript_number_rules() {
         assert_eq!(js_parse_int("266"), Some(266));

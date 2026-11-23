@@ -1071,6 +1071,7 @@ fn to_webview2(url: String) -> String {
 pub(crate) mod tests {
     use super::*;
     use crate::asset_cache::tests::temp_dir;
+    use std::path::Path;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// A CommunityDragon and Data Dragon that answer from a table, count what
@@ -1210,6 +1211,16 @@ pub(crate) mod tests {
         }
     }
 
+    /// The URI wry 0.57.3 hands the handler for a WebView2 request. It undoes
+    /// its own rewrite first (src/webview2/mod.rs:1217), replacing
+    /// `http://<scheme>.` with `<scheme>://` (custom_protocol_workaround.rs:30-35).
+    fn as_wry_delivers(url: &str) -> String {
+        url.replace(
+            &format!("http://{ASSET_SCHEME}."),
+            &format!("{ASSET_SCHEME}://"),
+        )
+    }
+
     fn parsed(url: &str) -> Option<(String, String)> {
         parse_asset_url(&url.parse().unwrap())
             .map(|file| (file.branch.name().to_string(), file.path))
@@ -1269,6 +1280,13 @@ pub(crate) mod tests {
                 Some((branch.into(), path.into())),
                 "{webview2}"
             );
+            let delivered = as_wry_delivers(&webview2);
+            assert!(delivered.starts_with("asset://localhost/"), "{delivered}");
+            assert_eq!(
+                parsed(&delivered),
+                Some((branch.into(), path.into())),
+                "{delivered}"
+            );
         }
         // The cache files a patch's copy where Electron does: sha1 of the path
         assert_eq!(
@@ -1299,6 +1317,8 @@ pub(crate) mod tests {
             "asset://game-data/latest/v1/./x.png",
             "asset://game-data/latest/v1/.../x.png",
             "http://asset.localhost/game-data/latest/v1/%2e%2e/x.png",
+            "asset://localhost/game-data/latest/v1/%2e%2e/x.png",
+            "asset://localhost/%2e%2e/game-data/latest/v1/x.png",
             // An encoded separator, which would make an absolute or nested path
             "asset://game-data/latest/%2Fetc%2Fpasswd.png",
             "asset://game-data/latest/v1%2F..%2F..%2Fx.png",
@@ -1331,6 +1351,9 @@ pub(crate) mod tests {
             "asset://files/etc/passwd.png",
             "http://asset.localhost/",
             "http://asset.localhost/files/x.png",
+            "asset://localhost/",
+            "asset://localhost/files/x.png",
+            "asset://localhost/splash/1/2",
         ];
         for url in refused {
             assert_eq!(parsed(url), None, "{url} was served");
@@ -1663,5 +1686,426 @@ pub(crate) mod tests {
         assert_eq!(major_minor(&"16.23.715.1234".into()), Some("16.23".into()));
         assert_eq!(major_minor(&"16.23".into()), None);
         assert_eq!(major_minor(&Value::Null), None);
+        assert_eq!(
+            major_minor(&"\u{0661}\u{0666}.\u{0662}\u{0663}.1".into()),
+            None
+        );
+    }
+
+    #[tokio::test]
+    async fn the_uri_wry_delivers_on_windows_is_served() {
+        let rig = Rig::new("wry");
+        rig.web.down.store(true, Ordering::SeqCst);
+        rig.put("16.23", "v1/champion-icons/1.png", &png(1));
+        rig.put("16.23", "splash/266.jpg", &jpeg(2));
+        for (built, body) in [
+            (
+                "http://asset.localhost/game-data/latest/v1/champion-icons/1.png",
+                png(1),
+            ),
+            (
+                "http://asset.localhost/game-data/16.23/v1/champion-icons/1.png",
+                png(1),
+            ),
+            ("http://asset.localhost/splash/266", jpeg(2)),
+        ] {
+            let delivered = as_wry_delivers(built);
+            assert_eq!(rig.get(&delivered).await, (200, body), "{delivered}");
+        }
+    }
+
+    /// CommunityDragon naming its version in other digits: JavaScript's `\d`
+    /// reads no patch there, so nothing is filed under it.
+    #[tokio::test]
+    async fn a_version_in_other_digits_names_no_patch() {
+        let rig = Rig::new("digits");
+        rig.web.serve_json(
+            METADATA,
+            &serde_json::json!({ "version": "\u{0661}\u{0666}.\u{0662}\u{0663}.1" }),
+        );
+        rig.web.serve(&game_url("latest", "v1/x.png"), 200, &png(1));
+        assert_eq!(rig.assets.confirm_latest_patch().await, None);
+        assert_eq!(rig.get("asset://game-data/latest/v1/x.png").await.0, 200);
+        rig.assets.settle().await;
+        assert!(!rig.root.join("asset-cache").exists());
+    }
+
+    #[tokio::test]
+    async fn a_failed_flight_is_retried_on_the_next_ask() {
+        let flights = Flights::<u8>::new();
+        let failed = {
+            let flights = flights.clone();
+            tokio::spawn(async move {
+                flights
+                    .join("k", || async { panic!("the work failed") })
+                    .await
+            })
+        };
+        assert!(failed.await.is_err());
+        assert_eq!(flights.join("k", || async { 2 }).await, 2);
+    }
+
+    /// `setTimeout(prune, 60_000)` and `setInterval(prune, 24 h)`, both from
+    /// the start. A stray temp file shows each prune.
+    #[tokio::test(start_paused = true)]
+    async fn prunes_a_minute_in_and_then_daily_from_the_start() {
+        let rig = Rig::new("prune-schedule");
+        let dir = rig.root.join("asset-cache/16.23");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stray = |name: &str| {
+            let file = dir.join(format!("{name}.png.0badf00d.tmp"));
+            std::fs::write(&file, b"t").unwrap();
+            let old = SystemTime::now() - Duration::from_secs(2 * 60 * 60);
+            std::fs::File::options()
+                .write(true)
+                .open(&file)
+                .unwrap()
+                .set_modified(old)
+                .unwrap();
+            file
+        };
+        // Lets any prune that is due run to the end, on the real clock
+        async fn quiet(file: &std::path::Path) -> bool {
+            for _ in 0..50 {
+                if !file.exists() {
+                    return true;
+                }
+                tokio::task::yield_now().await;
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            false
+        }
+        let first = stray("first");
+        rig.assets.start();
+        tokio::time::advance(PRUNE_DELAY - Duration::from_millis(1)).await;
+        assert!(!quiet(&first).await, "pruned before a minute");
+        tokio::time::advance(Duration::from_millis(1)).await;
+        assert!(quiet(&first).await, "no prune at a minute");
+        let second = stray("second");
+        tokio::time::advance(PRUNE_INTERVAL - PRUNE_DELAY - Duration::from_millis(1)).await;
+        assert!(!quiet(&second).await, "pruned before a day");
+        tokio::time::advance(Duration::from_millis(1)).await;
+        assert!(quiet(&second).await, "no prune a day after the start");
+    }
+
+    #[tokio::test]
+    async fn hostile_traversal_forms_are_refused_and_ask_nothing() {
+        let rig = Rig::new("hostile");
+        std::fs::write(rig.root.join("secret.png"), png(9)).unwrap();
+        let long_dots = "%2e".repeat(5000);
+        let deep = "..%2f".repeat(2000);
+        let hostile = [
+            // Double encoding
+            "asset://game-data/latest/%252e%252e/%252e%252e/secret.png",
+            "asset://game-data/latest/%25%32%65%25%32%65/secret.png",
+            "asset://game-data/%252e%252e/secret.png",
+            // Overlong UTF-8 for '.' and '/'
+            "asset://game-data/latest/%c0%ae%c0%ae/secret.png",
+            "asset://game-data/latest/%c0%ae%c0%ae%c0%afsecret.png",
+            "asset://game-data/latest/%e0%80%ae%e0%80%ae/secret.png",
+            "asset://game-data/latest/%f0%80%80%ae/secret.png",
+            // Unicode slashes and dots
+            "asset://game-data/latest/..%E2%88%95..%E2%88%95secret.png",
+            "asset://game-data/latest/..%EF%BC%8F..%EF%BC%8Fsecret.png",
+            "asset://game-data/latest/%EF%BC%8E%EF%BC%8E/secret.png",
+            "asset://game-data/latest/%E2%80%A4%E2%80%A4/secret.png",
+            // Mixed separators, in each engine's form
+            "asset://game-data/latest/..%5C../secret.png",
+            "asset://game-data/latest/v1/..%5c%2f..%2f%5csecret.png",
+            "http://asset.localhost/game-data/latest/..%5C..%2Fsecret.png",
+            "asset://localhost/game-data/latest/..%5C..%2Fsecret.png",
+            // A branch segment that climbs, encoded
+            "asset://game-data/%2e%2e/%2e%2e/secret.png",
+            "asset://game-data/16.23%2f%2e%2e/v1/x.png",
+            "asset://game-data/.%2e/v1/x.png",
+            "asset://localhost/game-data/%2e%2e/v1/x.png",
+            // Signs that from_str_radix takes and decodeURIComponent throws on
+            "asset://game-data/latest/v1/%+0.png",
+            "asset://game-data/latest/v1/%-1.png",
+            // Drive and UNC forms
+            "asset://game-data/latest/%5C%5Cserver%5Cshare%5Cx.png",
+            "asset://game-data/latest/c%3a%5cx.png",
+            // Long paths that climb
+            &format!("asset://game-data/latest/{long_dots}/secret.png"),
+            &format!("asset://game-data/latest/{deep}secret.png"),
+        ];
+        for url in hostile {
+            let Ok(uri) = url.parse::<Uri>() else {
+                continue;
+            };
+            let status = rig.assets.serve(&Method::GET, &uri).await.status();
+            assert_eq!(status, 400, "{}", &url[..url.len().min(120)]);
+        }
+        assert_eq!(rig.web.total_asked(), 0, "a refused URL reached the web");
+    }
+
+    #[tokio::test]
+    async fn long_legal_paths_are_hashed_one_level_inside_the_cache() {
+        let rig = Rig::new("long");
+        let root = rig.root.join("asset-cache");
+        let segment = "a".repeat(30_000);
+        let many = vec!["a"; 10_000].join("/");
+        for path in [format!("v1/{segment}.png"), format!("v1/{many}.png")] {
+            let url = format!("asset://game-data/16.23/{path}");
+            let file = parse_asset_url(&url.parse().unwrap()).expect("a legal path parses");
+            let copy = rig.assets.cache().file("16.23", &file.path);
+            assert_eq!(copy.parent().unwrap(), root.join("16.23"));
+            assert_eq!(copy.file_name().unwrap().len(), 44);
+            assert_eq!(rig.get(&url).await.0, 404);
+        }
+    }
+
+    /// Any URL the parser accepts names an image path of plain segments, which
+    /// the cache files one level below its root.
+    #[test]
+    fn fuzzed_urls_never_name_a_path_outside_the_cache() {
+        let alphabet: &[&str] = &[
+            ".",
+            "/",
+            "\\",
+            "%2e",
+            "%2E",
+            "%2f",
+            "%2F",
+            "%5c",
+            "%5C",
+            "%25",
+            "%00",
+            "%c0%ae",
+            "%c0%af",
+            "%e2%88%95",
+            "%ef%bc%8f",
+            "a",
+            "v1",
+            ":",
+            "%3a",
+            "png",
+            ".png",
+            "..",
+            "16.23",
+            "latest",
+            "pbe",
+            "game-data",
+            "splash",
+            "1",
+            "%+0",
+        ];
+        let prefixes = [
+            "asset://game-data/latest/",
+            "asset://game-data/16.23/",
+            "asset://game-data/",
+            "asset://splash/",
+            "http://asset.localhost/game-data/latest/",
+            "asset://localhost/game-data/latest/",
+            "asset://localhost/",
+        ];
+        let cache = AssetCache::new(PathBuf::from("/cache-root"));
+        let mut seed: u64 = 0x5eed;
+        let mut next = |n: usize| {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            ((seed >> 33) as usize) % n
+        };
+        let mut accepted = 0;
+        for _ in 0..50_000 {
+            let mut body = String::new();
+            for _ in 0..(1 + next(10)) {
+                body.push_str(alphabet[next(alphabet.len())]);
+            }
+            let prefix = prefixes[next(prefixes.len())];
+            let Ok(uri) = format!("{prefix}{body}").parse::<Uri>() else {
+                continue;
+            };
+            let Some(file) = parse_asset_url(&uri) else {
+                continue;
+            };
+            accepted += 1;
+            for segment in file.path.split('/') {
+                assert!(
+                    !segment.is_empty() && !segment.bytes().all(|b| b == b'.'),
+                    "{uri}"
+                );
+                assert!(!segment.contains(['\\', ':', '\0', '%']), "{uri}");
+            }
+            let copy = cache.file("16.23", &file.path);
+            assert_eq!(copy.parent().unwrap(), Path::new("/cache-root/16.23"));
+        }
+        assert!(accepted > 0);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_throttled_file_is_asked_again_and_a_queued_one_waits_out_an_outage() {
+        let rig = Rig::new("queued");
+        // A 429 is neither an outage nor a missing file
+        rig.web.serve(&game_url("16.21", "v1/t.png"), 429, b"");
+        for _ in 0..3 {
+            assert_eq!(rig.get("asset://game-data/16.21/v1/t.png").await.0, 503);
+        }
+        assert_eq!(rig.web.asked(&game_url("16.21", "v1/t.png")), 3);
+        // Eight requests hold every slot and fail with a 502; the ninth, queued
+        // behind them, is not sent once they have
+        *rig.web.delay.lock().unwrap() = Some(Duration::from_millis(100));
+        let ask = |url: String| {
+            let assets = rig.assets.clone();
+            let uri: Uri = url.parse().unwrap();
+            tokio::spawn(async move { assets.serve(&Method::GET, &uri).await.status().as_u16() })
+        };
+        let mut slow = Vec::new();
+        for i in 0..8 {
+            rig.web
+                .serve(&game_url("16.23", &format!("v1/s{i}.png")), 502, b"");
+            slow.push(ask(format!("asset://game-data/16.23/v1/s{i}.png")));
+        }
+        tokio::task::yield_now().await;
+        rig.web
+            .serve(&game_url("16.23", "v1/queued.png"), 200, &png(3));
+        let queued = ask("asset://game-data/16.23/v1/queued.png".into());
+        for task in slow {
+            assert_eq!(task.await.unwrap(), 503);
+        }
+        assert_eq!(queued.await.unwrap(), 503);
+        assert_eq!(rig.web.asked(&game_url("16.23", "v1/queued.png")), 0);
+    }
+
+    /// The cache Electron wrote for the T02 fixture, where present: every file
+    /// is a lowercase SHA-1 and an extension.
+    #[test]
+    fn the_fixture_cache_is_named_as_this_cache_names_files() {
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../parity/snapshots/fixture/asset-cache");
+        let Ok(dirs) = std::fs::read_dir(&fixture) else {
+            return;
+        };
+        let cache = AssetCache::new(fixture.clone());
+        let mut found = 0;
+        for dir in dirs.flatten().filter(|d| d.path().is_dir()) {
+            for entry in std::fs::read_dir(dir.path()).unwrap().flatten() {
+                let name = entry.file_name().into_string().unwrap();
+                let (stem, ext) = name.split_once('.').unwrap_or((&name, ""));
+                assert_eq!(stem.len(), 40, "{name}");
+                assert!(
+                    stem.bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                );
+                assert!(
+                    ["png", "jpg", "jpeg", "webp", "json"].contains(&ext),
+                    "{name}"
+                );
+                found += 1;
+            }
+        }
+        assert!(found > 0);
+        assert!(cache.file("16.23", "v1/champion-icons/1.png").is_file());
+    }
+
+    mod tls {
+        use super::*;
+        use rcgen::{
+            BasicConstraints, CertificateParams, CertifiedIssuer, DnType, ExtendedKeyUsagePurpose,
+            IsCa, KeyPair, KeyUsagePurpose,
+        };
+        use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, ServerName};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        struct Ca(CertifiedIssuer<'static, KeyPair>);
+
+        impl Ca {
+            fn new(common_name: &str, organization: &str) -> Self {
+                let mut params = CertificateParams::default();
+                params
+                    .distinguished_name
+                    .push(DnType::CommonName, common_name);
+                params
+                    .distinguished_name
+                    .push(DnType::OrganizationName, organization);
+                params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+                params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
+                Ca(CertifiedIssuer::self_signed(params, KeyPair::generate().unwrap()).unwrap())
+            }
+
+            fn der(&self) -> CertificateDer<'static> {
+                self.0.der().clone()
+            }
+
+            /// A loopback HTTPS server presenting a leaf this CA signed.
+            async fn serve(&self) -> u16 {
+                let mut params = CertificateParams::new(vec!["127.0.0.1".into()]).unwrap();
+                params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
+                let key = KeyPair::generate().unwrap();
+                let cert = params.signed_by(&key, &self.0).unwrap();
+                let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key.serialize_der()));
+                let config = rustls::ServerConfig::builder_with_provider(Arc::new(
+                    rustls::crypto::ring::default_provider(),
+                ))
+                .with_safe_default_protocol_versions()
+                .unwrap()
+                .with_no_client_auth()
+                .with_single_cert(vec![cert.der().clone()], key)
+                .unwrap();
+                let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(config));
+                let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let port = listener.local_addr().unwrap().port();
+                tokio::spawn(async move {
+                    while let Ok((tcp, _)) = listener.accept().await {
+                        let acceptor = acceptor.clone();
+                        tokio::spawn(async move {
+                            if let Ok(mut tls) = acceptor.accept(tcp).await {
+                                let _ = tls.read(&mut [0u8; 1024]).await;
+                                let _ = tls
+                                    .write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{}")
+                                    .await;
+                                let _ = tls.shutdown().await;
+                            }
+                        });
+                    }
+                });
+                port
+            }
+        }
+
+        async fn connects(config: ClientConfig, port: u16) -> bool {
+            let tcp = tokio::net::TcpStream::connect(("127.0.0.1", port))
+                .await
+                .unwrap();
+            let name = ServerName::IpAddress(std::net::Ipv4Addr::LOCALHOST.into());
+            tokio_rustls::TlsConnector::from(Arc::new(config))
+                .connect(name, tcp)
+                .await
+                .is_ok()
+        }
+
+        /// The public config and the League client's each refuse the other's
+        /// server, over loopback.
+        #[tokio::test]
+        async fn each_trust_store_refuses_the_others_server() {
+            use crate::lcu::tls::{Alpn, config_with_anchors, riot_root};
+            let public_like = Ca::new("Test Global Root", "Test Public Trust");
+            let client_like = Ca::new("LoL Game Engineering Certificate Authority", "Riot Games");
+            let public_server = public_like.serve().await;
+            let client_server = client_like.serve().await;
+            let client_config =
+                || config_with_anchors(&[riot_root(), client_like.der()], Alpn::Http1).unwrap();
+            let public_plus_test_root = || {
+                let mut roots = public_roots();
+                roots.add(public_like.der()).unwrap();
+                ClientConfig::builder_with_provider(Arc::new(
+                    rustls::crypto::ring::default_provider(),
+                ))
+                .with_safe_default_protocol_versions()
+                .unwrap()
+                .with_root_certificates(roots)
+                .with_no_client_auth()
+            };
+            assert!(connects(public_plus_test_root(), public_server).await);
+            assert!(connects(client_config(), client_server).await);
+            assert!(!connects(client_config(), public_server).await);
+            assert!(!connects(public_tls_config().unwrap(), client_server).await);
+            let web = PublicWeb::new().unwrap();
+            for port in [client_server, public_server] {
+                let answer = web.get(&format!("https://127.0.0.1:{port}/")).await;
+                assert!(matches!(answer, WebAnswer::Failed(_)), "{answer:?}");
+            }
+        }
     }
 }
