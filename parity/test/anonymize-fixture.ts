@@ -131,7 +131,7 @@ export function buildDatabase(file: string) {
   db.close();
 }
 
-export const STATIC_FILES: Record<string, string | Buffer> = {
+export const STATIC_FILES: Record<string, string | Uint8Array> = {
   "data/champion-cache.json": JSON.stringify({
     version: "16.23.1",
     champions: { "1": { name: "Annie", key: "Annie" }, "2": { name: "Bloom", key: "Bloom" } },

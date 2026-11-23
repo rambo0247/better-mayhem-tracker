@@ -114,7 +114,7 @@ test("a snapshot of a WAL database a live writer holds open leaves every source 
      db.run("create table x(a)");
      for (let i = 0; i < 200; i++) db.run("insert into x values (?)", [i]);
      console.log("ready");
-     setTimeout(() => {}, 60_000);`,
+     setInterval(() => db.query("select 1").get(), 1000);`,
   );
   const child = spawn("bun", [holder, db], { stdio: ["ignore", "pipe", "inherit"] });
   try {
@@ -131,14 +131,7 @@ test("a snapshot of a WAL database a live writer holds open leaves every source 
     expect(fs.statSync(db + "-wal").size).toBeGreaterThan(0);
     expect(fs.existsSync(db + "-shm")).toBe(true);
 
-    let before = hashAppFiles(source);
-    for (let tries = 0; tries < 20; tries++) {
-      await Bun.sleep(250);
-      const now = hashAppFiles(source);
-      const settled = diffHashes(before, now).changed.length === 0;
-      before = now;
-      if (settled) break;
-    }
+    const before = hashAppFiles(source);
     expect([...before.keys()].sort()).toEqual(
       ["data/matches.db", "data/matches.db-shm", "data/matches.db-wal"].sort(),
     );
