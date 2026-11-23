@@ -7,6 +7,8 @@ use ts_rs::TS;
 use super::{CommandError, CommandResult, Ctx, Domain};
 use crate::backup::{Backups, Reason};
 use crate::js_arg::Js;
+use crate::paths::Paths;
+use crate::security::Effects;
 use crate::{db, events};
 
 pub struct Hooks;
@@ -119,8 +121,14 @@ pub async fn get_recovery_report<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Optio
     Ok(backups(&ctx)?.recovery_report())
 }
 
-/// Needs T09's `Effects` seam, so golden replay records the call instead of
-/// opening Finder. The root's rebase onto T09 lands it.
-pub async fn open_backup_folder<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<()> {
-    Err(CommandError::not_ported())
+/// `shell.openPath(getBackupDir())`, which makes the folder first. No
+/// renderer input reaches the path.
+pub async fn open_backup_folder<R: Runtime>(ctx: Ctx<R>) -> CommandResult<()> {
+    let dir = ctx
+        .app
+        .state::<Paths>()
+        .backup_dir()
+        .map_err(|e| CommandError::thrown(e.to_string()))?;
+    ctx.app.state::<Effects>().open_path(&dir);
+    Ok(())
 }
