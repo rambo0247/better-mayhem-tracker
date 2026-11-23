@@ -74,10 +74,10 @@ pub fn write_export_to(db: &Database, file: &Path) -> Result<i64, String> {
         last_id = *last;
 
         let mut chunk = String::new();
-        for (_, blob, owner) in rows {
+        for game in exported_page(rows) {
             // A backup stays the untouched payloads, so an import into any
             // version rebuilds whatever that version derives from them
-            let Some(game) = exported_game(blob.as_deref(), cell_value(owner))? else {
+            let Some(game) = game? else {
                 continue;
             };
             if count > 0 {
@@ -92,6 +92,32 @@ pub fn write_export_to(db: &Database, file: &Path) -> Result<i64, String> {
     write("]}")?;
     out.flush().map_err(|err| node_error(&err, "write", None))?;
     Ok(count)
+}
+
+/// One page's games, rewritten on every core. Each row's text depends only
+/// on that row, so the order, and the first error in it, are as one thread
+/// would leave them.
+fn exported_page(rows: Vec<(i64, Option<Vec<u8>>, Cell)>) -> Vec<Result<Option<String>, String>> {
+    let threads = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let per = rows.len().div_ceil(threads).max(1);
+    std::thread::scope(|scope| {
+        let workers: Vec<_> = rows
+            .chunks(per)
+            .map(|part| {
+                scope.spawn(move || {
+                    part.iter()
+                        .map(|(_, blob, owner)| {
+                            exported_game(blob.as_deref(), cell_value(owner.clone()))
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        workers
+            .into_iter()
+            .flat_map(|worker| worker.join().expect("a page worker panicked"))
+            .collect()
+    })
 }
 
 /// `JSON.stringify(Object.assign(unpackRaw(blob), { _ownerPuuid }))` for one
@@ -137,6 +163,7 @@ const MAX_DEPTH: usize = 100;
 
 /// ECMA-404 JSON rewritten as `JSON.stringify(JSON.parse(text))` prints it.
 struct Canonical<'a> {
+    text: &'a str,
     s: &'a [u8],
     i: usize,
     out: String,
@@ -145,6 +172,7 @@ struct Canonical<'a> {
 impl<'a> Canonical<'a> {
     fn rewrite(text: &'a str, owner: &Value) -> Result<String, Rewrite> {
         let mut c = Canonical {
+            text,
             s: text.as_bytes(),
             i: 0,
             out: String::with_capacity(text.len() + 64),
@@ -199,7 +227,7 @@ impl<'a> Canonical<'a> {
         match self.peek() {
             Some(b'{') => self.object(depth, None),
             Some(b'[') => self.array(depth),
-            Some(b'"') => self.string(None),
+            Some(b'"') => self.string(),
             Some(b't') => self.literal("true"),
             Some(b'f') => self.literal("false"),
             Some(b'n') => self.literal("null"),
@@ -251,7 +279,10 @@ impl<'a> Canonical<'a> {
     fn object(&mut self, depth: usize, owner: Option<&Value>) -> Result<(), Rewrite> {
         self.eat(b'{')?;
         self.out.push('{');
-        let mut keys: Vec<String> = Vec::new();
+        // Each key by a hash of its canonical text, which is one-to-one with
+        // the decoded key. Equal hashes send the payload to the tree, which
+        // is right for a true repeat and only slower for a collision
+        let mut keys: Vec<u64> = Vec::new();
         let mut owner_written = false;
         self.ws();
         if self.peek() == Some(b'}') {
@@ -265,16 +296,19 @@ impl<'a> Canonical<'a> {
                 if !keys.is_empty() {
                     self.out.push(',');
                 }
-                let mut key = String::new();
-                self.string(Some(&mut key))?;
-                if is_array_index(&key) || keys.contains(&key) {
+                let start = self.out.len();
+                self.string()?;
+                let key = &self.out[start + 1..self.out.len() - 1];
+                let hash = fnv1a(key.as_bytes());
+                if is_array_index(key) || keys.contains(&hash) {
                     return Err(Rewrite::Tree);
                 }
+                let is_owner = key == "_ownerPuuid";
                 self.ws();
                 self.eat(b':')?;
                 self.out.push(':');
                 self.ws();
-                if let Some(owner) = owner.filter(|_| key == "_ownerPuuid") {
+                if let Some(owner) = owner.filter(|_| is_owner) {
                     let at = self.out.len();
                     self.value(depth + 1)?;
                     self.out.truncate(at);
@@ -283,7 +317,7 @@ impl<'a> Canonical<'a> {
                 } else {
                     self.value(depth + 1)?;
                 }
-                keys.push(key);
+                keys.push(hash);
                 self.ws();
                 match self.peek() {
                     Some(b',') => self.i += 1,
@@ -308,8 +342,8 @@ impl<'a> Canonical<'a> {
 
     /// A string, written as `JSON.stringify` escapes it: `"`, `\\` and
     /// control characters escaped, a lone surrogate as `\\udxxx`, everything
-    /// else as itself. `key` collects the decoded text when given.
-    fn string(&mut self, mut key: Option<&mut String>) -> Result<(), Rewrite> {
+    /// else as itself.
+    fn string(&mut self) -> Result<(), Rewrite> {
         self.eat(b'"')?;
         self.out.push('"');
         loop {
@@ -317,13 +351,8 @@ impl<'a> Canonical<'a> {
                 .iter()
                 .position(|&b| b == b'"' || b == b'\\' || b < 0x20)
                 .ok_or(Rewrite::Invalid)?;
-            // The text is a str and the run stops only at ASCII, so it is whole characters
-            let piece =
-                std::str::from_utf8(&self.s[self.i..self.i + run]).map_err(|_| Rewrite::Invalid)?;
-            self.out.push_str(piece);
-            if let Some(key) = key.as_deref_mut() {
-                key.push_str(piece);
-            }
+            // The run stops only at ASCII, so it ends on a character boundary
+            self.out.push_str(&self.text[self.i..self.i + run]);
             self.i += run;
             match self.s[self.i] {
                 b'"' => {
@@ -368,16 +397,10 @@ impl<'a> Canonical<'a> {
                             let one =
                                 js::stringify(&Value::String(c.encode_utf8(&mut buf).to_owned()));
                             self.out.push_str(&one[1..one.len() - 1]);
-                            if let Some(key) = key.as_deref_mut() {
-                                key.push(c);
-                            }
                         }
                         None => {
                             // A lone surrogate: well-formed JSON.stringify escapes it
                             self.out.push_str(&format!("\\u{unit:04x}"));
-                            if key.is_some() {
-                                return Err(Rewrite::Tree);
-                            }
                         }
                     }
                 }
@@ -431,7 +454,7 @@ impl<'a> Canonical<'a> {
                 return Err(Rewrite::Invalid);
             }
         }
-        let literal = std::str::from_utf8(&self.s[start..self.i]).map_err(|_| Rewrite::Invalid)?;
+        let literal = &self.text[start..self.i];
         // An integer of up to 15 digits is exact in a double and prints as written
         if plain && int <= 15 && literal != "-0" {
             self.out.push_str(literal);
@@ -441,6 +464,12 @@ impl<'a> Canonical<'a> {
         }
         Ok(())
     }
+}
+
+fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, &b| {
+        (hash ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+    })
 }
 
 /// A key JavaScript orders before the others: a canonical array index.
