@@ -227,7 +227,9 @@ pub trait GameApi: Send + Sync {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameApiTarget {
     Port(u16),
-    /// Every request fails as a refused connection, and none is made
+    /// Every request fails as a refused connection, and none is made. Only
+    /// the builds that can leave the game alone have it.
+    #[cfg(any(debug_assertions, feature = "parity-ca"))]
     Refused,
 }
 
@@ -337,6 +339,7 @@ impl GameApi for HttpGameApi {
     fn get<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<Value, GameApiError>> {
         Box::pin(async move {
             match self.target {
+                #[cfg(any(debug_assertions, feature = "parity-ca"))]
                 GameApiTarget::Refused => Err(GameApiError::Refused),
                 GameApiTarget::Port(port) => self.request(port, path).await,
             }
@@ -2652,7 +2655,7 @@ mod parity_run {
 /// `BMT_T21_SCRIPTS` names `record-scenarios.ts`'s output, `BMT_T21_FIXTURE`
 /// a fixture data root, `BMT_T21_RUNS` the folder of `t21-run.ts` Electron
 /// runs, and `BMT_GOLDEN_DIR` T05's goldens.
-#[cfg(test)]
+#[cfg(all(test, debug_assertions))]
 mod golden_states {
     use std::path::{Path, PathBuf};
 
