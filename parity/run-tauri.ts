@@ -731,6 +731,8 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     TZ: TIME_ZONE,
     LANG: "en_US.UTF-8",
     BMT_PARITY_ASSETS: assets,
+    // The Rust clock freezes with the page's, as SEAM_FIXED_TIME freezes Electron's main
+    BMT_FIXED_TIME: String(FIXED_TIME.getTime()),
   };
   if (renderer === "electron") {
     const rendererDir = path.join(repo, "out", "renderer");

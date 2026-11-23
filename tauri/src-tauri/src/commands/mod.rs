@@ -118,14 +118,18 @@ impl Clock {
     /// holds epoch milliseconds, the system clock when it is unset.
     #[cfg(feature = "parity-driver")]
     pub fn from_env() -> Result<Self, String> {
-        match std::env::var(FIXED_TIME_ENV) {
-            Ok(text) => text
+        Self::from_setting(std::env::var(FIXED_TIME_ENV).ok().as_deref())
+    }
+
+    #[cfg(feature = "parity-driver")]
+    fn from_setting(setting: Option<&str>) -> Result<Self, String> {
+        match setting {
+            Some(text) => text
                 .trim()
                 .parse::<i64>()
                 .map(Clock::Fixed)
                 .map_err(|_| format!("{FIXED_TIME_ENV}={text:?} is not epoch milliseconds")),
-            Err(std::env::VarError::NotPresent) => Ok(Clock::System),
-            Err(error) => Err(format!("{FIXED_TIME_ENV}: {error}")),
+            None => Ok(Clock::System),
         }
     }
 }
@@ -593,6 +597,17 @@ mod tests {
     #[test]
     fn fixed_clock_does_not_move() {
         assert_eq!(Clock::Fixed(1_764_000_000_000).now_ms(), 1_764_000_000_000);
+    }
+
+    #[cfg(feature = "parity-driver")]
+    #[test]
+    fn a_driver_build_freezes_at_bmt_fixed_time() {
+        assert_eq!(
+            Clock::from_setting(Some("1795399200000")),
+            Ok(Clock::Fixed(1_795_399_200_000))
+        );
+        assert_eq!(Clock::from_setting(None), Ok(Clock::System));
+        assert!(Clock::from_setting(Some("2026-11-23")).is_err());
     }
 
     fn mock_ctx(clock: Option<Clock>) -> Ctx<tauri::test::MockRuntime> {
