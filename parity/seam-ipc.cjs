@@ -112,9 +112,6 @@ dialog.showOpenDialog = async (...args) => {
     ? { canceled: false, filePaths: [control.open] }
     : { canceled: true, filePaths: [] };
 };
-// An uncaught exception in the main process ends in this dialog, which would sit on the
-// operator's screen. It is recorded instead.
-dialog.showErrorBox = (title, content) => effect("dialog.showErrorBox", [title, content]);
 shell.openPath = async (target) => {
   effect("shell.openPath", [target]);
   return "";
