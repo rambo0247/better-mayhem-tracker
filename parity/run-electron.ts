@@ -236,6 +236,13 @@ export const KEEP_PAINTING = [
   "--disable-background-timer-throttling",
 ];
 
+/**
+ * Chromium re-rasterizes only the rectangle an invalidation touched, so the antialiasing of an
+ * icon's edge depends on which invalidations came first. Six reloads of one state gave five
+ * different screenshots; with this flag they gave one.
+ */
+export const PARTIAL_RASTER_OFF = "--disable-partial-raster";
+
 /** GPU compositing is off unless PARITY_GPU=on: GPU frames repeat less between runs (waiver W1). */
 export function gpuSwitch(value = process.env.PARITY_GPU): "on" | "off" {
   if (value === undefined || value === "" || value === "off") return "off";
@@ -302,6 +309,7 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     args: [
       "--force-device-scale-factor=2",
       "--force-color-profile=srgb",
+      PARTIAL_RASTER_OFF,
       ...(gpuSwitch() === "on" ? [] : ["--disable-gpu"]),
       ...(process.env.PARITY_BACKGROUNDING === "on" ? [] : KEEP_PAINTING),
       "--lang=en-US",

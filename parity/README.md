@@ -53,7 +53,7 @@ Run from the repository root.
 
 `.github/workflows/parity.yml` runs the baseline on `windows-latest` once the anonymized fixture is committed under `parity/snapshots/fixture` (decision E2). Until then the Windows job skips with a notice, and lane 9 stays open. Nothing publishes the fixture as an artifact.
 
-Electron runs with `--disable-gpu` by default, because GPU compositing repeats less between runs (waiver W1). `PARITY_GPU=on` turns the GPU back on, and any other value but `off` is an error. `PARITY_ELECTRON_ARGS` adds Chromium flags, such as `--disable-renderer-backgrounding`. `SEAM_DOCK=show` keeps the Dock icon for a comparison run.
+Electron runs with `--disable-gpu` by default, because GPU compositing repeats less between runs (waiver W1). `PARITY_GPU=on` turns the GPU back on, and any other value but `off` is an error. Electron also runs with `--disable-partial-raster`, since partial raster made the antialiased edges of icons depend on invalidation order. `PARITY_ELECTRON_ARGS` adds Chromium flags, such as `--disable-renderer-backgrounding`. `SEAM_DOCK=show` keeps the Dock icon for a comparison run.
 
 Every spawning command runs under `lib/capped.sh <headroom>`, which caps processes at the user's current count plus the headroom and exits 99 if anything was refused a process. `bun run test` and `bun run capture` use a headroom of 200. A bare `ulimit -u 200` would refuse the first fork on macOS, which counts every process the user owns.
 
