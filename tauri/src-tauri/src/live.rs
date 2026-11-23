@@ -16,7 +16,6 @@ use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
-use crate::assets::log;
 use crate::challenges::ChallengeTracker;
 use crate::commands::CommandError;
 use crate::commands::live::{
@@ -29,6 +28,7 @@ use crate::dragon::{ChampionData, SummonerSpellData};
 use crate::js_arg::JsNumber;
 use crate::lcu::LcuStatus;
 use crate::lcu::sync::{Client, js_number, template};
+use crate::log;
 
 /// `LIVE_POLL_INTERVAL_MS`.
 pub const POLL_INTERVAL: Duration = Duration::from_millis(3_000);
@@ -256,7 +256,7 @@ impl GameApiTarget {
         {
             Some(port) => Self::Port(port),
             None => {
-                log(format!(
+                log::info(format!(
                     "parity: in-game API requests are refused; set {PARITY_LIVE_PORT_ENV} to a fake live client's port"
                 ));
                 Self::Refused
@@ -276,7 +276,7 @@ impl GameApiTarget {
         if allow == Some("1".as_ref()) {
             return Self::Port(Self::LIVE_PORT);
         }
-        log(format!(
+        log::info(format!(
             "In-game API requests are off in debug builds; set {}=1 to reach a real game",
             crate::lcu::ALLOW_REAL_LEAGUE_ENV
         ));
@@ -846,7 +846,7 @@ impl LiveTracker {
                 snapshot
             }
             Err(err) => {
-                log(format!("Live game refresh failed: {err}"));
+                log::info(format!("Live game refresh failed: {err}"));
                 self.publish(self.empty_snapshot());
                 self.latest()
             }

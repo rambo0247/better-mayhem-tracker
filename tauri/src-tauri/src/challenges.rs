@@ -15,7 +15,6 @@ use jiff::tz::TimeZone;
 use serde_json::Value;
 use tokio::runtime::Handle;
 
-use crate::assets::log;
 use crate::commands::CommandError;
 use crate::commands::live::{
     ChallengeGroup, ChallengePlayerSummary, ChallengeProgress, ChallengeReward, ChallengesData,
@@ -31,6 +30,7 @@ use crate::js_arg::{JsNumber, non_finite_as_null};
 use crate::lcu::LcuStatus;
 use crate::lcu::sync::{Client, js_number, template};
 use crate::live::{SESSION_PATH, TrackingEnv, iterate, object_values, query, text, with_db};
+use crate::log;
 
 /// `ARAM_GAME_MODES`: Mayhem's queues count toward the ARAM challenges.
 const ARAM_GAME_MODES: [&str; 3] = ["ARAM", "KIWI", "KIWI_JADE"];
@@ -469,7 +469,7 @@ impl ChallengeTracker {
         Ok(match shaped {
             Ok(data) => Some(data),
             Err(err) => {
-                log(format!("Stored challenges unreadable: {err}"));
+                log::info(format!("Stored challenges unreadable: {err}"));
                 None
             }
         })
@@ -496,7 +496,7 @@ impl ChallengeTracker {
                 }
                 Ok(None) => None,
                 Err(err) => {
-                    log(format!("Challenge fetch failed: {err}"));
+                    log::info(format!("Challenge fetch failed: {err}"));
                     None
                 }
             };
@@ -548,7 +548,7 @@ impl ChallengeTracker {
         with_db(self.env.as_ref(), |conn| {
             save_game_challenges(conn, game_id, &rows)
         })?;
-        log(format!(
+        log::info(format!(
             "Captured {} challenge updates for game {}",
             rows.len(),
             js::number_to_string(game_id)
@@ -577,7 +577,7 @@ impl ChallengeTracker {
                 match this.capture_game_challenges(game_id).await {
                     Ok(0) => {}
                     Ok(_) => break,
-                    Err(err) => log(format!(
+                    Err(err) => log::info(format!(
                         "Challenge capture for game {} failed: {err}",
                         js::number_to_string(game_id)
                     )),
@@ -615,7 +615,7 @@ impl ChallengeTracker {
             if let Some(game_id) = this.capturable_game_id().await
                 && let Err(err) = this.start_game_capture(game_id)
             {
-                log(format!("Unhandled rejection: {err}"));
+                log::info(format!("Unhandled rejection: {err}"));
             }
         });
     }
