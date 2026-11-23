@@ -308,6 +308,8 @@ struct Replay {
 fn build(build_app: BuildApp<'_>, clock: Clock) -> Replay {
     let app = build_app(Host::replay(clock))
         .manage(EffectRecorder::default())
+        // Every dialog answers from a script, so no case shows a real one
+        .manage(Dialogs::scripted())
         .build(mock_context(noop_assets()))
         .expect("build the mock app");
     // The launch backup runs on its own thread; a case must not see it land
