@@ -8,6 +8,8 @@ backup:list
 backup:open-folder
 backup:recovery-report
 data:export
+data:import
+data:repair-puuids
 db:all-summoner-puuids
 db:augment-stats
 db:augment-stats-detailed
