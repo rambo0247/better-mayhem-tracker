@@ -2075,31 +2075,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_refresh_asked_for_during_another_answers_what_that_one_publishes() {
-        let rig = rig("overlap");
-        rig.client
-            .route(SESSION_PATH, vec![Reply::Json(session("InProgress"))]);
-        *rig.game.answer.lock().unwrap() =
-            Err(GameApiError::Failed("In-game API returned 503".into()));
-        let gate = Arc::new(Notify::new());
-        *rig.game.gate.lock().unwrap() = Some(gate.clone());
-        let live = rig.live.clone();
-        let first = tokio::spawn(async move { live.refresh().await });
-        while rig.game.times().is_empty() {
-            tokio::task::yield_now().await;
-        }
-        let live = rig.live.clone();
-        let second = tokio::spawn(async move { live.refresh().await });
-        tokio::time::sleep(Duration::from_millis(20)).await;
-        assert!(!second.is_finished(), "the second call waits for the first");
-        *rig.game.gate.lock().unwrap() = None;
-        gate.notify_one();
-        let (first, second) = (first.await.unwrap(), second.await.unwrap());
-        assert!(second.starting, "not the empty snapshot from before");
-        assert_eq!(first, second);
-    }
-
-    #[tokio::test]
     async fn the_loading_screen_is_a_starting_game_with_the_sessions_ids() {
         let rig = rig("loading");
         rig.client
@@ -2306,17 +2281,22 @@ mod tests {
     async fn one_refresh_runs_at_a_time() {
         let rig = rig("one-at-a-time");
         in_game(&rig);
-        let first = rig.live.refresh().await;
+        rig.live.refresh().await;
         let gate = Arc::new(Notify::new());
         *rig.game.gate.lock().unwrap() = Some(gate.clone());
         let live = rig.live.clone();
         let running = tokio::spawn(async move { live.refresh().await });
         settle().await;
-        // A refresh while one runs answers with the last snapshot at once
-        assert_eq!(rig.live.refresh().await, first);
+        // A refresh asked for while one runs makes no request of its own and
+        // answers what that one publishes
+        let live = rig.live.clone();
+        let waiting = tokio::spawn(async move { live.refresh().await });
+        settle().await;
+        assert!(!waiting.is_finished());
         assert_eq!(rig.game.times().len(), 2);
         gate.notify_one();
-        running.await.unwrap();
+        let published = running.await.unwrap();
+        assert_eq!(waiting.await.unwrap(), published);
         assert_eq!(rig.env.events("live:changed").len(), 2);
     }
 
@@ -2347,7 +2327,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn before_the_first_refresh_the_answer_is_the_launch_snapshot() {
+    async fn a_call_during_the_first_refresh_answers_what_it_publishes() {
         let rig = rig("launch-snapshot");
         in_game(&rig);
         *rig.client.live.lock().unwrap() = Some(LiveGameRef {
@@ -2360,12 +2340,12 @@ mod tests {
             "made when no game was known"
         );
         // The poll's first refresh holds the flag before its task runs, so a
-        // call that lands first answers with the launch snapshot
+        // call that lands first waits for it rather than answering the launch
+        // snapshot, which Tauri could deliver after the refresh's event
         rig.live.on_status(LcuStatus::Ingame);
         let answer = rig.live.refresh().await;
-        assert_eq!((answer.in_game, answer.game_id), (false, None));
-        settle().await;
-        assert!(rig.live.latest().in_game);
+        assert!(answer.in_game);
+        assert_eq!(answer, rig.live.latest());
     }
 
     #[test]
