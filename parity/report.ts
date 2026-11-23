@@ -507,9 +507,27 @@ function run(cmd: string[], options: { cwd?: string; env?: Record<string, string
   return { code: out.status ?? 1, text };
 }
 
-function launchApp(t: Tools, cmd: string[], log: string) {
+function launchApp(t: Tools, cmd: string[], log: string, env: Record<string, string> = {}) {
   if (t.waitNoGame) run([t.waitNoGame], {});
-  return run(t.launch(cmd), { log });
+  return run(t.launch(cmd), { log, env });
+}
+
+/** The capture flags this tree's `capture.ts` takes, so the report runs on every unit's version. */
+const captureTakes = (flag: string) =>
+  fs.readFileSync(path.join(PARITY_DIR, "capture.ts"), "utf8").includes(`"${flag}"`);
+
+/**
+ * Where the Tauri build comes from: `--binary` where capture.ts takes it, else the Cargo target
+ * folder run-tauri.ts reads, which holds the binary at `<target>/debug/<name>`.
+ */
+function tauriBuild(binary: string | undefined): { args: string[]; env: Record<string, string> } {
+  if (!binary) return { args: [], env: {} };
+  const file = path.resolve(binary);
+  if (captureTakes("--binary")) return { args: ["--binary", file], env: {} };
+  if (path.basename(path.dirname(file)) !== "debug") {
+    throw new Error(`${file}: this capture.ts finds the build only at <CARGO_TARGET_DIR>/debug/`);
+  }
+  return { args: [], env: { CARGO_TARGET_DIR: path.dirname(path.dirname(file)) } };
 }
 
 interface CrossEngineReport {
@@ -651,6 +669,8 @@ async function runPlatform(argv: string[]) {
   const electronDir = path.resolve(
     opt["--electron-baseline"] ?? path.join(out, `electron-${platform}`),
   );
+  // Client states run against the fake League client where capture.ts can start it
+  const all = captureTakes("--with-client") ? ["--all", "--with-client"] : ["--all"];
   if (!opt["--electron-baseline"]) {
     launchApp(
       t,
@@ -661,7 +681,7 @@ async function runPlatform(argv: string[]) {
         "electron",
         "--data",
         data,
-        "--all",
+        ...all,
         "--out",
         electronDir,
       ],
@@ -669,6 +689,7 @@ async function runPlatform(argv: string[]) {
     );
   }
   const tauriDir = path.join(out, `tauri-${platform}`);
+  const build = tauriBuild(opt["--binary"]);
   launchApp(
     t,
     [
@@ -680,14 +701,15 @@ async function runPlatform(argv: string[]) {
       "solid",
       "--data",
       data,
-      "--all",
+      ...all,
       "--out",
       tauriDir,
       "--compare",
       electronDir,
-      ...(opt["--binary"] ? ["--binary", path.resolve(opt["--binary"])] : []),
+      ...build.args,
     ],
     path.join(out, `tauri-${platform}.log`),
+    build.env,
   );
   const { states, blur } = stateLines(expected, { electron: electronDir, tauri: tauriDir });
   const reasons = maskReasons();
