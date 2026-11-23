@@ -7,9 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       lanes:
-        description: "States or groups to capture, or all"
+        description: "States or groups to capture, or all. perf runs the perf probe only"
         required: false
         default: "all"
+      perf_runs:
+        description: "Runs per app for the perf lane"
+        required: false
+        default: "10"
   push:
     branches: ["port/**"]
     paths:
@@ -41,6 +45,7 @@ jobs:
 
   baseline-windows:
     needs: unit
+    if: github.event_name == 'push' || inputs.lanes != 'perf'
     runs-on: windows-latest
     defaults:
       run:
@@ -105,3 +110,59 @@ jobs:
         with:
           name: parity-baseline-windows
           path: parity/out/baseline
+
+  perf:
+    needs: unit
+    if: github.event_name == 'workflow_dispatch' && contains(inputs.lanes, 'perf')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the fixture
+        id: fixture
+        env:
+          RUN_ID: ${{ inputs.fixture_run }}
+        run: |
+          if [ -n "$RUN_ID" ]; then
+            gh run download "$RUN_ID" --name parity-fixture --dir parity/snapshots/fixture
+            echo "data=fixture" >> "$GITHUB_OUTPUT"
+          else
+            echo "data=none" >> "$GITHUB_OUTPUT"
+            echo "::notice::No fixture. The app starts on an empty folder and first content is the page shell, not a Match History row."
+          fi
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: canary
+
+      - name: Install parity
+        working-directory: parity
+        run: bun install --frozen-lockfile
+
+      - name: Measure Electron 1.2.1
+        working-directory: parity
+        env:
+          DATA: ${{ steps.fixture.outputs.data }}
+          PERF_RUNS: ${{ inputs.perf_runs }}
+        run: |
+          mkdir -p out
+          selector=()
+          if [ "$DATA" = none ]; then selector=(--selector main); fi
+          bun perf.ts --app electron-1.2.1 --runs "${PERF_RUNS:-10}" --data "$DATA" "${selector[@]}" | tee out/perf-${{ matrix.os }}.log
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-${{ matrix.os }}
+          path: |
+            parity/out/perf/*.json
+            parity/out/perf-*.log

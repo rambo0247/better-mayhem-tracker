@@ -75,16 +75,20 @@ export interface PreparedData {
 
 /**
  * Copies a snapshot or the fixture into a fresh user-data folder and turns the update
- * check off in the copy. A newer release would replace the scratch app mid-run, and the
+ * check off in the copy. `none` starts the app on an empty folder, for a runner with no fixture. A newer release would replace the scratch app mid-run, and the
  * copy's `auto_start` is absent so nothing writes a login item.
  */
 export function prepareUserData(options: { data: string; runDir: string }): PreparedData {
   const { runDir } = options;
   refuseRealFolder(runDir, "run folder");
-  const root = resolveDataRoot(options.data);
   const userData = path.join(runDir, "userdata");
   fs.rmSync(runDir, { recursive: true, force: true });
   fs.mkdirSync(userData, { recursive: true });
+  if (options.data === "none") {
+    fs.mkdirSync(path.join(userData, "logs"), { recursive: true });
+    return { userData, newest: null };
+  }
+  const root = resolveDataRoot(options.data);
   for (const name of ["data", "asset-cache", "backups"]) {
     const from = path.join(root, name);
     if (fs.existsSync(from)) fs.cpSync(from, path.join(userData, name), { recursive: true });
