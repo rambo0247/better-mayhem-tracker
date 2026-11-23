@@ -28,7 +28,7 @@ use crate::db::challenges::{
 };
 use crate::db::js::{self, opt_prop, or};
 use crate::lcu::LcuStatus;
-use crate::lcu::sync::{Client, js_number, js_number_of_str, template};
+use crate::lcu::sync::{Client, js_number, template};
 use crate::live::{SESSION_PATH, TrackingEnv, iterate, object_values, query, text, with_db};
 
 /// `ARAM_GAME_MODES`: Mayhem's queues count toward the ARAM challenges.
@@ -408,7 +408,7 @@ impl ChallengeTracker {
 
         let equipped = text(opt_prop(summary, "selectedChallengesString"))
             .split(',')
-            .map(js_number_of_str)
+            .map(js::string_to_number)
             .filter(|id| id.is_finite())
             .filter_map(|id| by_id.get(&id_key(id)))
             .map(|entry| shape_one(entry))
