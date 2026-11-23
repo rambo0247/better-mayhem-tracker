@@ -10,8 +10,8 @@ use rusqlite::{Connection, OptionalExtension, params_from_iter};
 use super::filters::{
     DAY_START_HOUR, SEASONS, Where, apply_queue_filter, apply_season_filter, hide_remakes,
 };
-use super::settings::{SESSION_GROUPING_SETTING, get_setting};
 use super::js;
+use super::settings::{SESSION_GROUPING_SETTING, get_setting};
 use super::stmt::{self, FromRow};
 use super::summoner::{display_name, identity_from_game};
 use crate::commands::matches::{
@@ -541,7 +541,11 @@ pub fn get_match_filter_options(
     let mut patch_where = start("g.game_version IS NOT NULL AND g.game_version != ''");
     apply_champion(&mut patch_where);
     apply_queue_filter(conn, &mut patch_where, scope.queue.typed().flatten(), "g")?;
-    apply_season_filter(&mut patch_where, scope.season.typed().flatten().as_deref(), "g");
+    apply_season_filter(
+        &mut patch_where,
+        scope.season.typed().flatten().as_deref(),
+        "g",
+    );
     apply_account(&mut patch_where);
     let mut patches = strings(
         conn,
@@ -561,7 +565,11 @@ pub fn get_match_filter_options(
     let mut champ_where = start("1 = 1");
     apply_patch(&mut champ_where);
     apply_queue_filter(conn, &mut champ_where, scope.queue.typed().flatten(), "g")?;
-    apply_season_filter(&mut champ_where, scope.season.typed().flatten().as_deref(), "g");
+    apply_season_filter(
+        &mut champ_where,
+        scope.season.typed().flatten().as_deref(),
+        "g",
+    );
     apply_account(&mut champ_where);
     let champions = ids(
         conn,
@@ -582,7 +590,11 @@ pub fn get_match_filter_options(
     apply_champion(&mut queue_where);
     apply_patch(&mut queue_where);
     apply_queue_filter(conn, &mut queue_where, None, "g")?;
-    apply_season_filter(&mut queue_where, scope.season.typed().flatten().as_deref(), "g");
+    apply_season_filter(
+        &mut queue_where,
+        scope.season.typed().flatten().as_deref(),
+        "g",
+    );
     apply_account(&mut queue_where);
     let queues = ids(
         conn,

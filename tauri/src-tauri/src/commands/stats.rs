@@ -278,7 +278,10 @@ pub async fn get_global_champion_detail<R: Runtime>(
         .with(|conn| stats::get_global_champion_detail(conn, champion_id, patch.as_deref(), queue))
 }
 
-pub async fn get_trends<R: Runtime>(ctx: Ctx<R>, queue: Js<Option<i64>>) -> CommandResult<TrendsData> {
+pub async fn get_trends<R: Runtime>(
+    ctx: Ctx<R>,
+    queue: Js<Option<i64>>,
+) -> CommandResult<TrendsData> {
     let queue = queue.typed().flatten();
     db::of(&ctx)?.with(|conn| stats::get_trends_data(conn, queue))
 }

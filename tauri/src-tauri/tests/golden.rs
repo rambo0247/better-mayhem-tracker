@@ -538,7 +538,9 @@ fn os_effects(app: &MockApp) -> Vec<Value> {
         .take()
         .into_iter()
         .map(|effect| match effect {
-            Effect::OpenExternal(url) => serde_json::json!({ "api": "shell.openExternal", "args": [url] }),
+            Effect::OpenExternal(url) => {
+                serde_json::json!({ "api": "shell.openExternal", "args": [url] })
+            }
             Effect::OpenPath(path) => {
                 serde_json::json!({ "api": "shell.openPath", "args": [path.to_string_lossy()] })
             }
