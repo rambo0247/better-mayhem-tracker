@@ -164,13 +164,19 @@ async function start(
       ),
     }),
     async close(dir, launch) {
-      await running.close();
-      for (const [name, ext] of [
-        ["facts", "json"],
-        ["tauri", "log"],
-      ]) {
-        const file = path.join(running.runDir, `${name}.${ext}`);
-        if (fs.existsSync(file)) fs.copyFileSync(file, path.join(dir, `${name}.${launch}.${ext}`));
+      // A close that fails is the one its log has to explain
+      try {
+        await running.close();
+      } finally {
+        for (const [name, ext] of [
+          ["facts", "json"],
+          ["tauri", "log"],
+        ]) {
+          const file = path.join(running.runDir, `${name}.${ext}`);
+          if (fs.existsSync(file)) {
+            fs.copyFileSync(file, path.join(dir, `${name}.${launch}.${ext}`));
+          }
+        }
       }
       return { faults: [], leaks: [], seam: "" };
     },
@@ -443,7 +449,9 @@ async function main() {
           );
         }
         if (outcome.settle.decodeFailures) {
-          console.log(`warn ${state.id}: ${outcome.settle.decodeFailures} images did not decode`);
+          console.log(
+            `warn ${state.id}: ${outcome.settle.decodeFailures} images did not decode, as ${outcome.settle.failedImages.join(" ")}`,
+          );
         }
         fs.writeFileSync(
           path.join(dir, `${state.id}.geometry.json`),
