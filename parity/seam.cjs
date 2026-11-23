@@ -597,4 +597,6 @@ if (process.type === "browser") {
   }
 }
 
+require("./seam-overlays.cjs");
+
 log("seam loaded pid", process.pid);

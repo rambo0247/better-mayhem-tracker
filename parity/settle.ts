@@ -20,6 +20,7 @@ export interface SettleReport {
 export async function settle(
   page: Page,
   viewport: { width: number; height: number },
+  options: { parkMouse?: boolean } = {},
 ): Promise<SettleReport> {
   const started = Date.now();
   const report = await page.evaluate(
@@ -99,7 +100,7 @@ export async function settle(
     { quiet: QUIET_MS, timeout: SETTLE_TIMEOUT_MS },
   );
   await page.addStyleTag({ content: KILL_SWITCH_CSS });
-  await page.mouse.move(viewport.width - 2, viewport.height - 2);
+  if (options.parkMouse !== false) await page.mouse.move(viewport.width - 2, viewport.height - 2);
   await page.waitForTimeout(300);
   return {
     ms: Date.now() - started,

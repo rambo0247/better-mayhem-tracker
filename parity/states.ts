@@ -2,6 +2,7 @@ import type { Page } from "playwright";
 import { expand, restoreSettings, runStep, type DriveContext, type Step } from "./drive.ts";
 import { settle, type SettleReport } from "./settle.ts";
 import { CLIENT_STATES } from "./states-client.ts";
+import { OVERLAY_STATES } from "./states-overlays.ts";
 
 export type Viewport = { width: number; height: number };
 
@@ -15,7 +16,8 @@ export interface StateRow {
     | "global"
     | "card"
     | "trends"
-    | "client";
+    | "client"
+    | "overlays";
   route: string;
   viewport: Viewport;
   /** Run before the page loads: localStorage seeds and settings. */
@@ -28,6 +30,10 @@ export interface StateRow {
   card?: boolean;
   /** A data source this state needs instead of the run's, such as an empty database. */
   data?: "empty";
+  /** Leaves the mouse where the steps put it, for a hover state. */
+  holdPointer?: boolean;
+  /** Captured only on this platform. An id named on its own always runs. */
+  platform?: NodeJS.Platform;
 }
 
 const FULL: Viewport = { width: 1280, height: 820 };
@@ -169,15 +175,19 @@ export const STATES: StateRow[] = [
   // No games and no client: the waiting message, and the page without its dashboard header.
   row("match-history-empty-waiting", "match-history", "/", "main .panel", { data: "empty" }),
   ...CLIENT_STATES,
+
+  ...OVERLAY_STATES,
 ];
 
 export const stateGroups = () => [...new Set(STATES.map((s) => s.group))];
 
 export function selectStates(spec: string | undefined): StateRow[] {
-  const all = STATES;
-  if (!spec || spec === "all") return all;
+  const here = STATES.filter((s) => !s.platform || s.platform === process.platform);
+  if (!spec || spec === "all") return here;
   const wanted = spec.split(",");
-  const picked = all.filter((s) => wanted.includes(s.id) || wanted.includes(s.group));
+  const picked = STATES.filter(
+    (s) => wanted.includes(s.id) || (wanted.includes(s.group) && here.includes(s)),
+  );
   const unknown = wanted.filter((w) => !STATES.some((s) => s.id === w || s.group === w));
   if (unknown.length > 0) {
     throw new Error(
@@ -265,22 +275,35 @@ async function remountWithWarmCaches(
   await settle(page, viewport);
 }
 
+// Past this, applyState says where the time went, so a stall is attributed and not guessed at
+const SLOW_STATE_MS = 10_000;
+
 export async function applyState(
   ctx: DriveContext,
   state: StateRow,
   vars: Record<string, string>,
 ): Promise<StateOutcome> {
   const { page } = ctx;
+  const laps: string[] = [];
+  const startedAt = Date.now();
+  let lapStart = startedAt;
+  const lap = (name: string) => {
+    laps.push(`${name} ${Date.now() - lapStart}`);
+    lapStart = Date.now();
+  };
   await restoreSettings(ctx);
+  if (ctx.app) await runStep(ctx, { op: "main", call: "reset" });
   await page.evaluate(() => {
     localStorage.clear();
     sessionStorage.clear();
   });
+  lap("reset");
   const pre = state.pre ?? [];
   if (pre.some((step) => step.op === "local" && step.key.startsWith("view:"))) {
     await runStep(ctx, { op: "setting", key: "remember_filters", value: "true" }, vars);
   }
   for (const step of pre) await runStep(ctx, step, vars);
+  lap("pre steps");
 
   const lookupsReady = state.card ? await warmLookups(page) : undefined;
   ctx.viewport = { ...state.viewport };
@@ -288,7 +311,9 @@ export async function applyState(
   await page.evaluate((hash) => (location.hash = hash), "#" + expand(state.route, vars));
   await page.reload();
   await page.waitForLoadState("load");
+  lap("resize and load");
   await settle(page, ctx.viewport);
+  lap("first settle");
   if (!state.card) await remountWithWarmCaches(page, state.route, vars, ctx.viewport);
 
   let card: StateOutcome["card"];
@@ -302,8 +327,13 @@ export async function applyState(
     }
   }
 
+  lap("card");
   for (const step of state.steps ?? []) await runStep(ctx, step, vars);
-  const report = await settle(page, ctx.viewport);
+  lap("steps");
+  const report = await settle(page, ctx.viewport, { parkMouse: !state.holdPointer });
+  lap("final settle");
+  const total = Date.now() - startedAt;
+  if (total > SLOW_STATE_MS) console.log(`slow ${state.id}: ${total} ms, ${laps.join(", ")}`);
   const expectFound = (await page.locator(state.expect).count()) > 0;
   const placeholders = state.card
     ? ((await page.locator("body").innerText()).match(PLACEHOLDER) ?? [])

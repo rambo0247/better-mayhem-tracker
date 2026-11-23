@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Page } from "playwright";
+import type { ElectronApplication, Page } from "playwright";
 import { settle } from "./settle.ts";
 
 export type Step =
-  | { op: "click"; selector: string; nth?: number; text?: string }
+  | { op: "click"; selector: string; nth?: number; text?: string; button?: "left" | "right" }
   | { op: "hover"; selector: string; nth?: number }
   | { op: "type"; selector: string; text: string }
   | { op: "key"; key: string }
@@ -15,10 +15,13 @@ export type Step =
   | { op: "waitFor"; selector: string; text?: string; timeout?: number }
   | { op: "setting"; key: string; value: string }
   | { op: "local"; key: string; value: string }
-  | { op: "settle" };
+  | { op: "settle" }
+  /** Calls globalThis.__parity[call](arg) in the main process, through seam-overlays.cjs. */
+  | { op: "main"; call: string; arg?: unknown };
 
 export interface DriveContext {
   page: Page;
+  app?: ElectronApplication;
   viewport: { width: number; height: number };
   resizeWindow: (width: number, height: number) => Promise<void>;
   touchedSettings: Map<string, string | null>;
@@ -45,7 +48,9 @@ export async function runStep(
   const { page } = ctx;
   switch (step.op) {
     case "click":
-      await locate(page, expand(step.selector, vars), step.nth, step.text).click();
+      await locate(page, expand(step.selector, vars), step.nth, step.text).click({
+        button: step.button,
+      });
       return;
     case "hover":
       await locate(page, expand(step.selector, vars), step.nth).hover();
@@ -101,6 +106,18 @@ export async function runStep(
     case "settle":
       await settle(page, ctx.viewport);
       return;
+    case "main": {
+      if (!ctx.app) throw new Error("the main step needs an Electron app");
+      await ctx.app.evaluate(
+        async (_electron, { call, arg }) => {
+          const hooks = (globalThis as any).__parity;
+          if (!hooks?.[call]) throw new Error(`seam has no ${call}`);
+          await hooks[call](arg);
+        },
+        { call: step.call, arg: step.arg },
+      );
+      return;
+    }
   }
 }
 
@@ -136,7 +153,7 @@ if (import.meta.main) {
   const [op, ...values] = rest;
   if (!run || !op) {
     console.error(
-      "usage: bun parity/drive.ts --run <run folder> <click|hover|type|key|scroll|resize|navigate|wait|waitFor|settle|shot|dom|geometry> [args]",
+      "usage: bun parity/drive.ts --run <run folder> <click|hover|type|key|scroll|resize|navigate|wait|waitFor|settle|main|shot|dom|geometry> [args]",
     );
     process.exit(2);
   }
@@ -146,7 +163,9 @@ if (import.meta.main) {
   };
   const request: Record<string, unknown> = { op };
   if (["click", "hover"].includes(op))
-    Object.assign(request, { selector: values[0], text: values[1] });
+    Object.assign(request, { selector: values[0], text: values[1], button: values[2] });
+  else if (op === "main")
+    Object.assign(request, { call: values[0], arg: values[1] ? JSON.parse(values[1]) : undefined });
   else if (op === "type") Object.assign(request, { selector: values[0], text: values[1] });
   else if (op === "key") request.key = values[0];
   else if (op === "scroll") Object.assign(request, { dy: Number(values[0]), selector: values[1] });

@@ -5,6 +5,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { _electron, type ElectronApplication, type Page } from "playwright";
+import { startFakeGithub } from "./fake-github.ts";
 import { dumpGeometry, runStep, type DriveContext, type Step } from "./drive.ts";
 import { PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
 import { waitForNoGame } from "./lib/no-game.ts";
@@ -52,6 +53,10 @@ export interface StartOptions {
   quitTimeoutMs?: number;
   /** Extra environment for the seam, such as SEAM_FAKE_DIR. */
   seamEnv?: Record<string, string>;
+  /** What the app records as the version it last ran as. Older than the build shows What's New. */
+  lastRunVersion?: string;
+  /** The fake GitHub scenario the app sees from launch, before any state asks for another. */
+  githubScenario?: string;
 }
 
 export function readFaults(seamLog: string): string[] {
@@ -158,7 +163,12 @@ export function stampDiff(before: Map<string, string>, after: Map<string, string
   return changed;
 }
 
-export function prepareRun(options: { data: string; runDir: string; repo: string }) {
+export function prepareRun(options: {
+  data: string;
+  runDir: string;
+  repo: string;
+  lastRunVersion?: string;
+}) {
   const { runDir, repo } = options;
   refuseRealFolder(runDir, "run folder");
   // The app creates its own database in an empty data folder, as on a fresh install.
@@ -212,7 +222,11 @@ export function prepareRun(options: { data: string; runDir: string; repo: string
 
   const db = path.join(runDir, "data", "matches.db");
   const database = new Database(db);
-  if (options.data === "fixture") {
+  if (options.lastRunVersion !== undefined) {
+    database.run("UPDATE settings SET value = ? WHERE key = 'last_run_version'", [
+      options.lastRunVersion,
+    ]);
+  } else if (options.data === "fixture") {
     const row = database
       .query("SELECT value FROM settings WHERE key = 'last_run_version'")
       .get() as { value: string } | undefined;
@@ -335,7 +349,8 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
       ),
   );
   const before = checkoutStamp(repo);
-  prepareRun({ data: options.data, runDir, repo });
+  prepareRun({ data: options.data, runDir, repo, lastRunVersion: options.lastRunVersion });
+  const github = startFakeGithub();
 
   const seamLog = path.join(runDir, "seam.log");
   const userData = path.join(runDir, "userdata");
@@ -348,30 +363,38 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     SEAM_FORK_DEPTH: "0",
     SEAM_LIVE_PORT: "2999",
     SEAM_REAL_ROOTS: JSON.stringify(realDataRoots()),
+    SEAM_GITHUB: github.url,
+    ...(options.githubScenario ? { SEAM_GITHUB_SCENARIO: options.githubScenario } : {}),
     TZ: TIME_ZONE,
     LANG: "en_US.UTF-8",
   };
   delete env.ELECTRON_RENDERER_URL;
   delete env.NODE_OPTIONS;
 
-  const app = await _electron.launch({
-    executablePath: electronBinary(repo),
-    args: [
-      "--force-device-scale-factor=2",
-      "--force-color-profile=srgb",
-      PARTIAL_RASTER_OFF,
-      ...(gpuSwitch() === "on" ? [] : ["--disable-gpu"]),
-      ...(process.env.PARITY_BACKGROUNDING === "on" ? [] : KEEP_PAINTING),
-      "--lang=en-US",
-      ...(process.env.PARITY_ELECTRON_ARGS?.split(" ").filter(Boolean) ?? []),
-      `--user-data-dir=${userData}`,
-      "-r",
-      path.join(PARITY_DIR, "seam.cjs"),
-      runDir,
-    ],
-    env,
-    cwd: runDir,
-  });
+  let app: ElectronApplication;
+  try {
+    app = await _electron.launch({
+      executablePath: electronBinary(repo),
+      args: [
+        "--force-device-scale-factor=2",
+        "--force-color-profile=srgb",
+        PARTIAL_RASTER_OFF,
+        ...(gpuSwitch() === "on" ? [] : ["--disable-gpu"]),
+        ...(process.env.PARITY_BACKGROUNDING === "on" ? [] : KEEP_PAINTING),
+        "--lang=en-US",
+        ...(process.env.PARITY_ELECTRON_ARGS?.split(" ").filter(Boolean) ?? []),
+        `--user-data-dir=${userData}`,
+        "-r",
+        path.join(PARITY_DIR, "seam.cjs"),
+        runDir,
+      ],
+      env,
+      cwd: runDir,
+    });
+  } catch (error) {
+    github.close();
+    throw error;
+  }
 
   const blockedRequests: string[] = [];
   let page: Page;
@@ -418,11 +441,15 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
     await page.reload();
     await page.waitForLoadState("load");
   } catch (error) {
-    await exitApp(app);
+    try {
+      await exitApp(app);
+    } finally {
+      github.close();
+    }
     throw error;
   }
 
-  const ctx: DriveContext = { page, viewport, resizeWindow, touchedSettings: new Map() };
+  const ctx: DriveContext = { page, app, viewport, resizeWindow, touchedSettings: new Map() };
   const faults = () => readFaults(seamLog);
   return {
     app,
@@ -437,7 +464,12 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
         path.join(runDir, "blocked-renderer.json"),
         JSON.stringify(blockedRequests, null, 1),
       );
-      const ended = await quit(app, options.quit ?? "exit", options.quitTimeoutMs ?? 20_000);
+      let ended: Awaited<ReturnType<typeof quit>>;
+      try {
+        ended = await quit(app, options.quit ?? "exit", options.quitTimeoutMs ?? 20_000);
+      } finally {
+        github.close();
+      }
       return { faults: faults(), leaks: stampDiff(before, checkoutStamp(repo)), quit: ended };
     },
   };
