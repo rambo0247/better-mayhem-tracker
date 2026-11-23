@@ -136,12 +136,14 @@ impl Serialize for JsNumber {
     }
 }
 
-/// A JSON number, or the [`NON_FINITE_KEY`] object.
+/// A JSON number, or the [`NON_FINITE_KEY`] object. A stored payload's `null`
+/// is JSON.stringify's for NaN or an infinity, and reads back as NaN.
 impl<'de> Deserialize<'de> for JsNumber {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let value = Value::deserialize(deserializer)?;
         match JsValue::decode(value) {
             JsValue::NonFinite(number) => Ok(Self(number)),
+            JsValue::Json(Value::Null) => Ok(Self(f64::NAN)),
             JsValue::Json(Value::Number(number)) => Ok(Self(number.as_f64().unwrap_or(f64::NAN))),
             JsValue::Json(other) => Err(serde::de::Error::custom(format!(
                 "expected a number, found {other}"
@@ -383,9 +385,11 @@ mod tests {
             let read: JsNumber = serde_json::from_str(json).unwrap();
             assert_eq!(read, JsNumber(number));
         }
-        let read: Vec<Option<JsNumber>> = serde_json::from_str("[null, 1.5, 22]").unwrap();
-        assert_eq!(read, [None, Some(JsNumber(1.5)), Some(JsNumber(22.0))]);
-        for refused in ["null", r#""7""#, r#"{"$bmtNum":"nan"}"#] {
+        let read: Vec<JsNumber> = serde_json::from_str("[null, 1.5, 22]").unwrap();
+        assert_eq!(read, [JsNumber(f64::NAN), JsNumber(1.5), JsNumber(22.0)]);
+        let absent: Option<JsNumber> = serde_json::from_str("null").unwrap();
+        assert_eq!(absent, None);
+        for refused in [r#""7""#, r#"{"$bmtNum":"nan"}"#] {
             assert!(
                 serde_json::from_str::<JsNumber>(refused).is_err(),
                 "{refused}"
