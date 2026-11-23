@@ -1,0 +1,48 @@
+[lint]
+plugins = ["solid", "./lint/solid-input-events.js"]
+ignorePatterns = ["dist/", "src-tauri/target/", "src-tauri/gen/"]
+
+[lint.settings.solid]
+version = 2
+
+[lint.categories]
+correctness = "error"
+
+[lint.rules]
+# The scripts parse registry JSON that has no types
+"@typescript-eslint/no-explicit-any" = "off"
+"solid/jsx-no-duplicate-props" = "error"
+"solid/jsx-no-undef" = "error"
+"solid/jsx-uses-vars" = "error"
+"solid/no-unassigned-vars" = "error"
+"solid/no-unknown-namespaces" = "error"
+"solid/validate-jsx-nesting" = "error"
+"solid/no-innerhtml" = "error"
+"solid/jsx-no-script-url" = "error"
+"solid/components-return-once" = "error"
+"solid/no-destructure" = "error"
+"solid/prefer-for" = "error"
+"solid/reactivity" = "error"
+"solid/event-handlers" = "error"
+"solid/imports" = "error"
+"solid/style-prop" = "error"
+"solid/no-react-deps" = "error"
+"solid/no-react-specific-props" = "error"
+"solid/self-closing-comp" = "error"
+"solid/removed-api" = "error"
+"solid/no-single-arg-create-effect" = "error"
+"solid/no-store-mutation-outside-setter" = "error"
+"solid/no-write-in-pure-computation" = "error"
+"solid/no-unused-signal" = "error"
+"solid/no-accessor-as-prop" = "error"
+"solid/no-boolean-enumerated-attribute" = "error"
+"solid/prefer-structured-class" = "error"
+"solid/valid-use-server" = "error"
+"solid/require-async-server-function" = "error"
+"solid/no-invalid-server-capture" = "error"
+"solid/no-browser-globals-in-server-function" = "error"
+"solid-input-events/no-onchange-on-text-input" = "error"
+
+[fmt]
+printWidth = 100
+ignorePatterns = ["dist/", "src-tauri/target/", "src-tauri/gen/"]

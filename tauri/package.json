@@ -7,16 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "tauri": "bunx tauri",
-    "lint": "bunx oxlint",
-    "fmt": "bunx oxfmt",
-    "fmt:check": "bunx oxfmt --check",
+    "lint": "bun lint --flavor eslint --max-warnings 0",
+    "fmt": "bun fmt",
+    "fmt:check": "bun fmt --check",
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test",
     "deps:report": "bun scripts/deps-report.ts"
   },
   "dependencies": {
-    "@fontsource/barlow": "5.3.0",
-    "@fontsource/barlow-condensed": "5.3.0",
     "@solidjs/router": "2.0.1",
     "@solidjs/web": "2.0.3",
     "@tauri-apps/api": "3.0.0-alpha.3",
@@ -30,8 +28,6 @@
     "@tauri-apps/cli": "3.0.0-alpha.6",
     "@types/bun": "1.4.5",
     "eslint-plugin-solid": "0.20.1",
-    "oxfmt": "0.79.0",
-    "oxlint": "1.94.0",
     "tailwindcss": "4.3.5",
     "typescript": "7.1.0-dev.20261121.1",
     "vite": "8.4.0-beta.1"

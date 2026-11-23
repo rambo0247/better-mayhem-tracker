@@ -1,21 +1,5 @@
-import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-
-const config = resolve(import.meta.dir, "../.oxlintrc.json");
-const scratch = mkdtempSync(join(tmpdir(), "bmt-lint-"));
-afterAll(() => rmSync(scratch, { recursive: true, force: true }));
-
-let counter = 0;
-function lint(source: string) {
-  const file = join(scratch, `fixture-${counter++}.tsx`);
-  writeFileSync(file, source);
-  const run = Bun.spawnSync(["bunx", "oxlint", "-c", config, file], {
-    cwd: resolve(import.meta.dir, ".."),
-  });
-  return { code: run.exitCode, out: run.stdout.toString() + run.stderr.toString() };
-}
+import { describe, expect, test } from "bun:test";
+import { lint } from "./lint-fixture";
 
 describe("solid-input-events", () => {
   test("fails onChange on an input", () => {
@@ -30,6 +14,34 @@ describe("solid-input-events", () => {
     expect(r.out).toContain("solid-input-events");
   });
 
+  for (const type of ["text", "search", "email", "url", "tel", "password", "number"]) {
+    test(`fails onChange on an input of type ${type}`, () => {
+      const r = lint(
+        `export const A = (f: () => void) => <input type="${type}" onChange={f} />;\n`,
+      );
+      expect(r.code).not.toBe(0);
+      expect(r.out).toContain("solid-input-events");
+    });
+  }
+
+  test("fails onChange on an input whose type is a dynamic expression", () => {
+    const r = lint(
+      "export const A = (t: string, f: () => void) => <input type={t} onChange={f} />;\n",
+    );
+    expect(r.code).not.toBe(0);
+    expect(r.out).toContain("Use onInput for text entry");
+  });
+
+  for (const type of ["checkbox", "radio", "file", "range", "color", "date"]) {
+    test(`passes onChange on an input of type ${type}`, () => {
+      const r = lint(
+        `export const A = (f: () => void) => <input type="${type}" onChange={f} />;\n`,
+      );
+      expect(r.out).not.toContain("solid-input-events");
+      expect(r.code).toBe(0);
+    });
+  }
+
   test("passes onInput on an input", () => {
     const r = lint("export const A = (f: () => void) => <input onInput={f} />;\n");
     expect(r.out).not.toContain("solid-input-events");
@@ -37,20 +49,20 @@ describe("solid-input-events", () => {
   });
 
   test("passes onChange on a select", () => {
-    const r = lint("export const A = (f: () => void) => <select onChange={f}></select>;\n");
+    const r = lint("export const A = (f: () => void) => <select onChange={f} />;\n");
     expect(r.out).not.toContain("solid-input-events");
     expect(r.code).toBe(0);
   });
 });
 
 describe("solid rules from eslint-plugin-solid", () => {
-  test("a destructured prop fails with solid(no-destructure)", () => {
+  test("a destructured prop fails with solid/no-destructure", () => {
     const r = lint("export function B({ a }: { a: string }) {\n  return <div>{a}</div>;\n}\n");
     expect(r.code).not.toBe(0);
-    expect(r.out).toContain("solid(no-destructure)");
+    expect(r.out).toContain("[Error/solid/no-destructure]");
   });
 
-  test("a signal read outside a tracked scope fails with solid(reactivity)", () => {
+  test("a signal read outside a tracked scope fails with solid/reactivity", () => {
     const r = lint(
       [
         'import { createSignal } from "solid-js";',
@@ -63,6 +75,6 @@ describe("solid rules from eslint-plugin-solid", () => {
       ].join("\n"),
     );
     expect(r.code).not.toBe(0);
-    expect(r.out).toContain("solid(reactivity)");
+    expect(r.out).toContain("[Error/solid/reactivity]");
   });
 });
