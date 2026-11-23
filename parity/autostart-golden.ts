@@ -145,6 +145,21 @@ export function recordInScratchHome(): unknown {
   }
 }
 
+/**
+ * `text` as the repo's formatter writes `file`, so a rerun leaves the committed fixture
+ * byte-identical and `npm run format:check` passes it.
+ */
+function formatted(file: string, text: string): string {
+  const oxfmt = path.join(REPO_DIR, "node_modules", ".bin", "oxfmt");
+  const result = spawnSync(oxfmt, [`--stdin-filepath=${file}`], {
+    cwd: REPO_DIR,
+    input: text,
+    encoding: "utf8",
+  });
+  if (result.status !== 0) throw new Error(`oxfmt failed on ${file}:\n${result.stderr}`);
+  return result.stdout;
+}
+
 if (import.meta.main && process.argv.includes("--child")) {
   process.stdout.write(JSON.stringify(await record()));
 } else if (import.meta.main) {
@@ -153,6 +168,6 @@ if (import.meta.main && process.argv.includes("--child")) {
     at > 0
       ? path.resolve(process.argv[at + 1]!)
       : path.join(REPO_DIR, "tauri/src-tauri/tests/fixtures/electron-autostart.json");
-  fs.writeFileSync(file, `${JSON.stringify(recordInScratchHome(), null, 2)}\n`);
+  fs.writeFileSync(file, formatted(file, JSON.stringify(recordInScratchHome(), null, 2)));
   console.log(`wrote ${file}`);
 }

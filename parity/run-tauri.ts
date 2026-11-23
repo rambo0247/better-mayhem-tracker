@@ -32,32 +32,65 @@ export interface TauriBinaryOptions {
   platform?: NodeJS.Platform;
   targetDir?: string;
   log?: (line: string) => void;
+  /**
+   * Only a build that carries the parity driver, told by its sentinel. A plain `cargo test`
+   * rebuilds cargo's name without the driver, so the newer file can be the wrong one.
+   */
+  driver?: boolean;
 }
 
-/** The debug build with `--features parity-driver`, under whichever name exists, the newer when both do. */
+/** Whether `file` holds `needle`, read a chunk at a time: a debug binary runs to hundreds of MB. */
+export function fileContains(file: string, needle: string): boolean {
+  const pattern = Buffer.from(needle);
+  const chunk = Buffer.alloc(1 << 20);
+  const fd = fs.openSync(file, "r");
+  try {
+    let carry = Buffer.alloc(0);
+    for (;;) {
+      const read = fs.readSync(fd, chunk, 0, chunk.length, null);
+      if (read === 0) return false;
+      const window = Buffer.concat([carry, chunk.subarray(0, read)]);
+      if (window.includes(pattern)) return true;
+      carry = window.subarray(Math.max(0, window.length - pattern.length + 1));
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/**
+ * The debug build under whichever name exists, the newer when both do. With `driver`, only a
+ * build that carries the parity driver counts.
+ */
 export function tauriBinary(repo: string = REPO_DIR, options: TauriBinaryOptions = {}): string {
   const target =
     options.targetDir ??
     process.env.CARGO_TARGET_DIR ??
     path.join(repo, "tauri", "src-tauri", "target");
+  const log = options.log ?? console.log;
+  const build =
+    "`CI=true bun run tauri build --debug --no-bundle --features parity-driver` in tauri/";
   const candidates = tauriBinaryNames(options.platform).map((name) =>
     path.join(target, "debug", name),
   );
-  const found = candidates.flatMap((file) => {
+  let found = candidates.flatMap((file) => {
     const stat = fs.statSync(file, { throwIfNoEntry: false });
     return stat ? [{ file, mtime: stat.mtimeMs }] : [];
   });
-  const [first, second] = found;
-  if (!first) {
-    throw new Error(
-      `Neither ${candidates.join(" nor ")} exists. Run \`CI=true bun run tauri build --debug --no-bundle --features parity-driver\` in tauri/.`,
-    );
+  if (!found.length) throw new Error(`Neither ${candidates.join(" nor ")} exists. Run ${build}.`);
+  if (options.driver) {
+    const drivers = found.filter(({ file }) => fileContains(file, SENTINEL));
+    for (const { file } of found) {
+      if (!drivers.some((d) => d.file === file)) log(`Skipping ${file}: no parity driver`);
+    }
+    if (!drivers.length)
+      throw new Error(`No build in ${target} carries ${SENTINEL}. Run ${build}.`);
+    found = drivers;
   }
-  if (!second) return first.file;
-  const newer = second.mtime > first.mtime ? second : first;
-  (options.log ?? console.log)(
-    `Both ${first.file} and ${second.file} exist; using the newer ${newer.file}`,
-  );
+  const [first, second] = found;
+  if (!second) return first!.file;
+  const newer = second.mtime > first!.mtime ? second : first!;
+  log(`Both ${first!.file} and ${second.file} exist; using the newer ${newer.file}`);
   return newer.file;
 }
 
@@ -757,7 +790,7 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
       : resolveDataRoot(options.data);
   claimRunFolder(runDir, dataRoot);
 
-  const binary = options.binary ?? tauriBinary(repo);
+  const binary = options.binary ?? tauriBinary(repo, { driver: true });
   if (!fs.existsSync(binary)) {
     throw new Error(
       `${binary} is missing. Run \`CI=true bun run tauri build --debug --no-bundle --features parity-driver\` in tauri/.`,

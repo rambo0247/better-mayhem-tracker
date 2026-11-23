@@ -2,25 +2,26 @@ import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { tauriBinary } from "../run-tauri.ts";
+import { fileContains, SENTINEL, tauriBinary } from "../run-tauri.ts";
 
 const NEW = "Better Mayhem Tracker";
 const OLD = "better-mayhem-tracker-tauri";
 
-function target(names: Record<string, number>) {
+function target(names: Record<string, number>, driver: string[] = []) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bmt-binary-"));
   fs.mkdirSync(path.join(dir, "debug"));
   for (const [name, seconds] of Object.entries(names)) {
     const file = path.join(dir, "debug", name);
-    fs.writeFileSync(file, "");
+    fs.writeFileSync(file, driver.includes(name) ? `\0\0${SENTINEL}\0` : "\0\0");
     fs.utimesSync(file, seconds, seconds);
   }
   return dir;
 }
 
-function pick(dir: string, platform: NodeJS.Platform = "darwin") {
+function pick(dir: string, platform: NodeJS.Platform = "darwin", driver = false) {
   const lines: string[] = [];
-  const file = tauriBinary("", { targetDir: dir, platform, log: (line) => lines.push(line) });
+  const log = (line: string) => lines.push(line);
+  const file = tauriBinary("", { targetDir: dir, platform, log, driver });
   return { file: path.basename(file), lines };
 }
 
@@ -52,5 +53,28 @@ describe("tauriBinary", () => {
     expect(() => pick(dir)).toThrow(
       `Neither ${path.join(dir, "debug", NEW)} nor ${path.join(dir, "debug", OLD)} exists`,
     );
+  });
+
+  test("with driver, takes the build that carries it over a newer one without", () => {
+    const dir = target({ [NEW]: 100, [OLD]: 200 }, [NEW]);
+    expect(pick(dir, "darwin", true)).toEqual({
+      file: NEW,
+      lines: [`Skipping ${path.join(dir, "debug", OLD)}: no parity driver`],
+    });
+  });
+
+  test("with driver, refuses when no build carries it", () => {
+    const dir = target({ [NEW]: 100, [OLD]: 200 });
+    expect(() => pick(dir, "darwin", true)).toThrow(`No build in ${dir} carries ${SENTINEL}`);
+  });
+});
+
+describe("fileContains", () => {
+  test("finds a needle that straddles two chunks", () => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "bmt-binary-")), "exe");
+    const pad = Buffer.alloc((1 << 20) - 5, 1);
+    fs.writeFileSync(file, Buffer.concat([pad, Buffer.from(SENTINEL)]));
+    expect(fileContains(file, SENTINEL)).toBe(true);
+    expect(fileContains(file, `${SENTINEL}x`)).toBe(false);
   });
 });
