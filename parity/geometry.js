@@ -21,10 +21,13 @@
   const walk = (el, path, inEllipsis) => {
     if (el instanceof SVGElement && DEFINITIONS.has(el.tagName)) return;
     const r = el.getBoundingClientRect();
+    // A clipping wrapper the Tauri UI adds around one element (ChampionIcon's
+    // crop) stands in for that element: Electron drew it as the element alone.
+    const stand = el.hasAttribute("data-parity-skip") ? el.firstElementChild : null;
     if (r.width || r.height) {
       const row = [
         path,
-        el.tagName,
+        (stand ?? el).tagName,
         +r.x.toFixed(2),
         +r.y.toFixed(2),
         +r.width.toFixed(2),
@@ -37,11 +40,8 @@
       }
       out.push(row);
     }
-    // A port element marked data-parity-skip stands for one element Electron drew: its box is
-    // that element's, and what it wraps to get there has no counterpart (ChampionIcon's crop)
-    if (el.hasAttribute("data-parity-skip")) return;
     const childInEllipsis = inEllipsis || (el !== document.body && truncates(el));
-    [...el.children].forEach((child, i) => walk(child, path + "/" + i, childInEllipsis));
+    [...(stand ?? el).children].forEach((child, i) => walk(child, path + "/" + i, childInEllipsis));
   };
   walk(document.body, "b", false);
   return JSON.stringify(out);
