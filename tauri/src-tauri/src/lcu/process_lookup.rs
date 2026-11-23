@@ -76,7 +76,10 @@ fn lazy_arg<'a>(text: &'a str, flag: &str) -> Option<&'a str> {
 /// league-connect strips every line break from the output before it matches,
 /// so the command lines of every matching process run together.
 pub fn parse_command_lines(output: &str) -> Option<Credentials> {
-    let text: String = output.chars().filter(|c| *c != '\n' && *c != '\r').collect();
+    let text: String = output
+        .chars()
+        .filter(|c| *c != '\n' && *c != '\r')
+        .collect();
     let port = number_arg(&text, "--app-port=")?.parse().ok()?;
     let password = lazy_arg(&text, "--remoting-auth-token=")?.to_string();
     let pid = number_arg(&text, "--app-pid=")?.parse().ok()?;
@@ -128,7 +131,10 @@ mod system {
         let query = format!(
             "Get-CimInstance -Query \"SELECT * from Win32_Process WHERE name LIKE '{PROCESS_NAME}.exe'\" | Select-Object -ExpandProperty CommandLine"
         );
-        if let Some(credentials) = powershell(&query).await.as_deref().and_then(parse_command_lines)
+        if let Some(credentials) = powershell(&query)
+            .await
+            .as_deref()
+            .and_then(parse_command_lines)
         {
             return Ok(credentials);
         }

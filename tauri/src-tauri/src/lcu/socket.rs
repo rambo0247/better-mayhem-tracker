@@ -127,10 +127,17 @@ mod tests {
         client.publish(serde_json::json!({"uri": "/two", "eventType": "Update", "data": 2}));
         let first = socket.next().await.expect("first event");
         let second = socket.next().await.expect("second event");
-        assert_eq!((first["uri"].clone(), second["uri"].clone()), ("/one".into(), "/two".into()));
+        assert_eq!(
+            (first["uri"].clone(), second["uri"].clone()),
+            ("/one".into(), "/two".into())
+        );
 
         client.stop();
-        assert_eq!(socket.next().await, None, "a dropped client ends the stream");
+        assert_eq!(
+            socket.next().await,
+            None,
+            "a dropped client ends the stream"
+        );
     }
 
     #[tokio::test]
@@ -150,7 +157,9 @@ mod tests {
 
     #[tokio::test]
     async fn a_handshake_that_hangs_times_out() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
         let port = listener.local_addr().expect("addr").port();
         let held = tokio::spawn(async move {
             let _open = listener.accept().await;

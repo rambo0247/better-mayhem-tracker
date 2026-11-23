@@ -24,7 +24,6 @@ use tokio::net::TcpListener;
 use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinHandle;
 use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 
 pub struct TempDir(PathBuf);
 
@@ -99,11 +98,7 @@ pub fn riot_subject() -> DistinguishedName {
     );
     name.push(
         DnType::CustomDnType(vec![1, 2, 840, 113_549, 1, 9, 1]),
-        DnValue::Ia5String(
-            "gametechnologies@riotgames.com"
-                .try_into()
-                .expect("ia5"),
-        ),
+        DnValue::Ia5String("gametechnologies@riotgames.com".try_into().expect("ia5")),
     );
     name
 }
@@ -134,10 +129,9 @@ impl TestCa {
 
     /// A server leaf for the given names, as the client's own `rclient` leaf is.
     pub fn leaf(&self, names: &[&str]) -> Chain {
-        let mut params = CertificateParams::new(
-            names.iter().map(|n| n.to_string()).collect::<Vec<_>>(),
-        )
-        .expect("leaf params");
+        let mut params =
+            CertificateParams::new(names.iter().map(|n| n.to_string()).collect::<Vec<_>>())
+                .expect("leaf params");
         params.distinguished_name = named("rclient");
         params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
         let key = KeyPair::generate().expect("leaf key");
@@ -151,8 +145,9 @@ impl TestCa {
 
 /// A certificate that signs itself, as an impostor on localhost would serve.
 pub fn self_signed(names: &[&str], is_ca: bool) -> Chain {
-    let mut params = CertificateParams::new(names.iter().map(|n| n.to_string()).collect::<Vec<_>>())
-        .expect("params");
+    let mut params =
+        CertificateParams::new(names.iter().map(|n| n.to_string()).collect::<Vec<_>>())
+            .expect("params");
     params.distinguished_name = named("localhost");
     if is_ca {
         params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
@@ -197,14 +192,13 @@ pub fn subject_der(cert: &[u8]) -> Vec<u8> {
 }
 
 pub fn server_config(chain: &Chain) -> Arc<ServerConfig> {
-    let mut config = ServerConfig::builder_with_provider(Arc::new(
-        rustls::crypto::ring::default_provider(),
-    ))
-    .with_safe_default_protocol_versions()
-    .expect("versions")
-    .with_no_client_auth()
-    .with_single_cert(chain.certs.clone(), chain.key.clone_key())
-    .expect("server cert");
+    let mut config =
+        ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_safe_default_protocol_versions()
+            .expect("versions")
+            .with_no_client_auth()
+            .with_single_cert(chain.certs.clone(), chain.key.clone_key())
+            .expect("server cert");
     config.alpn_protocols = vec![b"http/1.1".to_vec()];
     Arc::new(config)
 }
@@ -245,10 +239,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for Replay<S> {
         Pin::new(&mut self.inner).poll_flush(cx)
     }
 
-    fn poll_shutdown(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<std::io::Result<()>> {
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
         Pin::new(&mut self.inner).poll_shutdown(cx)
     }
 }
@@ -440,8 +431,7 @@ where
             head,
             inner: stream,
         };
-        let callback = |_: &Request, response: Response| Ok(response);
-        let Ok(ws) = tokio_tungstenite::accept_hdr_async(replay, callback).await else {
+        let Ok(ws) = tokio_tungstenite::accept_async(replay).await else {
             return;
         };
         socket(ws, state, events.subscribe()).await;

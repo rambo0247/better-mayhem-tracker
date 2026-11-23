@@ -31,7 +31,9 @@ impl Session {
     ) -> Result<Self, LcuError> {
         let tls_error = |err: rustls::Error| LcuError::Other(err.to_string());
         let http = reqwest::Client::builder()
-            .use_preconfigured_tls(tls::config_with_anchors(anchors, Alpn::Http1).map_err(tls_error)?)
+            .use_preconfigured_tls(
+                tls::config_with_anchors(anchors, Alpn::Http1).map_err(tls_error)?,
+            )
             .http1_only()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
@@ -119,7 +121,10 @@ mod tests {
         assert_eq!(answer.expect("answer"), serde_json::json!({"ok": true}));
 
         let seen = client.requests().pop().expect("a request");
-        assert_eq!((seen.method.as_str(), seen.path.as_str()), ("GET", "/x/y?a=1"));
+        assert_eq!(
+            (seen.method.as_str(), seen.path.as_str()),
+            ("GET", "/x/y?a=1")
+        );
         assert_eq!(seen.headers["accept"], "*/*");
         assert_eq!(seen.headers["content-type"], "application/json");
         assert_eq!(
@@ -169,7 +174,10 @@ mod tests {
     async fn bytes_gives_up_at_its_timeout() {
         let ca = TestCa::named("test root");
         let client = FakeClient::start(&ca.leaf(&["127.0.0.1"])).await;
-        client.route("/slow", Reply::Hold(Arc::new(tokio::sync::Semaphore::new(0))));
+        client.route(
+            "/slow",
+            Reply::Hold(Arc::new(tokio::sync::Semaphore::new(0))),
+        );
         let started = std::time::Instant::now();
         let got = session(&client, &[ca.cert()])
             .bytes("/slow", Duration::from_millis(300))

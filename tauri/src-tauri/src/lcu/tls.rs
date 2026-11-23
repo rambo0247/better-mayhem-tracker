@@ -61,7 +61,9 @@ fn provider() -> Arc<CryptoProvider> {
     Arc::new(ring::default_provider())
 }
 
-pub fn verifier(anchors: &[CertificateDer<'_>]) -> Result<Arc<WebPkiServerVerifier>, rustls::Error> {
+pub fn verifier(
+    anchors: &[CertificateDer<'_>],
+) -> Result<Arc<WebPkiServerVerifier>, rustls::Error> {
     let mut roots = RootCertStore::empty();
     for anchor in anchors {
         roots.add(anchor.clone().into_owned())?;
@@ -136,7 +138,10 @@ mod tests {
     use rustls::pki_types::{ServerName, UnixTime};
     use std::net::{IpAddr, Ipv4Addr};
 
-    fn verify(anchors: &[CertificateDer<'_>], leaf: &CertificateDer<'_>) -> Result<(), rustls::Error> {
+    fn verify(
+        anchors: &[CertificateDer<'_>],
+        leaf: &CertificateDer<'_>,
+    ) -> Result<(), rustls::Error> {
         let localhost = ServerName::from(IpAddr::V4(Ipv4Addr::LOCALHOST));
         verifier(anchors)?
             .verify_server_cert(leaf, &[], &localhost, &[], UnixTime::now())
@@ -158,7 +163,11 @@ mod tests {
             let impostor = TestCa::new(riot_subject());
             subject_der(&impostor.cert())
         });
-        assert_eq!(lcu_anchors().len(), 1, "only Riot's root without a parity CA");
+        assert_eq!(
+            lcu_anchors().len(),
+            1,
+            "only Riot's root without a parity CA"
+        );
     }
 
     #[test]
@@ -189,9 +198,17 @@ mod tests {
         let impostor = TestCa::new(riot_subject());
         let leaf = impostor.leaf(&["127.0.0.1", "localhost"]);
         verify(&[impostor.cert()], &leaf.certs[0]).expect("the leaf is otherwise valid");
-        assert_eq!(
-            certificate_error(verify(&[riot_root()], &leaf.certs[0])),
-            CertificateError::UnknownIssuer
+        // The name matches, so webpki checks the leaf's signature with Riot's own
+        // key. The prototype's RSA impostor failed that as UnknownIssuer; rcgen's
+        // ECDSA one fails it sooner, on the key type.
+        let err = certificate_error(verify(&[riot_root()], &leaf.certs[0]));
+        assert!(
+            matches!(
+                err,
+                CertificateError::UnknownIssuer
+                    | CertificateError::UnsupportedSignatureAlgorithmForPublicKeyContext { .. }
+            ),
+            "{err:?}"
         );
     }
 

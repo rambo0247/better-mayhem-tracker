@@ -291,7 +291,11 @@ mod tests {
         let dir = TempDir::new();
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
         let port = listener.local_addr().expect("addr").port();
-        write(dir.path(), "lockfile", &format!("LeagueClient:9:{port}:pw:https"));
+        write(
+            dir.path(),
+            "lockfile",
+            &format!("LeagueClient:9:{port}:pw:https"),
+        );
         assert_eq!(
             find_client(&[dir.path().into()], PROBE).await,
             ClientLookup::Running(credentials(9, port, "pw"))
@@ -357,7 +361,11 @@ mod tests {
         let live = TempDir::new();
         let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
         let port = listener.local_addr().expect("addr").port();
-        write(live.path(), "lockfile", &format!("LeagueClient:2:{port}:new:https"));
+        write(
+            live.path(),
+            "lockfile",
+            &format!("LeagueClient:2:{port}:new:https"),
+        );
         assert_eq!(
             find_client(&[stale.path().into(), live.path().into()], PROBE).await,
             ClientLookup::Running(credentials(2, port, "new"))
@@ -455,6 +463,9 @@ mod tests {
     #[cfg(not(target_os = "macos"))]
     #[test]
     fn only_macos_rewrites_app_paths() {
-        assert_eq!(client_dir("D:\\League.app"), PathBuf::from("D:\\League.app"));
+        assert_eq!(
+            client_dir("D:\\League.app"),
+            PathBuf::from("D:\\League.app")
+        );
     }
 }

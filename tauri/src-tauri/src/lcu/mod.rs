@@ -286,7 +286,10 @@ struct Loops {
 
 impl Loops {
     fn abort(&mut self) {
-        for task in [self.connect.take(), self.poll.take()].into_iter().flatten() {
+        for task in [self.connect.take(), self.poll.take()]
+            .into_iter()
+            .flatten()
+        {
             task.abort();
         }
     }
@@ -685,7 +688,8 @@ impl Lcu {
         });
         let lcu = self.clone();
         let generation = loops.generation;
-        loops.connect = Some(self.spawn(async move { lcu.connect_loop(generation, first_attempt).await }));
+        loops.connect =
+            Some(self.spawn(async move { lcu.connect_loop(generation, first_attempt).await }));
     }
 
     async fn connect_loop(self, generation: u64, mut first_attempt: bool) {
@@ -955,13 +959,19 @@ mod tests {
         let rig = Rig::new(Some(&dir), None, &ca);
 
         rig.lcu.start_polling(true);
-        assert_eq!(rig.sent(), [Connecting], "connecting at once, no attempt yet");
+        assert_eq!(
+            rig.sent(),
+            [Connecting],
+            "connecting at once, no attempt yet"
+        );
         rig.until("connected", |s| s.contains(&Connected)).await;
         eventually("the subscribe", WAIT, || !client.first_frames().is_empty()).await;
         assert_eq!(client.first_frames(), [socket::SUBSCRIBE]);
         // The phase read after attaching sends connected again
-        rig.until("the attach phase", |s| s == [Connecting, Connected, Connected])
-            .await;
+        rig.until("the attach phase", |s| {
+            s == [Connecting, Connected, Connected]
+        })
+        .await;
         assert!(rig.hooks.polls.load(Ordering::SeqCst) >= 1);
 
         client.publish(serde_json::json!({
@@ -1004,7 +1014,8 @@ mod tests {
         let dir = TempDir::new();
         let rig = Rig::new(Some(&dir), None, &ca);
         rig.lcu.start_polling(true);
-        rig.until("disconnected", |s| s.contains(&Disconnected)).await;
+        rig.until("disconnected", |s| s.contains(&Disconnected))
+            .await;
         tokio::time::sleep(Duration::from_millis(500)).await;
         assert_eq!(rig.sent(), [Connecting, Disconnected]);
     }
@@ -1022,6 +1033,8 @@ mod tests {
 
         rig.lcu.start_polling(true);
         eventually("the subscribe", WAIT, || !client.first_frames().is_empty()).await;
+        rig.until("the attach phase", |s| s.len() >= 3).await;
+        client.route(PHASE, Reply::Json(200, Value::from("InProgress")));
         client.publish(serde_json::json!({
             "uri": "/lol-gameflow/v1/gameflow-phase",
             "data": "InProgress",
@@ -1051,10 +1064,14 @@ mod tests {
 
         rig.lcu.start_polling(true);
         rig.until("a poll failure and reconnect", |s| {
-            s.windows(3).any(|w| w == [Connected, Disconnected, Connected])
+            s.windows(3)
+                .any(|w| w == [Connected, Disconnected, Connected])
         })
         .await;
-        assert!(impostor.requests().is_empty(), "no HTTP request got through");
+        assert!(
+            impostor.requests().is_empty(),
+            "no HTTP request got through"
+        );
         assert!(impostor.upgrades().is_empty(), "no socket got through");
         assert!(impostor.first_frames().is_empty());
     }
@@ -1073,7 +1090,8 @@ mod tests {
         })
         .await;
         rig.hooks.fail_polls.store(false, Ordering::SeqCst);
-        rig.until("reconnected", |s| s.last() == Some(&Connected)).await;
+        rig.until("reconnected", |s| s.last() == Some(&Connected))
+            .await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1146,7 +1164,11 @@ mod tests {
         let args = args_file(&unknown, client.port(), "pw");
         let no_lockfile = Rig::new(Some(&unknown), Some(args), &ca);
         assert_eq!(no_lockfile.lcu.bytes("/art").await, None);
-        assert_eq!(no_lockfile.lookups(), 0, "a file request never runs the lookup");
+        assert_eq!(
+            no_lockfile.lookups(),
+            0,
+            "a file request never runs the lookup"
+        );
 
         let dir = TempDir::new();
         client.write_lockfile(dir.path(), "pw");
@@ -1177,7 +1199,10 @@ mod tests {
         let rig = Rig::new(Some(&dir), None, &ca);
         assert_eq!(rig.lcu.fetch_gameflow_phase().await, None);
         client.route(PHASE, Reply::Json(200, Value::from("Lobby")));
-        assert_eq!(rig.lcu.fetch_gameflow_phase().await, Some(Value::from("Lobby")));
+        assert_eq!(
+            rig.lcu.fetch_gameflow_phase().await,
+            Some(Value::from("Lobby"))
+        );
     }
 
     /// Opt in: run T03's `parity/fake-lcu.ts`, then point `BMT_PARITY_LEAGUE_DIR`
@@ -1212,7 +1237,11 @@ mod tests {
             install_dir: Arc::new(MemoryInstallDir::default()),
             hooks: Arc::new(Printer(started)),
             emit: Box::new(move |status| {
-                println!("{:>6} ms status {}", started.elapsed().as_millis(), status.as_str())
+                println!(
+                    "{:>6} ms status {}",
+                    started.elapsed().as_millis(),
+                    status.as_str()
+                )
             }),
             timing: Timing::default(),
         });
