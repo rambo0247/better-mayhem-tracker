@@ -701,9 +701,12 @@ fn sqlite_is_built_and_configured_as_better_sqlite3s() {
         .iter()
         .map(|o| o.as_str().unwrap().to_owned())
         .collect();
+    // SQLite derives these from the compiler and the OS, so on Windows both
+    // builds report MSVC's and Win32's, and the capture is macOS's
+    let platform = ["COMPILER=", "MUTEX_", "ATOMIC_INTRINSICS="];
     let differ = |a: &BTreeSet<String>, b: &BTreeSet<String>| -> Vec<String> {
         a.difference(b)
-            .filter(|o| !o.starts_with("COMPILER="))
+            .filter(|o| !platform.iter().any(|p| o.starts_with(p)))
             .cloned()
             .collect()
     };
