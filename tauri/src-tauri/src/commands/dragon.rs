@@ -7,6 +7,7 @@ use tauri::Runtime;
 use ts_rs::TS;
 
 use super::{CommandError, CommandResult, Ctx, Domain};
+use crate::js_arg::Js;
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -59,22 +60,22 @@ pub async fn get_champion_data<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<Champi
 
 pub async fn get_augment_data<R: Runtime>(
     _ctx: Ctx<R>,
-    _patch: Option<String>,
+    _patch: Js<Option<String>>,
 ) -> CommandResult<AugmentData> {
     Err(CommandError::not_ported())
 }
 
 pub async fn resolve_augment_icon<R: Runtime>(
     _ctx: Ctx<R>,
-    _id: i64,
-    _patch: Option<String>,
+    _id: Js<i64>,
+    _patch: Js<Option<String>>,
 ) -> CommandResult<Option<String>> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_item_data<R: Runtime>(
     _ctx: Ctx<R>,
-    _patch: Option<String>,
+    _patch: Js<Option<String>>,
 ) -> CommandResult<ItemData> {
     Err(CommandError::not_ported())
 }

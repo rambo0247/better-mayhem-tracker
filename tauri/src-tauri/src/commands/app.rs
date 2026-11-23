@@ -6,6 +6,7 @@ use tauri::Runtime;
 use ts_rs::TS;
 
 use super::{CommandError, CommandResult, Ctx, Domain};
+use crate::js_arg::Js;
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -80,7 +81,7 @@ pub async fn check_for_update<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<UpdateI
 
 pub async fn download_update<R: Runtime>(
     _ctx: Ctx<R>,
-    _asset_url: String,
+    _asset_url: Js<String>,
 ) -> CommandResult<DownloadUpdateResult> {
     Err(CommandError::not_ported())
 }
@@ -93,6 +94,6 @@ pub async fn get_update_notes<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<Option<
     Err(CommandError::not_ported())
 }
 
-pub async fn open_url<R: Runtime>(_ctx: Ctx<R>, _url: String) -> CommandResult<()> {
+pub async fn open_url<R: Runtime>(_ctx: Ctx<R>, _url: Js<String>) -> CommandResult<()> {
     Err(CommandError::not_ported())
 }

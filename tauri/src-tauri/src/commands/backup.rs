@@ -5,6 +5,7 @@ use tauri::Runtime;
 use ts_rs::TS;
 
 use super::{CommandError, CommandResult, Ctx, Domain};
+use crate::js_arg::Js;
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -68,7 +69,7 @@ pub async fn create_backup<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<CreateBack
 
 pub async fn restore_backup<R: Runtime>(
     _ctx: Ctx<R>,
-    _file: String,
+    _file: Js<String>,
 ) -> CommandResult<RestoreBackupResult> {
     Err(CommandError::not_ported())
 }

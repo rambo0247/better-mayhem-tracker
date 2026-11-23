@@ -442,10 +442,12 @@ macro_rules! contract {
     };
 }
 
-// Optional arguments: golden JSON cannot tell `null` from a skipped argument,
-// and no handler treats them differently for a value the renderer sends. The
-// one handler that branches, getAugmentStats (stats.ts:73, `championId !==
-// undefined`), never receives null from the renderer (Champions.tsx:188).
+// Every scalar argument is `Js<T>`: each Electron handler hands it to SQLite
+// or to a JS operator unchecked, so Tauri must never refuse one (the audit in
+// the T08 record). Optional arguments: golden JSON cannot tell `null` from a
+// skipped argument, and `Js` reads both as undefined. The one handler that
+// branches, getAugmentStats (stats.ts:73, `championId !== undefined`), never
+// receives null from the renderer (Champions.tsx:188).
 contract! {
     matches {
         get_match_history = "getMatchHistory" "db:match-history"
@@ -465,37 +467,37 @@ contract! {
     }
     stats {
         get_champion_stats = "getChampionStats" "db:champion-stats"
-            (patch: Option<String>, queue: Option<i64>, season: Option<String>) -> Vec<ChampionStats>;
+            (patch: Js<Option<String>>, queue: Js<Option<i64>>, season: Js<Option<String>>) -> Vec<ChampionStats>;
         get_augment_stats = "getAugmentStats" "db:augment-stats"
-            (champion_id: Option<i64>, patch: Option<String>, queue: Option<i64>, season: Option<String>) -> Vec<AugmentStats>;
+            (champion_id: Js<Option<i64>>, patch: Js<Option<String>>, queue: Js<Option<i64>>, season: Js<Option<String>>) -> Vec<AugmentStats>;
         get_augment_stats_detailed = "getAugmentStatsDetailed" "db:augment-stats-detailed"
-            (patch: Option<String>, queue: Option<i64>, season: Option<String>) -> AugmentStatsDetailedResult;
+            (patch: Js<Option<String>>, queue: Js<Option<i64>>, season: Js<Option<String>>) -> AugmentStatsDetailedResult;
         get_dashboard = "getDashboard" "db:dashboard" (filters: Option<MatchScope>) -> DashboardData;
         get_champion_item_stats = "getChampionItemStats" "db:champion-item-stats"
-            (champion_id: i64, patch: Option<String>, queue: Option<i64>, season: Option<String>) -> Vec<ItemStats>;
+            (champion_id: Js<i64>, patch: Js<Option<String>>, queue: Js<Option<i64>>, season: Js<Option<String>>) -> Vec<ItemStats>;
         get_global_stats = "getGlobalStats" "db:global-stats"
-            (patch: Option<String>, queue: Option<i64>) -> GlobalStats;
+            (patch: Js<Option<String>>, queue: Js<Option<i64>>) -> GlobalStats;
         get_global_champion_detail = "getGlobalChampionDetail" "db:global-champion-detail"
-            (champion_id: i64, patch: Option<String>, queue: Option<i64>) -> GlobalChampionDetail;
-        get_trends = "getTrends" "db:trends" (queue: Option<i64>) -> TrendsData;
+            (champion_id: Js<i64>, patch: Js<Option<String>>, queue: Js<Option<i64>>) -> GlobalChampionDetail;
+        get_trends = "getTrends" "db:trends" (queue: Js<Option<i64>>) -> TrendsData;
         get_records = "getRecords" "db:records"
-            (queue: Option<i64>, account: Option<String>) -> RecordsData;
+            (queue: Js<Option<i64>>, account: Js<Option<String>>) -> RecordsData;
     }
     teammates {
         get_teammate_stats = "getTeammateStats" "db:teammate-stats"
-            (season: Option<String>) -> Vec<TeammateStats>;
+            (season: Js<Option<String>>) -> Vec<TeammateStats>;
         get_teammate_groups = "getTeammateGroups" "db:teammate-groups"
-            (season: Option<String>) -> Vec<TeammateGroup>;
+            (season: Js<Option<String>>) -> Vec<TeammateGroup>;
         get_teammate_group_detail = "getTeammateGroupDetail" "db:teammate-group-detail"
-            (key: String) -> Option<TeammateGroupDetail>;
+            (key: Js<String>) -> Option<TeammateGroupDetail>;
         get_teammate_detail = "getTeammateDetail" "db:teammate-detail"
-            (key: String) -> Option<TeammateDetail>;
+            (key: Js<String>) -> Option<TeammateDetail>;
     }
     recap {
-        get_game_recap = "getGameRecap" "db:game-recap" (game_id: Option<i64>) -> Option<GameRecap>;
-        get_game_card = "getGameCard" "db:game-card" (game_id: i64) -> Option<GameCardData>;
+        get_game_recap = "getGameRecap" "db:game-recap" (game_id: Js<Option<i64>>) -> Option<GameRecap>;
+        get_game_card = "getGameCard" "db:game-card" (game_id: Js<i64>) -> Option<GameCardData>;
         get_season_recap = "getSeasonRecap" "db:season-recap"
-            (season_id: Option<String>, queue: Option<i64>, account: Option<String>) -> Option<SeasonRecap>;
+            (season_id: Js<Option<String>>, queue: Js<Option<i64>>, account: Js<Option<String>>) -> Option<SeasonRecap>;
         get_seasons = "getSeasons" "db:seasons" () -> Vec<SeasonSummary>;
     }
     live {
@@ -510,16 +512,16 @@ contract! {
     }
     dragon {
         get_champion_data = "getChampionData" "dragon:champions" () -> ChampionData;
-        get_augment_data = "getAugmentData" "dragon:augments" (patch: Option<String>) -> AugmentData;
+        get_augment_data = "getAugmentData" "dragon:augments" (patch: Js<Option<String>>) -> AugmentData;
         resolve_augment_icon = "resolveAugmentIcon" "dragon:augment-icon"
-            (id: i64, patch: Option<String>) -> Option<String>;
-        get_item_data = "getItemData" "dragon:items" (patch: Option<String>) -> ItemData;
+            (id: Js<i64>, patch: Js<Option<String>>) -> Option<String>;
+        get_item_data = "getItemData" "dragon:items" (patch: Js<Option<String>>) -> ItemData;
         get_summoner_spell_data = "getSummonerSpellData" "dragon:summoner-spells" () -> SummonerSpellData;
     }
     settings {
-        get_setting = "getSetting" "settings:get" (key: String) -> Option<String>;
+        get_setting = "getSetting" "settings:get" (key: Js<String>) -> Option<String>;
         is_auto_start_supported = "isAutoStartSupported" "autostart:supported" () -> bool;
-        set_setting = "setSetting" "settings:set" (key: String, value: String) -> ();
+        set_setting = "setSetting" "settings:set" (key: Js<String>, value: Js<String>) -> ();
     }
     export {
         export_card_image = "exportCardImage" "export:card-image" (card: CardSpec) -> ExportCardResult;
@@ -533,7 +535,7 @@ contract! {
     backup {
         list_backups = "listBackups" "backup:list" () -> Vec<BackupInfo>;
         create_backup = "createBackup" "backup:create" () -> CreateBackupResult;
-        restore_backup = "restoreBackup" "backup:restore" (file: String) -> RestoreBackupResult;
+        restore_backup = "restoreBackup" "backup:restore" (file: Js<String>) -> RestoreBackupResult;
         get_recovery_report = "getRecoveryReport" "backup:recovery-report" () -> Option<RecoveryReport>;
         open_backup_folder = "openBackupFolder" "backup:open-folder" () -> ();
     }
@@ -541,10 +543,10 @@ contract! {
         open_logs_folder = "openLogsFolder" "app:open-logs-folder" () -> ();
         get_version = "getVersion" "app:version" () -> String;
         check_for_update = "checkForUpdate" "app:check-update" () -> UpdateInfo;
-        download_update = "downloadUpdate" "app:download-update" (asset_url: String) -> DownloadUpdateResult;
+        download_update = "downloadUpdate" "app:download-update" (asset_url: Js<String>) -> DownloadUpdateResult;
         get_launch_install = "getLaunchInstall" "app:launch-install" () -> Option<UpdateInfo>;
         get_update_notes = "getUpdateNotes" "app:update-notes" () -> Option<UpdateNotes>;
-        open_url = "openUrl" "app:open-url" (url: String) -> ();
+        open_url = "openUrl" "app:open-url" (url: Js<String>) -> ();
     }
     window {
         minimize_window = "minimizeWindow" "window:minimize" () -> ();

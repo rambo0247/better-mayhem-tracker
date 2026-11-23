@@ -7,6 +7,7 @@ use ts_rs::TS;
 
 use super::types::{AugmentStats, ItemStats, MatchScope, Multikills, RecordsData};
 use super::{CommandError, CommandResult, Ctx, Domain};
+use crate::js_arg::Js;
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -175,28 +176,28 @@ pub struct TrendsData {
 
 pub async fn get_champion_stats<R: Runtime>(
     _ctx: Ctx<R>,
-    _patch: Option<String>,
-    _queue: Option<i64>,
-    _season: Option<String>,
+    _patch: Js<Option<String>>,
+    _queue: Js<Option<i64>>,
+    _season: Js<Option<String>>,
 ) -> CommandResult<Vec<ChampionStats>> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_augment_stats<R: Runtime>(
     _ctx: Ctx<R>,
-    _champion_id: Option<i64>,
-    _patch: Option<String>,
-    _queue: Option<i64>,
-    _season: Option<String>,
+    _champion_id: Js<Option<i64>>,
+    _patch: Js<Option<String>>,
+    _queue: Js<Option<i64>>,
+    _season: Js<Option<String>>,
 ) -> CommandResult<Vec<AugmentStats>> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_augment_stats_detailed<R: Runtime>(
     _ctx: Ctx<R>,
-    _patch: Option<String>,
-    _queue: Option<i64>,
-    _season: Option<String>,
+    _patch: Js<Option<String>>,
+    _queue: Js<Option<i64>>,
+    _season: Js<Option<String>>,
 ) -> CommandResult<AugmentStatsDetailedResult> {
     Err(CommandError::not_ported())
 }
@@ -210,42 +211,42 @@ pub async fn get_dashboard<R: Runtime>(
 
 pub async fn get_champion_item_stats<R: Runtime>(
     _ctx: Ctx<R>,
-    _champion_id: i64,
-    _patch: Option<String>,
-    _queue: Option<i64>,
-    _season: Option<String>,
+    _champion_id: Js<i64>,
+    _patch: Js<Option<String>>,
+    _queue: Js<Option<i64>>,
+    _season: Js<Option<String>>,
 ) -> CommandResult<Vec<ItemStats>> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_global_stats<R: Runtime>(
     _ctx: Ctx<R>,
-    _patch: Option<String>,
-    _queue: Option<i64>,
+    _patch: Js<Option<String>>,
+    _queue: Js<Option<i64>>,
 ) -> CommandResult<GlobalStats> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_global_champion_detail<R: Runtime>(
     _ctx: Ctx<R>,
-    _champion_id: i64,
-    _patch: Option<String>,
-    _queue: Option<i64>,
+    _champion_id: Js<i64>,
+    _patch: Js<Option<String>>,
+    _queue: Js<Option<i64>>,
 ) -> CommandResult<GlobalChampionDetail> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_trends<R: Runtime>(
     _ctx: Ctx<R>,
-    _queue: Option<i64>,
+    _queue: Js<Option<i64>>,
 ) -> CommandResult<TrendsData> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_records<R: Runtime>(
     _ctx: Ctx<R>,
-    _queue: Option<i64>,
-    _account: Option<String>,
+    _queue: Js<Option<i64>>,
+    _account: Js<Option<String>>,
 ) -> CommandResult<RecordsData> {
     Err(CommandError::not_ported())
 }

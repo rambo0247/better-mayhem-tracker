@@ -6,6 +6,7 @@ use ts_rs::TS;
 
 use super::types::{MatchListItem, ScoreBadge, TeammateStats};
 use super::{CommandError, CommandResult, Ctx, Domain};
+use crate::js_arg::Js;
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -103,28 +104,28 @@ pub struct TeammateDetail {
 
 pub async fn get_teammate_stats<R: Runtime>(
     _ctx: Ctx<R>,
-    _season: Option<String>,
+    _season: Js<Option<String>>,
 ) -> CommandResult<Vec<TeammateStats>> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_teammate_groups<R: Runtime>(
     _ctx: Ctx<R>,
-    _season: Option<String>,
+    _season: Js<Option<String>>,
 ) -> CommandResult<Vec<TeammateGroup>> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_teammate_group_detail<R: Runtime>(
     _ctx: Ctx<R>,
-    _key: String,
+    _key: Js<String>,
 ) -> CommandResult<Option<TeammateGroupDetail>> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_teammate_detail<R: Runtime>(
     _ctx: Ctx<R>,
-    _key: String,
+    _key: Js<String>,
 ) -> CommandResult<Option<TeammateDetail>> {
     Err(CommandError::not_ported())
 }

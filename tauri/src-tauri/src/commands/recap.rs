@@ -10,6 +10,7 @@ use super::types::{
     TeammateStats,
 };
 use super::{CommandError, CommandResult, Ctx, Domain};
+use crate::js_arg::Js;
 
 pub struct Hooks;
 impl Domain for Hooks {}
@@ -242,23 +243,23 @@ pub struct SeasonRecap {
 
 pub async fn get_game_recap<R: Runtime>(
     _ctx: Ctx<R>,
-    _game_id: Option<i64>,
+    _game_id: Js<Option<i64>>,
 ) -> CommandResult<Option<GameRecap>> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_game_card<R: Runtime>(
     _ctx: Ctx<R>,
-    _game_id: i64,
+    _game_id: Js<i64>,
 ) -> CommandResult<Option<GameCardData>> {
     Err(CommandError::not_ported())
 }
 
 pub async fn get_season_recap<R: Runtime>(
     _ctx: Ctx<R>,
-    _season_id: Option<String>,
-    _queue: Option<i64>,
-    _account: Option<String>,
+    _season_id: Js<Option<String>>,
+    _queue: Js<Option<i64>>,
+    _account: Js<Option<String>>,
 ) -> CommandResult<Option<SeasonRecap>> {
     Err(CommandError::not_ported())
 }
