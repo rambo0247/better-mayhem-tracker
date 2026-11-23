@@ -909,7 +909,7 @@ function Activity(props: { recap: SeasonRecap; narrow?: boolean }) {
   const span = createMemo(() => calendarSpan(props.recap));
   const days = createMemo(() => new Map(props.recap.days.map((played) => [played.day, played])));
   const facts = createMemo(() => {
-    const { recap } = props;
+    const recap = props.recap;
     const list: Fact[] = [];
     if (recap.busiestDay) {
       const { day, games, wins } = recap.busiestDay;
