@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { APP_NAME, assetNames, zipApp } from "./package";
 
-test("asset names match the ones electron-builder writes", () => {
+test("asset names match the ones the 1.2.1 build wrote", () => {
   expect(assetNames("mac", "arm64")).toEqual([
     "BetterMayhemTracker-mac-arm64.zip",
     "BetterMayhemTracker-mac-arm64.dmg",

@@ -1,5 +1,5 @@
 // Turns a Tauri build into the release assets under the names the 1.2.1
-// updater looks for, the same ones electron-builder writes.
+// updater looks for, the same ones the 1.2.1 build wrote.
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";

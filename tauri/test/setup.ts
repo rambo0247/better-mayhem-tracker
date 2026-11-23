@@ -1,4 +1,5 @@
 import { plugin } from "bun";
+import { dirname } from "node:path";
 import { afterEach } from "bun:test";
 import { Window } from "happy-dom";
 import { transform } from "@solidjs/compiler";
@@ -49,7 +50,8 @@ Object.defineProperty(win.Element.prototype, "textContent", {
 // (a read that never updates, a write inside a computation); `bun run test`
 // runs the suite again on the production builds that ship.
 const DEV = process.env.SOLID_BUILD !== "production";
-const modules = `${import.meta.dir}/../node_modules`;
+// The node_modules that holds solid-js: this folder's, or the workspace root's
+const modules = dirname(dirname(Bun.resolveSync("solid-js/package.json", import.meta.dir)));
 const BUILDS: Record<string, string> = DEV
   ? {
       "solid-js": `${modules}/solid-js/dist/solid.dev.js`,

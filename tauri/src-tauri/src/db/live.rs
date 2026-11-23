@@ -11,7 +11,7 @@ use super::filters::{Where, apply_queue_filter};
 use super::summoner::{display_name, get_all_puuids};
 use crate::commands::live::PlayerRecord;
 
-/// `MIN_SHARED_GAMES` in `src/shared/api.ts`.
+/// `MIN_SHARED_GAMES` in `src/shared/teammates.ts`.
 pub const MIN_SHARED_GAMES: f64 = 2.0;
 
 /// `setGameMap`. The id is a JavaScript number, bound as better-sqlite3 binds

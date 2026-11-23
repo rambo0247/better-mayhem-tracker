@@ -25,10 +25,10 @@ use crate::db_row;
 use crate::intl::locale_compare;
 use crate::op_score::{self, ChampionClassMap, compute_match_scores};
 
-/// `MIN_SHARED_GAMES` in `src/shared/api.ts`.
+/// `MIN_SHARED_GAMES` in `src/shared/teammates.ts`.
 pub const MIN_SHARED_GAMES: i64 = 2;
 
-/// `MIN_GROUP_MEMBER_GAMES` in `src/shared/api.ts`.
+/// `MIN_GROUP_MEMBER_GAMES` in `src/shared/teammates.ts`.
 pub const MIN_GROUP_MEMBER_GAMES: i64 = 3;
 
 /// `CareerFilter` in `src/main/db/records.ts`.
