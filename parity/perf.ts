@@ -57,7 +57,7 @@ function usage(): never {
       "usage: bun parity/perf.ts --app electron-1.2.1 [--app tauri] [--runs 10]",
       "  [--data fixture|<folder>] [--electron <.app|.exe>] [--tauri <.app|.exe>]",
       "  [--idle 60] [--samples 5] [--interval 10] [--isolation sandbox|none]",
-      "  [--out parity/out/perf] [--selector <css>] [--sizes-only]",
+      "  [--tauri-download <dmg|exe>] [--out parity/out/perf] [--selector <css>] [--sizes-only]",
     ].join("\n"),
   );
   process.exit(2);
@@ -159,6 +159,19 @@ async function main() {
 
   const sizes: Record<string, SizeReport> = {};
   if (wantsElectron) sizes["electron-1.2.1"] = electronSizes(electronApp!, `v${VERSION}`);
+  if (apps.includes("tauri") && tauriApp) {
+    const installed = process.platform === "darwin" ? tauriApp : path.dirname(tauriApp);
+    const download = value("--tauri-download");
+    const downloadBytes = download ? fs.statSync(download).size : 0;
+    sizes.tauri = {
+      downloadAssets: [],
+      downloadBytes,
+      downloadAsset: download ? path.basename(download) : "not given",
+      installedApparentBytes: apparentBytes(installed),
+      installedAllocatedBytes: allocatedBytes(installed),
+      installedPath: tauriApp,
+    };
+  }
   report.sizes = sizes;
   report.electronSource = wantsElectron ? electronSource : undefined;
   if (args.includes("--sizes-only")) {

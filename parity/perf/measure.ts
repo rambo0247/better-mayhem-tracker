@@ -344,12 +344,30 @@ export async function runTauri(options: RunOptions & { app: string }): Promise<R
     const firstContentAt = wallClockMs();
     await Bun.sleep(FREEZE_DELAY_MS);
 
-    const readTree = async (frozenPids?: number[]) => {
+    const readTree = async (frozenRoles?: Map<number, string>) => {
       if (!mac) {
         const windows = await sampleWindows(app.pid);
         return { sample: windows.sample, notes: [] as string[] };
       }
       const rows = listProcesses();
+      if (frozenRoles) {
+        const members = [...frozenRoles].flatMap(([pid, role]) => {
+          const row = rows.find((candidate) => candidate.pid === pid);
+          return row ? [{ row, role }] : [];
+        });
+        if (members.length < frozenRoles.size) {
+          throw new MemoryProbeError("a helper is gone", "missing-helper");
+        }
+        const reading = readFootprint(members.map((member) => member.row.pid));
+        return {
+          sample: sumMembers(
+            members,
+            reading,
+            new Map(members.map((m) => [m.row.pid, m.row.rssBytes])),
+          ),
+          notes: [],
+        };
+      }
       const context: WebKitContext = {
         rootPid: app.pid,
         before,
@@ -372,11 +390,6 @@ export async function runTauri(options: RunOptions & { app: string }): Promise<R
         );
       }
       const pids = attribution.members.map((member) => member.row.pid);
-      if (frozenPids) {
-        const gone = frozenPids.filter((pid) => !pids.includes(pid));
-        if (gone.length > 0)
-          throw new MemoryProbeError(`helper ${gone.join(",")} is gone`, "missing-helper");
-      }
       const sample = sumMembers(
         attribution.members,
         readFootprint(pids),
@@ -386,8 +399,8 @@ export async function runTauri(options: RunOptions & { app: string }): Promise<R
     };
 
     const frozenTree = await readTree();
-    const frozen = frozenTree.sample.members.map((member) => member.pid);
-    for (const pid of frozen) watched.add(pid);
+    const frozen = new Map(frozenTree.sample.members.map((member) => [member.pid, member.role]));
+    for (const pid of frozen.keys()) watched.add(pid);
     const roles = new Set(frozenTree.sample.members.map((member) => member.role));
     const need = (mac ? ["main", "gpu", "networking", "webcontent"] : ["main"]).filter(
       (r) => !roles.has(r),
