@@ -59,6 +59,7 @@ pub mod text;
 pub mod transfer;
 pub mod tray;
 pub mod updater;
+pub mod webview2;
 
 use std::sync::Arc;
 use std::time::Instant;

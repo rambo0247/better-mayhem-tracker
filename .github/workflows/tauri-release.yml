@@ -1,0 +1,233 @@
+name: Tauri Release
+
+# Builds the Tauri app under the asset names the 1.2.1 updater looks for and
+# attaches them to a prerelease. Only tauri-v* tags trigger it, so release.yml
+# keeps shipping Electron from v* tags. The 1.2.1 updater drops prereleases, so
+# nobody is offered these until the release is published for real.
+on:
+  push:
+    tags: ["tauri-v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to stamp on the build"
+        required: false
+        default: "0.0.0-dispatch"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tauri-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: mac-arm64, os: macos-latest, platform: mac, arch: arm64, target: aarch64-apple-darwin }
+          - { name: mac-x64, os: macos-latest, platform: mac, arch: x64, target: x86_64-apple-darwin }
+          - { name: win-x64, os: windows-latest, platform: win, arch: x64, target: x86_64-pc-windows-msvc }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: tauri
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the version
+        id: version
+        working-directory: .
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            VERSION="${GITHUB_REF_NAME#tauri-v}"
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building $VERSION"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: canary
+
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Add the Intel target
+        if: matrix.target == 'x86_64-apple-darwin'
+        working-directory: tauri/src-tauri
+        run: rustup target add x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri/src-tauri
+          key: release-${{ matrix.target }}
+
+      - run: bun install --frozen-lockfile
+
+      # Both mac builds share the source, so one of them checks it
+      - name: Lint
+        if: matrix.target != 'x86_64-apple-darwin'
+        run: bun run lint
+
+      - name: Format
+        if: matrix.target != 'x86_64-apple-darwin'
+        run: bun run fmt:check
+
+      - name: Typecheck
+        if: matrix.target != 'x86_64-apple-darwin'
+        run: bun run typecheck
+
+      - name: Test
+        if: matrix.target != 'x86_64-apple-darwin'
+        run: bun run test
+
+      - name: Build the mac app
+        if: matrix.platform == 'mac'
+        run: >
+          bun run tauri build --bundles app --target ${{ matrix.target }}
+          --config '{"version":"${{ steps.version.outputs.version }}"}'
+
+      - name: Build the Windows exe
+        if: matrix.platform == 'win'
+        run: >
+          bun run tauri build --no-bundle
+          --config '{"version":"${{ steps.version.outputs.version }}"}'
+
+      # The version in Cargo.toml and the lockfiles must not move under a build
+      - name: Check the lockfiles are unchanged
+        working-directory: .
+        run: git diff --exit-code -- tauri/bun.lock tauri/src-tauri/Cargo.lock
+
+      - name: Package
+        run: bun scripts/package.ts --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --out ../release-assets
+
+      - name: Check the bundle's identity
+        if: matrix.platform == 'mac'
+        working-directory: .
+        run: |
+          app="tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/Better Mayhem Tracker.app"
+          plist="$app/Contents/Info.plist"
+          codesign --verify --deep --strict "$app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$plist")" = com.better-mayhem-tracker.app
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$plist")" = "Better Mayhem Tracker"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$plist")" = "${{ steps.version.outputs.version }}"
+          test -f "$app/Contents/MacOS/Better Mayhem Tracker"
+
+      # The driver logs these sentinels and nothing else compiles them in
+      - name: Check the release binary holds no parity driver
+        working-directory: .
+        run: |
+          if [ "${{ matrix.platform }}" = mac ]; then
+            exe="tauri/src-tauri/target/${{ matrix.target }}/release/bundle/macos/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker"
+          else
+            exe=$(ls release-assets/*.exe)
+          fi
+          for marker in bmt-parity-driver BMT_PARITY_TOKEN; do
+            if grep -a -q "$marker" "$exe"; then
+              echo "release binary contains $marker"
+              exit 1
+            fi
+            echo "release binary: no $marker"
+          done
+
+      # A runner has no display to speak of, so alive after 15 s is the check
+      - name: Launch the unzipped mac app
+        if: matrix.target == 'aarch64-apple-darwin'
+        working-directory: .
+        run: |
+          dir="$(mktemp -d)"
+          ditto -x -k release-assets/BetterMayhemTracker-mac-arm64.zip "$dir"
+          "$dir/Better Mayhem Tracker.app/Contents/MacOS/Better Mayhem Tracker" > launch.log 2>&1 &
+          pid=$!
+          sleep 15
+          alive=0
+          if kill -0 "$pid" 2>/dev/null; then alive=1; fi
+          kill "$pid" || true
+          cat launch.log
+          test "$alive" -eq 1
+
+      - uses: actions/setup-node@v4
+        if: matrix.target == 'aarch64-apple-darwin'
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # src/main/mac-update-script.ts is the script the 1.2.1 updater leaves
+      # behind, so this checks the Tauri bundle survives that swap
+      - name: Check the updater's bundle swap
+        if: matrix.target == 'aarch64-apple-darwin'
+        working-directory: .
+        run: |
+          npm ci --no-audit --no-fund --ignore-scripts
+          dir="$(mktemp -d)"
+          ditto -x -k release-assets/BetterMayhemTracker-mac-arm64.zip "$dir"
+          sh .github/smoke/mac-update-swap.sh "$dir/Better Mayhem Tracker.app"
+
+      - name: Launch the Windows exe from a temp folder
+        if: matrix.platform == 'win'
+        shell: pwsh
+        working-directory: .
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "bmt-launch"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item release-assets/BetterMayhemTracker.exe $dir
+          $p = Start-Process -FilePath "$dir/BetterMayhemTracker.exe" -PassThru
+          Start-Sleep -Seconds 15
+          $exited = $p.HasExited
+          if (-not $exited) { Stop-Process -Id $p.Id -Force }
+          if ($exited) { throw "The exe exited on its own with code $($p.ExitCode)" }
+
+      - name: List the assets and their sizes
+        working-directory: .
+        run: |
+          ls -l release-assets
+          {
+            echo "### ${{ matrix.name }}"
+            echo '```'
+            ls -l release-assets
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tauri-${{ matrix.name }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  # Tags only. A dispatch run leaves the assets as workflow artifacts and
+  # creates no release.
+  publish:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: tauri-*
+          merge-multiple: true
+
+      - name: Check the five assets are all there
+        run: |
+          ls -l release-assets
+          for name in BetterMayhemTracker.exe \
+            BetterMayhemTracker-mac-arm64.dmg BetterMayhemTracker-mac-x64.dmg \
+            BetterMayhemTracker-mac-arm64.zip BetterMayhemTracker-mac-x64.zip; do
+            test -f "release-assets/$name"
+          done
+
+      # A prerelease: the 1.2.1 updater drops those, so nobody is offered it
+      - name: Create the prerelease and upload the assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --prerelease --title "$GITHUB_REF_NAME" --generate-notes release-assets/*
