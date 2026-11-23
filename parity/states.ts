@@ -40,6 +40,8 @@ const row = (
 
 const FIRST_MATCH_ROW = "button.group.relative.flex.w-full";
 const FILTERS_ACTIVE = 'button[title="Filters"].btn-active';
+const FAVORITES_ON = 'button.btn-active:has-text("Favorites only")';
+const sortDirection = (title: string) => `button[title="${title}"]`;
 
 export const STATES: StateRow[] = [
   row("match-history-default", "default", "/", FIRST_MATCH_ROW),
@@ -87,10 +89,10 @@ export const STATES: StateRow[] = [
       { op: "wait", ms: 800 },
     ],
   }),
-  row("match-history-sorted-score", "match-history", "/", FIRST_MATCH_ROW, {
+  row("match-history-sorted-score", "match-history", "/", sortDirection("Highest first"), {
     pre: [{ op: "local", key: "view:matches.sort", value: '"score"' }],
   }),
-  row("match-history-favorites", "match-history", "/", FILTERS_ACTIVE, {
+  row("match-history-favorites", "match-history", "/", FAVORITES_ON, {
     pre: [{ op: "local", key: "view:matches.favorites", value: "true" }],
   }),
   row("match-history-no-matches", "match-history", "/", "text=No games match the current filters", {
@@ -108,10 +110,10 @@ export const STATES: StateRow[] = [
   row("match-history-grouped-none", "match-history", "/", FIRST_MATCH_ROW, {
     pre: [{ op: "setting", key: "session_grouping", value: "none" }],
   }),
-  row("match-history-oldest", "match-history", "/", FIRST_MATCH_ROW, {
+  row("match-history-oldest", "match-history", "/", sortDirection("Oldest first"), {
     pre: [{ op: "local", key: "view:matches.sortDir", value: '"asc"' }],
   }),
-  row("match-history-sorted-score-ascending", "match-history", "/", FIRST_MATCH_ROW, {
+  row("match-history-sorted-score-ascending", "match-history", "/", sortDirection("Lowest first"), {
     pre: [
       { op: "local", key: "view:matches.sort", value: '"score"' },
       { op: "local", key: "view:matches.sortDir", value: '"asc"' },
@@ -119,6 +121,12 @@ export const STATES: StateRow[] = [
   }),
   row("match-history-multikills-pressed", "match-history", "/", FILTERS_ACTIVE, {
     pre: [{ op: "local", key: "view:matches.multikills", value: '["doubles"]' }],
+  }),
+  row("match-history-filter-menu", "match-history", "/", "div.menu:not(.hidden)", {
+    steps: [
+      { op: "click", selector: 'button[title="Filters"]' },
+      { op: "wait", ms: 300 },
+    ],
   }),
   row("match-history-hide-remakes", "match-history", "/", FIRST_MATCH_ROW, {
     pre: [{ op: "setting", key: "hide_remakes", value: "true" }],
