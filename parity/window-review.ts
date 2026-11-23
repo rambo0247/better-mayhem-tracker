@@ -1,12 +1,14 @@
 /**
  * T10's review media and live checks for the window shell on macOS: the traffic lights, the
- * tray, close to tray, Show Window, a second launch, the hidden launch, F12, and quitting.
+ * tray, the app menu, close to tray, Show Window, a second launch, the hidden launch, F12, and
+ * every way of quitting.
  *
  *   bun parity/window-review.ts [--data fixture] [--out parity/out/review]
  *
- * Tauri's pictures are the window server's own image of the app's window, taken in-process by
- * the driver. Electron's window chrome cannot be captured without Screen Recording, so its side
- * is the page and the traffic light frames Electron's own layout code gives for its
+ * Tauri's pictures are drawn in-process by AppKit (`cacheDisplayInRect:`) from the title bar
+ * view, over WebKit's snapshot of the page, so nothing reads the screen. Electron's window
+ * chrome cannot be captured without Screen Recording, so its side is the page and a model of
+ * the traffic light frames: the ones Electron's layout code gives for its
  * `trafficLightPosition`. Every check prints PASS or FAIL and lands in `T10-review.json`.
  */
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
@@ -258,6 +260,126 @@ function electronButtons(position: { x: number; y: number }, size = 14, padding 
   }));
 }
 
+interface NativeItem {
+  separator?: boolean;
+  title?: string;
+  key?: string | null;
+  modifiers?: string[];
+  hidden: boolean;
+  alternate?: boolean;
+  submenu?: NativeItem[] | null;
+}
+
+interface ElectronItem {
+  type: string;
+  label: string;
+  accelerator: string | null;
+  visible: boolean;
+  submenu: ElectronItem[] | null;
+}
+
+/**
+ * What AppKit puts in any app's menu on this macOS on its own, which no Electron or Tauri menu
+ * code asks for: the Option alternate of Close Window, the Edit menu's tail, and the hidden
+ * alternates. Electron's live NSMenu cannot be read here (no in-process access to Electron's
+ * AppKit), so these are listed rather than compared.
+ */
+function appKitAdded(menu: string, item: NativeItem, index: number, items: NativeItem[]) {
+  if (item.hidden) return "hidden alternate";
+  if (menu === "File" && item.title === "Close All" && item.alternate) return "Option alternate";
+  if (menu === "Edit") {
+    const tail = ["AutoFill", "Start Dictation…", "Emoji & Symbols"];
+    if (item.title && tail.includes(item.title)) return "Edit menu tail";
+    if (item.separator && items[index + 1]?.title === "AutoFill") return "Edit menu tail";
+  }
+  return null;
+}
+
+/** Electron's accelerator as an AppKit key equivalent: modifiers and key, lowercased. */
+function keyOf(accelerator: string | null) {
+  if (!accelerator) return null;
+  const parts = accelerator.split("+");
+  const key = parts.pop()!;
+  const names: Record<string, string> = {
+    Command: "Cmd",
+    Cmd: "Cmd",
+    CommandOrControl: "Cmd",
+    CmdOrCtrl: "Cmd",
+    Control: "Ctrl",
+    Ctrl: "Ctrl",
+    Alt: "Alt",
+    Option: "Alt",
+    Shift: "Shift",
+  };
+  const order = ["Fn", "Ctrl", "Alt", "Shift", "Cmd"];
+  const mods = parts.map((p) => names[p] ?? p).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  // Chromium writes Plus as the = key, the unshifted key it is on
+  const char = key === "Plus" ? "=" : key.toLowerCase();
+  return `${mods.join("+")}+${char}`;
+}
+
+const nativeKey = (item: NativeItem) =>
+  item.key
+    ? `${(item.modifiers ?? []).join("+")}+${item.key === " " ? "space" : item.key.toLowerCase()}`
+    : null;
+
+/**
+ * Walks Electron's default menu against the NSMenu AppKit holds, item by item, after setting
+ * aside what AppKit adds. Toggle Full Screen is AppKit's too: it shows Fn+F and keeps the
+ * Ctrl+Cmd+F the menu asked for as a hidden alternate.
+ */
+function compareAppMenu(electron: ElectronItem[], native: NativeItem[], menu = "") {
+  const added: string[] = [];
+  const mismatches: string[] = [];
+  const kept = native.filter((item, i) => {
+    const why = appKitAdded(menu, item, i, native);
+    if (why)
+      added.push(
+        `${menu} > ${item.separator ? "separator" : item.title} ${nativeKey(item) ?? ""} (${why})`.replace(
+          "  ",
+          " ",
+        ),
+      );
+    return !why;
+  });
+  const wanted = electron.filter((item) => item.visible);
+  if (wanted.length !== kept.length) {
+    mismatches.push(
+      `${menu || "menu bar"}: ${wanted.length} items in Electron, ${kept.length} in AppKit`,
+    );
+  }
+  wanted.forEach((e, i) => {
+    const n = kept[i];
+    if (!n) return;
+    const where = `${menu || "menu bar"} #${i}`;
+    if (e.type === "separator" || n.separator) {
+      if (!(e.type === "separator" && n.separator))
+        mismatches.push(`${where}: ${e.label || e.type} vs ${n.title ?? "separator"}`);
+      return;
+    }
+    if (n.title !== e.label)
+      mismatches.push(`${where}: title ${JSON.stringify(n.title)} vs ${JSON.stringify(e.label)}`);
+    let key = nativeKey(n);
+    const want = keyOf(e.accelerator);
+    if (key !== want && n.key === "f" && n.modifiers?.join("+") === "Fn") {
+      const alternate = native.find(
+        (a) => a.hidden && a.title === n.title && nativeKey(a) === want,
+      );
+      if (alternate) {
+        added.push(`${menu} > ${n.title} shows Fn+f, keeps ${want} as a hidden alternate (AppKit)`);
+        key = want;
+      }
+    }
+    if (key !== want) mismatches.push(`${where} ${e.label}: key ${key} vs ${want}`);
+    if (e.submenu || n.submenu) {
+      const sub = compareAppMenu(e.submenu ?? [], n.submenu ?? [], e.label);
+      added.push(...sub.added);
+      mismatches.push(...sub.mismatches);
+    }
+  });
+  return { added, mismatches };
+}
+
 /** JSON with keys sorted, since the Rust dump and Electron's order keys differently. */
 function canonical(value: unknown): string {
   return JSON.stringify(value, (_key, v) =>
@@ -374,7 +496,7 @@ try {
     file("electron-tl-marked-big.png"),
     file("tauri-tl-marked-big.png"),
     [
-      "Electron: page, red = frames from trafficLightPosition {16,15}",
+      "Electron: page; red = modeled frames from trafficLightPosition {16,15}",
       "Tauri: webview + AppKit title bar, green = measured, red = Electron's",
     ],
   );
@@ -394,9 +516,13 @@ try {
   frame(
     pair("launch.png", file("electron-page.png"), tWindow.file, ["Electron 1.2.1", "Tauri (T10)"]),
     "Launch: the header doubles as the title bar, traffic lights inset at 16,15",
-    6,
+    5,
   );
-  frame(tl, "Traffic lights, 4x: green (Tauri, measured) covers red (Electron's frames)", 6);
+  frame(
+    tl,
+    "Traffic lights, 4x: green (Tauri, measured) covers red (Electron's modeled frames)",
+    5,
+  );
 
   // Tray
   const menus = await tauri.driver.json<{ tray: any; appMenu: any }>("shell-menus");
@@ -413,10 +539,22 @@ try {
   check("tray tooltip", menus.tray.tooltip === eTray.tooltip, menus.tray.tooltip);
   const productName = (text: string) =>
     text.replaceAll("better-mayhem-tracker", "Better Mayhem Tracker");
+  const native = await tauri.driver.json<NativeItem[]>("shell-native-menu");
+  fs.writeFileSync(file("app-menu-native.json"), JSON.stringify(native, null, 1));
+  const menuCompare = compareAppMenu(JSON.parse(productName(JSON.stringify(eApp.menu))), native);
+  fs.writeFileSync(file("app-menu-compare.json"), JSON.stringify(menuCompare, null, 1));
   check(
-    "app menu equals Electron's default menu",
-    canonical(menus.appMenu.menu) === productName(canonical(eApp.menu)),
-    { live: menus.appMenu.live?.map((m: any) => m.label) },
+    "app menu as AppKit holds it equals Electron's default menu, beside AppKit's own items",
+    menuCompare.mismatches.length === 0,
+    menuCompare,
+  );
+  frame(
+    textPanel(
+      "app-menu.png",
+      `App menu, read back from AppKit's NSMenu\n\nequal to Electron's default menu: ${menuCompare.mismatches.length === 0}\n\nAppKit adds on its own: Close All,\nAutoFill, Start Dictation, Emoji & Symbols,\nFn+F on Toggle Full Screen`,
+    ),
+    "App menu: AppKit's live menu equals Electron's default menu item for item",
+    4,
   );
   // The status item button as AppKit draws it, and Electron's file at the 16 pt it draws it
   const trayIcon = (await tauriPicture(tauri, "tray", "tauri-tray.png")).file;
@@ -480,7 +618,7 @@ try {
     1100,
   );
   fs.copyFileSync(trayPanel, path.join(out, "T10-review-tray.png"));
-  frame(trayPanel, "Tray: Show Window, separator, Quit; macOS opens it on a left click", 6);
+  frame(trayPanel, "Tray: Show Window, separator, Quit; macOS opens it on a left click", 4);
 
   // Close to tray, then Show Window
   await electron.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.close());
@@ -509,7 +647,7 @@ try {
   frame(
     hiddenPair,
     "Close: minimize_to_tray is on, so the window hides and the app keeps running",
-    5,
+    3,
   );
 
   // Electron's Show Window handler is show then focus (T04's probe); Tauri runs its own item
@@ -538,19 +676,24 @@ try {
     "-append",
     path.join(out, "T10-review-close-to-tray.png"),
   );
-  frame(back, "Tray > Show Window: the window comes back", 5);
+  frame(back, "Tray > Show Window: the window comes back", 3);
 
   // A second launch hands over and exits 0
   await tauri.engine.evaluate(() => (window as any).__TAURI_INTERNALS__.invoke("window:close"));
   await Bun.sleep(500);
+  const secondOut = file("second-launch.out");
+  const outFd = fs.openSync(secondOut, "w");
   const second = spawn(tauri.facts.binary as string, tauri.args, {
     cwd: tauri.runDir,
     env: tauri.env,
-    stdio: "ignore",
+    stdio: ["ignore", outFd, outFd],
   });
   const secondCode = await waitExit(second, 20_000);
+  fs.closeSync(outFd);
   await Bun.sleep(800);
   const afterSecond = await tauriState(tauri);
+  const secondWrote = fs.readFileSync(secondOut, "utf8");
+  const firstLog = fs.readFileSync(path.join(tauri.runDir, "tauri.log"), "utf8");
   check(
     "a second launch exits 0 and shows the first window",
     secondCode === 0 && afterSecond.visible,
@@ -558,6 +701,18 @@ try {
       code: secondCode,
       firstVisible: afterSecond.visible,
     },
+  );
+  check(
+    "a second launch writes no log line, in its own output or the first's log",
+    secondWrote === "" &&
+      !firstLog.includes(`[bmt pid=${second.pid}]`) &&
+      firstLog.split("\n").filter((l) => l.includes("first instance started")).length === 1,
+    { secondPid: second.pid, secondOutput: secondWrote },
+  );
+  fs.writeFileSync(
+    path.join(out, "second-launch.log"),
+    `second launch pid ${second.pid} exited ${secondCode}, wrote ${JSON.stringify(secondWrote)}\n` +
+      `first window visible after: ${afterSecond.visible}\n`,
   );
   frame(
     pair(
@@ -567,30 +722,36 @@ try {
       ["Tauri before: hidden", `Second launch exited ${secondCode}; the first window shows`],
     ),
     "Second launch: it hands over to the running app and exits 0",
-    5,
+    3,
   );
 
   // F12
   await electron.page.keyboard.press("F12");
   await tauri.engine.press("F12");
-  await Bun.sleep(1500);
+  // The inspector opens and closes on its own schedule, slower on a loaded machine
+  const devtoolsReach = async (open: boolean) => {
+    for (let waited = 0; ; waited += 250) {
+      const state = await tauriState(tauri);
+      if (state.devtoolsOpen === open || waited >= 5_000) return state;
+      await Bun.sleep(250);
+    }
+  };
+  const tDev = await devtoolsReach(true);
   const eDev = (await electronState(electron))!;
-  const tDev = await tauriState(tauri);
   check("F12 opens the devtools", tDev.devtoolsOpen, {
     electron: eDev.devtoolsOpen,
     tauri: tDev.devtoolsOpen,
   });
   await tauri.engine.press("F12");
   await electron.page.keyboard.press("F12");
-  await Bun.sleep(800);
-  const tDevClosed = await tauriState(tauri);
+  const tDevClosed = await devtoolsReach(false);
   check("F12 again closes them", !tDevClosed.devtoolsOpen, tDevClosed.devtoolsOpen);
   frame(
     textPanel(
       "devtools.png",
-      `F12\n\nElectron: devtools open = ${eDev.devtoolsOpen}\nTauri:    devtools open = ${tDev.devtoolsOpen}\n\nF12 again\nTauri:    devtools open = ${tDevClosed.devtoolsOpen}`,
+      `F12\n\nTauri:    devtools open = ${tDev.devtoolsOpen}\nElectron: devtools open = ${eDev.devtoolsOpen}\n  (Playwright's key never reaches\n   before-input-event)\n\nF12 again\nTauri:    devtools open = ${tDevClosed.devtoolsOpen}`,
     ),
-    "F12 toggles the devtools in every build, as Electron's before-input-event does",
+    "F12 toggles Tauri's devtools; Playwright's synthetic F12 never reaches Electron's before-input-event, so Electron reads false",
     4,
   );
 
@@ -624,7 +785,7 @@ try {
       `Tray > Quit, final fetch stand-in hangs 60 s\n\nexit code ${code} after ${seconds.toFixed(2)} s\n\n${tail.map((l) => l.replace(/^\[bmt pid=\d+\] /, "")).join("\n")}`,
     ),
     "Quit: the final fetch is capped at 5 s, then Shutting down and exit 0",
-    6,
+    4,
   );
 }
 
@@ -650,6 +811,124 @@ try {
       `minimize_to_tray = "false", close the window\n\nexit code ${code}\n\n${tail.map((l) => l.replace(/^\[bmt pid=\d+\] /, "")).join("\n")}`,
     ),
     "Close with minimize_to_tray off: the app quits",
+    3,
+  );
+}
+
+const lines = (tauri: RunningTauri) =>
+  fs
+    .readFileSync(path.join(tauri.runDir, "tauri.log"), "utf8")
+    .split("\n")
+    .filter((l) => /^\[bmt pid=|^\[parity\]/.test(l))
+    .map((l) => l.replace(/^\[bmt pid=\d+\] /, ""));
+
+/** The lines a quit through the final fetch logs, in Electron's order. */
+function quitOrder(log: string[], fetch: "finished" | "timed out" | "none") {
+  const at = (text: string) => log.findIndex((l) => l.includes(text));
+  const shutdown = at("Shutting down");
+  if (shutdown !== log.length - 1) return false;
+  if (fetch === "none") return at("Fetching games before quit...") === -1;
+  const fetching = at("Fetching games before quit...");
+  const settled =
+    fetch === "finished"
+      ? at("stand-in final fetch finished")
+      : at("Final fetch on quit failed: Error: timed out");
+  return fetching !== -1 && fetching < settled && settled < shutdown;
+}
+
+{
+  // Electron's close is not prevented here, so its window goes at once while the fetch runs
+  const quits = await startTauriHere("close-quits-client", {
+    env: { BMT_PARITY_MINIMIZE_TO_TRAY: "false", BMT_PARITY_FINAL_FETCH_MS: "3000" },
+  });
+  await settle(quits.ctx.engine, viewport);
+  const started = Date.now();
+  await quits.engine
+    .evaluate(() => (window as any).__TAURI_INTERNALS__.invoke("window:close"))
+    .catch(() => {});
+  const right = await tauriState(quits);
+  const rightMs = Date.now() - started;
+  const code = await waitExit(quits.child, 15_000);
+  const seconds = (Date.now() - started) / 1000;
+  const log = lines(quits);
+  check(
+    "close with the setting false and a client hides the window at once, then quits through the fetch",
+    !right.visible && right.phase === "FinalFetch" && code === 0 && quitOrder(log, "finished"),
+    { afterMs: rightMs, visible: right.visible, phase: right.phase, code, seconds, log },
+  );
+  fs.copyFileSync(path.join(quits.runDir, "tauri.log"), path.join(out, "close-quits-client.log"));
+  frame(
+    textPanel(
+      "close-quits-client.png",
+      `minimize_to_tray = "false", client connected, close\n\n${rightMs} ms later: visible ${right.visible}, ${right.phase}\nexit ${code} after ${seconds.toFixed(2)} s\n\n${log.slice(-3).join("\n")}`,
+    ),
+    "Close with the setting off and a client: the window goes at once, the fetch runs, then exit",
+    4,
+  );
+}
+
+/** AppKit's terminate:, which the Dock's Quit and logout send, scheduled on the run loop. */
+async function dockQuit(name: string, fetchMs: number, fetch: "finished" | "timed out") {
+  const app = await startTauriHere(name, { env: { BMT_PARITY_FINAL_FETCH_MS: String(fetchMs) } });
+  await settle(app.ctx.engine, viewport);
+  const started = Date.now();
+  await app.driver.json("shell-terminate");
+  const code = await waitExit(app.child, 15_000);
+  const seconds = (Date.now() - started) / 1000;
+  const log = lines(app);
+  const bound = fetch === "timed out" ? seconds >= 4.9 && seconds < 6.5 : seconds < 4;
+  check(
+    `terminate: (Dock Quit, logout) runs the final fetch (${fetch}), then Shutting down and exit 0`,
+    code === 0 && bound && quitOrder(log, fetch),
+    { code, seconds, log },
+  );
+  fs.copyFileSync(path.join(app.runDir, "tauri.log"), path.join(out, `${name}.log`));
+  return { code, seconds, log };
+}
+
+{
+  const hung = await dockQuit("dock-quit-hung", 60_000, "timed out");
+  const quick = await dockQuit("dock-quit", 1_000, "finished");
+  frame(
+    textPanel(
+      "dock-quit.png",
+      `AppKit terminate: (Dock Quit, logout)\n\nfetch answers in 1 s: exit ${quick.code} after ${quick.seconds.toFixed(2)} s\nfetch hangs: exit ${hung.code} after ${hung.seconds.toFixed(2)} s\n\n${hung.log.slice(-3).join("\n")}`,
+    ),
+    "Dock Quit and logout: NSTerminateLater while the final fetch runs, then exit 0",
+    5,
+  );
+}
+
+/** A real signal to the process, as `kill` and a system shutdown send. */
+async function signalQuit(name: string, signal: NodeJS.Signals, fetchMs?: number) {
+  const app = await startTauriHere(name, {
+    env: fetchMs ? { BMT_PARITY_FINAL_FETCH_MS: String(fetchMs) } : {},
+  });
+  await settle(app.ctx.engine, viewport);
+  const started = Date.now();
+  process.kill(app.child.pid!, signal);
+  const code = await waitExit(app.child, 15_000);
+  const seconds = (Date.now() - started) / 1000;
+  const log = lines(app);
+  const fetch = fetchMs ? "finished" : "none";
+  check(
+    `${signal} quits through the ${fetchMs ? "final fetch" : "quit path"}, exit 0, log ends Shutting down`,
+    code === 0 && app.child.signalCode === null && quitOrder(log, fetch),
+    { code, signal: app.child.signalCode, seconds, log },
+  );
+  fs.copyFileSync(path.join(app.runDir, "tauri.log"), path.join(out, `${name}.log`));
+  return { code, seconds, log };
+}
+
+{
+  const term = await signalQuit("sigterm", "SIGTERM", 1_000);
+  const int = await signalQuit("sigint", "SIGINT");
+  frame(
+    textPanel(
+      "signals.png",
+      `SIGTERM, client connected: exit ${term.code} after ${term.seconds.toFixed(2)} s\nSIGINT, no client:        exit ${int.code} after ${int.seconds.toFixed(2)} s\n\n${term.log.slice(-3).join("\n")}`,
+    ),
+    "SIGTERM and SIGINT quit as Electron's app.quit() does: fetch, Shutting down, exit 0",
     4,
   );
 }
@@ -670,7 +949,7 @@ try {
       `launched with --hidden\n\nwindow visible: ${state.visible}\ntray icon: ${state.tray ? "present" : "missing"}`,
     ),
     "--hidden (the login item): the app comes up in the tray only",
-    4,
+    3,
   );
   await hidden.close();
 }

@@ -1,5 +1,6 @@
 //! Driver ops for the window shell: pictures of the native title bar and the
-//! tray icon, the tray's actions, the menus as built, and the window state.
+//! tray icon, the tray's actions, the menus as built and as AppKit holds them,
+//! AppKit's `terminate:`, and the window state.
 //! AppKit draws each picture in-process from the view itself, the way the
 //! webview snapshot is taken, so nothing reads the screen.
 
@@ -69,6 +70,10 @@ pub fn dispatch(window: &WebviewWindow, op: &str, body: &Value) -> Option<Result
                 .unwrap_or("window");
             shot(window, target).map(Reply::Image)
         }
+        "shell-native-menu" => platform::native_menu(window).map(Reply::Json),
+        "shell-terminate" => {
+            platform::terminate(window).map(|()| Reply::Json(json!({ "sent": true })))
+        }
         _ => return None,
     })
 }
@@ -134,8 +139,11 @@ mod platform {
     use std::sync::mpsc;
     use std::time::Duration;
 
-    use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSBitmapImageFileType, NSView, NSWindowButton};
+    use objc2::runtime::AnyObject;
+    use objc2::{MainThreadMarker, msg_send, sel};
+    use objc2_app_kit::{
+        NSApplication, NSBitmapImageFileType, NSEventModifierFlags, NSMenu, NSView, NSWindowButton,
+    };
     use objc2_foundation::NSDictionary;
     use objc2_web_kit::WKWebView;
     use serde_json::{Value, json};
@@ -218,6 +226,71 @@ mod platform {
         })
     }
 
+    fn menu_items(menu: &NSMenu) -> Vec<Value> {
+        (0..menu.numberOfItems())
+            .filter_map(|index| menu.itemAtIndex(index))
+            .map(|item| {
+                if item.isSeparatorItem() {
+                    return json!({ "separator": true, "hidden": item.isHidden() });
+                }
+                let mask = item.keyEquivalentModifierMask();
+                let modifiers: Vec<&str> = [
+                    (NSEventModifierFlags::Function, "Fn"),
+                    (NSEventModifierFlags::Control, "Ctrl"),
+                    (NSEventModifierFlags::Option, "Alt"),
+                    (NSEventModifierFlags::Shift, "Shift"),
+                    (NSEventModifierFlags::Command, "Cmd"),
+                ]
+                .into_iter()
+                .filter(|(flag, _)| mask.contains(*flag))
+                .map(|(_, name)| name)
+                .collect();
+                let key = item.keyEquivalent().to_string();
+                json!({
+                    "title": item.title().to_string(),
+                    "key": if key.is_empty() { Value::Null } else { json!(key) },
+                    "modifiers": modifiers,
+                    "hidden": item.isHidden(),
+                    "alternate": item.isAlternate(),
+                    "action": item.action().map(|action| action.name().to_string_lossy().into_owned()),
+                    "submenu": item.submenu().map(|sub| menu_items(&sub)),
+                })
+            })
+            .collect()
+    }
+
+    /// The main menu as AppKit holds it, with the items AppKit adds itself.
+    pub fn native_menu(window: &WebviewWindow) -> Result<Value, String> {
+        on_main(window, |_, mtm| {
+            NSApplication::sharedApplication(mtm)
+                .mainMenu()
+                .map_or(Value::Null, |menu| json!(menu_items(&menu)))
+        })
+    }
+
+    /// Sends AppKit's `terminate:`, as the Dock's Quit and logout do. It is
+    /// scheduled on the run loop, because `terminate:` sent inside a driver
+    /// call would wait on the event handler that is running the call.
+    pub fn terminate(window: &WebviewWindow) -> Result<(), String> {
+        window
+            .run_on_main_thread(|| {
+                let mtm =
+                    MainThreadMarker::new().expect("run_on_main_thread runs on the main thread");
+                let app = NSApplication::sharedApplication(mtm);
+                // SAFETY: NSObject's performSelector:withObject:afterDelay:, with
+                // a selector NSApplication answers and no argument
+                let _: () = unsafe {
+                    msg_send![
+                        &*app,
+                        performSelector: sel!(terminate:),
+                        withObject: std::ptr::null::<AnyObject>(),
+                        afterDelay: 0.0f64
+                    ]
+                };
+            })
+            .map_err(|e| e.to_string())
+    }
+
     pub fn shot(window: &WebviewWindow, target: &str) -> Result<Raw, String> {
         match target {
             // The title bar strip that holds the traffic lights, placed by
@@ -274,6 +347,14 @@ mod platform {
         Err(format!(
             "native pictures of {target:?} are macOS only; Windows draws its title bar in the page"
         ))
+    }
+
+    pub fn native_menu(_: &WebviewWindow) -> Result<Value, String> {
+        Ok(Value::Null)
+    }
+
+    pub fn terminate(_: &WebviewWindow) -> Result<(), String> {
+        Err("terminate: is AppKit's".into())
     }
 }
 
