@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 
 use flate2::read::MultiGzDecoder;
 use flate2::{Compression, GzBuilder};
-use rusqlite::types::ValueRef;
+use rusqlite::types::{Value as Sql, ValueRef};
 use rusqlite::{Connection, named_params, params};
 use serde_json::Value;
 
@@ -195,11 +195,13 @@ pub fn participant_rows_from_raw(raw: Option<&Value>) -> Result<Vec<RawParticipa
         .collect()
 }
 
-/// The three game columns copied onto every participant row.
+/// The three game columns copied onto every participant row. `queue_id` is
+/// whatever JavaScript would bind: a payload's number or string, or a stored
+/// column read back.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GameDenorm {
     pub is_remake: i64,
-    pub queue_id: Option<i64>,
+    pub queue_id: Sql,
     pub game_version: Option<String>,
 }
 
@@ -233,7 +235,7 @@ const INSERT_AUGMENT: &str = "
 /// commit together or not at all.
 pub fn write_participants(
     conn: &Connection,
-    game_id: i64,
+    game_id: &Sql,
     meta: &GameDenorm,
     rows: &[RawParticipantRow],
 ) -> rusqlite::Result<()> {
@@ -331,7 +333,7 @@ pub fn rebuild_participants_from_payloads(conn: &Connection) -> rusqlite::Result
                     row.get::<_, i64>(0)?,
                     GameDenorm {
                         is_remake: row.get(1)?,
-                        queue_id: row.get(2)?,
+                        queue_id: row.get::<_, js::Cell>(2)?.to_sql(),
                         game_version: row.get(3)?,
                     },
                     // A blob, or text that gunzips the same way from its bytes
@@ -355,7 +357,7 @@ pub fn rebuild_participants_from_payloads(conn: &Connection) -> rusqlite::Result
                 result.unusable += 1;
                 continue;
             }
-            write_participants(conn, *game_id, meta, &participants)?;
+            write_participants(conn, &Sql::Integer(*game_id), meta, &participants)?;
             result.normalized += 1;
         }
         tx.commit()?;

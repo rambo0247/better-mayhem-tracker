@@ -1,7 +1,9 @@
 //! The JavaScript semantics the database code leans on: property reads that
 //! throw on `null`, `||` and `??` over parsed JSON, `JSON.stringify`, and how
-//! better-sqlite3 binds and returns values. `None` is `undefined`.
+//! better-sqlite3 binds and returns values and runs transactions. `None` is
+//! `undefined`.
 
+use rusqlite::Connection;
 use rusqlite::types::{Value as Sql, ValueRef};
 use serde_json::Value;
 
@@ -99,6 +101,34 @@ pub fn bind(v: Option<&Value>) -> rusqlite::Result<Sql> {
             "SQLite3 can only bind numbers, strings, bigints, buffers, and null".into(),
         ))),
     }
+}
+
+/// better-sqlite3's `db.transaction(f)()`: `BEGIN` and `COMMIT` in
+/// autocommit, a savepoint inside an open transaction. An import holds 50
+/// inserts in one transaction, and a throw in one insert undoes only that
+/// insert. The error propagates either way.
+pub fn transaction<T>(
+    conn: &Connection,
+    f: impl FnOnce() -> rusqlite::Result<T>,
+) -> rusqlite::Result<T> {
+    let (begin, commit, undo) = if conn.is_autocommit() {
+        ("BEGIN", "COMMIT", "ROLLBACK")
+    } else {
+        (
+            "SAVEPOINT `\t_bs3.`",
+            "RELEASE `\t_bs3.`",
+            "ROLLBACK TO `\t_bs3.`",
+        )
+    };
+    conn.execute_batch(begin)?;
+    let result = f().and_then(|value| conn.execute_batch(commit).map(|()| value));
+    if result.is_err() && !conn.is_autocommit() {
+        conn.execute_batch(undo)?;
+        if undo != "ROLLBACK" {
+            conn.execute_batch(commit)?;
+        }
+    }
+    result
 }
 
 /// A column as better-sqlite3 hands it to JavaScript, reduced to what `===`
