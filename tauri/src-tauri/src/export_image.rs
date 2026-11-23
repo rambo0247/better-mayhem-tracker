@@ -693,7 +693,7 @@ async fn file_name(app: &AppHandle, card: &CardSpec) -> String {
     };
     let champion = game
         .and_then(|g| g.champion_id)
-        .and_then(|id| champions.as_ref()?.get(&id))
+        .and_then(|id| champions.as_ref()?.get(&id.to_string()))
         .map(|c| c.name.as_str());
     default_file_name(
         card,
