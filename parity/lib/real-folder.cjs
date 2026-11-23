@@ -10,8 +10,8 @@ const APP_FOLDER_NAMES = ["better-mayhem-tracker", "Better Mayhem Tracker"];
 function realDataRoots(platform = process.platform, env = process.env, home = os.homedir()) {
   const bases = [];
   if (platform === "darwin") bases.push(path.join(home, "Library", "Application Support"));
-  else if (platform === "win32") bases.push(env.APPDATA ?? path.join(home, "AppData", "Roaming"));
-  else bases.push(env.XDG_CONFIG_HOME ?? path.join(home, ".config"));
+  else if (platform === "win32") bases.push(env.APPDATA || path.join(home, "AppData", "Roaming"));
+  else bases.push(env.XDG_CONFIG_HOME || path.join(home, ".config"));
   return bases.flatMap((base) => APP_FOLDER_NAMES.map((name) => path.join(base, name)));
 }
 

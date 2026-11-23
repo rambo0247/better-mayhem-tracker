@@ -4,7 +4,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { isUnderRealFolder } from "../lib/real-folder.ts";
+import { isUnderRealFolder, realDataRoots } from "../lib/real-folder.ts";
 import { waitForNoGame } from "../lib/no-game.ts";
 import { SNAPSHOT_DIRS } from "../lib/data.ts";
 import {
@@ -239,12 +239,16 @@ describe("the real-folder guard, in the tools and in the seam", () => {
 
   test("capture refuses an --out inside the real folder before it creates anything", () => {
     const home = scratch();
-    const real = path.join(home, "Library", "Application Support", "better-mayhem-tracker");
+    const real = realDataRoots(process.platform, {}, home)[0]!;
     fs.mkdirSync(real, { recursive: true });
     const result = spawnSync(
       "bun",
       [path.resolve(import.meta.dir, "../capture.ts"), "--all", "--out", path.join(real, "x")],
-      { env: { ...process.env, HOME: home }, encoding: "utf8", timeout: 60_000 },
+      {
+        env: { ...process.env, HOME: home, XDG_CONFIG_HOME: "" },
+        encoding: "utf8",
+        timeout: 60_000,
+      },
     );
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("refused");

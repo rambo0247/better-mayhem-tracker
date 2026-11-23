@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -96,6 +96,89 @@ test("hashing a source before and after a snapshot shows it unchanged", () => {
   expect(diffHashes(before, hashAppFiles(source))).toEqual({ changed: [], removed: [], added: [] });
   fs.appendFileSync(path.join(source, "data", "matches.db"), "x");
   expect(diffHashes(before, hashAppFiles(source)).changed).toEqual(["data/matches.db"]);
+});
+
+test("a snapshot of a WAL database a live writer holds open leaves every source file as it was", async () => {
+  const dir = scratch();
+  const source = path.join(dir, "source");
+  fs.mkdirSync(path.join(source, "data"), { recursive: true });
+  const db = path.join(source, "data", "matches.db");
+  const holder = path.join(dir, "holder.ts");
+  fs.writeFileSync(
+    holder,
+    `import { Database } from "bun:sqlite";
+     const db = new Database(process.argv[2]);
+     db.run("PRAGMA journal_mode=WAL");
+     db.run("PRAGMA wal_autocheckpoint=0");
+     db.run("create table x(a)");
+     for (let i = 0; i < 200; i++) db.run("insert into x values (?)", [i]);
+     console.log("ready");
+     setTimeout(() => {}, 60_000);`,
+  );
+  const child = spawn("bun", [holder, db], { stdio: ["ignore", "pipe", "inherit"] });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("the writer never became ready")), 15_000);
+      child.on("exit", (code) => reject(new Error(`the writer exited with ${code}`)));
+      child.stdout!.on("data", (chunk: Buffer) => {
+        if (chunk.toString().includes("ready")) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+    });
+    expect(fs.statSync(db + "-wal").size).toBeGreaterThan(0);
+    expect(fs.existsSync(db + "-shm")).toBe(true);
+
+    let before = hashAppFiles(source);
+    for (let tries = 0; tries < 20; tries++) {
+      await Bun.sleep(250);
+      const now = hashAppFiles(source);
+      const settled = diffHashes(before, now).changed.length === 0;
+      before = now;
+      if (settled) break;
+    }
+    expect([...before.keys()].sort()).toEqual(
+      ["data/matches.db", "data/matches.db-shm", "data/matches.db-wal"].sort(),
+    );
+    const result = takeSnapshot({ source, out: path.join(dir, "out"), realRoots: [dir + "-x"] });
+    expect(diffHashes(before, hashAppFiles(source))).toEqual({
+      changed: [],
+      removed: [],
+      added: [],
+    });
+    const rows = spawnSync("sqlite3", ["-readonly", result.database, "select count(*) from x"]);
+    expect(rows.stdout.toString().trim()).toBe("200");
+    expect(fs.readdirSync(path.join(dir, "out", "data"))).toEqual(["matches.db"]);
+
+    spawnSync("sqlite3", ["-readonly", db, "select count(*) from x"]);
+    expect(diffHashes(before, hashAppFiles(source)).changed).toContain("data/matches.db-shm");
+  } finally {
+    child.kill();
+  }
+}, 30_000);
+
+test("the snapshot CLI refuses a --verify log in the real folder before it reads or creates anything", () => {
+  const home = fs.realpathSync(scratch());
+  const real = realDataRoots(process.platform, {}, home)[0]!;
+  fs.mkdirSync(path.join(real, "data"), { recursive: true });
+  fs.writeFileSync(path.join(real, "data", "matches.db"), "not opened");
+  const out = path.join(home, "snap");
+  const result = spawnSync(
+    "bun",
+    [
+      path.resolve(import.meta.dir, "../snapshot.ts"),
+      "--out",
+      out,
+      "--verify",
+      path.join(real, "verify.log"),
+    ],
+    { env: { ...process.env, HOME: home, XDG_CONFIG_HOME: "" }, encoding: "utf8", timeout: 30_000 },
+  );
+  expect(result.status).not.toBe(0);
+  expect(result.stderr).toContain("verify log refused");
+  expect(fs.existsSync(out)).toBe(false);
+  expect(fs.readdirSync(real)).toEqual(["data"]);
 });
 
 describe("seam", () => {
