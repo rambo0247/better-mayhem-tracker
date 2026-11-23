@@ -196,6 +196,33 @@ test("the snapshot CLI refuses a --verify log in the real folder before it reads
   expect(fs.readdirSync(real)).toEqual(["data"]);
 });
 
+test("--data refuses the real folder and its data folder, though they hold a database", () => {
+  const home = fs.realpathSync(scratch());
+  const real = realDataRoots(process.platform, {}, home)[0]!;
+  fs.mkdirSync(path.join(real, "data"), { recursive: true });
+  fs.writeFileSync(path.join(real, "data", "matches.db"), "not opened");
+  const data = path.resolve(import.meta.dir, "../lib/data.ts");
+  const outcomes = [real, path.join(real, "data")].map((spec) => {
+    const result = spawnSync(
+      "bun",
+      [
+        "-e",
+        `import { resolveDataRoot } from ${JSON.stringify(data)};
+         try { console.log("accepted " + resolveDataRoot(${JSON.stringify(spec)})); }
+         catch (e) { console.log(e.message); }`,
+      ],
+      {
+        env: { ...process.env, HOME: home, XDG_CONFIG_HOME: "" },
+        encoding: "utf8",
+        timeout: 30_000,
+      },
+    );
+    return result.stdout.trim();
+  });
+  expect(outcomes).toEqual(Array(2).fill(expect.stringContaining("data folder refused")));
+  expect(fs.readdirSync(path.join(real, "data"))).toEqual(["matches.db"]);
+});
+
 test("diff and determinism refuse an output in the real folder before they create anything", () => {
   const home = fs.realpathSync(scratch());
   const real = realDataRoots(process.platform, {}, home)[0]!;
