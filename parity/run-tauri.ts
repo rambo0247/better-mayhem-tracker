@@ -212,8 +212,10 @@ function resolveInPage(target: { selector: string; nth?: number; text?: string; 
 export class TauriEngine implements Engine {
   readonly name = "tauri" as const;
   private mouse = { x: 0, y: 0 };
-  /** Window content size minus page viewport, learned on the first resize. */
-  private frameExtra = { width: 0, height: 0 };
+  /** The last resize the screen cut short, recorded with the capture. */
+  clamped?: { asked: [number, number]; seen: [number, number] };
+  /** Window size per page px in each dimension, learned on every resize. */
+  private windowPerPage = [1, 1];
   private viewport = { width: 0, height: 0 };
   /** How the last hover reached the page, for lanes that check native `:hover`. */
   lastHover?: { path: string; hoverMatches: boolean };
@@ -392,33 +394,44 @@ export class TauriEngine implements Engine {
   }
 
   /**
-   * The window's content size can differ from the area the page lays out in (on macOS 26 the
-   * webview loses 32 px to the title bar), so this corrects by what the page reports.
+   * The window's content size can differ from the area the page lays out in: on macOS 26 the
+   * webview loses 32 px to the title bar, and WebView2's forced device scale changes the CSS px
+   * in a window. So this steers by what the page reports, starting from the last ratio seen.
    */
   async resizeWindow(width: number, height: number) {
-    const seen = () => this.evaluate(() => [innerWidth, innerHeight] as [number, number]);
-    let ask = { width, height };
-    for (let attempt = 0; attempt < 3; attempt++) {
-      await this.driver.call("resize", ask);
-      const deadline = Date.now() + 2000;
-      let now = await seen();
-      while (
-        (now[0] !== ask.width - this.frameExtra.width ||
-          now[1] !== ask.height - this.frameExtra.height) &&
-        Date.now() < deadline
-      ) {
+    const target = [width, height] as const;
+    this.clamped = undefined;
+    const read = () => this.evaluate(() => [innerWidth, innerHeight] as [number, number]);
+    const settled = async () => {
+      let last = await read();
+      for (const deadline = Date.now() + 2000; Date.now() < deadline;) {
         await Bun.sleep(50);
-        now = await seen();
+        const now = await read();
+        if (now[0] === last[0] && now[1] === last[1]) return now;
+        last = now;
       }
-      if (now[0] === width && now[1] === height) {
+      return last;
+    };
+    let ask = target.map((value, i) => Math.round(value * this.windowPerPage[i]!));
+    let seen: [number, number] = [0, 0];
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await this.driver.call("resize", { width: ask[0], height: ask[1] });
+      seen = await settled();
+      this.windowPerPage = [ask[0]! / seen[0], ask[1]! / seen[1]];
+      if (seen[0] === width && seen[1] === height) {
         this.viewport = { width, height };
         return;
       }
-      this.frameExtra = { width: ask.width - now[0], height: ask.height - now[1] };
-      ask = { width: width + this.frameExtra.width, height: height + this.frameExtra.height };
+      ask = ask.map((value, i) =>
+        Math.round(value + (target[i]! - seen[i]!) * this.windowPerPage[i]!),
+      );
     }
-    const now = await seen();
-    throw new Error(`asked for ${width}x${height}, the page sees ${now[0]}x${now[1]}`);
+    if (seen[0] !== width) {
+      throw new Error(`asked for ${width}x${height}, the page sees ${seen[0]}x${seen[1]}`);
+    }
+    // The OS keeps a window on its screen; Electron's runner accepts the same clamp unchecked
+    this.clamped = { asked: [width, height], seen };
+    this.viewport = { width: seen[0], height: seen[1] };
   }
 }
 
