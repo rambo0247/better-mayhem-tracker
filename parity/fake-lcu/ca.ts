@@ -33,9 +33,9 @@ export function integer(value: Buffer) {
 }
 
 /** 16 random bytes, never zero, so the serial is a positive integer. */
-function serialNumber() {
-  const bytes = crypto.randomBytes(16);
-  if (bytes.every((b) => b === 0)) bytes[15] = 1;
+function serialNumber(forced?: Buffer) {
+  const bytes = forced ?? crypto.randomBytes(16);
+  if (bytes.every((b) => b === 0)) bytes[bytes.length - 1] = 1;
   return integer(bytes);
 }
 
@@ -94,10 +94,11 @@ interface CertificateInput {
   issuerPublicKey: crypto.KeyObject;
   isCa: boolean;
   now: Date;
+  serial?: Buffer;
 }
 
 function certificate(input: CertificateInput): string {
-  const { subject, issuer, publicKey, issuerKey, issuerPublicKey, isCa, now } = input;
+  const { subject, issuer, publicKey, issuerKey, issuerPublicKey, isCa, now, serial } = input;
   const extensions = [
     extension(OID.basicConstraints, sequence(...(isCa ? [boolTrue] : [])), true),
     extension(
@@ -120,7 +121,7 @@ function certificate(input: CertificateInput): string {
 
   const toBeSigned = sequence(
     tlv(0xa0, integer(Buffer.from([2]))),
-    serialNumber(),
+    serialNumber(serial),
     signatureAlgorithm(),
     name(issuer),
     sequence(
@@ -140,9 +141,13 @@ function certificate(input: CertificateInput): string {
 /**
  * A throwaway CA and a leaf for 127.0.0.1 and localhost, made at run time. Nothing about
  * them is fixed, so no release build can contain them. The CA's name says what it is, and
- * it is never Riot's.
+ * it is never Riot's. `serials` pins a certificate's serial bytes so a test can reach the
+ * encodings a random serial hits about once in 256.
  */
-export function generatePki(now: Date = new Date()): FakePki {
+export function generatePki(
+  now: Date = new Date(),
+  serials: { ca?: Buffer; leaf?: Buffer } = {},
+): FakePki {
   const ca = crypto.generateKeyPairSync("ec", { namedCurve: "P-256" });
   const leaf = crypto.generateKeyPairSync("ec", { namedCurve: "P-256" });
   const caName = "Parity fake League CA (not Riot)";
@@ -155,6 +160,7 @@ export function generatePki(now: Date = new Date()): FakePki {
       issuerPublicKey: ca.publicKey,
       isCa: true,
       now,
+      serial: serials.ca,
     }),
     leafPem: certificate({
       subject: "parity-fake-lcu",
@@ -164,6 +170,7 @@ export function generatePki(now: Date = new Date()): FakePki {
       issuerPublicKey: ca.publicKey,
       isCa: false,
       now,
+      serial: serials.leaf,
     }),
     leafKeyPem: leaf.privateKey.export({ type: "pkcs8", format: "pem" }) as string,
   };

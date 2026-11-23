@@ -125,6 +125,74 @@ describe("the fake CA", () => {
     }
   });
 
+  describe("a forced serial", () => {
+    const forced = [
+      {
+        name: "a leading 00 before a byte under 0x80",
+        bytes: [0x00, 0x7f, 0x11, 0x22],
+        der: "7f1122",
+      },
+      { name: "a leading 00 before a byte over 0x80", bytes: [0x00, 0x91, 0x22], der: "009122" },
+      { name: "the high bit set", bytes: [0x91, 0x22, 0x33], der: "00912233" },
+      { name: "a run of leading zeros", bytes: [0x00, 0x00, 0x00, 0x05], der: "05" },
+    ];
+
+    const derLength = (der: Buffer, at: number) =>
+      der[at]! < 0x80 ? { size: der[at]!, next: at + 1 } : readLong(der, at);
+    const readLong = (der: Buffer, at: number) => {
+      const bytes = der[at]! & 0x7f;
+      return { size: der.readUIntBE(at + 1, bytes), next: at + 1 + bytes };
+    };
+    const serialDer = (pem: string) => {
+      const der = new crypto.X509Certificate(pem).raw;
+      let at = 1 + (derLength(der, 1).next - 1);
+      at = derLength(der, at + 1).next;
+      const version = derLength(der, at + 1);
+      at = version.next + version.size;
+      const serial = derLength(der, at + 1);
+      return der.subarray(serial.next, serial.next + serial.size).toString("hex");
+    };
+
+    for (const { name, bytes, der } of forced) {
+      for (const target of ["ca", "leaf"] as const) {
+        test(`${name} in the ${target} writes a minimal positive serial`, () => {
+          const pki = generatePki(new Date(), { [target]: Buffer.from(bytes) });
+          const pem = target === "ca" ? pki.caPem : pki.leafPem;
+          expect(serialDer(pem)).toBe(der);
+          expect(new crypto.X509Certificate(pem).serialNumber.toLowerCase()).toBe(
+            der.replace(/^00/, "") || "00",
+          );
+        });
+      }
+
+      test(`${name} in both lets a TLS client trust the leaf and the server start`, async () => {
+        const pki = generatePki(new Date(), { ca: Buffer.from(bytes), leaf: Buffer.from(bytes) });
+        const ca = new crypto.X509Certificate(pki.caPem);
+        expect(new crypto.X509Certificate(pki.leafPem).verify(ca.publicKey)).toBe(true);
+        const server = https.createServer(
+          { key: pki.leafKeyPem, cert: pki.leafPem },
+          (_, response) => response.end("ok"),
+        );
+        await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+        try {
+          const port = (server.address() as { port: number }).port;
+          const body = await new Promise<string>((resolve, reject) => {
+            https
+              .get({ host: "127.0.0.1", port, path: "/", ca: pki.caPem }, (response) => {
+                let text = "";
+                response.on("data", (chunk) => (text += chunk));
+                response.on("end", () => resolve(text));
+              })
+              .on("error", reject);
+          });
+          expect(body).toBe("ok");
+        } finally {
+          await new Promise((resolve) => server.close(resolve));
+        }
+      });
+    }
+  });
+
   test("two runs make different keys", () => {
     expect(generatePki().caPem).not.toBe(generatePki().caPem);
   });
