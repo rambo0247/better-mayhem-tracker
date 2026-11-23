@@ -53,7 +53,9 @@ function useRail() {
   return rail;
 }
 
-// HashRouter's links, which the router intercepts by their path after the #
+// Plain hash links: the webview moves the hash and the router follows it.
+// The router claims no plain anchor (explicitLinks), so an `<a state>` carries
+// nothing; a link that needs location state calls navigate(to, { state }).
 function hashHref(path: string) {
   return `#${path}`;
 }

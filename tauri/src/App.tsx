@@ -1,7 +1,8 @@
 import type { Component } from "solid-js";
-import { createRouter, hashHistory, type RouteDefinition } from "@solidjs/router";
+import { createRouter, type RouteDefinition } from "@solidjs/router";
 import { GAME_CARD_ROUTE, SEASON_CARD_ROUTE } from "@shared/card";
 import Layout from "./components/Layout";
+import { hashHistoryWithState } from "./lib/history";
 import RoutePlaceholder from "./components/RoutePlaceholder";
 
 // Each page unit adds its file under pages/ and its route picks it up here, so
@@ -41,7 +42,11 @@ const routes = [
   { path: `${SEASON_CARD_ROUTE}/:seasonId`, component: page("SeasonCard") },
 ] satisfies RouteDefinition[];
 
-const Router = createRouter({ routes, history: hashHistory() });
+// Without explicitLinks the router claims every plain anchor and matches its
+// href against the page URL, where the hash does not count: on an http(s)
+// origin (WebView2, the dev server) every nav link would read as current on
+// Match History. The nav links keep their own state through useLinkState.
+const Router = createRouter({ routes, history: hashHistoryWithState(), explicitLinks: true });
 
 export default function App() {
   return <Router>{(props) => props.children}</Router>;
