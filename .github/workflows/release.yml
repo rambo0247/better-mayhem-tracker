@@ -8,8 +8,6 @@ name: Release
 on:
   push:
     tags: ["v*"]
-    # TEMPORARY: a workflow can only be dispatched from the default branch
-    branches: ["port/T41-cutover"]
   workflow_dispatch:
 
 permissions:
