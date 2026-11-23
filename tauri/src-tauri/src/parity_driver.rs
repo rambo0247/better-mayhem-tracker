@@ -715,6 +715,13 @@ fn dispatch(window: &WebviewWindow, body: &Value) -> Result<Response, String> {
                 }),
             ))
         }
+        // Pushes one of the 11 events through its typed emitter in events.rs
+        "emit" => {
+            let event = text(body, "event")?;
+            let payload = body.get("payload").cloned().unwrap_or(Value::Null);
+            crate::events::emit_by_name(window.app_handle(), event, payload)?;
+            Ok(Response::json(200, &json!({ "emitted": event })))
+        }
         "quit" => Ok(Response {
             status: 200,
             content_type: "application/json",
