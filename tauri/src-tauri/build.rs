@@ -11,7 +11,25 @@ fn main() {
         use_parity_identifier();
     }
     app_version();
-    tauri_build::build()
+    // tauri-build links the Common Controls v6 manifest into binaries only, so a
+    // test binary that links tauri-plugin-dialog fails to load on Windows
+    // (STATUS_ENTRYPOINT_NOT_FOUND). The linker embeds it into every target instead.
+    let msvc = std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc");
+    let windows = msvc.then(tauri_build::WindowsAttributes::new_without_app_manifest);
+    if msvc {
+        let manifest = std::env::current_dir()
+            .expect("the build script's folder")
+            .join("windows-app-manifest.xml");
+        println!("cargo:rerun-if-changed={}", manifest.display());
+        println!("cargo:rustc-link-arg=/MANIFEST:EMBED");
+        println!("cargo:rustc-link-arg=/MANIFESTINPUT:{}", manifest.display());
+    }
+    let attributes = tauri_build::Attributes::new();
+    let attributes = match windows {
+        Some(windows) => attributes.windows_attributes(windows),
+        None => attributes,
+    };
+    tauri_build::try_build(attributes).expect("tauri-build failed");
 }
 
 /// Electron's `app.getVersion()` is the root package.json's version. Only
