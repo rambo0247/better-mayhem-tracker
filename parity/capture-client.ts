@@ -190,7 +190,7 @@ export async function openClientState(
   const drive = async (): Promise<ClientDrive> => {
     await waitForLabel(page, spec.ready);
     const connectMs = spec.scenario ? Date.now() - startedAt : null;
-    const vars = await deps.resolveVars(page);
+    const vars = await deps.resolveVars(running.ctx.engine);
 
     await deps.applyState(running.ctx, { ...state, steps: undefined }, vars);
 
@@ -209,7 +209,7 @@ export async function openClientState(
 
     await page.locator(state.expect).first().waitFor({ state: "attached", timeout: 30_000 });
     for (const step of state.steps ?? []) await runStep(running.ctx, step, vars);
-    const report = await deps.settle(page, running.ctx.viewport);
+    const report = await deps.settle(running.ctx.engine, running.ctx.viewport);
     const expectFound = (await page.locator(state.expect).count()) > 0;
     return {
       outcome: { settle: report, expectFound, placeholders: [] },

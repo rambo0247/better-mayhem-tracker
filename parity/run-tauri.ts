@@ -308,7 +308,8 @@ export class TauriEngine implements Engine {
     }
   }
 
-  async click(target: Target) {
+  async click(target: Target, button?: "left" | "right") {
+    if (button === "right") throw new Error("the parity driver sends only the left button");
     const { x, y } = await this.resolve(target);
     await this.mouseMove(x, y);
     await this.driver.call("mouse", { kind: "down", x, y });
