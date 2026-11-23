@@ -284,9 +284,8 @@ jobs:
 
   # T40: the parity report on Windows. The same `report.ts run` as on the Mac,
   # trunk Electron against the head Tauri driver build on its own UI and
-  # commands, uploading report-win.json for `report.ts render`. It needs the
-  # fixture (decision E2 keeps it out of git) and, for the golden replay, the
-  # goldens recorded on it.
+  # commands, uploading report-win.json for `report.ts render`. It runs on the
+  # committed fixture and replays the committed goldens (decision E2).
   report-windows:
     needs: unit
     if: github.event_name == 'workflow_dispatch' && contains(inputs.lanes, 'report')
@@ -295,54 +294,26 @@ jobs:
     defaults:
       run:
         shell: bash
-    env:
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Find the fixture and goldens
-        id: inputs
-        env:
-          FIXTURE_RUN: ${{ inputs.fixture_run }}
-          GOLDEN_RUN: ${{ inputs.golden_run }}
-        run: |
-          if [ -z "$FIXTURE_RUN" ]; then
-            echo "found=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No fixture. Pass fixture_run with the id of a run that uploaded a parity-fixture artifact. Skipping the Windows report."
-            exit 0
-          fi
-          gh run download "$FIXTURE_RUN" --name parity-fixture --dir parity/snapshots/fixture
-          echo "found=true" >> "$GITHUB_OUTPUT"
-          if [ -n "$GOLDEN_RUN" ]; then
-            gh run download "$GOLDEN_RUN" --name parity-goldens --dir parity/out/golden
-            echo "golden=" >> "$GITHUB_OUTPUT"
-          else
-            echo "golden=--skip-golden" >> "$GITHUB_OUTPUT"
-            echo "::notice::No golden_run, so the report records the goldens as not replayed."
-          fi
-
-      - if: steps.inputs.outputs.found == 'true'
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
 
-      - if: steps.inputs.outputs.found == 'true'
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: canary
 
-      - if: steps.inputs.outputs.found == 'true'
-        name: Install the pinned Rust toolchain
+      - name: Install the pinned Rust toolchain
         working-directory: tauri
         run: rustup show active-toolchain || rustup toolchain install
 
-      - if: steps.inputs.outputs.found == 'true'
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: tauri/src-tauri
 
-      - if: steps.inputs.outputs.found == 'true'
-        name: Build trunk Electron
+      - name: Build trunk Electron
         run: |
           git fetch --depth 1 origin main
           npm ci
@@ -350,24 +321,21 @@ jobs:
           node node_modules/electron/install.js
           npm run build
 
-      - if: steps.inputs.outputs.found == 'true'
-        name: Build the Tauri driver build
+      - name: Build the Tauri driver build
         working-directory: tauri
         run: |
           bun install --frozen-lockfile
           bun run build
           bun run tauri build --debug --no-bundle --features parity-driver
 
-      - if: steps.inputs.outputs.found == 'true'
-        name: Install parity
+      - name: Install parity
         working-directory: parity
         run: bun install --frozen-lockfile
 
-      - if: steps.inputs.outputs.found == 'true'
-        name: Run the report
-        run: bun parity/report.ts run --data fixture --out parity/out/report --trunk origin/main ${{ steps.inputs.outputs.golden }}
+      - name: Run the report
+        run: bun parity/report.ts run --data fixture --out parity/out/report --trunk origin/main --golden-dir parity/goldens/data
 
-      - if: always() && steps.inputs.outputs.found == 'true'
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: parity-report-windows
