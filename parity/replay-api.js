@@ -4,6 +4,8 @@
 // of this script in the webview's initialization script, which runs before any page script.
 (function install(root) {
   const STORE_KEY = "__bmtReplay";
+  // states.ts applyState writes the running state's id here
+  const STATE_KEY = "__bmtReplayState";
 
   // canon.ts's canonicalize without clock masking, which call arguments never need
   const sortKeys = (value) => {
@@ -61,19 +63,33 @@
 
     const bySeq = (a, b) => a.seq - b.seq;
 
+    // The running state's own call list (FORMAT.md, "Per-state call lists") answers first, by
+    // exact arguments. A call it lacks falls back to the general rule and counts as a miss.
+    function find(channel, args) {
+      const key = canonical(args);
+      const index = bundle.states?.[storage?.getItem(STATE_KEY) ?? ""];
+      if (!index) return byFormat(channel, key);
+      const listed = index.find((c) => c.channel === channel && canonical(c.args) === key);
+      const golden = listed && (bundle.goldens[channel] ?? []).find((c) => c.case === listed.case);
+      if (golden) return { golden, exact: true };
+      const fallback = byFormat(channel, key);
+      return fallback && { ...fallback, exact: false, unlisted: true };
+    }
+
     // FORMAT.md version 1, "Matching a call to a golden": equal canonical arguments, the
     // lowest seq on a tie, and a write group's cases in seq order behind one cursor per
     // channel. Otherwise the case named default.
-    function find(channel, args) {
+    function byFormat(channel, key) {
       const cases = bundle.goldens[channel] ?? [];
-      const key = canonical(args);
       const exact = cases.filter((c) => canonical(c.args) === key).sort(bySeq);
       if (exact.length === 0) {
         const fallback = cases.find((c) => c.case === "default");
         return fallback && { golden: fallback, exact: false };
       }
-      if (exact[0].group === "read") return { golden: exact[0], exact: true };
-      const writes = cases.filter((c) => c.group !== "read").sort(bySeq);
+      // A per-state case (group "state") is a read, recorded by record-states.ts
+      const isWrite = (c) => c.group !== "read" && c.group !== "state";
+      if (!isWrite(exact[0])) return { golden: exact[0], exact: true };
+      const writes = cases.filter(isWrite).sort(bySeq);
       const cursor = state.cursors[channel] ?? 0;
       const next = writes.findIndex((c, i) => i >= cursor && exact.includes(c));
       if (next < 0) return { golden: exact[0], exact: true };
@@ -93,9 +109,12 @@
         }
         const found = find(channel, args);
         state.calls.push(`${call} -> ${found ? found.golden.case : "miss"}`);
-        // A default answer is data recorded for other arguments, so it counts as a miss
-        if (!found || !found.exact)
-          state.misses.push(`${found ? "default" : "ReplayMiss"}: ${call}`);
+        // A default answer is data recorded for other arguments, and an answer the state's
+        // list lacks is a guess, so both count as misses
+        if (!found || !found.exact) {
+          const kind = !found ? "ReplayMiss" : found.unlisted ? "unlisted" : "default";
+          state.misses.push(`${kind}: ${call}`);
+        }
         if (found && method === "setSetting" && found.golden.outcome.kind !== "error") {
           state.settings[args[0]] = args[1];
         }

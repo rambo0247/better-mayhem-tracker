@@ -134,6 +134,26 @@ function writeGoldens(dir: string) {
       outcome: { kind: "value", result: false },
     }),
   );
+  fs.mkdirSync(path.join(dir, "states"));
+  fs.writeFileSync(
+    path.join(dir, "states", "trends-default.json"),
+    JSON.stringify({
+      format: 1,
+      state: "trends-default",
+      group: "default",
+      route: "/trends",
+      viewport: { width: 1280, height: 820 },
+      calls: [
+        {
+          seq: 0,
+          channel: "settings:get",
+          method: "getSetting",
+          args: ["session_grouping"],
+          case: "allowed-session-grouping",
+        },
+      ],
+    }),
+  );
   fs.mkdirSync(path.join(dir, "events"));
   fs.writeFileSync(
     path.join(dir, "events", "startup.jsonl"),
@@ -262,6 +282,31 @@ describe("replay api", () => {
     await api.getMatchHistory!(1, 0);
     expect((api as any).__misses).toEqual([]);
     expect((api as any).__calls).toEqual(["getMatchHistory([1,0]) -> default"]);
+  });
+
+  test("the running state's call list answers first, by exact arguments", async () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    storage.setItem("__bmtReplayState", "trends-default");
+    const api = create(bundle, storage);
+    // FORMAT's rule alone answers "week", the lowest seq; the state's list names "none"
+    expect(await api.getSetting!("session_grouping")).toBe("none");
+    expect((api as any).__misses).toEqual([]);
+  });
+
+  test("a call the state's list lacks falls back to FORMAT's rule, as a miss", async () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    storage.setItem("__bmtReplayState", "trends-default");
+    const api = create(bundle, storage);
+    expect(await api.getMatchHistory!(1, 0)).toEqual(HISTORY);
+    expect((api as any).__misses).toEqual(["unlisted: getMatchHistory([1,0])"]);
+  });
+
+  test("a state without a list uses FORMAT's rule alone", async () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    storage.setItem("__bmtReplayState", "no-such-state");
+    const api = create(bundle, storage);
+    expect(await api.getSetting!("session_grouping")).toBe("week");
+    expect((api as any).__misses).toEqual([]);
   });
 
   test("misses and calls survive the reload a state does", async () => {

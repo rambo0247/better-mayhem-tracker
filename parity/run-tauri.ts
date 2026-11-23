@@ -40,6 +40,8 @@ export interface ReplayBundle {
   methods: Record<string, string>;
   events: Record<string, string>;
   goldens: Record<string, ReplayCase[]>;
+  /** Each state's calls and the case answering each, from T05's `states/<id>.json`. */
+  states: Record<string, { channel: string; args: unknown[]; case: string }[]>;
   emit?: { event: string; payload?: unknown }[];
 }
 
@@ -89,6 +91,20 @@ export function buildReplayBundle(options: {
       });
     }
   }
+  const states: ReplayBundle["states"] = {};
+  const stateDir = path.join(options.goldenDir, "states");
+  for (const file of fs.existsSync(stateDir) ? fs.readdirSync(stateDir) : []) {
+    if (!file.endsWith(".json")) continue;
+    const list = JSON.parse(fs.readFileSync(path.join(stateDir, file), "utf8"));
+    if (list.format !== 1) throw new Error(`states/${file}: format ${list.format}`);
+    states[list.state] = list.calls.map(
+      (c: { channel: string; args: unknown[]; case: string }) => ({
+        channel: c.channel,
+        args: c.args,
+        case: c.case,
+      }),
+    );
+  }
   let emit: ReplayBundle["emit"];
   if (options.scenario) {
     const file = path.join(options.goldenDir, "events", `${options.scenario}.jsonl`);
@@ -106,6 +122,7 @@ export function buildReplayBundle(options: {
     methods: options.methods,
     events: options.events,
     goldens,
+    states,
     emit,
   };
 }
