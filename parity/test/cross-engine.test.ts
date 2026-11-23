@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { PNG } from "pngjs";
-import { causeOf, locateWorstWindow } from "../capture.ts";
+import { causeOf, locateWorstWindow, unexpectedMisses } from "../capture.ts";
 import { diffPngs, type DiffResult, type GeometryRow } from "../diff.ts";
 
 function solid(width: number, height: number, paint?: (x: number, y: number) => boolean) {
@@ -69,5 +69,17 @@ describe("locating the worst tile", () => {
     expect(at.xCss + 64).toBeGreaterThanOrEqual(90);
     expect(at.yCss).toBeLessThanOrEqual(100);
     expect(at.yCss + 64).toBeGreaterThanOrEqual(140);
+  });
+});
+
+describe("replay misses on Windows", () => {
+  test("the replay takes isWindowMaximized from its default golden there, and nothing else", () => {
+    const unlisted = "unlisted: isWindowMaximized([])";
+    expect(unexpectedMisses([unlisted], [], "win32")).toEqual([]);
+    expect(unexpectedMisses([unlisted], [], "darwin")).toEqual([unlisted]);
+    expect(unexpectedMisses(["ReplayMiss: isWindowMaximized([])"], [], "win32")).toHaveLength(1);
+    expect(unexpectedMisses(["default: isWindowMaximized([])"], [], "win32")).toHaveLength(1);
+    expect(unexpectedMisses(['unlisted: getSetting(["x"])'], [], "win32")).toHaveLength(1);
+    expect(unexpectedMisses(['unlisted: getSetting(["x"])'], ["getSetting"], "darwin")).toEqual([]);
   });
 });

@@ -223,6 +223,30 @@ export function elementAt(rows: GeometryRow[], x: number, y: number) {
   return best && { path: best[0], tag: best[1], box: best.slice(2) };
 }
 
+/**
+ * Calls Electron's renderer makes only on Windows, for the window controls it draws there. The
+ * per-state call lists were recorded on macOS, where it draws none, so on Windows the channel's
+ * `default` golden ("fresh window") answers them, and the replay names that answer unlisted.
+ */
+export const WINDOWS_RENDERER_CALLS = ["isWindowMaximized"];
+
+/** The replay misses that fail a state: any its row does not declare, but for the above. */
+export function unexpectedMisses(
+  misses: string[],
+  declared: string[] = [],
+  platform: NodeJS.Platform = process.platform,
+): string[] {
+  return misses.filter((miss) => {
+    const [, kind, method] = miss.match(/^(\w+): (\w+)\(/) ?? [];
+    if (declared.includes(method ?? "")) return false;
+    return !(
+      platform === "win32" &&
+      kind === "unlisted" &&
+      WINDOWS_RENDERER_CALLS.includes(method!)
+    );
+  });
+}
+
 export type Cause = "capture" | "size" | "replay-data" | "layout" | "page-budget" | "tile";
 
 /**
@@ -495,9 +519,7 @@ async function main() {
             1,
           ),
         );
-        const misses = ((meta.replayMisses ?? []) as string[]).filter(
-          (miss) => !state.replayMisses?.includes(miss.match(/^\w+: (\w+)\(/)?.[1] ?? ""),
-        );
+        const misses = unexpectedMisses((meta.replayMisses ?? []) as string[], state.replayMisses);
         if (misses.length > 0) {
           throw new Error(`the goldens did not answer: ${misses.join(" | ").slice(0, 400)}`);
         }
