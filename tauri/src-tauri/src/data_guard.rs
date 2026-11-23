@@ -1,9 +1,9 @@
-//! Keeps lane builds, any build whose Cargo profile is not `release`, out of
-//! the folder Electron 1.2.1 keeps a player's matches in.
-//! [`crate::paths::Paths`] runs the [`Guard`] on the root before it stores
-//! it, and again on every folder and file it hands out, so nothing is created
-//! or opened under a path that fails it. Release builds do not compile it, and
-//! open that folder as 1.2.1 does.
+//! Keeps lane builds, and any build with debug assertions, out of the folder
+//! Electron 1.2.1 keeps a player's matches in (see `paths.rs` for which
+//! builds those are). [`crate::paths::Paths`] runs the [`Guard`] on the root
+//! before it stores it, and again on every folder and file it hands out, so
+//! nothing is created or opened under a path that fails it. Release builds
+//! do not compile it, and open that folder as 1.2.1 does.
 //!
 //! A path fails when it is the real folder or inside it, however it is
 //! spelled. The check compares the text first. Then it walks the path the
@@ -52,13 +52,22 @@ impl fmt::Display for Tripped {
         write!(
             f,
             "Better Mayhem Tracker refused to start: the data root {} {}. Debug and parity builds never \
-             open the real {DATA_FOLDER} folder. Set BMT_DATA_ROOT to a copy made by \
-             `bun parity/snapshot.ts` or `bun parity/fixture.ts`.",
+             open the real {DATA_FOLDER} folder. {ADVICE}",
             self.root.display(),
             self.reason
         )
     }
 }
+
+#[cfg(not(bmt_release_profile))]
+const ADVICE: &str = "Set BMT_DATA_ROOT to a copy made by `bun parity/snapshot.ts` or \
+                      `bun parity/fixture.ts`.";
+
+/// A release-profile build with debug assertions has the guard but not the
+/// override, so there is no folder to point it at.
+#[cfg(bmt_release_profile)]
+const ADVICE: &str = "This build has the release profile and debug assertions, so it keeps the \
+                      guard but has no data root override, and cannot start.";
 
 /// The folders the real data folder can sit in, which every path the app
 /// uses is checked against.

@@ -6,10 +6,12 @@
 //! build is any build whose Cargo profile is not, or does not inherit from,
 //! `release`. build.rs sets `bmt_release_profile` from the profile itself,
 //! because profile settings can turn `debug_assertions` on in a release build
-//! or off in a debug one. One cfg gates the override and the guard, so no
-//! build has one without the other. A release build has neither: it compiles
-//! no override, as 1.2.1 has none, so no process environment can move a
-//! player's database or backups.
+//! or off in a debug one. A release build has no override, as 1.2.1 has none,
+//! so no process environment can move a player's database or backups.
+//! The guard is in every lane build and every build with debug assertions,
+//! so a release-profile build with debug assertions, or a debug build given
+//! `--cfg bmt_release_profile`, has the guard and no override, and refuses
+//! to start. No build has the override without the guard.
 
 use std::ffi::OsString;
 use std::io;
@@ -52,7 +54,7 @@ fn override_root() -> Option<OsString> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Paths {
     root: PathBuf,
-    #[cfg(not(bmt_release_profile))]
+    #[cfg(any(not(bmt_release_profile), debug_assertions))]
     guard: crate::data_guard::Guard,
 }
 
@@ -73,12 +75,12 @@ impl Paths {
 
     /// `root`, once the guard passes it. A lane build exits here when it is
     /// the real folder.
-    #[cfg(not(bmt_release_profile))]
+    #[cfg(any(not(bmt_release_profile), debug_assertions))]
     pub fn at(root: impl Into<PathBuf>) -> Self {
         Self::guarded(root.into(), crate::data_guard::Guard::real())
     }
 
-    #[cfg(bmt_release_profile)]
+    #[cfg(all(bmt_release_profile, not(debug_assertions)))]
     pub fn at(root: impl Into<PathBuf>) -> Self {
         Self {
             root: absolute(root.into()),
@@ -86,12 +88,12 @@ impl Paths {
     }
 
     /// [`Paths::at`] against stand-ins for the real folder's parent.
-    #[cfg(all(test, not(bmt_release_profile)))]
+    #[cfg(all(test, any(not(bmt_release_profile), debug_assertions)))]
     pub(crate) fn at_with(root: PathBuf, config_dirs: &[PathBuf]) -> Self {
         Self::guarded(root, crate::data_guard::Guard::against(config_dirs))
     }
 
-    #[cfg(not(bmt_release_profile))]
+    #[cfg(any(not(bmt_release_profile), debug_assertions))]
     fn guarded(root: PathBuf, guard: crate::data_guard::Guard) -> Self {
         guard.enforce(&root);
         Self {
@@ -142,7 +144,7 @@ impl Paths {
     /// so a lane build checks each one before it makes or returns it.
     fn ensure(&self, name: &str) -> io::Result<PathBuf> {
         let dir = self.root.join(name);
-        #[cfg(not(bmt_release_profile))]
+        #[cfg(any(not(bmt_release_profile), debug_assertions))]
         self.guard.enforce(&dir);
         std::fs::create_dir_all(&dir)?;
         Ok(dir)
@@ -150,7 +152,7 @@ impl Paths {
 
     fn file_in(&self, folder: &str, name: &str) -> io::Result<PathBuf> {
         let file = self.ensure(folder)?.join(name);
-        #[cfg(not(bmt_release_profile))]
+        #[cfg(any(not(bmt_release_profile), debug_assertions))]
         self.guard.enforce_file(&file);
         Ok(file)
     }
