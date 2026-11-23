@@ -99,4 +99,4 @@ The calls include the driver's own setup calls (`getSetting`, `setSetting` from 
 
 ## manifest.json
 
-`format`, `appVersion`, `platform`, `fixedTime`, `data` (the data source name), `dbSha256` of the fixture database, and the sorted lists of channels and events the recording covers. It holds no wall clock time. Platform differs between macOS and Windows, so a cross-platform comparison skips this file.
+`format`, `appVersion`, `platform`, `fixedTime`, `data` (the data source name), `dbSha256`, the sha256 of the bytes of `data/matches.db` in the data folder the recording ran on (T02's `parity/snapshots/fixture`, the one fixture every unit compares against; a unit that holds a different `matches.db` must not use these goldens), and the sorted lists of channels and events the recording covers. It holds no wall clock time. Platform differs between macOS and Windows, so a cross-platform comparison skips this file.
