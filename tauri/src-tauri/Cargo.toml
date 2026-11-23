@@ -55,14 +55,17 @@ tauri-runtime-wry = { version = "=3.0.0-alpha.6", features = ["devtools"] }
 tauri-plugin-dialog = "=3.0.0-alpha.4"
 tokio = { version = "=1.54.1", features = ["fs", "macros", "net", "process", "rt", "signal", "sync", "time"] }
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = { version = "=1.0.154", features = ["float_roundtrip", "preserve_order"] }
 # preserve_order, so a payload stringifies with its keys where JSON.parse left
 # them. float_roundtrip, because the default float parser is not correctly
 # rounded and lands one ULP off JSON.parse on a few percent of literals.
+serde_json = { version = "=1.0.154", features = ["preserve_order", "float_roundtrip"] }
 ts-rs = "=12.0.1"
 heck = "=0.5.0"
 rusqlite = { version = "=0.43.0", features = ["backup", "bundled"] }
 sha1_smol = { version = "=1.0.1", optional = true }
+dirs = "=7.0.0"
+tauri-plugin-opener = { version = "=3.0.0-alpha.3", default-features = false }
+url = "=2.5.9"
 # ICU root collation, because String.prototype.localeCompare is ICU's and a hand-written table misorders every non-ASCII name
 # unstable for CollatorBorrowed::new_root, the root-only collator
 icu_collator = { version = "=2.3.1", features = ["unstable"] }
