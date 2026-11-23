@@ -624,6 +624,130 @@ fn a_write_waits_out_another_process_holding_the_lock() {
     assert_eq!(value.as_deref(), Some("true"));
 }
 
+/// The bundled SQLite against better-sqlite3's in trunk Electron
+/// (`electron-sqlite.json`, from `probe-sqlite.ts`): the same compile
+/// options bar the ones the T11 record explains (rusqlite's own, the
+/// threading mode, 3.54's MAX_SCHEMA, and the parser option an amalgamation
+/// can't take), and the same answers to SQL those options change.
+#[test]
+fn sqlite_is_built_and_configured_as_better_sqlite3s() {
+    let path = manifest_dir().join("tests/fixtures/electron-sqlite.json");
+    let electron: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let dir = scratch("sqlite-build");
+    let conn = bmt_lib::db::connection::open(&dir.join("matches.db")).unwrap();
+    let ours: BTreeSet<String> = conn
+        .prepare("PRAGMA compile_options")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap();
+    let theirs: BTreeSet<String> = electron["compileOptions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|o| o.as_str().unwrap().to_owned())
+        .collect();
+    let differ = |a: &BTreeSet<String>, b: &BTreeSet<String>| -> Vec<String> {
+        a.difference(b)
+            .filter(|o| !o.starts_with("COMPILER="))
+            .cloned()
+            .collect()
+    };
+    assert_eq!(
+        (differ(&ours, &theirs), differ(&theirs, &ours)),
+        (
+            [
+                "ENABLE_API_ARMOR",
+                "ENABLE_LOAD_EXTENSION",
+                "HAVE_ISNAN",
+                "MAX_SCHEMA=10000000",
+                "THREADSAFE=1"
+            ]
+            .map(String::from)
+            .to_vec(),
+            ["ENABLE_UPDATE_DELETE_LIMIT", "THREADSAFE=2"]
+                .map(String::from)
+                .to_vec(),
+        ),
+        "compile options only ours, only Electron's"
+    );
+
+    let err = |sql: &str| surfaced(conn.prepare(sql).and_then(|mut s| s.raw_execute()));
+    let message = |key: &str| {
+        (
+            "SqliteError".to_owned(),
+            electron[key]["message"].as_str().unwrap().to_owned(),
+        )
+    };
+    conn.execute_batch("CREATE TABLE t (s TEXT)").unwrap();
+    assert_eq!(
+        err(r#"SELECT "abc""#),
+        message("dqsSelect"),
+        "a double-quoted string is an identifier"
+    );
+    assert_eq!(err(r#"INSERT INTO t VALUES ("abc")"#), message("dqsInsert"));
+    assert_eq!(
+        err(r#"CREATE INDEX i ON t("nosuch")"#),
+        message("dqsCreateIndex")
+    );
+    assert_eq!(
+        err("PRAGMA writable_schema = ON; UPDATE sqlite_master SET sql = sql"),
+        message("defensive"),
+        "defensive mode"
+    );
+    // Electron's answers are JavaScript numbers, so compare as doubles
+    let one = |sql: &str| conn.query_row(sql, [], |r| r.get::<_, f64>(0)).unwrap();
+    let num = |v: &Value| v.as_f64().unwrap();
+    let values = "(SELECT 1 v UNION ALL SELECT 3 UNION ALL SELECT 10)";
+    for (sql, theirs) in [
+        (
+            "SELECT x'616263' LIKE 'abc'".to_owned(),
+            &electron["likeBlob"],
+        ),
+        ("SELECT sqrt(16)".to_owned(), &electron["math"]["ok"]["a"]),
+        ("SELECT pi()".to_owned(), &electron["math"]["ok"]["b"]),
+        (
+            "SELECT log10(1000)".to_owned(),
+            &electron["math"]["ok"]["c"],
+        ),
+        (
+            format!("SELECT median(v) FROM {values}"),
+            &electron["median"]["ok"]["m"],
+        ),
+        (
+            format!("SELECT percentile(v, 25) FROM {values}"),
+            &electron["median"]["ok"]["p"],
+        ),
+        (
+            "SELECT geopoly_area('[[0,0],[1,0],[1,1],[0,0]]')".to_owned(),
+            &electron["geopoly"]["ok"]["a"],
+        ),
+    ] {
+        assert_eq!(one(&sql), num(theirs), "{sql}");
+    }
+    // better-sqlite3 regenerates SQLite's parser with
+    // ENABLE_UPDATE_DELETE_LIMIT; the bundled amalgamation can't take it
+    assert_eq!(
+        err("DELETE FROM t LIMIT 1").1,
+        r#"near "LIMIT": syntax error"#
+    );
+    assert_eq!(
+        json!(
+            conn.query_row("SELECT $abc", [5], |r| r.get::<_, i64>(0))
+                .unwrap()
+        ),
+        electron["tclVariable"]["ok"]["v"]
+    );
+    assert_eq!(
+        json!(
+            conn.pragma_query_value(None, "cache_size", |r| r.get::<_, i64>(0))
+                .unwrap()
+        ),
+        electron["cacheSize"]
+    );
+}
+
 /// An Electron outcome from `probe-errors.ts` (`electron-errors.json`).
 fn electron_error(case: &str) -> (String, String) {
     let path = manifest_dir().join("tests/fixtures/electron-errors.json");

@@ -1,0 +1,155 @@
+{
+ "versions": {
+  "sqlite": "3.53.4",
+  "node": "24.21.0",
+  "electron": "44.4.5",
+  "v8": "15.2.124.28-electron.0"
+ },
+ "compileOptions": [
+  "ATOMIC_INTRINSICS=1",
+  "COMPILER=clang-17.0.0",
+  "DEFAULT_AUTOVACUUM",
+  "DEFAULT_CACHE_SIZE=-16000",
+  "DEFAULT_FILE_FORMAT=4",
+  "DEFAULT_FOREIGN_KEYS",
+  "DEFAULT_JOURNAL_SIZE_LIMIT=-1",
+  "DEFAULT_MEMSTATUS=0",
+  "DEFAULT_MMAP_SIZE=0",
+  "DEFAULT_PAGE_SIZE=4096",
+  "DEFAULT_PCACHE_INITSZ=20",
+  "DEFAULT_RECURSIVE_TRIGGERS",
+  "DEFAULT_SECTOR_SIZE=4096",
+  "DEFAULT_SYNCHRONOUS=2",
+  "DEFAULT_WAL_AUTOCHECKPOINT=1000",
+  "DEFAULT_WAL_SYNCHRONOUS=1",
+  "DEFAULT_WORKER_THREADS=0",
+  "DIRECT_OVERFLOW_READ",
+  "DQS=0",
+  "ENABLE_COLUMN_METADATA",
+  "ENABLE_DBSTAT_VTAB",
+  "ENABLE_FTS3",
+  "ENABLE_FTS3_PARENTHESIS",
+  "ENABLE_FTS4",
+  "ENABLE_FTS5",
+  "ENABLE_GEOPOLY",
+  "ENABLE_MATH_FUNCTIONS",
+  "ENABLE_PERCENTILE",
+  "ENABLE_RTREE",
+  "ENABLE_STAT4",
+  "ENABLE_UPDATE_DELETE_LIMIT",
+  "LIKE_DOESNT_MATCH_BLOBS",
+  "MALLOC_SOFT_LIMIT=1024",
+  "MAX_ATTACHED=10",
+  "MAX_COLUMN=2000",
+  "MAX_COMPOUND_SELECT=500",
+  "MAX_DEFAULT_PAGE_SIZE=8192",
+  "MAX_EXPR_DEPTH=1000",
+  "MAX_FUNCTION_ARG=1000",
+  "MAX_LENGTH=1000000000",
+  "MAX_LIKE_PATTERN_LENGTH=50000",
+  "MAX_MMAP_SIZE=0x7fff0000",
+  "MAX_PAGE_COUNT=0xfffffffe",
+  "MAX_PAGE_SIZE=65536",
+  "MAX_SQL_LENGTH=1000000000",
+  "MAX_TRIGGER_DEPTH=1000",
+  "MAX_VARIABLE_NUMBER=32766",
+  "MAX_VDBE_OP=250000000",
+  "MAX_WORKER_THREADS=8",
+  "MUTEX_PTHREADS",
+  "OMIT_DEPRECATED",
+  "OMIT_PROGRESS_CALLBACK",
+  "OMIT_SHARED_CACHE",
+  "OMIT_TCL_VARIABLE",
+  "SOUNDEX",
+  "SYSTEM_MALLOC",
+  "TEMP_STORE=1",
+  "THREADSAFE=2",
+  "USE_URI"
+ ],
+ "dqsSelect": {
+  "name": "SqliteError",
+  "code": "SQLITE_ERROR",
+  "message": "no such column: \"abc\" - should this be a string literal in single-quotes?"
+ },
+ "dqsInsert": {
+  "name": "SqliteError",
+  "code": "SQLITE_ERROR",
+  "message": "no such column: \"abc\" - should this be a string literal in single-quotes?"
+ },
+ "dqsCreateIndex": {
+  "name": "SqliteError",
+  "code": "SQLITE_ERROR",
+  "message": "no such column: \"nosuch\" - should this be a string literal in single-quotes?"
+ },
+ "likeBlob": 0,
+ "math": {
+  "ok": {
+   "a": 4,
+   "b": 3.141592653589793,
+   "c": 3
+  }
+ },
+ "median": {
+  "ok": {
+   "m": 3,
+   "p": 2
+  }
+ },
+ "deleteLimit": {
+  "ok": 1
+ },
+ "geopoly": {
+  "ok": {
+   "a": 0.5
+  }
+ },
+ "tclVariable": {
+  "ok": {
+   "v": 5
+  }
+ },
+ "defensive": {
+  "name": "SqliteError",
+  "code": "SQLITE_ERROR",
+  "message": "table sqlite_master may not be modified"
+ },
+ "cacheSize": -16000,
+ "strings": [
+  {
+   "json": "\"A\\ud83d\"",
+   "storedHex": "41EFBFBD"
+  },
+  {
+   "json": "\"\\udc00NA\"",
+   "storedHex": "EFBFBD4E41"
+  },
+  {
+   "json": "\"\\ud83d\\ud83d\"",
+   "storedHex": "EFBFBDEFBFBD"
+  },
+  {
+   "json": "\"B\\ud83d\\nC\"",
+   "storedHex": "42EFBFBD0A43"
+  },
+  {
+   "json": "\"\\ud83d\\u0041\"",
+   "storedHex": "EFBFBD41"
+  },
+  {
+   "json": "\"\\uD83D\\uDE00 ok\"",
+   "storedHex": "F09F9880206F6B"
+  },
+  {
+   "json": "\"\\ud83d\\ud83d\\ude00\"",
+   "storedHex": "EFBFBDF09F9880"
+  },
+  {
+   "json": "\"\\ude00\\ud83d\"",
+   "storedHex": "EFBFBDEFBFBD"
+  },
+  {
+   "json": "\"x\\udbff\\udfff\\udc00\"",
+   "storedHex": "78F48FBFBFEFBFBD"
+  }
+ ]
+}
