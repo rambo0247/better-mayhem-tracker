@@ -144,9 +144,11 @@ pub fn string(v: Option<&Value>) -> Option<&str> {
     v.and_then(Value::as_str)
 }
 
-/// How better-sqlite3 binds a JavaScript value: every number as a double,
-/// which an `INTEGER` column stores as an integer when it is whole, and
-/// `undefined` as `NULL`. Anything else is the `TypeError` it throws.
+/// How better-sqlite3 binds one JavaScript value at one parameter: every
+/// number as a double, which an `INTEGER` column stores as an integer when
+/// it is whole, and `undefined` as `NULL`. Anything else is the `TypeError`
+/// it throws. An object or array passed as a whole argument changes how the
+/// argument list binds, so a statement's arguments go through [`run`].
 pub fn bind(v: Option<&Value>) -> rusqlite::Result<Sql> {
     match v {
         None | Some(Value::Null) => Ok(Sql::Null),
@@ -156,6 +158,143 @@ pub fn bind(v: Option<&Value>) -> rusqlite::Result<Sql> {
             "SQLite3 can only bind numbers, strings, bigints, buffers, and null".into(),
         ))),
     }
+}
+
+/// One argument of a better-sqlite3 `stmt.run(...)` call.
+#[derive(Debug, Clone)]
+pub enum Arg<'a> {
+    /// A value read from parsed JSON. `None` is `undefined`.
+    Js(Option<&'a Value>),
+    /// A value Rust holds, bound as it is: `Real` for a JavaScript number,
+    /// `Integer` for a BigInt, `Blob` for a Buffer or a Uint8Array.
+    Sql(Sql),
+}
+
+impl<'a> From<Option<&'a Value>> for Arg<'a> {
+    fn from(v: Option<&'a Value>) -> Self {
+        Arg::Js(v)
+    }
+}
+
+impl<'a> From<&'a Value> for Arg<'a> {
+    fn from(v: &'a Value) -> Self {
+        Arg::Js(Some(v))
+    }
+}
+
+impl From<Sql> for Arg<'_> {
+    fn from(v: Sql) -> Self {
+        Arg::Sql(v)
+    }
+}
+
+/// A JavaScript number, such as `Date.now()` or a column read back, which
+/// better-sqlite3 binds as a double.
+impl From<i64> for Arg<'_> {
+    fn from(v: i64) -> Self {
+        Arg::Sql(Sql::Real(v as f64))
+    }
+}
+
+/// `stmt.run(...args)`: binds the arguments as better-sqlite3 13.0.3's
+/// binder does (src/util/binder.cpp), runs the statement, and answers the
+/// rows it changed.
+pub fn run(stmt: &mut rusqlite::Statement<'_>, args: &[Arg<'_>]) -> rusqlite::Result<usize> {
+    bind_args(stmt, args)?;
+    stmt.raw_execute()
+}
+
+/// better-sqlite3's `Binder::Bind`. An array argument spreads into the next
+/// anonymous parameters. A plain object binds the statement's named
+/// parameters by name without its prefix, and only one object may. Anything
+/// else binds at the next anonymous parameter. The count must then equal
+/// the statement's, or it throws the `RangeError` or `TypeError` Electron
+/// shows.
+pub fn bind_args(stmt: &mut rusqlite::Statement<'_>, args: &[Arg<'_>]) -> rusqlite::Result<()> {
+    let param_count = stmt.parameter_count();
+    let named: Vec<(String, usize)> = (1..=param_count)
+        .filter_map(|i| stmt.parameter_name(i).map(|name| (name[1..].to_owned(), i)))
+        .collect();
+    stmt.clear_bindings();
+    let mut anon = 0;
+    let mut next_anon = |stmt: &rusqlite::Statement<'_>| {
+        anon += 1;
+        while stmt.parameter_name(anon).is_some() {
+            anon += 1;
+        }
+        anon
+    };
+    let mut count = 0;
+    let mut bound_object = false;
+    for arg in args {
+        match arg {
+            Arg::Js(Some(Value::Array(items))) => {
+                for item in items {
+                    let index = next_anon(stmt);
+                    bind_value(stmt, index, bind(Some(item))?)?;
+                }
+                count += items.len();
+            }
+            Arg::Js(Some(Value::Object(map))) => {
+                if bound_object {
+                    return Err(thrown(JsError::type_error(
+                        "You cannot specify named parameters in two different objects",
+                    )));
+                }
+                bound_object = true;
+                for (name, index) in &named {
+                    let Some(value) = map.get(name) else {
+                        return Err(thrown(JsError::range_error(format!(
+                            "Missing named parameter \"{name}\""
+                        ))));
+                    };
+                    bind_value(stmt, *index, bind(Some(value))?)?;
+                }
+                count += named.len();
+            }
+            Arg::Js(v) => {
+                let index = next_anon(stmt);
+                bind_value(stmt, index, bind(*v)?)?;
+                count += 1;
+            }
+            Arg::Sql(v) => {
+                let index = next_anon(stmt);
+                bind_value(stmt, index, v.clone())?;
+                count += 1;
+            }
+        }
+    }
+    if count < param_count {
+        return Err(thrown(if !bound_object && !named.is_empty() {
+            JsError::type_error("Missing named parameters")
+        } else {
+            JsError::range_error("Too few parameter values were provided")
+        }));
+    }
+    if count > param_count {
+        return Err(thrown(JsError::range_error(
+            "Too many parameter values were provided",
+        )));
+    }
+    Ok(())
+}
+
+/// `Binder::BindValue`, with the error each SQLite bind result throws.
+fn bind_value(stmt: &mut rusqlite::Statement<'_>, index: usize, value: Sql) -> rusqlite::Result<()> {
+    if index > stmt.parameter_count() {
+        return Err(thrown(JsError::range_error(
+            "Too many parameter values were provided",
+        )));
+    }
+    stmt.raw_bind_parameter(index, value).map_err(|err| match err.sqlite_error_code() {
+        Some(rusqlite::ErrorCode::TooBig) => thrown(JsError::range_error(
+            "The bound string, buffer, or bigint is too big",
+        )),
+        Some(rusqlite::ErrorCode::OutOfMemory) => thrown(JsError::error("Out of memory")),
+        _ => thrown(JsError::error(
+            "An unexpected error occured while trying to bind parameters",
+        )),
+    })
 }
 
 /// better-sqlite3's `db.transaction(f)()`: `BEGIN` and `COMMIT` in

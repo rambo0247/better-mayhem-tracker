@@ -432,7 +432,7 @@ fn backfill_game_puuids(conn: &Connection, now_ms: i64) -> rusqlite::Result<()> 
                     let player = js::opt_prop(identity, "player");
                     let puuid = js::or(&[js::prop(p, "puuid")?, js::opt_prop(player, "puuid")]);
                     if js::truthy(puuid) {
-                        update.execute(params![js::bind(puuid)?, game_id])?;
+                        js::run(&mut update, &[puuid.into(), (*game_id).into()])?;
                         let game_name = js::or(&[
                             js::opt_prop(player, "gameName"),
                             js::opt_prop(player, "summonerName"),
@@ -445,12 +445,10 @@ fn backfill_game_puuids(conn: &Connection, now_ms: i64) -> rusqlite::Result<()> 
                             js::prop(p, "riotIdTagline")?,
                             None,
                         ]);
-                        upsert.execute(params![
-                            js::bind(puuid)?,
-                            js::bind(game_name)?,
-                            js::bind(tag_line)?,
-                            now_ms
-                        ])?;
+                        js::run(
+                            &mut upsert,
+                            &[puuid.into(), game_name.into(), tag_line.into(), now_ms.into()],
+                        )?;
                     }
                     break;
                 }

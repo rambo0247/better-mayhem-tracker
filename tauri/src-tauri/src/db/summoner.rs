@@ -22,28 +22,32 @@ pub fn display_name(game_name: Option<&str>, tag_line: Option<&str>) -> Option<S
 pub fn upsert_summoner(conn: &Connection, summoner: &Value, now_ms: i64) -> rusqlite::Result<()> {
     let s = Some(summoner);
     let get = |key: &str| js::prop(s, key).map_err(js::thrown);
-    let puuid = js::bind(get("puuid")?)?;
-    conn.prepare_cached(
+    let null = Value::Null;
+    let mut stmt = conn.prepare_cached(
         "
     INSERT OR REPLACE INTO summoner (puuid, game_name, tag_line, summoner_id, account_id, updated_at, profile_icon)
     VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, (SELECT profile_icon FROM summoner WHERE puuid = ?)))
   ",
-    )?
-    .execute(params![
-        puuid,
-        js::bind(js::or(&[
-            get("displayName")?,
-            get("gameName")?,
-            get("internalName")?,
-            get("game_name")?,
-        ]))?,
-        js::bind(js::or(&[get("tagLine")?, get("tag_line")?, None]))?,
-        js::bind(js::nullish(&[get("summonerId")?, get("summoner_id")?]))?,
-        js::bind(js::nullish(&[get("accountId")?, get("account_id")?]))?,
-        now_ms,
-        js::bind(js::nullish(&[get("profileIconId")?, get("profile_icon")?]))?,
-        puuid,
-    ])?;
+    )?;
+    js::run(
+        &mut stmt,
+        &[
+            get("puuid")?.into(),
+            js::or(&[
+                get("displayName")?,
+                get("gameName")?,
+                get("internalName")?,
+                get("game_name")?,
+            ])
+            .into(),
+            js::or(&[get("tagLine")?, get("tag_line")?, Some(&null)]).into(),
+            js::nullish(&[get("summonerId")?, get("summoner_id")?]).into(),
+            js::nullish(&[get("accountId")?, get("account_id")?]).into(),
+            now_ms.into(),
+            js::nullish(&[get("profileIconId")?, get("profile_icon")?, Some(&null)]).into(),
+            get("puuid")?.into(),
+        ],
+    )?;
     Ok(())
 }
 

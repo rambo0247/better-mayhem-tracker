@@ -1,0 +1,1068 @@
+{
+ "sql": {
+  "ingest": "INSERT OR IGNORE INTO games (game_id, queue_id, game_mode, game_creation, game_duration, is_remake, puuid, game_version, raw_gz) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  "anon": "INSERT INTO r VALUES (?, ?)",
+  "named": "INSERT INTO r VALUES (@a, @b)",
+  "mixed": "INSERT INTO r VALUES (?, @a)",
+  "namedFirst": "INSERT INTO r VALUES (:a, ?)"
+ },
+ "games": "CREATE TABLE games (\n      game_id       INTEGER PRIMARY KEY,\n      queue_id      INTEGER NOT NULL,\n      game_mode     TEXT NOT NULL,\n      game_creation INTEGER NOT NULL,\n      game_duration INTEGER NOT NULL,\n      is_remake     INTEGER NOT NULL DEFAULT 0,\n      puuid         TEXT NOT NULL DEFAULT '',\n      game_version  TEXT,\n      favorite      INTEGER NOT NULL DEFAULT 0,\n      raw_gz        BLOB\n    )",
+ "cases": [
+  {
+   "id": "ingest_ok",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "5",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "1790000000000",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "text",
+      "'16.23'",
+      "integer",
+      "0",
+      "blob",
+      "X'78'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "object_empty",
+   "stmt": "ingest",
+   "args": "{}, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Too few parameter values were provided",
+    "code": null
+   }
+  },
+  {
+   "id": "object_with_keys",
+   "stmt": "ingest",
+   "args": "{ a: 1 }, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Too few parameter values were provided",
+    "code": null
+   }
+  },
+  {
+   "id": "object_last",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', {}",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Too few parameter values were provided",
+    "code": null
+   }
+  },
+  {
+   "id": "two_objects",
+   "stmt": "ingest",
+   "args": "{}, 2400, {}, 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "You cannot specify named parameters in two different objects",
+    "code": null
+   }
+  },
+  {
+   "id": "object_then_boolean",
+   "stmt": "ingest",
+   "args": "{}, 2400, true, 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "boolean_then_object",
+   "stmt": "ingest",
+   "args": "true, 2400, {}, 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "array_of_one",
+   "stmt": "ingest",
+   "args": "[5], 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "5",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "1790000000000",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "text",
+      "'16.23'",
+      "integer",
+      "0",
+      "blob",
+      "X'78'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "array_of_two",
+   "stmt": "ingest",
+   "args": "[5, 6], 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Too many parameter values were provided",
+    "code": null
+   }
+  },
+  {
+   "id": "array_empty",
+   "stmt": "ingest",
+   "args": "[], 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Too few parameter values were provided",
+    "code": null
+   }
+  },
+  {
+   "id": "array_nested",
+   "stmt": "ingest",
+   "args": "[[5]], 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "array_holding_object",
+   "stmt": "ingest",
+   "args": "[{}], 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "array_holding_boolean",
+   "stmt": "ingest",
+   "args": "[true], 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "array_holding_null",
+   "stmt": "ingest",
+   "args": "[null], 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "1",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "1790000000000",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "text",
+      "'16.23'",
+      "integer",
+      "0",
+      "blob",
+      "X'78'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "boolean_true",
+   "stmt": "ingest",
+   "args": "true, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "boolean_false",
+   "stmt": "ingest",
+   "args": "5, false, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "undefined_nullable",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', undefined, Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "5",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "1790000000000",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "null",
+      "NULL",
+      "integer",
+      "0",
+      "blob",
+      "X'78'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "undefined_not_null",
+   "stmt": "ingest",
+   "args": "5, undefined, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 0,
+    "rows": []
+   }
+  },
+  {
+   "id": "null_id",
+   "stmt": "ingest",
+   "args": "null, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "1",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "1790000000000",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "text",
+      "'16.23'",
+      "integer",
+      "0",
+      "blob",
+      "X'78'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "fractional_id",
+   "stmt": "ingest",
+   "args": "1.5, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "SqliteError",
+    "message": "datatype mismatch",
+    "code": "SQLITE_MISMATCH"
+   }
+  },
+  {
+   "id": "string_id",
+   "stmt": "ingest",
+   "args": "'77', 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "77",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "1790000000000",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "text",
+      "'16.23'",
+      "integer",
+      "0",
+      "blob",
+      "X'78'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "date",
+   "stmt": "ingest",
+   "args": "new Date(0), 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "buffer",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from([1, 2])",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "5",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "1790000000000",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "text",
+      "'16.23'",
+      "integer",
+      "0",
+      "blob",
+      "X'0102'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "uint8array",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', new Uint8Array([1, 2])",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "5",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "1790000000000",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "text",
+      "'16.23'",
+      "integer",
+      "0",
+      "blob",
+      "X'0102'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "arraybuffer",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', new ArrayBuffer(2)",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "string_object",
+   "stmt": "ingest",
+   "args": "5, 2400, new String('x'), 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "bigint",
+   "stmt": "ingest",
+   "args": "5n, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "5",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "1790000000000",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "text",
+      "'16.23'",
+      "integer",
+      "0",
+      "blob",
+      "X'78'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bigint_creation",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', 1790000000000n, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "5",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "1790000000000",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "text",
+      "'16.23'",
+      "integer",
+      "0",
+      "blob",
+      "X'78'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bigint_too_big",
+   "stmt": "ingest",
+   "args": "2n ** 70n, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "The bound string, buffer, or bigint is too big",
+    "code": null
+   }
+  },
+  {
+   "id": "nan_not_null",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', NaN, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 0,
+    "rows": []
+   }
+  },
+  {
+   "id": "nan_nullable",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', NaN, Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "5",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "1790000000000",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "null",
+      "NULL",
+      "integer",
+      "0",
+      "blob",
+      "X'78'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "infinity",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', Infinity, -Infinity, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "5",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "real",
+      "9.0e+999",
+      "real",
+      "-9.0e+999",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "text",
+      "'16.23'",
+      "integer",
+      "0",
+      "blob",
+      "X'78'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "negative_zero",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', -0, 1500, 0, 'p', '16.23', Buffer.from('x')",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "5",
+      "integer",
+      "2400",
+      "text",
+      "'KIWI'",
+      "integer",
+      "0",
+      "integer",
+      "1500",
+      "integer",
+      "0",
+      "text",
+      "'p'",
+      "text",
+      "'16.23'",
+      "integer",
+      "0",
+      "blob",
+      "X'78'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "too_many",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23', Buffer.from('x'), 1",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Too many parameter values were provided",
+    "code": null
+   }
+  },
+  {
+   "id": "too_few",
+   "stmt": "ingest",
+   "args": "5, 2400, 'KIWI', 1790000000000, 1500, 0, 'p', '16.23'",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Too few parameter values were provided",
+    "code": null
+   }
+  },
+  {
+   "id": "no_arguments",
+   "stmt": "ingest",
+   "args": "",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Too few parameter values were provided",
+    "code": null
+   }
+  },
+  {
+   "id": "anon_numbers",
+   "stmt": "anon",
+   "args": "5, 5.5",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "real",
+      "5.0",
+      "real",
+      "5.5"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "anon_bigint",
+   "stmt": "anon",
+   "args": "5n, -1n",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "integer",
+      "5",
+      "integer",
+      "-1"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "anon_nan_infinity",
+   "stmt": "anon",
+   "args": "NaN, Infinity",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "null",
+      "NULL",
+      "real",
+      "9.0e+999"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "anon_negative_zero",
+   "stmt": "anon",
+   "args": "-0, 1e300",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "real",
+      "0.0",
+      "real",
+      "1.0e+300"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "anon_blobs",
+   "stmt": "anon",
+   "args": "Buffer.from([0, 255]), new Uint8Array([7])",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "blob",
+      "X'00FF'",
+      "blob",
+      "X'07'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "anon_strings",
+   "stmt": "anon",
+   "args": "'', 'é😀'",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "text",
+      "''",
+      "text",
+      "'é😀'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "named_ok",
+   "stmt": "named",
+   "args": "{ a: 1, b: 'x' }",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "real",
+      "1.0",
+      "text",
+      "'x'"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "named_missing",
+   "stmt": "named",
+   "args": "{ a: 1 }",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Missing named parameter \"b\"",
+    "code": null
+   }
+  },
+  {
+   "id": "named_extra_keys",
+   "stmt": "named",
+   "args": "{ a: 1, b: 2, c: 3 }",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "real",
+      "1.0",
+      "real",
+      "2.0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "named_undefined_value",
+   "stmt": "named",
+   "args": "{ a: undefined, b: 2 }",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "null",
+      "NULL",
+      "real",
+      "2.0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "named_none",
+   "stmt": "named",
+   "args": "",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "Missing named parameters",
+    "code": null
+   }
+  },
+  {
+   "id": "named_positional",
+   "stmt": "named",
+   "args": "1, 2",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Too many parameter values were provided",
+    "code": null
+   }
+  },
+  {
+   "id": "named_date",
+   "stmt": "named",
+   "args": "new Date(0)",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "Named parameters can only be passed within plain objects",
+    "code": null
+   }
+  },
+  {
+   "id": "named_two_objects",
+   "stmt": "named",
+   "args": "{ a: 1 }, { b: 2 }",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Missing named parameter \"b\"",
+    "code": null
+   }
+  },
+  {
+   "id": "named_object_value",
+   "stmt": "named",
+   "args": "{ a: {}, b: 1 }",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "named_array_value",
+   "stmt": "named",
+   "args": "{ a: [1], b: 1 }",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "named_boolean_value",
+   "stmt": "named",
+   "args": "{ a: true, b: 1 }",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "named_in_array",
+   "stmt": "named",
+   "args": "[{ a: 1, b: 2 }]",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "SQLite3 can only bind numbers, strings, bigints, buffers, and null",
+    "code": null
+   }
+  },
+  {
+   "id": "named_null_prototype",
+   "stmt": "named",
+   "args": "Object.assign(Object.create(null), { a: 1, b: 2 })",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "real",
+      "1.0",
+      "real",
+      "2.0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "mixed_ok",
+   "stmt": "mixed",
+   "args": "1, { a: 2 }",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "real",
+      "1.0",
+      "real",
+      "2.0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "mixed_object_first",
+   "stmt": "mixed",
+   "args": "{ a: 2 }, 1",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "real",
+      "1.0",
+      "real",
+      "2.0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "mixed_only_object",
+   "stmt": "mixed",
+   "args": "{ a: 2 }",
+   "outcome": {
+    "kind": "error",
+    "name": "RangeError",
+    "message": "Too few parameter values were provided",
+    "code": null
+   }
+  },
+  {
+   "id": "mixed_only_positional",
+   "stmt": "mixed",
+   "args": "1",
+   "outcome": {
+    "kind": "error",
+    "name": "TypeError",
+    "message": "Missing named parameters",
+    "code": null
+   }
+  },
+  {
+   "id": "mixed_array",
+   "stmt": "mixed",
+   "args": "[1], { a: 2 }",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "real",
+      "1.0",
+      "real",
+      "2.0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "named_first_ok",
+   "stmt": "namedFirst",
+   "args": "{ a: 1 }, 2",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "real",
+      "1.0",
+      "real",
+      "2.0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "named_first_positional",
+   "stmt": "namedFirst",
+   "args": "2, { a: 1 }",
+   "outcome": {
+    "kind": "ok",
+    "changes": 1,
+    "rows": [
+     [
+      "real",
+      "1.0",
+      "real",
+      "2.0"
+     ]
+    ]
+   }
+  }
+ ]
+}

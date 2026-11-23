@@ -713,6 +713,187 @@ fn errors_surface_as_better_sqlite3_throws_them() {
     );
 }
 
+/// One argument as a test writes it: JSON, `undefined`, or a value Rust
+/// holds (a Buffer, a BigInt, a NaN).
+enum A {
+    J(Value),
+    U,
+    S(Sql),
+}
+
+/// The arguments `probe-binder.ts` passed for each case, as Rust writes
+/// them. `None` for the cases no Rust value can stand for.
+fn binder_args(case: &str) -> Option<Vec<A>> {
+    use A::{J, S, U};
+    let base = || {
+        vec![
+            J(json!(5)),
+            J(json!(2400)),
+            J(json!("KIWI")),
+            J(json!(1_790_000_000_000i64)),
+            J(json!(1500)),
+            J(json!(0)),
+            J(json!("p")),
+            J(json!("16.23")),
+            S(Sql::Blob(b"x".to_vec())),
+        ]
+    };
+    let at = |changes: Vec<(usize, A)>| {
+        let mut args = base();
+        for (position, arg) in changes {
+            args[position - 1] = arg;
+        }
+        Some(args)
+    };
+    let blob = |b: &[u8]| S(Sql::Blob(b.to_vec()));
+    match case {
+        "ingest_ok" => at(vec![]),
+        "object_empty" => at(vec![(1, J(json!({})))]),
+        "object_with_keys" => at(vec![(1, J(json!({ "a": 1 })))]),
+        "object_last" => at(vec![(9, J(json!({})))]),
+        "two_objects" => at(vec![(1, J(json!({}))), (3, J(json!({})))]),
+        "object_then_boolean" => at(vec![(1, J(json!({}))), (3, J(json!(true)))]),
+        "boolean_then_object" => at(vec![(1, J(json!(true))), (3, J(json!({})))]),
+        "array_of_one" => at(vec![(1, J(json!([5])))]),
+        "array_of_two" => at(vec![(1, J(json!([5, 6])))]),
+        "array_empty" => at(vec![(1, J(json!([])))]),
+        "array_nested" => at(vec![(1, J(json!([[5]])))]),
+        "array_holding_object" => at(vec![(1, J(json!([{}])))]),
+        "array_holding_boolean" => at(vec![(1, J(json!([true])))]),
+        "array_holding_null" => at(vec![(1, J(json!([null])))]),
+        "boolean_true" => at(vec![(1, J(json!(true)))]),
+        "boolean_false" => at(vec![(2, J(json!(false)))]),
+        "undefined_nullable" => at(vec![(8, U)]),
+        "undefined_not_null" => at(vec![(2, U)]),
+        "null_id" => at(vec![(1, J(Value::Null))]),
+        "fractional_id" => at(vec![(1, J(json!(1.5)))]),
+        "string_id" => at(vec![(1, J(json!("77")))]),
+        "buffer" | "uint8array" => at(vec![(9, blob(&[1, 2]))]),
+        "bigint" => at(vec![(1, S(Sql::Integer(5)))]),
+        "bigint_creation" => at(vec![(4, S(Sql::Integer(1_790_000_000_000)))]),
+        "nan_not_null" => at(vec![(4, S(Sql::Real(f64::NAN)))]),
+        "nan_nullable" => at(vec![(8, S(Sql::Real(f64::NAN)))]),
+        "infinity" => at(vec![(4, S(Sql::Real(f64::INFINITY))), (5, S(Sql::Real(f64::NEG_INFINITY)))]),
+        "negative_zero" => at(vec![(4, S(Sql::Real(-0.0)))]),
+        "too_many" => {
+            let mut args = base();
+            args.push(J(json!(1)));
+            Some(args)
+        }
+        "too_few" => {
+            let mut args = base();
+            args.pop();
+            Some(args)
+        }
+        "no_arguments" | "named_none" => Some(vec![]),
+        "anon_numbers" => Some(vec![J(json!(5)), J(json!(5.5))]),
+        "anon_bigint" => Some(vec![S(Sql::Integer(5)), S(Sql::Integer(-1))]),
+        "anon_nan_infinity" => Some(vec![S(Sql::Real(f64::NAN)), S(Sql::Real(f64::INFINITY))]),
+        "anon_negative_zero" => Some(vec![S(Sql::Real(-0.0)), J(json!(1e300))]),
+        "anon_blobs" => Some(vec![blob(&[0, 255]), blob(&[7])]),
+        "anon_strings" => Some(vec![J(json!("")), J(json!("é😀"))]),
+        "named_ok" => Some(vec![J(json!({ "a": 1, "b": "x" }))]),
+        "named_missing" => Some(vec![J(json!({ "a": 1 }))]),
+        "named_extra_keys" => Some(vec![J(json!({ "a": 1, "b": 2, "c": 3 }))]),
+        "named_positional" => Some(vec![J(json!(1)), J(json!(2))]),
+        "named_two_objects" => Some(vec![J(json!({ "a": 1 })), J(json!({ "b": 2 }))]),
+        "named_object_value" => Some(vec![J(json!({ "a": {}, "b": 1 }))]),
+        "named_array_value" => Some(vec![J(json!({ "a": [1], "b": 1 }))]),
+        "named_boolean_value" => Some(vec![J(json!({ "a": true, "b": 1 }))]),
+        "named_in_array" => Some(vec![J(json!([{ "a": 1, "b": 2 }]))]),
+        "named_null_prototype" => Some(vec![J(json!({ "a": 1, "b": 2 }))]),
+        "mixed_ok" => Some(vec![J(json!(1)), J(json!({ "a": 2 }))]),
+        "mixed_object_first" => Some(vec![J(json!({ "a": 2 })), J(json!(1))]),
+        "mixed_only_object" => Some(vec![J(json!({ "a": 2 }))]),
+        "mixed_only_positional" => Some(vec![J(json!(1))]),
+        "mixed_array" => Some(vec![J(json!([1])), J(json!({ "a": 2 }))]),
+        "named_first_ok" => Some(vec![J(json!({ "a": 1 })), J(json!(2))]),
+        "named_first_positional" => Some(vec![J(json!(2)), J(json!({ "a": 1 }))]),
+        _ => None,
+    }
+}
+
+/// Every argument shape `probe-binder.ts` ran through better-sqlite3 in
+/// trunk Electron binds through `js::run` to the same rows, or fails with
+/// the same error name and message (`electron-binder.json`).
+#[test]
+fn arguments_bind_as_better_sqlite3_binds_them() {
+    use bmt_lib::db::js::{self, Arg};
+    let path = manifest_dir().join("tests/fixtures/electron-binder.json");
+    let probe: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let mut not_representable = Vec::new();
+    for case in probe["cases"].as_array().unwrap() {
+        let id = case["id"].as_str().unwrap();
+        let Some(args) = binder_args(id) else {
+            not_representable.push(id);
+            continue;
+        };
+        let args: Vec<Arg> = args
+            .iter()
+            .map(|a| match a {
+                A::J(v) => Arg::Js(Some(v)),
+                A::U => Arg::Js(None),
+                A::S(v) => Arg::Sql(v.clone()),
+            })
+            .collect();
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(probe["games"].as_str().unwrap()).unwrap();
+        conn.execute_batch("CREATE TABLE r (a, b)").unwrap();
+        let stmt_id = case["stmt"].as_str().unwrap();
+        let sql = probe["sql"][stmt_id].as_str().unwrap();
+        let result = js::run(&mut conn.prepare(sql).unwrap(), &args);
+        let electron = &case["outcome"];
+        match result {
+            Ok(changes) => {
+                assert_eq!(electron["kind"], "ok", "{id}: ours ran, Electron's threw {electron}");
+                assert_eq!(json!(changes), electron["changes"], "{id}");
+                let table = if stmt_id == "ingest" { "games" } else { "r" };
+                let cols: Vec<String> = conn
+                    .prepare(&format!("SELECT name FROM pragma_table_info('{table}')"))
+                    .unwrap()
+                    .query_map([], |r| r.get(0))
+                    .unwrap()
+                    .collect::<rusqlite::Result<_>>()
+                    .unwrap();
+                let parts: Vec<String> =
+                    cols.iter().map(|c| format!("typeof({c}), quote({c})")).collect();
+                let rows: Vec<Value> = conn
+                    .prepare(&format!("SELECT {} FROM {table} ORDER BY rowid", parts.join(", ")))
+                    .unwrap()
+                    .query_map([], |r| {
+                        Ok(Value::Array(
+                            (0..cols.len() * 2)
+                                .map(|i| match r.get_ref(i).unwrap() {
+                                    rusqlite::types::ValueRef::Text(t) => {
+                                        json!(String::from_utf8_lossy(t))
+                                    }
+                                    other => panic!("{id}: typeof and quote are text, got {other:?}"),
+                                })
+                                .collect(),
+                        ))
+                    })
+                    .unwrap()
+                    .collect::<rusqlite::Result<_>>()
+                    .unwrap();
+                assert_eq!(json!(rows), electron["rows"], "{id}");
+            }
+            Err(err) => {
+                let err = bmt_lib::db::sqlite_error(&err);
+                assert_eq!(
+                    (json!(err.name), json!(err.message)),
+                    (electron["name"].clone(), electron["message"].clone()),
+                    "{id}"
+                );
+            }
+        }
+    }
+    assert_eq!(
+        not_representable,
+        ["date", "arraybuffer", "string_object", "bigint_too_big", "named_undefined_value", "named_date"],
+        "a JavaScript Date, ArrayBuffer, String object, oversized BigInt or undefined property has no Rust value"
+    );
+}
+
 /// One `games` row and its `player_stats` line for a pre-versioning
 /// database. The line is what the V1 backfill matches the owner by.
 fn insert_v0_game(conn: &Connection, game_id: i64, raw_json: &[u8]) {
@@ -819,6 +1000,35 @@ fn hostile_payloads_migrate_to_the_cells_electron_writes() {
     let (_dir, db) = migrate_v0("hostile-v0", &games);
     db.with(|conn| {
         same_cells_as_electron(conn, "electron-hostile-v0.json");
+        Ok(())
+    })
+    .unwrap();
+}
+
+/// Owner puuids that aren't strings reach better-sqlite3's binder in the V1
+/// backfill: an array spreads into the statement's parameters, an object
+/// binds as named parameters, a boolean throws, a number binds as a double.
+/// The backfill's catch keeps what ran before a throw. The cells must equal
+/// Electron's (`electron-binder-v0.json`).
+#[test]
+fn owners_that_are_not_strings_bind_as_better_sqlite3_binds_them() {
+    let game = |id: i64, player: &str| {
+        format!(
+            r#"{{"gameId":{id},"gameVersion":"16.23.1.2","participants":[{{"participantId":1,"championId":103,"teamId":100,"stats":{{"win":true,"kills":7,"deaths":2,"assists":9}}}}],"participantIdentities":[{{"player":{player}}}]}}"#
+        )
+        .into_bytes()
+    };
+    let games = [
+        (16, game(16, r#"{"puuid":["arr-16"],"gameName":"N16","tagLine":"T16"}"#)),
+        (17, game(17, r#"{"puuid":{"a":1},"gameName":"N17","tagLine":"T17"}"#)),
+        (19, game(19, r#"{"puuid":true,"gameName":"N19","tagLine":"T19"}"#)),
+        (21, game(21, r#"{"puuid":12345,"gameName":"N21","tagLine":"T21"}"#)),
+        (23, game(23, r#"{"puuid":[],"gameName":"N23","tagLine":"T23"}"#)),
+        (24, game(24, r#"{"puuid":["a-24","b-24"],"gameName":"N24","tagLine":"T24"}"#)),
+    ];
+    let (_dir, db) = migrate_v0("binder-v0", &games);
+    db.with(|conn| {
+        same_cells_as_electron(conn, "electron-binder-v0.json");
         Ok(())
     })
     .unwrap();
