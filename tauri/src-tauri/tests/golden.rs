@@ -15,6 +15,13 @@
 //!
 //! A porting unit seeds state per case through `commands::Domain`, not by
 //! editing this file.
+//!
+//! The `state-` cases T05 wrote for a page's calls are answers the page got in
+//! one state of a run, not cases of their own: they replay through their
+//! state's index, in order, on the launch that state ran on (`states.rs`).
+
+#[path = "golden/states.rs"]
+mod states;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -1413,16 +1420,158 @@ struct Replayed {
     wire_values: usize,
     cases: BTreeMap<&'static str, Vec<(String, Verdict)>>,
     verdicts: BTreeMap<&'static str, Verdict>,
+    states: Vec<StateReport>,
+    skipped: Vec<states::Skipped>,
+    /// `state` cases no index names, so nothing says which run they belong to.
+    unnamed_state_cases: Vec<String>,
     failures: Vec<String>,
 }
 
+/// One state replayed: on which launch, how many calls, and their verdict.
+struct StateReport {
+    state: String,
+    launch: usize,
+    data: states::Data,
+    calls: usize,
+    verdict: Verdict,
+}
+
+/// The `state` group: cases `record-states.ts` wrote for a page's calls.
+const STATE_GROUP: &str = "state";
+
+type Cases = BTreeMap<&'static str, Vec<(String, Verdict)>>;
+
+/// The case replay picks for a call by its arguments alone: the lowest `seq`
+/// whose arguments are canonically equal. Two at that `seq` is an error.
+fn by_arguments<'a>(
+    goldens: &'a [Golden],
+    channel: &str,
+    args: &[Value],
+) -> Result<&'a Golden, String> {
+    let sent = Value::Array(args.to_vec());
+    let mut matches: Vec<&Golden> = goldens
+        .iter()
+        .filter(|g| g.channel == channel && same(&Value::Array(g.args.clone()), &sent))
+        .collect();
+    matches.sort_by_key(|g| g.seq);
+    match matches.as_slice() {
+        [] => Err(format!("{channel} {sent}: no golden answers it")),
+        [first, second, ..] if first.seq == second.seq => Err(format!(
+            "{channel} {sent}: cases {} and {} tie at seq {}",
+            first.case, second.case, first.seq
+        )),
+        [first, ..] => Ok(first),
+    }
+}
+
+/// Replays each planned launch on a fresh app over its own data: first
+/// `resolveVars`' reads, then every state's calls in `seq` order, each held to
+/// the case its index names.
+#[allow(clippy::too_many_arguments)]
+fn replay_states(
+    plan: states::Plan,
+    goldens: &[Golden],
+    clock: Clock,
+    data: Option<&Path>,
+    registry: &[CommandSpec],
+    build_app: BuildApp<'_>,
+    scratch: &Path,
+    cases: &mut Cases,
+    failures: &mut Vec<String>,
+) -> Vec<StateReport> {
+    let named: BTreeMap<(&str, &str), &Golden> = goldens
+        .iter()
+        .map(|g| ((g.channel.as_str(), g.case.as_str()), g))
+        .collect();
+    let spec_of = |channel: &str| registry.iter().find(|c| c.channel == channel);
+    let mut reports = Vec::new();
+    for (n, launch) in plan.launches.into_iter().enumerate() {
+        let root = scratch.join(format!("launch-{n}"));
+        match (launch.data, data) {
+            (states::Data::Recorded, Some(data)) => copy_dir(data, &root),
+            _ => std::fs::create_dir_all(&root).expect("create the data folder"),
+        }
+        use_data_root(&root);
+        let replay = build(build_app, clock);
+        for (channel, args) in states::RESOLVE_VARS {
+            let args: Vec<Value> = args.iter().copied().map(Value::from).collect();
+            let Some(spec) = spec_of(channel) else {
+                failures.push(format!(
+                    "resolveVars reads {channel}, which the contract lacks"
+                ));
+                continue;
+            };
+            if launch.data == states::Data::Empty {
+                // No golden holds Electron's answers on empty data
+                let _unrecorded = call(&replay.window, spec.channel, spec.named_args(&args));
+                continue;
+            }
+            match by_arguments(goldens, channel, &args) {
+                Ok(golden) => {
+                    let (verdict, problems) = replay_case(&replay, spec, golden, &root);
+                    failures.extend(problems);
+                    cases
+                        .entry(spec.channel)
+                        .or_default()
+                        .push((format!("launch {n} resolveVars"), verdict));
+                }
+                Err(problem) => failures.push(format!("launch {n} resolveVars: {problem}")),
+            }
+        }
+        for state in launch.states {
+            let mut verdicts = Vec::new();
+            for call in &state.calls {
+                let label = format!("state {} #{}", state.state, call.seq);
+                let (Some(golden), Some(spec)) = (
+                    named.get(&(call.channel.as_str(), call.case.as_str())),
+                    spec_of(&call.channel),
+                ) else {
+                    failures.push(format!(
+                        "{label}: {} {} is not a golden of a contract channel",
+                        call.channel, call.case
+                    ));
+                    verdicts.push((label, Verdict::Fail));
+                    continue;
+                };
+                if !same(
+                    &Value::Array(call.args.clone()),
+                    &Value::Array(golden.args.clone()),
+                ) {
+                    failures.push(format!(
+                        "{label}: the page sent {:?}, but {} {} holds {:?}",
+                        call.args, call.channel, call.case, golden.args
+                    ));
+                }
+                let (verdict, problems) = replay_case(&replay, spec, golden, &root);
+                failures.extend(problems.into_iter().map(|p| format!("{label}: {p}")));
+                cases
+                    .entry(spec.channel)
+                    .or_default()
+                    .push((label.clone(), verdict));
+                verdicts.push((label, verdict));
+            }
+            reports.push(StateReport {
+                verdict: channel_verdict(&verdicts),
+                calls: state.calls.len(),
+                state: state.state,
+                launch: n,
+                data: launch.data,
+            });
+        }
+    }
+    reports
+}
+
 /// Replays `goldens` against apps from `build_app`, each group over a fresh
-/// copy of `data`, and holds the result to the ratchet.
+/// copy of `data`, then the states as they were recorded, and holds the
+/// result to the ratchet. `recorded` is the manifest's name for `data`.
+#[allow(clippy::too_many_arguments)]
 fn replay_goldens(
     dir: &Path,
     goldens: &[Golden],
     clock: Clock,
     data: Option<&Path>,
+    recorded: &str,
     registry: &[CommandSpec],
     ported: BTreeSet<String>,
     build_app: BuildApp<'_>,
@@ -1433,13 +1582,13 @@ fn replay_goldens(
 
     let scratch = std::env::temp_dir().join(format!("bmt-golden-{}", std::process::id()));
     let mut groups: BTreeMap<&str, Vec<&Golden>> = BTreeMap::new();
-    for golden in goldens {
+    for golden in goldens.iter().filter(|g| g.group != STATE_GROUP) {
         groups
             .entry(golden.group.as_str())
             .or_default()
             .push(golden);
     }
-    let mut cases: BTreeMap<&'static str, Vec<(String, Verdict)>> = BTreeMap::new();
+    let mut cases: Cases = BTreeMap::new();
     for (group, group_cases) in groups {
         let root = scratch.join(group);
         match data {
@@ -1478,6 +1627,48 @@ fn replay_goldens(
                 .push((golden.case.clone(), verdict));
         }
     }
+    let (mut plan, indexes) = match states::read_indexes(dir) {
+        Ok(indexes) => {
+            let names: BTreeSet<(String, String)> = indexes
+                .iter()
+                .flat_map(|i| i.calls.iter().map(|c| (c.channel.clone(), c.case.clone())))
+                .collect();
+            let rows = states::states_ts(dir)
+                .ok_or_else(|| format!("{} has no parity/ folder above it", dir.display()))
+                .and_then(|path| {
+                    std::fs::read_to_string(&path)
+                        .map_err(|e| format!("{}: {e}", path.display()))
+                        .and_then(|source| {
+                            states::parse_rows(&source)
+                                .map_err(|e| format!("{}: {e}", path.display()))
+                        })
+                });
+            (states::plan(rows, indexes, recorded), names)
+        }
+        Err(problem) => {
+            failures.push(format!("state indexes: {problem}"));
+            (states::Plan::default(), BTreeSet::new())
+        }
+    };
+    let unnamed_state_cases = goldens
+        .iter()
+        .filter(|g| {
+            g.group == STATE_GROUP && !indexes.contains(&(g.channel.clone(), g.case.clone()))
+        })
+        .map(|g| format!("{} {}", g.channel, g.case))
+        .collect();
+    let skipped = std::mem::take(&mut plan.skipped);
+    let states = replay_states(
+        plan,
+        goldens,
+        clock,
+        data,
+        registry,
+        build_app,
+        &scratch,
+        &mut cases,
+        &mut failures,
+    );
     std::fs::remove_dir_all(&scratch).ok();
 
     let verdicts: BTreeMap<&'static str, Verdict> = registry
@@ -1495,8 +1686,192 @@ fn replay_goldens(
         wire_values,
         cases,
         verdicts,
+        states,
+        skipped,
+        unnamed_state_cases,
         failures,
     }
+}
+
+/// Settings a hand-made `settings:get` and `settings:set` keep, as
+/// Electron's settings table does: a get reads what an earlier set wrote.
+#[derive(Default)]
+struct HandSettings(Mutex<BTreeMap<String, String>>);
+
+#[tauri::command(rename = "settings:get")]
+async fn hand_get(
+    app: tauri::AppHandle<MockRuntime>,
+    key: String,
+) -> Result<Option<String>, CommandError> {
+    let settings = app.state::<HandSettings>();
+    Ok(settings.0.lock().expect("the settings").get(&key).cloned())
+}
+
+#[tauri::command(rename = "settings:set")]
+async fn hand_set(
+    app: tauri::AppHandle<MockRuntime>,
+    key: String,
+    value: String,
+) -> Result<(), CommandError> {
+    let settings = app.state::<HandSettings>();
+    settings.0.lock().expect("the settings").insert(key, value);
+    Ok(())
+}
+
+/// States replay in `seq` order on the launch they ran on, so a get sees an
+/// earlier set, in its own state or an earlier one; a state replay cannot
+/// reproduce is skipped with its reason. Each layout is written under `root`
+/// as `parity/out/golden` with `parity/states.ts` beside it.
+fn check_state_replay(root: &Path) -> Result<(), String> {
+    let write = |path: PathBuf, value: Value| -> Result<(), String> {
+        std::fs::create_dir_all(path.parent().expect("a parent")).map_err(|e| e.to_string())?;
+        std::fs::write(&path, value.to_string()).map_err(|e| e.to_string())
+    };
+    let golden = |channel: &str, case: &str, args: Value, outcome: Value| {
+        serde_json::json!({
+            "channel": channel, "case": case, "group": STATE_GROUP, "seq": 1_000_000,
+            "args": args, "outcome": outcome
+        })
+    };
+    let set = || serde_json::json!({ "seq": 0, "channel": "settings:set", "args": ["k", "v"], "case": "put" });
+    let get = |seq: i64| serde_json::json!({ "seq": seq, "channel": "settings:get", "args": ["k"], "case": "state-v" });
+    let index = |state: &str, group: &str, calls: Value| serde_json::json!({ "format": 1, "state": state, "group": group, "calls": calls });
+    let states_ts = "const row = () => ({});\nexport const STATES: StateRow[] = [\n  row(\"in-order\", \"default\", \"/\", \"x\"),\n  row(\n    \"reads-earlier\",\n    \"default\",\n    \"/\",\n    \"x\",\n  ),\n  row(\"on-snapshot\", \"default\", \"/\", \"x\", { data: \"snapshot\" }),\n  ...CLIENT_STATES,\n];\n";
+    let hand = |host: Host| {
+        mock_builder()
+            .manage(host.clock)
+            .manage(HandSettings::default())
+            .invoke_handler(tauri::generate_handler![hand_get, hand_set])
+    };
+    let run = |name: &str, first: Value| -> Result<Replayed, String> {
+        let parity = root.join(name).join("parity");
+        let dir = parity.join("out/golden");
+        std::fs::create_dir_all(&parity).map_err(|e| e.to_string())?;
+        std::fs::write(parity.join("states.ts"), states_ts).map_err(|e| e.to_string())?;
+        let goldens = [
+            golden(
+                "settings:set",
+                "put",
+                serde_json::json!(["k", "v"]),
+                serde_json::json!({ "kind": "void" }),
+            ),
+            golden(
+                "settings:get",
+                "state-v",
+                serde_json::json!(["k"]),
+                serde_json::json!({ "kind": "value", "result": "v" }),
+            ),
+            golden(
+                "settings:get",
+                "state-unnamed",
+                serde_json::json!(["other"]),
+                serde_json::json!({ "kind": "value", "result": null }),
+            ),
+        ];
+        for g in &goldens {
+            let file = format!(
+                "{}/{}.json",
+                g["channel"].as_str().unwrap_or_default().replace(':', "."),
+                g["case"].as_str().unwrap_or_default()
+            );
+            write(dir.join("ipc").join(file), g.clone())?;
+        }
+        write(
+            dir.join("states/in-order.json"),
+            index("in-order", "default", first),
+        )?;
+        write(
+            dir.join("states/reads-earlier.json"),
+            index("reads-earlier", "default", serde_json::json!([get(0)])),
+        )?;
+        write(
+            dir.join("states/on-snapshot.json"),
+            index("on-snapshot", "default", serde_json::json!([get(0)])),
+        )?;
+        write(
+            dir.join("states/live-in-game.json"),
+            index("live-in-game", "client", serde_json::json!([get(0)])),
+        )?;
+        let goldens = read_goldens(&dir)?;
+        Ok(replay_goldens(
+            &dir,
+            &goldens,
+            Clock::System,
+            None,
+            "fixture",
+            &commands::registry(),
+            BTreeSet::new(),
+            &hand,
+        ))
+    };
+    let verdicts = |replayed: &Replayed| -> Vec<(String, &'static str)> {
+        replayed
+            .states
+            .iter()
+            .map(|s| (s.state.clone(), s.verdict.label()))
+            .collect()
+    };
+    let owned = |pairs: &[(&str, &'static str)]| -> Vec<(String, &'static str)> {
+        pairs.iter().map(|(s, v)| (s.to_string(), *v)).collect()
+    };
+    // The file lists the get first; its seq puts the set before it
+    let in_order = run("states-in-order", serde_json::json!([get(1), set()]))?;
+    let reordered = run(
+        "states-reordered",
+        serde_json::json!([set(), get(0)].map(|mut c| {
+            if c["channel"] == "settings:set" {
+                c["seq"] = 1.into();
+            }
+            c
+        })),
+    )?;
+    std::fs::remove_dir_all(root.join("states-in-order")).ok();
+    std::fs::remove_dir_all(root.join("states-reordered")).ok();
+
+    if verdicts(&in_order) != owned(&[("in-order", "pass"), ("reads-earlier", "pass")]) {
+        return Err(format!(
+            "self-check states in order: {:?}, {:?}",
+            verdicts(&in_order),
+            in_order.failures
+        ));
+    }
+    if verdicts(&reordered) != owned(&[("in-order", "fail"), ("reads-earlier", "pass")]) {
+        return Err(format!(
+            "self-check states, a get before its set: {:?}",
+            verdicts(&reordered)
+        ));
+    }
+    let reasons: Vec<(&str, &str)> = in_order
+        .skipped
+        .iter()
+        .map(|s| (s.state.as_str(), s.reason.as_str()))
+        .collect();
+    let skipped_right = matches!(reasons.as_slice(),
+        [(client, why_client), (snapshot, why_snapshot)]
+            if *client == "live-in-game" && why_client.contains("fake League client")
+            && *snapshot == "on-snapshot" && why_snapshot.contains("data `snapshot`"));
+    if !skipped_right {
+        return Err(format!("self-check states: skipped {reasons:?}"));
+    }
+    if in_order.unnamed_state_cases != ["settings:get state-unnamed"] {
+        return Err(format!(
+            "self-check states: unnamed cases {:?}",
+            in_order.unnamed_state_cases
+        ));
+    }
+    // A run on no real data names the resolveVars reads it has no golden for
+    // and the hand-made channels that pass unlisted, nothing else
+    let unexpected: Vec<&String> = in_order
+        .failures
+        .iter()
+        .filter(|f| {
+            !f.contains("resolveVars") && !f.ends_with("passes; add it to tests/ported.txt")
+        })
+        .collect();
+    if !unexpected.is_empty() {
+        return Err(format!("self-check states in order: {unexpected:?}"));
+    }
+    Ok(())
 }
 
 /// The replay entry with a listed stub fails on the ratchet, so the replay
@@ -1516,6 +1891,7 @@ fn check_replay_ratchet(root: &Path) -> Result<(), String> {
         &[golden],
         Clock::System,
         None,
+        "fixture",
         &commands::registry(),
         BTreeSet::from(["app:version".to_owned()]),
         &stub,
@@ -1619,9 +1995,10 @@ fn run() -> Result<Vec<String>, String> {
     check_clock_fields(dir.is_some())?;
     check_fixture_refusals(&root)?;
     check_replay_ratchet(&root)?;
+    check_state_replay(&root)?;
     std::fs::remove_dir_all(&root).ok();
     println!(
-        "self-check: a stub reads not ported, a wrong answer and a panic read fail, every channel takes its arguments, hostile ones included"
+        "self-check: a stub reads not ported, a wrong answer and a panic read fail, every channel takes its arguments, hostile ones included, and states replay in order or are skipped with their reason"
     );
     let mut failures = listed_stubs(&stubs, &ported);
 
@@ -1658,6 +2035,7 @@ fn run() -> Result<Vec<String>, String> {
         &goldens,
         manifest.clock,
         data.as_deref(),
+        &manifest.data,
         &registry,
         ported,
         &build_app,
@@ -1702,8 +2080,51 @@ fn run() -> Result<Vec<String>, String> {
         summary.push_str(&format!(", {} no golden", count(Verdict::NoGolden)));
     }
     println!("{summary}");
+    print_states(&replayed);
     failures.extend(replayed.failures);
     Ok(failures)
+}
+
+/// The states table: each replayed state with its launch, then each skipped
+/// one with its reason.
+fn print_states(replayed: &Replayed) {
+    let launches: BTreeSet<usize> = replayed.states.iter().map(|s| s.launch).collect();
+    println!(
+        "states: {} replayed in order on {} launches, {} skipped",
+        replayed.states.len(),
+        launches.len(),
+        replayed.skipped.len()
+    );
+    if !replayed.states.is_empty() {
+        println!(
+            "{:<38} {:>6} {:<9} {:>5}  result",
+            "state", "launch", "data", "calls"
+        );
+    }
+    for state in &replayed.states {
+        let data = match state.data {
+            states::Data::Recorded => "fixture",
+            states::Data::Empty => "empty",
+        };
+        println!(
+            "{:<38} {:>6} {:<9} {:>5}  {}",
+            state.state,
+            state.launch,
+            data,
+            state.calls,
+            state.verdict.label()
+        );
+    }
+    for skipped in &replayed.skipped {
+        println!("skipped {}: {}", skipped.state, skipped.reason);
+    }
+    if !replayed.unnamed_state_cases.is_empty() {
+        println!(
+            "{} state cases are named by no state index, so no run places them, and are not replayed: {}",
+            replayed.unnamed_state_cases.len(),
+            replayed.unnamed_state_cases.join(", ")
+        );
+    }
 }
 
 fn main() -> ExitCode {
