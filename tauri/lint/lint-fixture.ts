@@ -11,7 +11,7 @@ export function lint(source: string) {
   const file = join(scratch, `fixture-${counter++}.tsx`);
   writeFileSync(file, source);
   const run = Bun.spawnSync(
-    ["bun", "lint", "--no-script", "--flavor", "eslint", "-f", "unix", file],
+    [process.execPath, "lint", "--no-script", "--flavor", "eslint", "-f", "unix", file],
     { cwd: projectRoot },
   );
   return { code: run.exitCode, out: run.stdout.toString() + run.stderr.toString() };
