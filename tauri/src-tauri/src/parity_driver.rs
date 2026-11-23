@@ -39,6 +39,10 @@ const RENDERER_DIR_ENV: &str = "BMT_PARITY_RENDERER_DIR";
 const INIT_SCRIPT_ENV: &str = "BMT_PARITY_INIT";
 const BROWSER_ARGS_ENV: &str = "BMT_PARITY_BROWSER_ARGS";
 const WEBVIEW_DATA_ENV: &str = "BMT_PARITY_WEBVIEW_DATA";
+/// 32 hex digits naming a scratch WebKit data store, which turns incognito off
+/// so values the page stores survive a relaunch. Never a store under the real
+/// bundle identifier: the default store is never used when this is set.
+const PERSIST_ENV: &str = "BMT_PARITY_PERSIST";
 /// Set to `regular` to keep the Dock icon, only to show captures match with and without it.
 #[cfg(target_os = "macos")]
 const ACTIVATION_ENV: &str = "BMT_PARITY_ACTIVATION";
@@ -60,8 +64,22 @@ struct Config {
     init_script: Option<String>,
     browser_args: Option<String>,
     webview_data: Option<PathBuf>,
+    persist: Option<[u8; 16]>,
     #[cfg(target_os = "macos")]
     keep_dock_icon: bool,
+}
+
+fn parse_store_id(text: &str) -> Result<[u8; 16], String> {
+    let text = text.trim();
+    if text.len() != 32 || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(format!("{PERSIST_ENV} must be 32 hex digits"));
+    }
+    let mut id = [0u8; 16];
+    for (byte, pair) in id.iter_mut().zip(text.as_bytes().chunks(2)) {
+        let pair = std::str::from_utf8(pair).map_err(|e| e.to_string())?;
+        *byte = u8::from_str_radix(pair, 16).map_err(|e| e.to_string())?;
+    }
+    Ok(id)
 }
 
 impl Config {
@@ -80,6 +98,10 @@ impl Config {
             init_script,
             browser_args: std::env::var(BROWSER_ARGS_ENV).ok(),
             webview_data: path(WEBVIEW_DATA_ENV),
+            persist: match std::env::var(PERSIST_ENV) {
+                Ok(text) => Some(parse_store_id(&text)?),
+                Err(_) => None,
+            },
             #[cfg(target_os = "macos")]
             keep_dock_icon: std::env::var(ACTIVATION_ENV).is_ok_and(|v| v == "regular"),
         })
@@ -226,9 +248,10 @@ pub fn configure<'a, M: Manager<DynRuntime>>(
     let config = config();
     let (x, y) = WINDOW_POSITION;
     // A private store keeps runs apart and keeps WebKit from writing a store
-    // under the real bundle identifier
+    // under the real bundle identifier. A lane that must see values survive a
+    // relaunch names a scratch store instead.
     let mut builder = builder
-        .incognito(true)
+        .incognito(config.persist.is_none())
         .focused(false)
         .position(x, y)
         // An accessory app's window opens behind the active app's, and WebKit stops
@@ -256,6 +279,10 @@ pub fn configure<'a, M: Manager<DynRuntime>>(
     }
     if let Some(dir) = &config.webview_data {
         builder = builder.data_directory(dir.clone());
+    }
+    #[cfg(target_os = "macos")]
+    if let Some(id) = config.persist {
+        builder = builder.data_store_identifier(id);
     }
     builder
 }
@@ -1468,6 +1495,16 @@ use win as platform;
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_store_id_is_32_hex_digits() {
+        assert_eq!(
+            parse_store_id("00ff10aB000000000000000000000001").unwrap(),
+            [0, 0xff, 0x10, 0xab, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+        );
+        assert!(parse_store_id("abc").is_err());
+        assert!(parse_store_id(&"g".repeat(32)).is_err());
+    }
+
     use super::*;
 
     const TOKEN: &str = "0123456789abcdef0123456789abcdef";
