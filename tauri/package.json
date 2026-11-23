@@ -1,0 +1,42 @@
+{
+  "name": "better-mayhem-tracker-tauri",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "tauri": "bunx tauri",
+    "lint": "bunx oxlint",
+    "fmt": "bunx oxfmt",
+    "fmt:check": "bunx oxfmt --check",
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bun test",
+    "deps:report": "bun scripts/deps-report.ts"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "5.3.0",
+    "@fontsource/barlow-condensed": "5.3.0",
+    "@solidjs/router": "2.0.1",
+    "@solidjs/web": "2.0.3",
+    "@tauri-apps/api": "3.0.0-alpha.3",
+    "solid-js": "2.0.3"
+  },
+  "devDependencies": {
+    "@babel/core": "8.1.3",
+    "@solidjs/babel-plugin": "2.0.2",
+    "@solidjs/vite-plugin": "3.0.1",
+    "@tailwindcss/vite": "4.3.5",
+    "@tauri-apps/cli": "3.0.0-alpha.6",
+    "@types/bun": "1.4.5",
+    "eslint-plugin-solid": "0.20.1",
+    "oxfmt": "0.79.0",
+    "oxlint": "1.94.0",
+    "tailwindcss": "4.3.5",
+    "typescript": "7.1.0-dev.20261121.1",
+    "vite": "8.4.0-beta.1"
+  },
+  "overrides": {
+    "vite": "8.4.0-beta.1"
+  }
+}
