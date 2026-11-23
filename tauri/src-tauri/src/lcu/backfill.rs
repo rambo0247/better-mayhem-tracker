@@ -304,7 +304,7 @@ impl GameSync {
         match walked.stopped_by {
             WalkStop::PageLimit => {
                 limit = Some(BackfillLimit::Paging);
-                log(format!(
+                crate::log::warn(format!(
                     "Backfill stopped at the {SGP_MAX_PAGES}-page limit ({} games); older games were not checked",
                     walked.ids.len()
                 ));
@@ -566,7 +566,7 @@ impl GameSync {
             .await
         {
             Some((host, true)) => {
-                log(format!(
+                crate::log::warn(format!(
                     "Match history shard {failed} no longer serves this account; moved to {host}"
                 ));
                 Some(host)
@@ -1071,6 +1071,10 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn a_rejected_shard_is_rehomed_and_the_walk_restarts_there() {
+        rehome().await;
+    }
+
+    async fn rehome() {
         let rig = rig("backfill-rehome");
         rig.env
             .exec("INSERT INTO settings (key, value) VALUES ('sgp_host', 'https://usw2-red.pp.sgp.pvp.net')");
@@ -1095,6 +1099,52 @@ mod tests {
                 .query::<String>("SELECT value FROM settings WHERE key = 'sgp_host'"),
             SGP_HOSTS[2]
         );
+    }
+
+    /// The child half of [`a_rehome_is_a_warning_in_the_apps_log`]: the app's
+    /// log is one per process, so the rehome runs where nothing else starts it.
+    #[tokio::test(start_paused = true)]
+    async fn rehome_log_child() {
+        let Some(data_root) = std::env::var_os("BMT_REHOME_LOG_ROOT") else {
+            return;
+        };
+        crate::log::start(
+            crate::paths::Paths::at(std::path::Path::new(&data_root)),
+            "9.9.9",
+        );
+        rehome().await;
+    }
+
+    /// `lcu.ts` writes the rehome with `console.warn`, so it is a timestamped
+    /// `WARN` line in `logs/main.log`, not a terminal-only line.
+    #[test]
+    fn a_rehome_is_a_warning_in_the_apps_log() {
+        let data_root = std::env::temp_dir().join(format!("bmt-rehome-log-{}", std::process::id()));
+        std::fs::create_dir_all(&data_root).unwrap();
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "lcu::backfill::tests::rehome_log_child",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env("BMT_REHOME_LOG_ROOT", &data_root)
+            .output()
+            .expect("run the child");
+        assert!(output.status.success(), "{output:?}");
+        let log = std::fs::read_to_string(data_root.join("logs/main.log")).unwrap();
+        let line = log
+            .lines()
+            .find(|l| l.contains("no longer serves this account"))
+            .expect("the rehome's line");
+        assert!(
+            line.ends_with(&format!(
+                " WARN Match history shard {} no longer serves this account; moved to {}",
+                SGP_HOSTS[0], SGP_HOSTS[2]
+            )),
+            "{line}"
+        );
+        std::fs::remove_dir_all(data_root).unwrap();
     }
 
     #[tokio::test(start_paused = true)]
