@@ -30,6 +30,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 use bmt_lib::Host;
+use bmt_lib::backup::Backups;
 use bmt_lib::commands::{self, Clock, CommandError, CommandSpec, EffectRecorder, GoldenCase};
 use bmt_lib::js_arg::{Js, JsValue, NON_FINITE_KEY};
 use bmt_lib::replay::{Recording, require_recording_env};
@@ -308,6 +309,10 @@ fn build(build_app: BuildApp<'_>, clock: Clock) -> Replay {
         .manage(EffectRecorder::default())
         .build(mock_context(noop_assets()))
         .expect("build the mock app");
+    // The launch backup runs on its own thread; a case must not see it land
+    if let Some(backups) = app.try_state::<Backups>() {
+        backups.list().expect("list the backups");
+    }
     let window = WebviewWindowBuilder::new(&app, bmt_lib::WINDOW_LABEL, Default::default())
         .build()
         .expect("build the mock main window");
