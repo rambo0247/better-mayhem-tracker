@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::db::num::Num;
 use crate::js_arg::Js;
 
 /// `"MVP" | "ACE"`, as api.ts declares the `score_badge` column. Electron
@@ -198,36 +199,36 @@ pub struct MatchScope {
 pub struct AugmentStats {
     pub augment_id: i64,
     pub picks: i64,
-    pub wins: i64,
+    pub wins: Num,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct ItemStats {
     pub item_id: i64,
     pub picks: i64,
-    pub wins: i64,
+    pub wins: Num,
 }
 
 /// `DashboardData["multikills"]`
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct Multikills {
-    pub doubles: i64,
-    pub triples: i64,
-    pub quadras: i64,
-    pub pentas: i64,
+    pub doubles: Num,
+    pub triples: Num,
+    pub quadras: Num,
+    pub pentas: Num,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct RecordMatchRef {
     pub game_id: i64,
     pub game_creation: i64,
-    pub game_duration: i64,
+    pub game_duration: Num,
     pub queue_id: i64,
     pub champion_id: i64,
-    pub win: i64,
-    pub kills: i64,
-    pub deaths: i64,
-    pub assists: i64,
+    pub win: Num,
+    pub kills: Num,
+    pub deaths: Num,
+    pub assists: Num,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]

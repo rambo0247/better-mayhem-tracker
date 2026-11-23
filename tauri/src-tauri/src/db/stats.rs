@@ -9,6 +9,7 @@ use rusqlite::types::Value as Sql;
 use rusqlite::{Connection, params_from_iter};
 
 use super::filters::{Where, apply_queue_filter, apply_season_filter};
+use super::num::Num;
 use super::stmt::{self, FromRow};
 use crate::commands::stats::{
     AugmentChampionPicks, AugmentStatsDetailed, AugmentStatsDetailedResult, ChampionStats,
@@ -229,20 +230,20 @@ db_row! {
     #[allow(non_snake_case)]
     struct DashboardTotals {
         totalGames: Option<i64>,
-        totalDuration: Option<i64>,
-        wins: Option<i64>,
-        totalKills: Option<i64>,
-        totalDeaths: Option<i64>,
-        totalAssists: Option<i64>,
-        doubles: Option<i64>,
-        triples: Option<i64>,
-        quadras: Option<i64>,
-        pentas: Option<i64>,
+        totalDuration: Option<Num>,
+        wins: Option<Num>,
+        totalKills: Option<Num>,
+        totalDeaths: Option<Num>,
+        totalAssists: Option<Num>,
+        doubles: Option<Num>,
+        triples: Option<Num>,
+        quadras: Option<Num>,
+        pentas: Option<Num>,
         avgScore: Option<f64>,
-        mvps: Option<i64>,
-        aces: Option<i64>,
-        scoredWins: Option<i64>,
-        scoredLosses: Option<i64>,
+        mvps: Option<Num>,
+        aces: Option<Num>,
+        scoredWins: Option<Num>,
+        scoredLosses: Option<Num>,
         accounts: Option<i64>,
     }
 }
@@ -311,9 +312,9 @@ pub fn get_dashboard_data(
         params_from_iter(&w.params),
     )?;
 
-    let n = |v: Option<i64>| v.unwrap_or(0);
+    let n = |v: Option<Num>| v.unwrap_or_default();
     Ok(DashboardData {
-        total_games: n(totals.totalGames),
+        total_games: totals.totalGames.unwrap_or(0),
         total_duration: n(totals.totalDuration),
         wins: n(totals.wins),
         total_kills: n(totals.totalKills),
@@ -324,7 +325,7 @@ pub fn get_dashboard_data(
         aces: n(totals.aces),
         scored_wins: n(totals.scoredWins),
         scored_losses: n(totals.scoredLosses),
-        accounts: n(totals.accounts),
+        accounts: totals.accounts.unwrap_or(0),
         recent_form,
         multikills: Multikills {
             doubles: n(totals.doubles),
@@ -340,7 +341,7 @@ db_row! {
         augment_id: i64,
         champion_id: i64,
         picks: i64,
-        wins: i64,
+        wins: Num,
     }
 }
 
@@ -593,18 +594,18 @@ db_row! {
     #[allow(non_snake_case)]
     struct ChampionTotals {
         games: i64,
-        wins: Option<i64>,
-        kills: Option<i64>,
-        deaths: Option<i64>,
-        assists: Option<i64>,
+        wins: Option<Num>,
+        kills: Option<Num>,
+        deaths: Option<Num>,
+        assists: Option<Num>,
         damage: Option<f64>,
         damageTaken: Option<f64>,
         gold: Option<f64>,
         heal: Option<f64>,
-        doubleKills: Option<i64>,
-        tripleKills: Option<i64>,
-        quadraKills: Option<i64>,
-        pentaKills: Option<i64>,
+        doubleKills: Option<Num>,
+        tripleKills: Option<Num>,
+        quadraKills: Option<Num>,
+        pentaKills: Option<Num>,
         damageShare: Option<f64>,
         killParticipation: Option<f64>,
     }
@@ -720,7 +721,7 @@ pub fn get_global_champion_detail(
             0.0
         }
     };
-    let n = |v: Option<i64>| v.unwrap_or(0);
+    let n = |v: Option<Num>| v.unwrap_or_default();
 
     Ok(GlobalChampionDetail {
         champion_id,
@@ -1031,10 +1032,14 @@ mod golden_tests {
         let mut out = Vec::new();
         for channel in CHANNELS.iter().chain([&SET_SETTING]) {
             let folder = dir.join("ipc").join(channel.replace(':', "."));
-            let Ok(files) = std::fs::read_dir(&folder) else {
-                continue;
+            let files = match std::fs::read_dir(&folder) {
+                Ok(files) => files,
+                Err(_) if channel == &SET_SETTING => continue,
+                Err(e) => panic!("no goldens for {channel} in {}: {e}", folder.display()),
             };
-            for file in files.flatten() {
+            let mut found = 0;
+            for file in files.map(|file| file.unwrap()) {
+                found += 1;
                 let text = std::fs::read_to_string(file.path()).unwrap();
                 let golden: Value = serde_json::from_str(&text).unwrap();
                 let channel = golden["channel"].as_str().unwrap();
@@ -1065,6 +1070,11 @@ mod golden_tests {
                     result,
                 });
             }
+            assert!(
+                found > 0 || channel == &SET_SETTING,
+                "{} holds no goldens",
+                folder.display()
+            );
         }
         out.sort_by(|a, b| (&a.group, a.seq).cmp(&(&b.group, b.seq)));
         out
@@ -1150,6 +1160,24 @@ mod golden_tests {
     }
 
     #[test]
+    #[should_panic(expected = "no goldens for db:champion-stats")]
+    fn a_missing_channel_folder_fails_the_replay() {
+        let dir = std::env::temp_dir().join(format!("bmt-t14-empty-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("ipc")).unwrap();
+        read_cases(&dir);
+    }
+
+    #[test]
+    #[should_panic(expected = "holds no goldens")]
+    fn an_empty_channel_folder_fails_the_replay() {
+        let dir = std::env::temp_dir().join(format!("bmt-t14-hollow-{}", std::process::id()));
+        for channel in CHANNELS {
+            std::fs::create_dir_all(dir.join("ipc").join(channel.replace(':', "."))).unwrap();
+        }
+        read_cases(&dir);
+    }
+
+    #[test]
     fn the_comparison_tells_neighbouring_doubles_apart() {
         let next = f64::from_bits(0.1f64.to_bits() + 1);
         assert_eq!(next.to_string(), "0.10000000000000002");
@@ -1158,6 +1186,77 @@ mod golden_tests {
             exact(r#"{"b": 3, "a": ["x\"y", null, 1e3]}"#),
             exact(r#"{"a":["x\"y",null,1000.0],"b":3.0}"#)
         );
+    }
+
+    fn method_channel(method: &str) -> &'static str {
+        match method {
+            "getChampionStats" => "db:champion-stats",
+            "getAugmentStats" => "db:augment-stats",
+            "getAugmentStatsDetailed" => "db:augment-stats-detailed",
+            "getDashboard" => "db:dashboard",
+            "getChampionItemStats" => "db:champion-item-stats",
+            "getGlobalStats" => "db:global-stats",
+            "getGlobalChampionDetail" => "db:global-champion-detail",
+            "getTrends" => "db:trends",
+            "getRecords" => "db:records",
+            other => panic!("{other} is not a stats method"),
+        }
+    }
+
+    /// Every call `parity/t14/record-hostile.ts` made against a fixture copy
+    /// whose `INTEGER` columns hold fractions, replayed on the same copy and
+    /// compared by bits. Needs `BMT_T14_HOSTILE` and `BMT_GOLDEN_DATA`, and
+    /// `TZ` as the recording ran.
+    #[test]
+    fn hostile_fixture_matches_electron_to_the_bit() {
+        let (Some(hostile), Some(data)) = (
+            std::env::var_os("BMT_T14_HOSTILE").map(PathBuf::from),
+            std::env::var_os("BMT_GOLDEN_DATA").map(PathBuf::from),
+        ) else {
+            eprintln!(
+                "skipped: set BMT_T14_HOSTILE and BMT_GOLDEN_DATA to replay the hostile calls"
+            );
+            return;
+        };
+        let recording: Value =
+            serde_json::from_str(&std::fs::read_to_string(hostile).unwrap()).unwrap();
+        let scratch = std::env::temp_dir().join(format!("bmt-t14-hostile-{}", std::process::id()));
+        let dir = fresh_copy(&data, &scratch, "hostile");
+        Connection::open(dir.join(DB_FILE))
+            .unwrap()
+            .execute_batch(recording["sql"].as_str().unwrap())
+            .unwrap();
+        let db = Database::open(&dir, 0).unwrap();
+        let mut failures = Vec::new();
+        let cases = recording["cases"].as_array().unwrap();
+        for (i, recorded) in cases.iter().enumerate() {
+            let method = recorded["method"].as_str().unwrap();
+            let case = Case {
+                channel: method_channel(method).into(),
+                case: format!("{method} {i}"),
+                group: "hostile".into(),
+                seq: i as i64,
+                args: recorded["args"].as_array().unwrap().clone(),
+                result: String::new(),
+            };
+            let want = recorded["result"]
+                .as_str()
+                .unwrap()
+                .strip_prefix("ok:")
+                .unwrap_or_else(|| panic!("Electron failed {method}: {}", recorded["result"]));
+            let got = db.with(|conn| run(conn, &case)).unwrap();
+            if exact(&serde_json::to_string(&got).unwrap()) != exact(want) {
+                failures.push(format!("{method} {}", recorded["args"]));
+            }
+        }
+        db.close();
+        std::fs::remove_dir_all(&scratch).ok();
+        eprintln!(
+            "{} hostile calls checked to the bit, {} differ",
+            cases.len(),
+            failures.len()
+        );
+        assert!(failures.is_empty(), "differ: {failures:#?}");
     }
 
     #[test]
@@ -1171,7 +1270,11 @@ mod golden_tests {
             );
             return;
         };
-        let cases = read_cases(&dir);
+        let mut cases = read_cases(&dir);
+        // A `state` case answers a page state seeded with its own games, not the fixture
+        let states = cases.iter().filter(|c| c.group == "state").count();
+        cases.retain(|c| c.group != "state");
+        eprintln!("{states} state goldens left to the state replay");
         assert!(!cases.is_empty(), "no stats goldens in {}", dir.display());
         let scratch = std::env::temp_dir().join(format!("bmt-t14-golden-{}", std::process::id()));
         let mut groups: BTreeMap<&str, Vec<&Case>> = BTreeMap::new();
@@ -1201,5 +1304,81 @@ mod golden_tests {
             failures.len()
         );
         assert!(failures.is_empty(), "differ: {failures:#?}");
+    }
+}
+
+#[cfg(test)]
+mod fraction_tests {
+    use super::*;
+    use crate::db::records::{CareerFilter, career_rows, compute_records};
+    use crate::db::schema::init_database;
+
+    /// Two games whose `INTEGER` columns hold fractions: SQLite keeps a value
+    /// that is not whole as a REAL whatever the column's affinity, and sums
+    /// it as one.
+    fn fractional_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        init_database(&conn, 0).unwrap();
+        conn.execute_batch(
+            "
+            INSERT INTO games (game_id, queue_id, game_mode, game_creation, game_duration, is_remake, puuid, game_version)
+            VALUES (1, 2400, 'KIWI', 1767000000000, 1500.25, 0, 'p1', '16.1.1'),
+                   (2, 2400, 'KIWI', 1767100000000, 1000, 0, 'p1', '16.1.1');
+            INSERT INTO player_stats (game_id, champion_id, win, kills, deaths, assists, double_kills, score)
+            VALUES (1, 10, 1, 3.5, 2, 4, 1.5, 7.5),
+                   (2, 10, 0.5, 2, 0, 5.25, 0, 5.0);
+            ",
+        )
+        .unwrap();
+        conn
+    }
+
+    fn json(v: impl serde::Serialize) -> String {
+        serde_json::to_string(&v).unwrap()
+    }
+
+    #[test]
+    fn the_dashboard_sums_fractions_as_javascript_does() {
+        let conn = fractional_db();
+        let data = get_dashboard_data(&conn, None).unwrap();
+        assert_eq!(data.total_duration, Num(2500.25));
+        assert_eq!(data.total_kills, Num(5.5));
+        assert_eq!(data.wins, Num(1.5));
+        assert_eq!(data.multikills.doubles, Num(1.5));
+        assert_eq!(data.total_games, 2);
+        let text = json(&data);
+        assert!(text.contains(r#""totalDuration":2500.25"#), "{text}");
+        assert!(text.contains(r#""totalDeaths":2,"#), "{text}");
+    }
+
+    #[test]
+    fn champion_stats_and_trends_keep_fractions() {
+        let conn = fractional_db();
+        let champions = get_champion_stats_all(&conn, None, None, None).unwrap();
+        assert_eq!(champions[0].kills, Num(5.5));
+        assert_eq!(champions[0].assists, Num(9.25));
+        let trends = get_trends_data(&conn, None).unwrap();
+        assert_eq!(
+            trends.daily.iter().map(|d| d.wins).collect::<Vec<_>>(),
+            [Num(1.0), Num(0.5)]
+        );
+        assert_eq!(trends.patches[0].wins, Num(1.5));
+    }
+
+    #[test]
+    fn records_read_fractions_and_rank_them() {
+        let conn = fractional_db();
+        let rows = career_rows(&conn, &CareerFilter::default()).unwrap();
+        assert_eq!(rows[0].game_duration, Num(1500.25));
+        let records = compute_records(&rows);
+        let kills = records.bests.kills.unwrap();
+        assert_eq!((kills.value, kills.game.game_id), (3.5, 1));
+        assert_eq!(kills.game.kills, Num(3.5));
+        assert_eq!(records.bests.longest_game.unwrap().value, 1500.25);
+        let win_streak = records.win_streak.unwrap();
+        assert_eq!((win_streak.length, win_streak.game.game_id), (1, 1));
+        assert!(
+            json(&get_dashboard_data(&conn, None).unwrap().recent_form).contains(r#""win":0.5"#)
+        );
     }
 }

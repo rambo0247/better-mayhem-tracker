@@ -5,6 +5,7 @@ use rusqlite::types::Value as Sql;
 use rusqlite::{Connection, params_from_iter};
 
 use super::filters::{Where, apply_queue_filter};
+use super::num::Num;
 use super::stmt;
 use crate::commands::types::{RecordBests, RecordMatchRef, RecordsData, StatRecord, StreakRecord};
 use crate::db_row;
@@ -16,25 +17,25 @@ db_row! {
     pub struct CareerRow {
         pub game_id: i64,
         pub game_creation: i64,
-        pub game_duration: i64,
+        pub game_duration: Num,
         pub queue_id: i64,
         pub champion_id: i64,
-        pub win: i64,
-        pub kills: i64,
-        pub deaths: i64,
-        pub assists: i64,
-        pub total_damage_dealt: i64,
-        pub total_damage_taken: i64,
-        pub gold_earned: i64,
-        pub total_heal: i64,
-        pub largest_killing_spree: i64,
+        pub win: Num,
+        pub kills: Num,
+        pub deaths: Num,
+        pub assists: Num,
+        pub total_damage_dealt: Num,
+        pub total_damage_taken: Num,
+        pub gold_earned: Num,
+        pub total_heal: Num,
+        pub largest_killing_spree: Num,
         pub score: Option<f64>,
         pub score_raw: Option<f64>,
         pub score_badge: Option<String>,
-        pub double_kills: i64,
-        pub triple_kills: i64,
-        pub quadra_kills: i64,
-        pub penta_kills: i64,
+        pub double_kills: Num,
+        pub triple_kills: Num,
+        pub quadra_kills: Num,
+        pub penta_kills: Num,
     }
 }
 
@@ -170,15 +171,15 @@ pub fn compute_records(rows: &[CareerRow]) -> RecordsData {
     let mut win_streak: Option<StreakRecord> = None;
     let mut loss_streak: Option<StreakRecord> = None;
     // (win, length, start) of the run the current game extends
-    let mut run: Option<(i64, i64, i64)> = None;
+    let mut run: Option<(f64, i64, i64)> = None;
 
     for r in rows {
-        let n = |v: i64| Some(v as f64);
+        let n = |v: Num| Some(v.0);
         track(&mut bests.kills, n(r.kills), r, higher);
         track(&mut bests.deaths, n(r.deaths), r, higher);
         track(&mut bests.assists, n(r.assists), r, higher);
         // Deathless games rank by kills+assists rather than dividing by zero
-        let kda = (r.kills + r.assists) as f64 / r.deaths.max(1) as f64;
+        let kda = (r.kills.0 + r.assists.0) / r.deaths.0.max(1.0);
         track(&mut bests.kda, Some(kda), r, higher);
         // Unclamped: every great game shows as 10 once clamped
         track(&mut bests.score, r.score_raw.or(r.score), r, higher);
@@ -192,23 +193,23 @@ pub fn compute_records(rows: &[CareerRow]) -> RecordsData {
         track(&mut bests.damage_taken, n(r.total_damage_taken), r, higher);
         track(&mut bests.healing, n(r.total_heal), r, higher);
         track(&mut bests.gold, n(r.gold_earned), r, higher);
-        if r.win != 0 {
+        if r.win.0 != 0.0 {
             track(&mut bests.fastest_win, n(r.game_duration), r, lower);
         }
         track(&mut bests.longest_game, n(r.game_duration), r, higher);
 
         let (_, length, start) = match run {
-            Some((win, length, start)) if win == r.win => (win, length + 1, start),
-            _ => (r.win, 1, r.game_creation),
+            Some((win, length, start)) if win == r.win.0 => (win, length + 1, start),
+            _ => (r.win.0, 1, r.game_creation),
         };
-        run = Some((r.win, length, start));
+        run = Some((r.win.0, length, start));
         let record = StreakRecord {
             length,
             start,
             end: r.game_creation,
             game: match_of(r),
         };
-        let streak = if r.win != 0 {
+        let streak = if r.win.0 != 0.0 {
             &mut win_streak
         } else {
             &mut loss_streak
@@ -234,25 +235,25 @@ mod tests {
         CareerRow {
             game_id,
             game_creation: game_id * 1000,
-            game_duration: 900 + game_id,
+            game_duration: Num::from(900 + game_id),
             queue_id: 2400,
             champion_id: 1,
-            win,
-            kills,
-            deaths,
-            assists,
-            total_damage_dealt: 0,
-            total_damage_taken: 0,
-            gold_earned: 0,
-            total_heal: 0,
-            largest_killing_spree: 0,
+            win: win.into(),
+            kills: kills.into(),
+            deaths: deaths.into(),
+            assists: assists.into(),
+            total_damage_dealt: Num::default(),
+            total_damage_taken: Num::default(),
+            gold_earned: Num::default(),
+            total_heal: Num::default(),
+            largest_killing_spree: Num::default(),
             score: None,
             score_raw: None,
             score_badge: None,
-            double_kills: 0,
-            triple_kills: 0,
-            quadra_kills: 0,
-            penta_kills: 0,
+            double_kills: Num::default(),
+            triple_kills: Num::default(),
+            quadra_kills: Num::default(),
+            penta_kills: Num::default(),
         }
     }
 

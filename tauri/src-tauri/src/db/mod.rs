@@ -9,6 +9,7 @@ pub mod ingest;
 pub mod js;
 pub mod matches;
 pub mod migrations;
+pub mod num;
 pub mod payloads;
 pub mod records;
 pub mod schema;
