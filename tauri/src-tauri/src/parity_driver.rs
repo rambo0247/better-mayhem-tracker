@@ -1406,6 +1406,41 @@ mod win {
         }
     }
 
+    /// WebView2 rasterizes at the monitor's scale, so on a 125% display an emulated viewport
+    /// snaps to that display's pixel grid, and an odd height such as 953 CSS px comes out 954.
+    /// At 1.0, as on a 100% display such as a CI runner's, the emulated size is exact. Monitor
+    /// scale detection goes off first, so a later DPI change cannot undo it, as for the card
+    /// in `snapshot::win::prepare_card_scale`.
+    fn rasterize_at_one(window: &WebviewWindow) -> Result<(), String> {
+        use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller3;
+        use windows_core::Interface;
+
+        let (tx, rx) = mpsc::channel();
+        window
+            .with_webview(move |platform| {
+                let Some(webview) = platform.downcast_ref::<tauri_runtime_wry::Webview>() else {
+                    let _ = tx.send(Err("the webview is not a wry webview".to_string()));
+                    return;
+                };
+                // SAFETY: wry's controller is live, and this closure runs on the main thread
+                let result = unsafe {
+                    webview
+                        .controller()
+                        .cast::<ICoreWebView2Controller3>()
+                        .and_then(|c3| {
+                            c3.SetShouldDetectMonitorScaleChanges(false)?;
+                            c3.SetRasterizationScale(1.0)
+                        })
+                };
+                let _ = tx
+                    .send(result.map_err(|error| {
+                        format!("could not set the rasterization scale: {error}")
+                    }));
+            })
+            .map_err(|e| e.to_string())?;
+        wait(rx, Duration::from_secs(5), "the rasterization scale")
+    }
+
     /// What Playwright does for a viewport and device scale: a window of that size at scale 2
     /// is larger than a CI runner's screen, and the OS would shrink it.
     pub fn emulate_viewport(
@@ -1414,6 +1449,7 @@ mod win {
         height: f64,
         scale: f64,
     ) -> Result<bool, String> {
+        rasterize_at_one(window)?;
         call(
             window,
             "Emulation.setDeviceMetricsOverride",
