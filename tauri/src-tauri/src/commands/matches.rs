@@ -8,10 +8,18 @@ use ts_rs::TS;
 
 use super::types::{MatchDetail, MatchPage, MatchScope};
 use super::{CommandError, CommandResult, Ctx, Domain};
+use crate::db::{self, filters, matches, summoner, week};
 use crate::js_arg::{Js, JsValue};
 
 pub struct Hooks;
 impl Domain for Hooks {}
+
+/// A whole-number argument. Anything else answers the error SQLite gives a
+/// LIMIT, OFFSET or id it cannot use.
+fn whole(arg: &Js<i64>) -> CommandResult<i64> {
+    arg.typed()
+        .ok_or_else(|| CommandError::named("SqliteError", "datatype mismatch"))
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -150,61 +158,84 @@ pub struct Profile {
 }
 
 pub async fn get_match_history<R: Runtime>(
-    _ctx: Ctx<R>,
-    _limit: Js<i64>,
-    _offset: Js<i64>,
-    _filters: Option<MatchFilters>,
+    ctx: Ctx<R>,
+    limit: Js<i64>,
+    offset: Js<i64>,
+    filters: Option<MatchFilters>,
 ) -> CommandResult<MatchPage> {
-    Err(CommandError::not_ported())
+    let (limit, offset) = (whole(&limit)?, whole(&offset)?);
+    let filters = filters.unwrap_or_default();
+    db::of(&ctx)?.with(|conn| matches::get_match_history(conn, limit, offset, &filters))
 }
 
 pub async fn get_match_sessions<R: Runtime>(
-    _ctx: Ctx<R>,
-    _filters: Option<MatchFilters>,
+    ctx: Ctx<R>,
+    filters: Option<MatchFilters>,
 ) -> CommandResult<Vec<MatchSession>> {
-    Err(CommandError::not_ported())
+    let filters = filters.unwrap_or_default();
+    let week_start = week::first_day_of_week(crate::locale::system_locale().as_deref());
+    db::of(&ctx)?.with(|conn| matches::get_match_sessions(conn, &filters, week_start))
 }
 
 pub async fn get_match_filter_options<R: Runtime>(
-    _ctx: Ctx<R>,
-    _filters: Option<MatchScope>,
+    ctx: Ctx<R>,
+    filters: Option<MatchScope>,
 ) -> CommandResult<MatchFilterOptions> {
-    Err(CommandError::not_ported())
+    let scope = filters.unwrap_or_default();
+    db::of(&ctx)?.with(|conn| matches::get_match_filter_options(conn, &scope))
 }
 
-pub async fn get_stored_queues<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<Vec<i64>> {
-    Err(CommandError::not_ported())
+pub async fn get_stored_queues<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Vec<i64>> {
+    db::of(&ctx)?.with(filters::get_stored_queues)
 }
 
 pub async fn get_match_detail<R: Runtime>(
-    _ctx: Ctx<R>,
-    _game_id: Js<i64>,
+    ctx: Ctx<R>,
+    game_id: Js<i64>,
 ) -> CommandResult<Option<MatchDetail>> {
-    Err(CommandError::not_ported())
+    let game_id = whole(&game_id)?;
+    db::of(&ctx)?.with(|conn| matches::get_match_detail(conn, game_id))
 }
 
-pub async fn toggle_favorite<R: Runtime>(_ctx: Ctx<R>, _game_id: Js<i64>) -> CommandResult<bool> {
-    Err(CommandError::not_ported())
+pub async fn toggle_favorite<R: Runtime>(ctx: Ctx<R>, game_id: Js<i64>) -> CommandResult<bool> {
+    let game_id = whole(&game_id)?;
+    db::of(&ctx)?.with(|conn| matches::toggle_favorite(conn, game_id))
 }
 
 pub async fn get_champion_match_history<R: Runtime>(
-    _ctx: Ctx<R>,
-    _champion_id: Js<i64>,
-    _limit: Js<i64>,
-    _offset: Js<i64>,
-    _patch: Js<Option<String>>,
-    _queue: Js<Option<i64>>,
-    _season: Js<Option<String>>,
+    ctx: Ctx<R>,
+    champion_id: Js<i64>,
+    limit: Js<i64>,
+    offset: Js<i64>,
+    patch: Js<Option<String>>,
+    queue: Js<Option<i64>>,
+    season: Js<Option<String>>,
 ) -> CommandResult<MatchPage> {
-    Err(CommandError::not_ported())
+    let (champion_id, limit, offset) = (whole(&champion_id)?, whole(&limit)?, whole(&offset)?);
+    let (patch, queue, season) = (
+        patch.typed().flatten(),
+        queue.typed().flatten(),
+        season.typed().flatten(),
+    );
+    db::of(&ctx)?.with(|conn| {
+        matches::get_champion_match_history(
+            conn,
+            champion_id,
+            limit,
+            offset,
+            patch.as_deref(),
+            queue,
+            season.as_deref(),
+        )
+    })
 }
 
-pub async fn get_all_summoner_puuids<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<Vec<String>> {
-    Err(CommandError::not_ported())
+pub async fn get_all_summoner_puuids<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Vec<String>> {
+    db::of(&ctx)?.with(summoner::get_all_puuids)
 }
 
-pub async fn get_profile<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<Profile> {
-    Err(CommandError::not_ported())
+pub async fn get_profile<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Profile> {
+    db::of(&ctx)?.with(summoner::get_profile)
 }
 
 #[cfg(test)]

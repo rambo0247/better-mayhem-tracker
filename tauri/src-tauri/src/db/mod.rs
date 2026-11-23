@@ -7,6 +7,7 @@ pub mod connection;
 pub mod filters;
 pub mod ingest;
 pub mod js;
+pub mod matches;
 pub mod migrations;
 pub mod payloads;
 pub mod schema;
@@ -14,6 +15,8 @@ pub mod scoring;
 pub mod settings;
 pub mod stmt;
 pub mod summoner;
+pub mod week;
+mod week_data;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
