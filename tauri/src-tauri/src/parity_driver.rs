@@ -161,6 +161,12 @@ pub fn install(builder: Builder<DynRuntime>) -> Builder<DynRuntime> {
 /// Runs in setup, before the window exists. A parity launch never shows in the
 /// operator's Dock and never takes focus, so it is an accessory app on macOS.
 pub fn prepare(app: &mut tauri::App<DynRuntime>) {
+    // build.rs sets it, so WebKit's storage under ~/Library never lands in the real app's folders
+    assert_eq!(
+        app.config().identifier,
+        "com.better-mayhem-tracker.parity",
+        "a parity-driver build must carry the parity bundle identifier",
+    );
     let home = match window_url() {
         Some(WebviewUrl::CustomProtocol(url)) => vec![url],
         _ => app_origins(app.config().build.dev_url.clone()),

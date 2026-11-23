@@ -15,6 +15,7 @@ custom-protocol = ["tauri/custom-protocol"]
 parity-driver = ["dep:sha1_smol"]
 
 [build-dependencies]
+serde_json = "=1.0.154"
 tauri-build = { version = "=3.0.0-alpha.4", features = [] }
 
 [dependencies]

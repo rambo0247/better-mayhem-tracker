@@ -3,7 +3,15 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { childEnv, startTauri, stopApp, TauriEngine, type TauriDriver } from "../run-tauri.ts";
+import {
+  childEnv,
+  PARITY_IDENTIFIER,
+  PRODUCTION_IDENTIFIER,
+  startTauri,
+  stopApp,
+  TauriEngine,
+  type TauriDriver,
+} from "../run-tauri.ts";
 
 const scratch = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "bmt-tauri-")));
 
@@ -63,9 +71,13 @@ describe.skipIf(process.platform === "win32")("launching", () => {
     const dir = scratch();
     const pidFile = path.join(dir, "pid");
     const binary = path.join(dir, "fake-tauri");
-    fs.writeFileSync(binary, `#!/bin/sh\necho $$ > "${pidFile}"\nexec sleep 300\n`, {
-      mode: 0o755,
-    });
+    fs.writeFileSync(
+      binary,
+      `#!/bin/sh\n# ${PARITY_IDENTIFIER}\necho $$ > "${pidFile}"\nexec sleep 300\n`,
+      {
+        mode: 0o755,
+      },
+    );
     await expect(
       startTauri({
         renderer: "solid",
@@ -92,7 +104,9 @@ describe.skipIf(process.platform === "win32")("launching", () => {
     fs.writeFileSync(path.join(data, "asset-cache", "champion", "1.png"), "png");
     fs.symlinkSync(standIn, path.join(data, "asset-cache", "champion", "elsewhere"));
     const binary = path.join(dir, "fake-tauri");
-    fs.writeFileSync(binary, "#!/bin/sh\nexec sleep 300\n", { mode: 0o755 });
+    fs.writeFileSync(binary, `#!/bin/sh\n# ${PARITY_IDENTIFIER}\nexec sleep 300\n`, {
+      mode: 0o755,
+    });
     const run = path.join(dir, "run");
     await expect(
       startTauri({ data, renderer: "solid", binary, runDir: run, readyTimeoutMs: 500 }),
@@ -108,12 +122,83 @@ describe.skipIf(process.platform === "win32")("launching", () => {
   test("the empty data source starts with no asset cache", async () => {
     const dir = scratch();
     const binary = path.join(dir, "fake-tauri");
-    fs.writeFileSync(binary, "#!/bin/sh\nexec sleep 300\n", { mode: 0o755 });
+    fs.writeFileSync(binary, `#!/bin/sh\n# ${PARITY_IDENTIFIER}\nexec sleep 300\n`, {
+      mode: 0o755,
+    });
     const run = path.join(dir, "run");
     await expect(
       startTauri({ data: "empty", renderer: "solid", binary, runDir: run, readyTimeoutMs: 500 }),
     ).rejects.toThrow(/no "bmt-parity-driver-v1 listening" line/);
     expect(fs.existsSync(path.join(run, "asset-cache"))).toBe(false);
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  const plist = (id: string) =>
+    `<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key>\n<string>${id}</string></dict></plist>`;
+  const identifierCases: [string, (dir: string) => string, RegExp][] = [
+    [
+      "a binary whose config names the production identifier",
+      (dir) => fakeBinary(dir, "bin", PRODUCTION_IDENTIFIER),
+      /carries the production bundle identifier/,
+    ],
+    [
+      "a binary from before the parity identifier",
+      (dir) => fakeBinary(dir, "bin", "com.example.other"),
+      /does not carry the parity bundle identifier/,
+    ],
+    [
+      "a parity binary inside a .app whose Info.plist names the production identifier",
+      (dir) => {
+        const contents = path.join(dir, "Better Mayhem Tracker.app", "Contents");
+        fs.mkdirSync(path.join(contents, "MacOS"), { recursive: true });
+        fs.writeFileSync(path.join(contents, "Info.plist"), plist(PRODUCTION_IDENTIFIER));
+        return fakeBinary(
+          path.join(contents, "MacOS"),
+          "better-mayhem-tracker-tauri",
+          PARITY_IDENTIFIER,
+        );
+      },
+      /carries the production bundle identifier/,
+    ],
+  ];
+  function fakeBinary(dir: string, name: string, identifier: string) {
+    const binary = path.join(dir, name);
+    fs.writeFileSync(
+      binary,
+      `#!/bin/sh\n# ${identifier}\necho ran > "${dir}/ran"\nexec sleep 300\n`,
+      {
+        mode: 0o755,
+      },
+    );
+    return binary;
+  }
+  for (const [name, make, refusal] of identifierCases) {
+    test(`refuses to launch ${name}`, async () => {
+      const dir = scratch();
+      const binary = make(dir);
+      await expect(
+        startTauri({
+          renderer: "solid",
+          binary,
+          runDir: path.join(dir, "run"),
+          readyTimeoutMs: 500,
+        }),
+      ).rejects.toThrow(refusal);
+      expect(fs.existsSync(path.join(path.dirname(binary), "ran"))).toBe(false);
+      fs.rmSync(dir, { recursive: true });
+    });
+  }
+
+  test("launches a parity binary inside a .app whose Info.plist names the parity identifier", async () => {
+    const dir = scratch();
+    const contents = path.join(dir, "Better Mayhem Tracker.app", "Contents");
+    fs.mkdirSync(path.join(contents, "MacOS"), { recursive: true });
+    fs.writeFileSync(path.join(contents, "Info.plist"), plist(PARITY_IDENTIFIER));
+    const binary = fakeBinary(path.join(contents, "MacOS"), "bin", PARITY_IDENTIFIER);
+    await expect(
+      startTauri({ renderer: "solid", binary, runDir: path.join(dir, "run"), readyTimeoutMs: 500 }),
+    ).rejects.toThrow(/no "bmt-parity-driver-v1 listening" line/);
+    expect(fs.existsSync(path.join(contents, "MacOS", "ran"))).toBe(true);
     fs.rmSync(dir, { recursive: true });
   });
 

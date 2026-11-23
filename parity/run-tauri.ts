@@ -26,6 +26,37 @@ export function tauriBinary(repo: string = REPO_DIR): string {
   return path.join(target, "debug", `better-mayhem-tracker-tauri${exe}`);
 }
 
+export const PRODUCTION_IDENTIFIER = "com.better-mayhem-tracker.app";
+export const PARITY_IDENTIFIER = "com.better-mayhem-tracker.parity";
+
+/**
+ * WebKit keeps a webview's storage under ~/Library by bundle identifier, whatever HOME says,
+ * and Tauri names the app's data folders by its config identifier. So a driver build under
+ * the app's own identifier writes into the real app's folders. Refuses a binary whose
+ * embedded config or enclosing .app names the production identifier, or that lacks the
+ * parity one (a build from before build.rs set it).
+ */
+export function refuseProductionIdentifier(binary: string) {
+  const bytes = fs.readFileSync(binary);
+  const bundlePlist = path.join(path.dirname(binary), "..", "Info.plist");
+  const insideApp = path.resolve(binary, "..", "..", "..").endsWith(".app");
+  const plist = insideApp && fs.existsSync(bundlePlist) ? fs.readFileSync(bundlePlist, "utf8") : "";
+  const bundleId = plist.match(/<key>CFBundleIdentifier<\/key>\s*<string>([^<]*)<\/string>/)?.[1];
+  if (bytes.includes(PRODUCTION_IDENTIFIER) || bundleId === PRODUCTION_IDENTIFIER) {
+    throw new Error(
+      `${binary} carries the production bundle identifier ${PRODUCTION_IDENTIFIER}. Rebuild it with --features parity-driver, and pass --config src-tauri/tauri.parity.conf.json to a bundled build.`,
+    );
+  }
+  if (
+    !bytes.includes(PARITY_IDENTIFIER) ||
+    (bundleId !== undefined && bundleId !== PARITY_IDENTIFIER)
+  ) {
+    throw new Error(
+      `${binary} does not carry the parity bundle identifier ${PARITY_IDENTIFIER}. Rebuild it with --features parity-driver.`,
+    );
+  }
+}
+
 export interface ReplayCase {
   case: string;
   group: string;
@@ -683,6 +714,7 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
       `${binary} is missing. Run \`CI=true bun run tauri build --debug --no-bundle --features parity-driver\` in tauri/.`,
     );
   }
+  refuseProductionIdentifier(binary);
   const assets = path.join(runDir, "asset-cache");
   if (dataRoot) copyDataTree(path.join(dataRoot, "asset-cache"), assets);
 
