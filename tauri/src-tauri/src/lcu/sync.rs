@@ -13,7 +13,6 @@ use rusqlite::types::Value as Sql;
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 use tokio::runtime::Handle;
-use tokio::time::Instant;
 
 use super::backfill::Sgp;
 use super::eog::Eog;
@@ -32,6 +31,7 @@ const MAYHEM_QUEUE_IDS: [f64; 2] = [2400.0, 2450.0];
 const LCU_HISTORY_PAGE_SIZE: usize = 20;
 /// How long a failed automatic walk waits before the poll tries one again.
 pub const AUTO_BACKFILL_RETRY_DELAY: Duration = Duration::from_secs(15 * 60);
+const AUTO_BACKFILL_RETRY_DELAY_MS: i64 = AUTO_BACKFILL_RETRY_DELAY.as_millis() as i64;
 const IN_GAME_PHASES: [&str; 2] = ["InProgress", "Reconnect"];
 
 /// What a JavaScript `throw` carried: the client's errors, the match history
@@ -137,7 +137,8 @@ pub trait Env: Send + Sync {
 /// `autoBackfillPausedUntil`: unset (`0`), a time, or `Infinity`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Pause {
-    Until(Instant),
+    /// `Date.now()` milliseconds, read from [`Env::now_ms`]
+    Until(i64),
     Forever,
 }
 
@@ -149,6 +150,8 @@ pub(super) struct SyncState {
     /// Accounts walked end to end this launch, by their puuid's JSON text
     pub swept: HashSet<String>,
     pub sgp_host: Option<String>,
+    /// `didFinalFetch`
+    pub final_fetched: bool,
 }
 
 /// The sync's shared state, the event sink, and the match history service.
@@ -180,7 +183,7 @@ impl GameSync {
     pub(super) fn auto_backfill_allowed(&self) -> bool {
         match self.state().auto_paused {
             None => true,
-            Some(Pause::Until(at)) => Instant::now() >= at,
+            Some(Pause::Until(at)) => self.env.now_ms() >= at,
             Some(Pause::Forever) => false,
         }
     }
@@ -192,6 +195,13 @@ impl GameSync {
 
     pub(super) fn pause_auto_backfill(&self, pause: Pause) {
         self.state().auto_paused = Some(pause);
+    }
+
+    /// `Date.now() + AUTO_BACKFILL_RETRY_DELAY`.
+    fn pause_for_retry(&self) {
+        self.pause_auto_backfill(Pause::Until(
+            self.env.now_ms() + AUTO_BACKFILL_RETRY_DELAY_MS,
+        ));
     }
 
     /// Runs `f` on the database, with better-sqlite3's error for a closed one.
@@ -269,9 +279,7 @@ impl GameSync {
                     log(format!(
                         "Automatic backfill failed, falling back to recent games: {err}"
                     ));
-                    self.pause_auto_backfill(Pause::Until(
-                        Instant::now() + AUTO_BACKFILL_RETRY_DELAY,
-                    ));
+                    self.pause_for_retry();
                 }
             }
         }
@@ -299,7 +307,7 @@ impl GameSync {
             log(format!(
                 "History walk after a rolled-over window failed: {err}"
             ));
-            self.pause_auto_backfill(Pause::Until(Instant::now() + AUTO_BACKFILL_RETRY_DELAY));
+            self.pause_for_retry();
         }
         Ok(())
     }
@@ -394,13 +402,18 @@ impl GameSync {
         Ok(games.len() >= LCU_HISTORY_PAGE_SIZE && !saw_known)
     }
 
-    /// The final fetch on quit, for T10's shell hook: `fetchNewGames` alone,
-    /// and only while the client is connected. The shell bounds it at 5 s.
+    /// The final fetch on quit: `fetchNewGames` alone, once a launch, and
+    /// only while the client is connected. Stopping the poll leaves the
+    /// status as it was, so the quit that follows the fetch finds it
+    /// connected still. The caller bounds it at 5 s.
     pub fn final_fetch(
         self: &Arc<Self>,
         client: Arc<dyn Client>,
     ) -> Option<BoxFuture<'static, Result<(), String>>> {
         if !client.is_client_connected() {
+            return None;
+        }
+        if std::mem::replace(&mut self.state().final_fetched, true) {
             return None;
         }
         let sync = self.clone();
@@ -411,21 +424,6 @@ impl GameSync {
                 .map_err(|err| err.to_string())
         }))
     }
-}
-
-/// Waits on the final fetch from the main thread, where `RunEvent::Exit`
-/// runs and no runtime is entered, for at most `cap`. The process ends when
-/// the event handler returns, so this is what keeps the fetch alive.
-pub fn wait_for_final_fetch(
-    fetch: BoxFuture<'static, Result<(), String>>,
-    cap: Duration,
-) -> Result<(), String> {
-    // The timer is built inside the runtime: built outside, it has no clock to read
-    tauri::async_runtime::block_on(async move {
-        tokio::time::timeout(cap, fetch)
-            .await
-            .unwrap_or_else(|_| Err("timed out".into()))
-    })
 }
 
 /// The transport's hooks: the poll runs `syncGames`, and every socket event
@@ -655,14 +653,14 @@ impl LcuSync {
         self.lcu.start_polling(true);
     }
 
-    /// `stopPolling`, for T10's `on_stop_polling` hook: the loops, the socket,
-    /// and every scheduled capture retry.
+    /// `stopPolling`: the loops, the socket, and every scheduled capture
+    /// retry. The status stays where it was, as Electron's does.
     pub fn stop_polling(&self) {
         self.lcu.stop_polling();
         self.sync.eog.stop();
     }
 
-    /// For T10's `final_fetch` hook.
+    /// [`GameSync::final_fetch`] over the transport.
     pub fn final_fetch(&self) -> Option<BoxFuture<'static, Result<(), String>>> {
         self.sync.final_fetch(Arc::new(self.lcu.clone()))
     }
@@ -736,6 +734,7 @@ pub(super) mod rig {
 
     use serde_json::json;
     use tokio::sync::Notify;
+    use tokio::time::Instant;
 
     use super::*;
     use crate::lcu::backfill::{Sgp, SgpResponse};
@@ -955,6 +954,8 @@ pub(super) mod rig {
         db: Database,
         pub champions: Arc<TestChampions>,
         events: Mutex<Vec<(u128, String, Value)>>,
+        /// `Date.now()` holds at [`NOW_MS`] unless set, as the seam freezes it
+        pub clock_advances: AtomicBool,
     }
 
     impl TestEnv {
@@ -1011,7 +1012,11 @@ pub(super) mod rig {
         }
 
         fn now_ms(&self) -> i64 {
-            NOW_MS
+            if self.clock_advances.load(Ordering::SeqCst) {
+                NOW_MS + self.started.elapsed().as_millis() as i64
+            } else {
+                NOW_MS
+            }
         }
 
         fn games_updated(&self) {
@@ -1055,6 +1060,7 @@ pub(super) mod rig {
                 notify: Notify::new(),
             }),
             events: Mutex::default(),
+            clock_advances: AtomicBool::new(false),
         });
         let client = Arc::new(FakeClient {
             started,
@@ -1263,9 +1269,29 @@ mod tests {
         assert_eq!(rig.client.times(BY_PUUID).len(), 2);
     }
 
+    /// The seam freezes `Date.now()` in Electron's main process, where the
+    /// pause then never lapses.
+    #[tokio::test(start_paused = true)]
+    async fn a_frozen_clock_never_lifts_the_sweep_pause() {
+        let rig = rig("sweep-frozen");
+        *rig.sgp.answer.lock().unwrap() = Box::new(|_| Reply::Status(500));
+        list(&rig, &[]);
+        rig.sync.sync_games(&rig.dyn_client).await.unwrap();
+        let probed = rig.sgp.urls().len();
+        assert!(probed > 0);
+
+        tokio::time::sleep(AUTO_BACKFILL_RETRY_DELAY * 4).await;
+        rig.sync.sync_games(&rig.dyn_client).await.unwrap();
+        assert_eq!(rig.sgp.urls().len(), probed, "still paused");
+        assert_eq!(rig.client.times(BY_PUUID).len(), 2);
+    }
+
     #[tokio::test(start_paused = true)]
     async fn a_failed_sweep_falls_back_and_waits_fifteen_minutes() {
         let rig = rig("sweep-fails");
+        rig.env
+            .clock_advances
+            .store(true, std::sync::atomic::Ordering::SeqCst);
         *rig.sgp.answer.lock().unwrap() = Box::new(|_| Reply::Status(500));
         rig.env
             .exec("INSERT INTO settings (key, value) VALUES ('sgp_host', 'https://usw2-red.pp.sgp.pvp.net')");
@@ -1336,10 +1362,31 @@ mod tests {
             .unwrap();
         assert_eq!(count(&rig, "games"), 1);
         assert!(rig.sgp.urls().is_empty(), "no sweep on the way out");
+    }
 
+    #[tokio::test(start_paused = true)]
+    async fn the_final_fetch_ends_with_the_clients_error() {
+        let rig = rig("final-fetch-error");
         rig.client.route(SUMMONER_PATH, vec![Reply::Status(503)]);
         let err = rig.sync.final_fetch(rig.dyn_client.clone()).unwrap().await;
         assert_eq!(err, Err(format!("LCU request failed: 503 {SUMMONER_PATH}")));
+    }
+
+    /// Electron's `didFinalFetch`. Stopping the poll leaves the client
+    /// connected, so the `app.quit()` after the fetch asks again.
+    #[tokio::test(start_paused = true)]
+    async fn a_quit_fetches_once_however_often_it_asks() {
+        let rig = rig("final-fetch-once");
+        list(&rig, &[(1, 2400)]);
+        rig.client
+            .route(&detail_path(1), vec![Reply::Json(payload(1, 2400))]);
+        rig.sync
+            .final_fetch(rig.dyn_client.clone())
+            .unwrap()
+            .await
+            .unwrap();
+        assert!(rig.sync.final_fetch(rig.dyn_client.clone()).is_none());
+        assert_eq!(rig.client.times(BY_PUUID).len(), 1);
     }
 
     #[tokio::test(start_paused = true)]
@@ -1480,24 +1527,6 @@ mod tests {
         );
         assert_eq!(statuses(), [Connecting, Connected, Ingame, Connected]);
         lcu.stop_polling();
-    }
-
-    /// `RunEvent::Exit` calls it on the main thread, outside any runtime.
-    #[test]
-    fn the_final_fetch_is_waited_for_outside_a_runtime_and_capped() {
-        let started = std::time::Instant::now();
-        let hung =
-            wait_for_final_fetch(Box::pin(std::future::pending()), Duration::from_millis(200));
-        assert_eq!(hung, Err("timed out".into()));
-        assert!(started.elapsed() < Duration::from_secs(2));
-        let done = wait_for_final_fetch(
-            Box::pin(async {
-                tokio::time::sleep(Duration::from_millis(10)).await;
-                Ok(())
-            }),
-            Duration::from_secs(5),
-        );
-        assert_eq!(done, Ok(()));
     }
 
     #[test]
