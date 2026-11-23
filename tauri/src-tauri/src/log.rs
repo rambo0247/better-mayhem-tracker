@@ -9,7 +9,8 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use chrono::{Local, NaiveDateTime};
+use jiff::ZonedDateTime;
+use jiff::civil::DateTime;
 
 use crate::paths::Paths;
 
@@ -105,11 +106,25 @@ impl Writer {
 static LOG: Mutex<Option<Writer>> = Mutex::new(None);
 
 /// `stamp()` in log.ts.
-pub fn stamp(at: NaiveDateTime) -> String {
-    at.format("%Y-%m-%d %H:%M:%S%.3f").to_string()
+pub fn stamp(at: DateTime) -> String {
+    format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}",
+        at.year(),
+        at.month(),
+        at.day(),
+        at.hour(),
+        at.minute(),
+        at.second(),
+        at.subsec_nanosecond() / 1_000_000
+    )
 }
 
-pub fn line(level: Level, message: &str, at: NaiveDateTime) -> String {
+/// Local time as the process sees it, `TZ` included, as `new Date()` does.
+fn now() -> DateTime {
+    ZonedDateTime::now().datetime()
+}
+
+pub fn line(level: Level, message: &str, at: DateTime) -> String {
     format!("{} {} {message}\n", stamp(at), level.label())
 }
 
@@ -123,7 +138,7 @@ pub fn write(level: Level, message: &str) {
 }
 
 fn append(level: Level, message: &str) {
-    let text = line(level, message, Local::now().naive_local());
+    let text = line(level, message, now());
     let mut log = LOG.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(writer) = log.as_mut() {
         writer.write(&text);
@@ -163,11 +178,7 @@ pub fn start(paths: Paths, version: &str) {
         if let Ok(mut log) = LOG.try_lock()
             && let Some(writer) = log.as_mut()
         {
-            writer.write(&line(
-                Level::Fatal,
-                &info.to_string(),
-                Local::now().naive_local(),
-            ));
+            writer.write(&line(Level::Fatal, &info.to_string(), now()));
         }
         previous(info);
     }));
@@ -221,13 +232,8 @@ fn os_release() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::NaiveDate;
-
-    fn at(h: u32, m: u32, s: u32, ms: u32) -> NaiveDateTime {
-        NaiveDate::from_ymd_opt(2026, 11, 22)
-            .unwrap()
-            .and_hms_milli_opt(h, m, s, ms)
-            .unwrap()
+    fn at(h: i8, m: i8, s: i8, ms: i32) -> DateTime {
+        jiff::civil::date(2026, 11, 22).at(h, m, s, ms * 1_000_000)
     }
 
     #[test]
