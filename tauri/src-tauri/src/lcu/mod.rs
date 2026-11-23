@@ -36,10 +36,8 @@ use process_lookup::ProcessSource;
 pub use status::LcuStatus;
 use status::StatusCell;
 
-/// The app's log until T09's logger lands; `lcu.ts` writes these through `console.log`.
-fn log(message: impl AsRef<str>) {
-    println!("[bmt pid={}] {}", std::process::id(), message.as_ref());
-}
+/// `lcu.ts` writes these through `console.log`.
+use crate::log::info as log;
 
 #[derive(Debug)]
 pub enum LcuError {
