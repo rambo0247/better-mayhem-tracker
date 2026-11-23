@@ -220,7 +220,7 @@ pub fn registered_target() -> Option<PathBuf> {
         return Some(exe);
     }
     let bundle = install_location::mac_app_bundle()?;
-    let exe = std::env::current_exe().ok()?;
+    let exe = install_location::exec_path()?;
     Some(bundle.join("Contents").join("MacOS").join(exe.file_name()?))
 }
 

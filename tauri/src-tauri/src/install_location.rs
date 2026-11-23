@@ -31,7 +31,19 @@ pub fn mac_app_bundle() -> Option<PathBuf> {
     if !cfg!(target_os = "macos") || !is_packaged() {
         return None;
     }
-    bundle_of(&std::env::current_exe().ok()?)
+    bundle_of(&exec_path()?)
+}
+
+/// Electron's `process.execPath`, which libuv's `uv_exepath` gives. On macOS
+/// and Linux it resolves symlinks (`realpath`), so a launch through a
+/// symlinked folder names the real one. On Windows it is
+/// `GetModuleFileNameW` as is, which is what `current_exe` returns there.
+pub fn exec_path() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    if cfg!(windows) {
+        return Some(exe);
+    }
+    std::fs::canonicalize(exe).ok()
 }
 
 /// `<bundle>.app/Contents/MacOS/<executable>`. A quarantined app opened from
