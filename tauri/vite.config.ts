@@ -3,25 +3,32 @@ import tailwindcss from "@tailwindcss/vite";
 import solid from "@solidjs/vite-plugin";
 import { defineConfig, type Plugin } from "vite";
 
-// A test module reaching the app bundle would ship bun:test and node:fs to
-// the webview, so the build stops on one
-const noTestModules: Plugin = {
-  name: "no-test-modules",
+const TEST_DIR = fileURLToPath(new URL("./test/", import.meta.url));
+
+// The webview has no node: or bun: modules, and test code has no place in the
+// app. Vite turns such an import into an empty browser-external stub instead
+// of failing, so the build has to stop on the stub itself.
+export const appOnly: Plugin = {
+  name: "app-only",
   apply: "build",
-  transform(_code, id) {
-    if (/\.test\.tsx?(\?|$)/.test(id)) this.error(`${id} is a test module`);
-  },
-  generateBundle(_options, bundle) {
-    for (const chunk of Object.values(bundle)) {
-      if (chunk.type !== "chunk") continue;
-      const leaked = chunk.imports.filter((id) => id.startsWith("bun:") || id.startsWith("node:"));
-      if (leaked.length > 0) this.error(`${chunk.fileName} imports ${leaked.join(", ")}`);
-    }
+  enforce: "pre",
+  async resolveId(source, importer, options) {
+    const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
+    const id = resolved?.id ?? "";
+    const why = id.includes("__vite-browser-external")
+      ? "is not a browser module"
+      : id.startsWith(TEST_DIR)
+        ? "is a test helper"
+        : /\.test\.tsx?(\?|$)/.test(id)
+          ? "is a test module"
+          : null;
+    if (why) this.error(`${source} ${why}, imported by ${importer ?? "the entry"}`);
+    return resolved;
   },
 };
 
 export default defineConfig({
-  plugins: [noTestModules, solid(), tailwindcss()],
+  plugins: [appOnly, solid(), tailwindcss()],
   resolve: { alias: { "@shared": fileURLToPath(new URL("../src/shared", import.meta.url)) } },
   clearScreen: false,
   server: { port: 1420, strictPort: true, watch: { ignored: ["**/src-tauri/**"] } },
