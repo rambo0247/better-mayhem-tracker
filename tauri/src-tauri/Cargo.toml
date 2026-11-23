@@ -3,6 +3,7 @@ name = "better-mayhem-tracker-tauri"
 version = "0.0.0"
 edition = "2024"
 publish = false
+default-run = "better-mayhem-tracker-tauri"
 
 [lib]
 name = "bmt_lib"
@@ -13,6 +14,24 @@ custom-protocol = ["tauri/custom-protocol"]
 # The in-process driver the parity tools use. Debug builds only: a release
 # build with it fails to compile (parity_driver.rs).
 parity-driver = ["dep:sha1_smol"]
+# The binary that writes ../src/bindings.ts. Gated so `tauri build` never
+# compiles it into the bundle.
+export-bindings = []
+
+[[bin]]
+name = "better-mayhem-tracker-tauri"
+path = "src/main.rs"
+
+[[bin]]
+name = "export_bindings"
+path = "src/bin/export_bindings.rs"
+required-features = ["export-bindings"]
+
+[[test]]
+name = "golden"
+path = "tests/golden.rs"
+# Prints the channel table straight to the terminal; libtest would capture it
+harness = false
 
 [build-dependencies]
 serde_json = "=1.0.154"
@@ -21,8 +40,14 @@ tauri-build = { version = "=3.0.0-alpha.4", features = [] }
 [dependencies]
 tauri = { version = "=3.0.0-alpha.6", features = [] }
 tauri-runtime-wry = { version = "=3.0.0-alpha.6" }
+serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
+ts-rs = "=12.0.1"
+heck = "=0.5.0"
 sha1_smol = { version = "=1.0.1", optional = true }
+
+[dev-dependencies]
+tauri = { version = "=3.0.0-alpha.6", features = ["test"] }
 
 # Webview snapshots, for the parity driver and later for card export
 [target.'cfg(target_os = "macos")'.dependencies]
