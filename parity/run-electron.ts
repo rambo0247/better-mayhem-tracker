@@ -394,7 +394,17 @@ export async function startElectron(options: StartOptions): Promise<RunningElect
         ({ BrowserWindow }, size) => {
           const window = BrowserWindow.getAllWindows()[0]!;
           window.setPosition(40, 40);
-          window.setContentSize(size.width, size.height);
+          // On a Windows display scaled other than the forced device scale (125% against 2),
+          // the content comes out a DIP narrower than asked, and the page with it. Steer by the
+          // content size Electron reports, which is what the page sees. A clamp to the screen
+          // stays as it was.
+          let ask = [size.width, size.height] as [number, number];
+          for (let attempt = 0; attempt < 3; attempt++) {
+            window.setContentSize(ask[0], ask[1]);
+            const [width, height] = window.getContentSize() as [number, number];
+            if (width === size.width && height === size.height) break;
+            ask = [ask[0] + size.width - width, ask[1] + size.height - height];
+          }
         },
         { width, height },
       );
