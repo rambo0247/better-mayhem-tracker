@@ -63,6 +63,9 @@ dirs = "=7.0.0"
 tauri-plugin-opener = { version = "=3.0.0-alpha.3", default-features = false }
 jiff = "=1.0.2"
 url = "=2.5.9"
+# ICU root collation, because String.prototype.localeCompare is ICU's and a hand-written table misorders every non-ASCII name
+icu_collator = "=2.4.0"
+icu_locale_core = "=2.4.0"
 # zlib-rs, because miniz_oxide writes different deflate streams than zlib does
 flate2 = { version = "=1.1.11", default-features = false, features = ["zlib-rs"] }
 # Number.prototype.toString, including its round-half-even choice between

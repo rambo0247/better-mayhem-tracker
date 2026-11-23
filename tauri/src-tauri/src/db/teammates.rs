@@ -5,7 +5,7 @@
 //! players and groups in the order a JavaScript `Map` first saw them, then a
 //! stable sort. [`JsMap`] keeps that insertion order.
 
-use std::cmp::{Ordering, Reverse};
+use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::Path;
@@ -24,6 +24,7 @@ use crate::commands::teammates::{
 };
 use crate::commands::types::{MatchListItem, ScoreBadge, TeammateChampionGames, TeammateStats};
 use crate::db_row;
+use crate::intl::locale_compare;
 use crate::op_score::{self, ChampionClassMap, compute_match_scores};
 
 /// `MIN_SHARED_GAMES` in `src/shared/api.ts`.
@@ -854,34 +855,6 @@ pub fn cached_champion_classes(data_dir: &Path) -> ChampionClassMap {
     classes
 }
 
-/// A character's collation weights under ICU's root order, which
-/// `String.prototype.localeCompare` uses for `en-US`: punctuation, then
-/// digits, then letters with case set aside. Characters past ASCII sort
-/// after it by code point, an approximation of ICU's full table.
-fn collation_weights(c: char) -> (u32, u8) {
-    const ORDER: &str = " _-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$0123456789";
-    if let Some(i) = ORDER.find(c) {
-        return (i as u32, 0);
-    }
-    if c.is_ascii_alphabetic() {
-        let base = ORDER.len() as u32 + u32::from(c.to_ascii_lowercase() as u8 - b'a');
-        return (base, u8::from(c.is_ascii_uppercase()));
-    }
-    (0x1_0000 + c as u32, 0)
-}
-
-/// `a.localeCompare(b)`: primary weights decide first, then case, lower
-/// before upper.
-fn locale_compare(a: &str, b: &str) -> Ordering {
-    let weights = |s: &str| s.chars().map(collation_weights).collect::<Vec<_>>();
-    let (a, b) = (weights(a), weights(b));
-    let primary = |w: &[(u32, u8)]| w.iter().map(|(p, _)| *p).collect::<Vec<_>>();
-    let tertiary = |w: &[(u32, u8)]| w.iter().map(|(_, t)| *t).collect::<Vec<_>>();
-    primary(&a)
-        .cmp(&primary(&b))
-        .then_with(|| tertiary(&a).cmp(&tertiary(&b)))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1017,34 +990,6 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
-    }
-
-    #[test]
-    fn locale_compare_matches_icu_root_order() {
-        let cases: [(&str, &str, Ordering); 10] = [
-            ("a", "A", Ordering::Less),
-            ("aA", "Aa", Ordering::Less),
-            ("a b", "a_b", Ordering::Less),
-            ("a_b", "a-b", Ordering::Less),
-            ("a-b", "aa", Ordering::Less),
-            ("Z", "a", Ordering::Greater),
-            ("9", "a", Ordering::Less),
-            ("$", "0", Ordering::Less),
-            ("Ab", "ab", Ordering::Greater),
-            ("ab", "abc", Ordering::Less),
-        ];
-        for (a, b, want) in cases {
-            assert_eq!(locale_compare(a, b), want, "{a:?} against {b:?}");
-        }
-        // Cases recorded from Node's `localeCompare`, when a file is given
-        let Some(file) = std::env::var_os("BMT_COLLATION_CASES") else {
-            return;
-        };
-        let cases: Vec<(String, String, i32)> =
-            serde_json::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
-        for (a, b, want) in &cases {
-            assert_eq!(locale_compare(a, b) as i32, *want, "{a:?} against {b:?}");
-        }
     }
 
     #[test]

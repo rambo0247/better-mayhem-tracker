@@ -16,6 +16,7 @@ pub mod data_guard;
 pub mod db;
 pub mod events;
 pub mod install_location;
+pub mod intl;
 pub mod js_arg;
 pub mod locale;
 pub mod log;
