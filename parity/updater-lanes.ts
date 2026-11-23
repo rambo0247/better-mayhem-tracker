@@ -496,7 +496,11 @@ async function fromDiskImage() {
     }
   } finally {
     fake.close();
-    spawnSync("hdiutil", ["detach", "-quiet", mount]);
+    // The app can still hold the image for a moment after it quits
+    for (let tries = 0; tries < 20; tries++) {
+      if (spawnSync("hdiutil", ["detach", "-quiet", mount]).status === 0) break;
+      await Bun.sleep(500);
+    }
   }
 }
 
