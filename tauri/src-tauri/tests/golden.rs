@@ -1778,7 +1778,7 @@ fn check_state_replay(root: &Path) -> Result<(), String> {
     let set = || serde_json::json!({ "seq": 0, "channel": "settings:set", "args": ["k", "v"], "case": "put" });
     let get = |seq: i64| serde_json::json!({ "seq": seq, "channel": "settings:get", "args": ["k"], "case": "state-v" });
     let index = |state: &str, group: &str, calls: Value| serde_json::json!({ "format": 1, "state": state, "group": group, "calls": calls });
-    let states_ts = "const row = () => ({});\nexport const STATES: StateRow[] = [\n  row(\"in-order\", \"default\", \"/\", \"x\"),\n  row(\n    \"reads-earlier\",\n    \"default\",\n    \"/\",\n    \"x\",\n  ),\n  row(\"on-snapshot\", \"default\", \"/\", \"x\", { data: \"snapshot\" }),\n  ...CLIENT_STATES,\n];\n";
+    let states_ts = "const row = () => ({});\nexport const STATES: StateRow[] = [\n  row(\"in-order\", \"default\", \"/\", \"x\"),\n  row(\n    \"reads-earlier\",\n    \"default\",\n    \"/\",\n    \"x\",\n  ),\n  row(\"unrecorded\", \"default\", \"/\", \"x\"),\n  row(\"after-gap\", \"default\", \"/\", \"x\"),\n  row(\"on-snapshot\", \"default\", \"/\", \"x\", { data: \"snapshot\" }),\n  ...CLIENT_STATES,\n];\n";
     let hand = |host: Host| {
         mock_builder()
             .manage(host.clock)
@@ -1825,6 +1825,10 @@ fn check_state_replay(root: &Path) -> Result<(), String> {
         write(
             dir.join("states/reads-earlier.json"),
             index("reads-earlier", "default", serde_json::json!([get(0)])),
+        )?;
+        write(
+            dir.join("states/after-gap.json"),
+            index("after-gap", "default", serde_json::json!([get(0)])),
         )?;
         write(
             dir.join("states/on-snapshot.json"),
@@ -1889,8 +1893,9 @@ fn check_state_replay(root: &Path) -> Result<(), String> {
         .map(|s| (s.state.as_str(), s.reason.as_str()))
         .collect();
     let skipped_right = matches!(reasons.as_slice(),
-        [(client, why_client), (snapshot, why_snapshot)]
+        [(client, why_client), (gap, why_gap), (snapshot, why_snapshot)]
             if *client == "live-in-game" && why_client.contains("fake League client")
+            && *gap == "after-gap" && why_gap.starts_with("unrecorded ran before it")
             && *snapshot == "on-snapshot" && why_snapshot.contains("data `snapshot`"));
     if !skipped_right {
         return Err(format!("self-check states: skipped {reasons:?}"));
@@ -1901,17 +1906,29 @@ fn check_state_replay(root: &Path) -> Result<(), String> {
             in_order.unnamed_state_cases
         ));
     }
-    // A run on no real data names the resolveVars reads it has no golden for
-    // and the hand-made channels that pass unlisted, nothing else
-    let unexpected: Vec<&String> = in_order
+    // The fixture launch asked resolveVars' reads first, and on no real data
+    // no golden answers them; the hand-made channels pass unlisted
+    let read_first: Vec<&String> = in_order
         .failures
         .iter()
-        .filter(|f| {
-            !f.contains("resolveVars") && !f.ends_with("passes; add it to tests/ported.txt")
-        })
+        .filter(|f| f.starts_with("launch 0 resolveVars: "))
         .collect();
-    if !unexpected.is_empty() {
-        return Err(format!("self-check states in order: {unexpected:?}"));
+    let asked = states::RESOLVE_VARS.iter().all(|(channel, _)| {
+        read_first
+            .iter()
+            .any(|f| f.contains(&format!(": {channel} ")))
+    });
+    let others = in_order.failures.len() - read_first.len();
+    let unlisted = in_order
+        .failures
+        .iter()
+        .filter(|f| f.ends_with("passes; add it to tests/ported.txt"))
+        .count();
+    if !asked || read_first.len() != states::RESOLVE_VARS.len() || others != unlisted {
+        return Err(format!(
+            "self-check states in order: failures {:?}",
+            in_order.failures
+        ));
     }
     Ok(())
 }
