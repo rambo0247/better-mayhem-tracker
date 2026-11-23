@@ -58,7 +58,12 @@ Most handlers return errors as data (`{ success: false, error }`), so `error` ou
 
 One JSON object per line, in the order the main process sent them: `{ "seq", "event", "payload"?, "cause" }`. `payload` is absent for an event with no payload (`lcu:games-updated`). `cause` is `{ "channel", "case" }` when an invoke was running, and `"scenario"` otherwise. Timestamps are not in the files, because they would differ on every run. Raw timings are in `parity/out/golden/raw/`, which no later unit reads.
 
-A scenario file is one recording session. Each write group that pushes events writes its own file. The T03 scenarios (`end-of-game`, `backfill-running`) write `end-of-game.jsonl` and `backfill-running.jsonl`.
+A scenario file is one recording session, named for it. Files today:
+
+- `startup.jsonl`. What the app pushes while it launches with no League client.
+- `read.jsonl`, `backup.jsonl`, `data-transfer.jsonl`, `window.jsonl`. Every event pushed while that group's cases ran, with the invoke that caused it in `cause`. Events no invoke caused (the client poller's `lcu:status-changed`) have `cause` `"scenario"`.
+- `update-install-failed.jsonl`. Holds only the `update:*` events. The seam makes the app believe it is installed, serves a fake GitHub on loopback, and offers a release whose digest the download cannot match. The app announces the install, reports 25, 50, 75 and 100 percent, then fails its integrity check. No process is spawned and nothing is swapped.
+- The T03 scenarios (`end-of-game`, `backfill-running`) write `end-of-game.jsonl` and `backfill-running.jsonl`.
 
 ## Matching a call to a golden (replay)
 

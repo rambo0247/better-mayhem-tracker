@@ -579,6 +579,7 @@ if (process.type === "browser") {
     electronApp.dock?.hide();
   }
   dialog.showErrorBox = (title, content) => fault("showErrorBox", `${title}: ${content}`);
+  if (process.env.SEAM_IPC) require("./seam-ipc.cjs");
   if (process.env.SEAM_COVER === "1") {
     electronApp.once("browser-window-created", () => {
       setTimeout(() => {
