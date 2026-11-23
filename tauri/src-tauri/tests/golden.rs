@@ -43,7 +43,8 @@ use tauri::{Builder, Listener, Manager, WebviewWindow, WebviewWindowBuilder};
 const CLOCK_FIELDS: &[&str] = &[];
 const CLOCK_MARK: &str = "<clock>";
 const UNREGISTERED_CHANNEL: &str = "bmt:unregistered-channel";
-/// The run folder Electron's seam writes as `$RUN` is the data root.
+/// The run folder Electron's seam writes as `$RUN` is the data root. The
+/// fixture's data folder goes under it as `data/`, where `Paths` finds it.
 const RUN: &str = "$RUN";
 const CALL_TIMEOUT: Duration = Duration::from_secs(30);
 /// JavaScript holds integers exactly only up to here.
@@ -1530,7 +1531,7 @@ fn replay_states(
     for (n, launch) in plan.launches.into_iter().enumerate() {
         let root = scratch.join(format!("launch-{n}"));
         match (launch.data, data) {
-            (states::Data::Recorded, Some(data)) => copy_dir(data, &root),
+            (states::Data::Recorded, Some(data)) => copy_dir(data, &root.join("data")),
             _ => std::fs::create_dir_all(&root).expect("create the data folder"),
         }
         use_data_root(&root);
@@ -1634,7 +1635,7 @@ fn replay_goldens(
     for (group, group_cases) in groups {
         let root = scratch.join(group);
         match data {
-            Some(data) => copy_dir(data, &root),
+            Some(data) => copy_dir(data, &root.join("data")),
             None => std::fs::create_dir_all(&root).expect("create the data folder"),
         }
         use_data_root(&root);
