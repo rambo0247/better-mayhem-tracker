@@ -299,6 +299,8 @@ mod tests {
     /// copy of the same folder. `BMT_T18_SCENARIOS` names the list; without
     /// it there is nothing to run.
     #[test]
+    // Times each call against Electron's; clippy.toml's clock rule is for bodies
+    #[allow(clippy::disallowed_methods)]
     fn electron_scenarios() {
         let Some(list) = std::env::var_os("BMT_T18_SCENARIOS") else {
             return;
