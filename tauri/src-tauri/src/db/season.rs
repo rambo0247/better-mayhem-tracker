@@ -886,7 +886,7 @@ mod tests {
 
     #[test]
     fn a_season_still_to_come_is_not_offered() {
-        let (conn, tz) = library(&["2026-06-12T20:00"]);
+        let (conn, _) = library(&["2026-06-12T20:00"]);
         let ids = |now| {
             get_seasons(&conn, now)
                 .unwrap()
@@ -894,9 +894,11 @@ mod tests {
                 .map(|s| (s.id, s.games))
                 .collect::<Vec<_>>()
         };
-        let before_set_3 = ms("2026-10-21T04:59", &tz);
+        // Season bounds are local dates in the system zone, as Electron reads them,
+        // so the instants come from the same bounds rather than from a fixed zone
+        let set_3 = season_bounds(find_season("set-3").unwrap()).from.unwrap();
         assert_eq!(
-            ids(before_set_3),
+            ids(set_3 - 1),
             [
                 ("set-0".into(), 0),
                 ("set-1".into(), 0),
@@ -904,7 +906,7 @@ mod tests {
                 ("all".into(), 1)
             ]
         );
-        assert_eq!(ids(ms("2026-10-21T05:00", &tz)).len(), 5);
+        assert_eq!(ids(set_3).len(), 5);
     }
 
     #[test]
