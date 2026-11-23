@@ -13,7 +13,7 @@ const RELEASES_URL =
 const DOWNLOAD_URL =
   /^https:\/\/github\.com(\/rambo0247\/better-mayhem-tracker\/releases\/download\/.*)$/;
 const MAX_BODY_CHARS = 4_000;
-const DEFAULT_SCENARIO = "up-to-date";
+const DEFAULT_SCENARIO = process.env.SEAM_GITHUB_SCENARIO || "up-to-date";
 
 const CHANNELS = {
   getRecoveryReport: "backup:recovery-report",

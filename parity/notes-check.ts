@@ -6,9 +6,9 @@ import { startElectron } from "./run-electron.ts";
 
 /**
  * Checks the synthetic What's New notes a state uses against the app's real loadUpdateNotes.
- * For each older `last_run_version` it launches the app, reads the notes the real handler
- * built from the fake GitHub page, then asks the seam to build its synthetic copy from the
- * same page and compares the two.
+ * For each older `last_run_version` it launches the app on the scenario's page, reads the notes
+ * the real handler built from it (the app loads them once, at launch, and keeps the answer), then
+ * asks the seam to build its synthetic copy from the same page and compares the two.
  */
 const CASES = [
   { from: "1.0.0", scenario: "notes-multi" },
@@ -25,6 +25,7 @@ for (const { from, scenario } of CASES) {
     data: "fixture",
     runDir: path.join(out, `run-${from}`),
     lastRunVersion: from,
+    githubScenario: scenario,
   });
   try {
     const hooks = (name: string, arg: unknown) =>
@@ -32,7 +33,6 @@ for (const { from, scenario } of CASES) {
         async (_electron, { name, arg }) => (globalThis as any).__parity[name](arg),
         { name, arg },
       );
-    await hooks("github", scenario);
     const real = await hooks("realCall", { method: "getUpdateNotes" });
     const synthetic = await hooks("notes", { from, scenario });
     const same = isDeepStrictEqual(real, synthetic);
