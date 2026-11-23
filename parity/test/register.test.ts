@@ -234,7 +234,7 @@ describe("elements the port marks data-parity-skip", () => {
     expect(geometryOf(port(true)).map((row) => [row[0], row[1]])).toEqual([
       ["b", "BODY"],
       ["b/0", "DIV"],
-      ["b/0/0", "SPAN"],
+      ["b/0/0", "IMG"],
       ["b/1", "DIV"],
     ]);
   });
