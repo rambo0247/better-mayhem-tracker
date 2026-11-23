@@ -22,6 +22,26 @@ use serde_json::{Value, json};
 
 const NOW_MS: i64 = 1_795_399_200_000;
 
+/// The OS byte Node's zlib writes into a gzip header on this platform, so
+/// what Electron here writes. The fixture was recorded on macOS: 19.
+const HOST_GZIP_OS: u8 = if cfg!(target_os = "macos") {
+    19
+} else if cfg!(windows) {
+    10
+} else {
+    3
+};
+
+/// A fixture blob as Electron on this platform would have written it: a gzip
+/// payload's header names this OS, and nothing else changes.
+fn as_written_here(blob: &[u8]) -> Vec<u8> {
+    let mut blob = blob.to_vec();
+    if blob.len() > 9 && blob[..2] == [0x1f, 0x8b] {
+        blob[9] = HOST_GZIP_OS;
+    }
+    blob
+}
+
 fn scratch(name: &str) -> PathBuf {
     static NEXT: AtomicUsize = AtomicUsize::new(0);
     let dir = std::env::temp_dir().join(format!(
@@ -372,10 +392,20 @@ fn same_rows(conn: &Connection, table: &str, cols: &str, order: &str) {
         conn,
         &format!("SELECT {cols} FROM main.{table} ORDER BY {order}"),
     );
-    let theirs = sql_rows(
+    let theirs: Vec<Vec<Sql>> = sql_rows(
         conn,
         &format!("SELECT {cols} FROM f.{table} ORDER BY {order}"),
-    );
+    )
+    .into_iter()
+    .map(|row| {
+        row.into_iter()
+            .map(|cell| match cell {
+                Sql::Blob(blob) => Sql::Blob(as_written_here(&blob)),
+                other => other,
+            })
+            .collect()
+    })
+    .collect();
     assert_eq!(ours.len(), theirs.len(), "{table}: row count");
     for (a, b) in ours.iter().zip(&theirs) {
         assert_eq!(a, b, "{table}: first differing row");
@@ -568,7 +598,11 @@ fn every_fixture_payload_repacks_to_its_own_bytes() {
             text,
             "JSON.stringify text"
         );
-        assert_eq!(&payloads::pack_raw(&raw), blob, "gzip bytes");
+        assert_eq!(
+            payloads::pack_raw(&raw),
+            as_written_here(blob),
+            "gzip bytes"
+        );
     }
     println!("{} payloads repack byte for byte", blobs.len());
 }
