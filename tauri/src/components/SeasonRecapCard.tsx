@@ -99,8 +99,9 @@ function coverage(recap: SeasonRecap): string | null {
     if (!season.end) return `Since ${DATE_FORMAT.format(start)}`;
     return DATE_FORMAT.formatRange(start, seasonDate(season.end));
   }
-  if (recap.firstGame == null || recap.lastGame == null) return null;
-  return DATE_FORMAT.formatRange(recap.firstGame, recap.lastGame);
+  return recap.firstGame != null && recap.lastGame != null
+    ? DATE_FORMAT.formatRange(recap.firstGame, recap.lastGame)
+    : null;
 }
 
 // The session days the calendar covers, on the same terms as coverage: a whole
@@ -113,9 +114,10 @@ function calendarSpan(recap: SeasonRecap): { first: number; last: number; throug
     const last = season.end ? seasonDate(season.end) : today;
     return { first: seasonDate(season.start), last, through: Math.min(last, today) };
   }
-  if (recap.firstGame == null || recap.lastGame == null) return null;
-  const last = sessionDay(recap.lastGame);
-  return { first: sessionDay(recap.firstGame), last, through: last };
+  const last = recap.lastGame == null ? null : sessionDay(recap.lastGame);
+  return recap.firstGame != null && last != null
+    ? { first: sessionDay(recap.firstGame), last, through: last }
+    : null;
 }
 
 function inProgress(seasonId: string): boolean {
