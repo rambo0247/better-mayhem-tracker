@@ -1,8 +1,9 @@
 name: CI
 
 # Every push and every pull request: the code checks on both platforms the app ships
-# for, a real build of each launched and looked at, then the packaged app the release
-# ships, started and swapped the way the updater does.
+# for, a real build of each launched and looked at, and the packaged app the release
+# ships, started and swapped the way the updater does. The jobs run side by side, each
+# compiling only its own profiles, so the run takes as long as its slowest job.
 on:
   # Branches only: a release tag already runs these checks in release.yml
   push:
@@ -19,7 +20,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  # Lint, format, types and tests, the page's and Rust's, debug profile throughout
+  lint-test:
     strategy:
       fail-fast: false
       matrix:
@@ -67,12 +69,6 @@ jobs:
         working-directory: tauri/src-tauri
         run: cargo clippy --all-targets -- -D warnings
 
-      # Some code and tests exist only under debug_assertions, so a release
-      # lint sees what a debug one does not
-      - name: Rust lint, release
-        working-directory: tauri/src-tauri
-        run: cargo clippy --release --all-targets -- -D warnings
-
       - name: Rust test
         working-directory: tauri/src-tauri
         run: cargo test
@@ -104,6 +100,41 @@ jobs:
           export BMT_GOLDEN_DATA="$GITHUB_WORKSPACE/parity/snapshots/fixture/data"
           cargo test --features parity-driver
 
+  # What only the release profile compiles, and the features it must refuse
+  release-checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: tauri
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: canary
+
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri/src-tauri
+
+      - name: Install
+        working-directory: .
+        run: bun install --frozen-lockfile
+
+      # Some code and tests exist only under debug_assertions, so a release
+      # lint sees what a debug one does not
+      - name: Rust lint, release
+        working-directory: tauri/src-tauri
+        run: cargo clippy --release --all-targets -- -D warnings
+
       # The message is matched so a failure for any other reason does not pass
       - name: A release build with the parity driver does not compile
         working-directory: tauri/src-tauri
@@ -117,6 +148,45 @@ jobs:
             grep -F "the parity-driver feature is for debug builds only" refused.log
             echo "release with debug_assertions=$assertions: refused"
           done
+
+      # lcu/tls.rs stops a release build that would trust the fake League CA
+      - name: Refuse a release build with the parity CA
+        working-directory: tauri/src-tauri
+        run: |
+          if cargo check --release --features parity-ca 2> parity-ca.log; then
+            echo "a release build compiled with parity-ca"
+            exit 1
+          fi
+          grep -F 'the parity-ca feature is for debug builds only' parity-ca.log
+
+  # The app built as it ships and as the parity driver runs it, launched on this runner
+  app:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: tauri
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: canary
+
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri/src-tauri
+
+      - name: Install
+        working-directory: .
+        run: bun install --frozen-lockfile
 
       - name: Build
         run: bun run tauri build --debug
@@ -173,6 +243,65 @@ jobs:
             fi
             echo "release binary: no $marker"
           done
+
+      # The positive control: the same search finds the sentinel in a driver build
+      - name: Build with the parity driver and find its sentinel
+        run: |
+          bun run tauri build --debug --no-bundle --features parity-driver
+          exe="src-tauri/target/debug/Better Mayhem Tracker"
+          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
+          grep -a -q bmt-parity-driver-v1 "$exe"
+          echo "driver build: bmt-parity-driver-v1 found"
+          grep -a -q BMT_DATA_ROOT "$exe"
+          echo "driver build: BMT_DATA_ROOT found"
+
+      # Eval, native input, resize, snapshot and refusals on this runner's webview
+      - name: Smoke the parity driver
+        working-directory: parity
+        run: bun run-tauri.ts --smoke --out out/smoke
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-${{ matrix.os }}
+          path: |
+            tauri/window.log
+            parity/out/smoke
+          if-no-files-found: ignore
+
+  # Builds a hostile profile could make, each in its own target folder
+  guards:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: tauri
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: canary
+
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri/src-tauri
+
+      - name: Install
+        working-directory: .
+        run: bun install --frozen-lockfile
+
+      # The app builds that left ../dist behind run in another job; these
+      # builds embed it as they did then
+      - name: Build the frontend
+        run: bun run build
 
       # build.rs keys the data root override on the profile Cargo builds
       # with, never on debug_assertions, which a profile setting flips. The
@@ -245,47 +374,11 @@ jobs:
           test "$code" -eq 78
           grep -F 'Debug and parity builds never' hostile-cfg-guard.log
 
-      # lcu/tls.rs stops a release build that would trust the fake League CA
-      - name: Refuse a release build with the parity CA
-        working-directory: tauri/src-tauri
-        run: |
-          if cargo check --release --features parity-ca 2> parity-ca.log; then
-            echo "a release build compiled with parity-ca"
-            exit 1
-          fi
-          grep -F 'the parity-ca feature is for debug builds only' parity-ca.log
-
-      # The positive control: the same search finds the sentinel in a driver build
-      - name: Build with the parity driver and find its sentinel
-        run: |
-          bun run tauri build --debug --no-bundle --features parity-driver
-          exe="src-tauri/target/debug/Better Mayhem Tracker"
-          if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
-          grep -a -q bmt-parity-driver-v1 "$exe"
-          echo "driver build: bmt-parity-driver-v1 found"
-          grep -a -q BMT_DATA_ROOT "$exe"
-          echo "driver build: BMT_DATA_ROOT found"
-
-      # Eval, native input, resize, snapshot and refusals on this runner's webview
-      - name: Smoke the parity driver
-        working-directory: parity
-        run: bun run-tauri.ts --smoke --out out/smoke
-
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: check-${{ matrix.os }}
-          path: |
-            tauri/window.log
-            parity/out/smoke
-          if-no-files-found: ignore
-
   # The release's own packaging, as release.yml does it, for the Apple silicon and
   # Windows builds: the package is made, carries the identity the updater and the data
   # folder depend on, starts from a temp folder, and on macOS survives the updater's
   # bundle swap.
   smoke-mac:
-    needs: check
     runs-on: macos-latest
     defaults:
       run:
@@ -335,7 +428,6 @@ jobs:
           sh .github/smoke/mac-update-swap.sh "$dir/Better Mayhem Tracker.app"
 
   smoke-windows:
-    needs: check
     runs-on: windows-latest
     defaults:
       run:
