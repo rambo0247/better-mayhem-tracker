@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use futures_util::StreamExt;
 use futures_util::future::BoxFuture;
 use rusqlite::types::Value as Sql;
 use rusqlite::{Connection, OptionalExtension};
@@ -29,6 +30,9 @@ const MAYHEM_QUEUE_IDS: [f64; 2] = [2400.0, 2450.0];
 /// How many games the client's match list holds. Asking for more is accepted
 /// and ignored, so this is the whole window the recent-games sync sees.
 const LCU_HISTORY_PAGE_SIZE: usize = 20;
+/// Game details asked of the client at once when a sync or a walk fetches
+/// several. They are still handled in list order.
+pub(super) const DETAILS_IN_FLIGHT: usize = 4;
 /// How long a failed automatic walk waits before the poll tries one again.
 pub const AUTO_BACKFILL_RETRY_DELAY: Duration = Duration::from_secs(15 * 60);
 const AUTO_BACKFILL_RETRY_DELAY_MS: i64 = AUTO_BACKFILL_RETRY_DELAY.as_millis() as i64;
@@ -152,6 +156,13 @@ pub(super) struct SyncState {
     pub sgp_host: Option<String>,
     /// `didFinalFetch`
     pub final_fetched: bool,
+}
+
+/// Where [`GameSync::sort_recent_game`] files one recent-games entry.
+enum Recent<'a> {
+    Known,
+    Ignored,
+    Wanted(Option<&'a Value>),
 }
 
 /// The sync's shared state, the event sink, and the match history service.
@@ -312,6 +323,23 @@ impl GameSync {
         Ok(())
     }
 
+    /// One entry of the client's recent games: already stored, recorded as
+    /// ignored here, or a Mayhem game whose full detail is still wanted.
+    fn sort_recent_game<'a>(&self, game: &'a Value) -> Result<Recent<'a>, Thrown> {
+        let game_id = js::prop(Some(game), "gameId")?;
+        let id = js::bind(game_id).map_err(sqlite_thrown)?;
+        if self.db(|conn| is_game_known(conn, &id))? {
+            return Ok(Recent::Known);
+        }
+        // Recorded rather than skipped, so the next window has it as an
+        // anchor too
+        if !is_mayhem(js::prop(Some(game), "queueId")?) {
+            self.db(|conn| mark_ignored_game(conn, &id))?;
+            return Ok(Recent::Ignored);
+        }
+        Ok(Recent::Wanted(game_id))
+    }
+
     /// `fetchNewGames`: the client's recent games, each stored, ignored, or
     /// left for the next sync. True when the window rolled over.
     pub async fn fetch_new_games(
@@ -360,30 +388,42 @@ impl GameSync {
             return Err(Thrown::Error("games is not iterable".into()));
         };
 
-        let mut stored = 0;
+        // Every entry is sorted out first, so the details still wanted can be
+        // fetched together rather than one round trip after another. An entry
+        // that throws stops the sort there, and the throw waits until the
+        // games ahead of it are stored, as it would in one pass.
         let mut saw_known = false;
+        let mut wanted = Vec::new();
+        let mut thrown = None;
         for game in games {
-            let game_id = js::prop(Some(game), "gameId")?;
-            let id = js::bind(game_id).map_err(sqlite_thrown)?;
-            if self.db(|conn| is_game_known(conn, &id))? {
-                saw_known = true;
-                continue;
+            match self.sort_recent_game(game) {
+                Ok(Recent::Known) => saw_known = true,
+                Ok(Recent::Ignored) => {}
+                Ok(Recent::Wanted(game_id)) => wanted.push(game_id),
+                Err(err) => {
+                    thrown = Some(err);
+                    break;
+                }
             }
-            // Recorded rather than skipped, so the next window has it as an
-            // anchor too
-            if !is_mayhem(js::prop(Some(game), "queueId")?) {
-                self.db(|conn| mark_ignored_game(conn, &id))?;
-                continue;
-            }
+        }
+
+        let paths: Vec<String> = wanted
+            .into_iter()
+            .map(|game_id| format!("/lol-match-history/v1/games/{}", template(game_id)))
+            .collect();
+        let mut stored = 0;
+        // Collected rather than mapped in the stream: a closure there trips
+        // rustc's higher-ranked lifetime limit (#100013) in the poll's future.
+        // Each request waits in its async block until the stream reaches it.
+        let fetches: Vec<_> = paths
+            .iter()
+            .map(|path| async move { client.request_json(path).await })
+            .collect();
+        let mut details = futures_util::stream::iter(fetches).buffered(DETAILS_IN_FLIGHT);
+        while let Some(detail) = details.next().await {
             // Stored from the list entry it would hold one player of ten;
             // left unrecorded, the next sync tries it again
-            let Ok(full) = client
-                .request_json(&format!(
-                    "/lol-match-history/v1/games/{}",
-                    template(game_id)
-                ))
-                .await
-            else {
+            let Ok(full) = detail else {
                 continue;
             };
             if self.insert_game(&full, puuid)? {
@@ -395,6 +435,9 @@ impl GameSync {
             }
         }
 
+        if let Some(err) = thrown {
+            return Err(err);
+        }
         if stored > 0 {
             self.env.games_updated();
         }
@@ -1133,6 +1176,59 @@ mod tests {
             "the summoner row carries the frozen clock"
         );
         assert!(!rig.client.paths().contains(&detail_path(3)));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_recent_window_fetches_a_few_details_at_once() {
+        let rig = rig("recent-in-flight");
+        let ids: Vec<i64> = (1..=6).collect();
+        list(&rig, &ids.iter().map(|id| (*id, 2400)).collect::<Vec<_>>());
+        for id in &ids {
+            rig.client.route(
+                &detail_path(*id),
+                vec![Reply::After(
+                    Duration::from_secs(1),
+                    Box::new(Reply::Json(payload(*id, 2400))),
+                )],
+            );
+        }
+        rig.sync
+            .fetch_new_games(rig.client.as_ref(), None)
+            .await
+            .unwrap();
+        let started: Vec<u128> = ids
+            .iter()
+            .map(|id| rig.client.times(&detail_path(*id))[0])
+            .collect();
+        assert_eq!(started, [0, 0, 0, 0, 1_000, 1_000]);
+        assert_eq!(count(&rig, "games"), 6);
+        assert_eq!(rig.env.events(), ["lcu:games-updated null"]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_entry_that_throws_still_lets_the_games_ahead_of_it_store() {
+        let rig = rig("recent-throw");
+        rig.client.route(
+            BY_PUUID,
+            vec![Reply::Json(json!({"games": {"games": [
+                {"gameId": 1, "queueId": 2400}, null, {"gameId": 2, "queueId": 2400}
+            ]}}))],
+        );
+        rig.client
+            .route(&detail_path(1), vec![Reply::Json(payload(1, 2400))]);
+        let err = rig
+            .sync
+            .fetch_new_games(rig.client.as_ref(), None)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Cannot read properties of null (reading 'gameId')"
+        );
+        assert_eq!(count(&rig, "games"), 1);
+        assert!(!rig.client.paths().contains(&detail_path(2)));
+        // The throw leaves before the nudge, as Electron's loop does
+        assert!(rig.env.events().is_empty());
     }
 
     #[tokio::test(start_paused = true)]

@@ -7,13 +7,14 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
+use futures_util::StreamExt;
 use futures_util::future::BoxFuture;
 use serde_json::Value;
 
 use super::log;
 use super::sync::{
-    Client, GameSync, Pause, SUMMONER_PATH, Thrown, bound, is_mayhem, js_number, mark_ignored_game,
-    template, total_games,
+    Client, DETAILS_IN_FLIGHT, GameSync, Pause, SUMMONER_PATH, Thrown, bound, is_mayhem, js_number,
+    mark_ignored_game, template, total_games,
 };
 use crate::commands::lcu::{BackfillLimit, BackfillOutcome, BackfillProgress, BackfillResult};
 use crate::db::filters::{SEASONS, season_bounds};
@@ -245,12 +246,15 @@ impl GameSync {
         client: &dyn Client,
         full: bool,
     ) -> Result<BackfillResult, Thrown> {
-        let summoner = client.request_json(SUMMONER_PATH).await?;
+        // The token doesn't depend on who is signed in, so both are asked at once
+        let (summoner, token) =
+            tokio::join!(client.request_json(SUMMONER_PATH), fetch_sgp_token(client));
+        let summoner = summoner?;
         self.upsert_summoner(&summoner)?;
         let puuid_value = js::prop(Some(&summoner), "puuid")?;
         let puuid = template(puuid_value);
 
-        let token = fetch_sgp_token(client).await?;
+        let token = token?;
         let host = self.resolve_sgp_host(client, &puuid, &token).await?;
 
         let known: HashSet<u64> = self
@@ -347,15 +351,28 @@ impl GameSync {
 
         let mut added = 0;
         let mut announced = 0;
-        for (i, &game_id) in pending.iter().enumerate() {
-            if self.backfill_cancelled() {
+        // A first walk can fetch hundreds of games one request each, so a few
+        // are kept in flight. They still arrive in walk order, which keeps the
+        // progress and the stored rows as a one-at-a-time walk leaves them.
+        let mut details = futures_util::stream::iter(pending.iter().copied().enumerate())
+            .map(|(i, game_id)| async move {
+                // A cancel stops the requests not yet sent; any already sent
+                // still land, as the one in flight did when this went one at a time
+                if self.backfill_cancelled() {
+                    return (i, game_id, None);
+                }
+                let path = format!(
+                    "/lol-match-history/v1/games/{}",
+                    js::number_to_string(game_id)
+                );
+                (i, game_id, Some(client.request_json(&path).await))
+            })
+            .buffered(DETAILS_IN_FLIGHT);
+        while let Some((i, game_id, detail)) = details.next().await {
+            let Some(detail) = detail else {
                 break;
-            }
-            let path = format!(
-                "/lol-match-history/v1/games/{}",
-                js::number_to_string(game_id)
-            );
-            let Ok(game) = client.request_json(&path).await else {
+            };
+            let Ok(game) = detail else {
                 // Left unrecorded, so a later run retries it
                 progress(i + 1, added);
                 continue;
@@ -988,8 +1005,8 @@ mod tests {
         games(&rig, &ids, Duration::from_secs(1));
         let sync = rig.sync.clone();
         let canceller = tokio::spawn(async move {
-            // Mid-way through the third game's request
-            tokio::time::sleep(Duration::from_millis(3_500)).await;
+            // Mid-way through the first window of requests
+            tokio::time::sleep(Duration::from_millis(1_500)).await;
             sync.cancel_backfill();
         });
         let result = run(&rig, true).await.unwrap();
@@ -1001,19 +1018,21 @@ mod tests {
             .into_iter()
             .filter(|p| p.starts_with("/lol-match-history/v1/games/"))
             .collect();
-        // The window probe's detail request, then games 10, 9, and 8, the one in flight
+        // The window probe's detail request, then games 10 to 7, the window
+        // in flight when the cancel landed; nothing after it is asked for
         assert_eq!(
             fetched,
             [
                 detail_path(1),
                 detail_path(10),
                 detail_path(9),
-                detail_path(8)
+                detail_path(8),
+                detail_path(7)
             ]
         );
         assert!(result.cancelled);
-        assert_eq!((result.added, result.checked), (3, 10));
-        assert_eq!(rig.env.event_times("lcu:backfill-progress").len(), 4);
+        assert_eq!((result.added, result.checked), (4, 10));
+        assert_eq!(rig.env.event_times("lcu:backfill-progress").len(), 5);
         assert_eq!(
             rig.env
                 .query::<i64>("SELECT count(*) FROM settings WHERE key = 'backfill_complete_me'"),
@@ -1025,6 +1044,38 @@ mod tests {
             "and the poll does not relaunch it"
         );
         assert!(!rig.sync.is_backfill_running());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_walk_keeps_a_few_game_requests_in_flight_and_stores_them_in_order() {
+        let rig = rig("backfill-in-flight");
+        let ids: Vec<i64> = (1..=10).rev().collect();
+        serve(&rig, ids.clone());
+        games(&rig, &ids, Duration::from_secs(1));
+        let result = run(&rig, true).await.unwrap();
+
+        // After the window probe's one second, four at a time
+        let started: Vec<u128> = ids
+            .iter()
+            .map(|id| *rig.client.times(&detail_path(*id)).last().unwrap())
+            .collect();
+        assert_eq!(
+            started,
+            [
+                1_000, 1_000, 1_000, 1_000, 2_000, 2_000, 2_000, 2_000, 3_000, 3_000
+            ]
+        );
+        assert_eq!((result.added, result.checked), (10, 10));
+        let progress: Vec<String> = rig
+            .env
+            .events()
+            .into_iter()
+            .filter(|event| event.starts_with("lcu:backfill-progress"))
+            .collect();
+        let expected: Vec<String> = (0..=10)
+            .map(|i| format!(r#"lcu:backfill-progress {{"current":{i},"total":10,"added":{i}}}"#))
+            .collect();
+        assert_eq!(progress, expected);
     }
 
     #[tokio::test(start_paused = true)]

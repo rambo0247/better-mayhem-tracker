@@ -611,8 +611,11 @@ impl ChallengeTracker {
         }
         let this = self.clone();
         self.runtime.spawn(async move {
-            this.refresh_and_broadcast().await;
-            if let Some(game_id) = this.capturable_game_id().await
+            // The session read doesn't wait on the refresh; the capture still
+            // starts only once both are in
+            let (_, game_id) =
+                futures_util::join!(this.refresh_and_broadcast(), this.capturable_game_id());
+            if let Some(game_id) = game_id
                 && let Err(err) = this.start_game_capture(game_id)
             {
                 log::info(format!("Unhandled rejection: {err}"));

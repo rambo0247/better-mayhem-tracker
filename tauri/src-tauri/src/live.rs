@@ -906,7 +906,13 @@ impl LiveTracker {
         let mut queue_id = reference.map(|r| r.queue_id);
         let mut map_id = None;
 
-        let session = self.client.request_json(SESSION_PATH).await.ok();
+        // Neither request needs the other's answer, and this runs every poll
+        // tick, so the two round trips overlap
+        let (session, data) = tokio::join!(
+            self.client.request_json(SESSION_PATH),
+            self.game.get(ALL_GAME_DATA_PATH)
+        );
+        let (session, data) = (session.ok(), data.ok());
         let session = session.as_ref();
         let game_data = opt_prop(session, "gameData");
         if truthy(game_data) {
@@ -917,7 +923,6 @@ impl LiveTracker {
         }
 
         // The game's API only exists while a match is running
-        let data = self.game.get(ALL_GAME_DATA_PATH).await.ok();
         let data = data.as_ref();
         let all_players = match opt_prop(data, "allPlayers") {
             Some(Value::Array(players)) => players.as_slice(),
