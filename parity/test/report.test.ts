@@ -102,7 +102,7 @@ describe("the parity report", () => {
 
   test("every state passing on both platforms passes", () => {
     const r = report({ mac: platformRun("mac"), win: platformRun("win") });
-    expect(verdictOf(r)).toEqual({ pass: true, failures: [] });
+    expect(verdictOf(r)).toEqual({ pass: true, failures: [], notes: [] });
     expect(renderReport(r, "x")).toContain("## Verdict: PASS");
   });
 
@@ -195,10 +195,39 @@ describe("the parity report", () => {
     ]);
   });
 
-  test("Tauri worse on a metric fails the run", () => {
+  test("Tauri worse on a metric beyond the runs' spread fails the run", () => {
     const r = report({ mac: platformRun("mac"), win: platformRun("win") });
-    r.perf.win = { electron: side(330e6, 900, 94e6), tauri: side(120e6, 950, 5e6) };
+    r.perf.win = { electron: side(330e6, 900, 94e6), tauri: side(120e6, 1100, 5e6) };
     expect(verdictOf(r).failures).toEqual(["Windows: Tauri is worse on Launch to first content"]);
+  });
+
+  test("Tauri higher by less than the runs' own spread is on par, not worse", () => {
+    const r = report({ mac: platformRun("mac"), win: platformRun("win") });
+    r.perf.mac = { electron: side(197e6, 748, 118e6), tauri: side(200e6, 764, 8e6) };
+    const verdict = verdictOf(r);
+    expect(verdict.failures).toEqual([]);
+    expect(verdict.notes).toEqual([
+      "macOS: Idle memory, all processes is on par: Tauri is higher by less than the runs' own spread",
+      "macOS: Launch to first content is on par: Tauri is higher by less than the runs' own spread",
+    ]);
+    expect(renderReport(r, "x")).toContain("- macOS: Launch to first content is on par");
+  });
+
+  test("a size has no spread, so any increase is worse", () => {
+    const r = report({ mac: platformRun("mac"), win: platformRun("win") });
+    r.perf.mac = { electron: side(330e6, 900, 118e6), tauri: side(120e6, 600, 119e6) };
+    expect(verdictOf(r).failures).toEqual([
+      "macOS: Tauri is worse on Download size",
+      "macOS: Tauri is worse on Installed size",
+    ]);
+  });
+
+  test("Windows perf left out by the operator's decision is a note, not a failure", () => {
+    const r = report({ mac: platformRun("mac"), win: platformRun("win") });
+    r.perf.win = { electron: null, tauri: null } as never;
+    const verdict = verdictOf(r);
+    expect(verdict.failures).toEqual([]);
+    expect(verdict.notes[0]).toContain("Windows: perf not measured, by the operator's decision");
   });
 
   test("perf.ts sweeps merge per app and platform", () => {

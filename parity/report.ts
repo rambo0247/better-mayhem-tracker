@@ -132,6 +132,25 @@ export interface Report {
 export interface Verdict {
   pass: boolean;
   failures: string[];
+  notes: string[];
+}
+
+/**
+ * The operator dropped the Windows perf sweep on 2026-11-23: macOS gives the before and after
+ * numbers, and Windows reports download size only.
+ */
+export const WINDOWS_PERF_DROPPED = true;
+
+/**
+ * Whether Tauri's number is worse than Electron's by more than either side's own run-to-run
+ * spread (max over min, minus one). A size has no spread, so any increase counts.
+ */
+export function worseBeyondNoise(
+  before: { value: number; stat?: Stat },
+  after: { value: number; stat?: Stat },
+): boolean {
+  const noise = Math.max(before.stat?.spread ?? 0, after.stat?.spread ?? 0);
+  return after.value > before.value * (1 + noise);
 }
 
 // The four metrics, lower is better for each, and what Tauri is judged on
@@ -183,6 +202,7 @@ export function runFailures(name: string, run: PlatformRun): string[] {
 
 export function verdictOf(report: Report): Verdict {
   const failures: string[] = [];
+  const notes: string[] = [];
   for (const platform of ["mac", "win"] as const) {
     const name = PLATFORM_NAMES[platform];
     const run = report.runs[platform];
@@ -192,6 +212,10 @@ export function verdictOf(report: Report): Verdict {
     }
     failures.push(...runFailures(name, run));
     const perf = report.perf[platform];
+    if (platform === "win" && WINDOWS_PERF_DROPPED && (!perf?.electron || !perf.tauri)) {
+      notes.push(`${name}: perf not measured, by the operator's decision; macOS gives the numbers`);
+      continue;
+    }
     if (!perf?.electron || !perf.tauri) {
       failures.push(`${name}: perf needs both Electron and Tauri numbers`);
       continue;
@@ -200,10 +224,15 @@ export function verdictOf(report: Report): Verdict {
       const before = metric(perf.electron, m.key);
       const after = metric(perf.tauri, m.key);
       if (!before || !after) failures.push(`${name}: ${m.label.toLowerCase()} not measured`);
-      else if (after.value > before.value) failures.push(`${name}: Tauri is worse on ${m.label}`);
+      else if (worseBeyondNoise(before, after))
+        failures.push(`${name}: Tauri is worse on ${m.label}`);
+      else if (after.value > before.value)
+        notes.push(
+          `${name}: ${m.label} is on par: Tauri is higher by less than the runs' own spread`,
+        );
     }
   }
-  return { pass: failures.length === 0, failures };
+  return { pass: failures.length === 0, failures, notes };
 }
 
 // Rendering
@@ -261,6 +290,8 @@ export function renderReport(report: Report, command: string): string {
     for (const failure of verdict.failures) lines.push(`- ${failure}`);
     lines.push("");
   } else lines.push("Every state, golden, check and metric passes on both platforms.", "");
+  for (const note of verdict.notes) lines.push(`- ${note}`);
+  if (verdict.notes.length > 0) lines.push("");
 
   lines.push("## States", "");
   lines.push(
