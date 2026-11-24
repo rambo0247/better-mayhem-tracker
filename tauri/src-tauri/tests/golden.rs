@@ -107,7 +107,11 @@ impl Golden {
             Some(_) => Err(format!("`{name}` is not a list")),
         };
         let channel = text("channel")?;
-        let outcome = on_platform(&channel, field("outcome")?, cfg!(windows));
+        let outcome = at_current_version(
+            &channel,
+            on_platform(&channel, field("outcome")?, cfg!(windows)),
+            current_version(),
+        );
         Ok(Self {
             channel,
             case: text("case")?,
@@ -120,6 +124,36 @@ impl Golden {
             effects: list("effects")?,
         })
     }
+}
+
+/// The version Electron answered `app:version` with when the goldens were
+/// recorded.
+const RECORDED_VERSION: &str = "1.2.1";
+
+/// Both apps answer `app:version` with package.json's version, which moves
+/// every release, so the recorded answer is expected as the version being
+/// built.
+fn at_current_version(channel: &str, mut outcome: Value, current: &str) -> Value {
+    if channel == "app:version"
+        && let Some(result) = outcome.get_mut("result")
+        && result == RECORDED_VERSION
+    {
+        *result = Value::from(current);
+    }
+    outcome
+}
+
+fn current_version() -> &'static str {
+    static VERSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    VERSION.get_or_init(|| {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../package.json");
+        let text = std::fs::read_to_string(path).expect("the root package.json is readable");
+        let json: Value = serde_json::from_str(&text).expect("the root package.json parses");
+        json["version"]
+            .as_str()
+            .expect("package.json has a version")
+            .to_owned()
+    })
 }
 
 /// `updater.ts:189` at v1.2.1, the darwin branch the goldens recorded.
@@ -1097,12 +1131,12 @@ async fn hanging() -> Result<String, CommandError> {
 #[tauri::command(rename = "app:version")]
 async fn version_and_event(app: tauri::AppHandle<MockRuntime>) -> Result<String, CommandError> {
     bmt_lib::events::games_updated(&app);
-    Ok("1.2.1".into())
+    Ok("0.1.0".into())
 }
 
 #[tauri::command(rename = "app:version")]
 async fn version_only() -> Result<String, CommandError> {
-    Ok("1.2.1".into())
+    Ok("0.1.0".into())
 }
 
 #[tauri::command(rename = "app:version")]
@@ -1113,7 +1147,7 @@ async fn version_and_effect(app: tauri::AppHandle<MockRuntime>) -> Result<String
         "shell.openPath",
         vec![Value::from(folder.to_string_lossy())],
     );
-    Ok("1.2.1".into())
+    Ok("0.1.0".into())
 }
 
 #[tauri::command(rename = "app:version")]
@@ -1121,7 +1155,7 @@ async fn version_and_file() -> Result<String, CommandError> {
     let root = std::env::var("BMT_DATA_ROOT").map_err(|e| CommandError::thrown(e.to_string()))?;
     std::fs::write(Path::new(&root).join("stray.txt"), "x")
         .map_err(|e| CommandError::thrown(e.to_string()))?;
-    Ok("1.2.1".into())
+    Ok("0.1.0".into())
 }
 
 fn expect(label: &str, got: Verdict, want: Verdict) -> Result<(), String> {
@@ -1140,7 +1174,7 @@ fn expect(label: &str, got: Verdict, want: Verdict) -> Result<(), String> {
 fn check_harness(root: &Path) -> Result<(), String> {
     let version = Golden::parse(serde_json::json!({
         "channel": "app:version", "case": "hand-made", "group": "read", "seq": 0, "args": [],
-        "outcome": { "kind": "value", "result": "1.2.1" }
+        "outcome": { "kind": "value", "result": "0.1.0" }
     }))?;
     let registry = commands::registry();
     let spec = registry
@@ -1216,7 +1250,7 @@ fn check_side_effects(root: &Path) -> Result<(), String> {
     let golden = |key: &str, items: Value| {
         let mut golden = serde_json::json!({
             "channel": "app:version", "case": "hand-made", "group": "read", "seq": 0, "args": [],
-            "outcome": { "kind": "value", "result": "1.2.1" }
+            "outcome": { "kind": "value", "result": "0.1.0" }
         });
         golden[key] = items;
         Golden::parse(golden)
@@ -1374,6 +1408,44 @@ fn check_side_effects(root: &Path) -> Result<(), String> {
     ] {
         let expected = on_platform(channel, golden.clone(), windows);
         expect(label, classify(channel, &expected, &Ok(answer)), want)?;
+    }
+    let version = |v: &str| serde_json::json!({ "kind": "value", "result": v });
+    for (label, channel, golden, answer, want) in [
+        (
+            "the recorded version reads as the built one",
+            "app:version",
+            version(RECORDED_VERSION),
+            "9.9.9",
+            Verdict::Pass,
+        ),
+        (
+            "the recorded version alone is not expected",
+            "app:version",
+            version(RECORDED_VERSION),
+            RECORDED_VERSION,
+            Verdict::Fail,
+        ),
+        (
+            "another recorded version is kept",
+            "app:version",
+            version("1.0.0"),
+            "9.9.9",
+            Verdict::Fail,
+        ),
+        (
+            "another channel is kept",
+            "app:open-url",
+            version(RECORDED_VERSION),
+            "9.9.9",
+            Verdict::Fail,
+        ),
+    ] {
+        let expected = at_current_version(channel, golden, "9.9.9");
+        expect(
+            label,
+            classify(channel, &expected, &Ok(serde_json::json!(answer))),
+            want,
+        )?;
     }
     for (label, text, windows, want) in [
         ("a macOS path", "/r/data/backups", false, "$RUN/backups"),
@@ -1549,8 +1621,8 @@ fn check_comparison() -> Result<(), String> {
     let cases = [
         (
             "equal value",
-            value("1.2.1".into()),
-            Ok(Value::from("1.2.1")),
+            value("0.1.0".into()),
+            Ok(Value::from("0.1.0")),
             Verdict::Pass,
         ),
         (
@@ -2231,7 +2303,7 @@ fn check_state_replay(root: &Path) -> Result<(), String> {
 fn check_replay_ratchet(root: &Path) -> Result<(), String> {
     let golden = Golden::parse(serde_json::json!({
         "channel": "app:version", "case": "hand-made", "group": "read", "seq": 0, "args": [],
-        "outcome": { "kind": "value", "result": "1.2.1" }
+        "outcome": { "kind": "value", "result": "0.1.0" }
     }))?;
     let stub = |host: Host| {
         mock_builder()
