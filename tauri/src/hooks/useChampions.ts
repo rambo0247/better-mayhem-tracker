@@ -2,8 +2,14 @@ import { createEffect, createMemo, createSignal, onSettled, type Accessor } from
 import { api } from "../lib/api-shim";
 import type { ChampionData, AugmentData, ItemData, SummonerSpellData } from "../lib/types";
 
-let champCache: ChampionData | null = null;
-let spellCache: SummonerSpellData | null = null;
+const champions = {
+  cache: null as ChampionData | null,
+  promise: null as Promise<ChampionData> | null,
+};
+const spells = {
+  cache: null as SummonerSpellData | null,
+  promise: null as Promise<SummonerSpellData> | null,
+};
 const augCaches = new Map<string, AugmentData>();
 const augPromises = new Map<string, Promise<AugmentData>>();
 const itemCaches = new Map<string, ItemData>();
@@ -13,18 +19,30 @@ function hasData<T extends object>(obj: T | null): obj is T {
   return obj !== null && Object.keys(obj).length > 0;
 }
 
-export function useChampionData(): Accessor<ChampionData> {
-  const [data, setData] = createSignal<ChampionData>(champCache || {});
+// One record shared by every component, asked for once however many mount
+// before the first answer. An empty answer is not kept, so a later mount asks again.
+function useSharedRecord<T extends object>(
+  shared: { cache: T | null; promise: Promise<T> | null },
+  fetch: () => Promise<T>,
+): Accessor<T> {
+  const [data, setData] = createSignal<T>(() => shared.cache || ({} as T));
 
   onSettled(() => {
-    if (hasData(champCache)) return;
-    void api.getChampionData().then((d) => {
-      if (Object.keys(d).length > 0) champCache = d;
-      setData(d);
+    if (hasData(shared.cache)) return;
+    shared.promise ??= fetch().finally(() => {
+      shared.promise = null;
+    });
+    void shared.promise.then((d) => {
+      if (Object.keys(d).length > 0) shared.cache = d;
+      setData(() => d);
     });
   });
 
   return data;
+}
+
+export function useChampionData(): Accessor<ChampionData> {
+  return useSharedRecord(champions, () => api.getChampionData());
 }
 
 // One patch's record from a per-patch cache, asked for once per patch however
@@ -74,17 +92,7 @@ export function useAugmentData(
 }
 
 export function useSummonerSpellData(): Accessor<SummonerSpellData> {
-  const [data, setData] = createSignal<SummonerSpellData>(spellCache || {});
-
-  onSettled(() => {
-    if (hasData(spellCache)) return;
-    void api.getSummonerSpellData().then((d) => {
-      if (Object.keys(d).length > 0) spellCache = d;
-      setData(d);
-    });
-  });
-
-  return data;
+  return useSharedRecord(spells, () => api.getSummonerSpellData());
 }
 
 // Item data is keyed by patch so icons come from the same patch as the game.
