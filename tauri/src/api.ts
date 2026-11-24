@@ -109,15 +109,34 @@ export function encodeNonFinite(value: unknown): unknown {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : { [NON_FINITE_KEY]: String(value) };
   }
-  if (Array.isArray(value)) return value.map(encodeNonFinite);
   if (
-    typeof value === "object" &&
-    value !== null &&
-    Object.getPrototypeOf(value) === Object.prototype
+    Array.isArray(value) ||
+    (typeof value === "object" &&
+      value !== null &&
+      Object.getPrototypeOf(value) === Object.prototype)
   ) {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, encodeNonFinite(v)]));
+    return mapChildren(value, encodeNonFinite);
   }
   return value;
+}
+
+/** `value` itself when `map` changes none of its children, else a copy with the keys in order. */
+function mapChildren(value: object, map: (child: unknown) => unknown): unknown {
+  if (Array.isArray(value)) {
+    let copy: unknown[] | undefined;
+    value.forEach((child: unknown, i) => {
+      const next = map(child);
+      if (next !== child) (copy ??= value.slice())[i] = next;
+    });
+    return copy ?? value;
+  }
+  let changed = false;
+  const entries = Object.entries(value).map(([key, child]) => {
+    const next = map(child);
+    changed ||= next !== child;
+    return [key, next] as const;
+  });
+  return changed ? Object.fromEntries(entries) : value;
 }
 
 /** db/js.rs's `Cell` writes a blob as `{ $bytes: base64 }`. */
@@ -129,17 +148,18 @@ const BYTES_KEY = "$bytes";
  * the page for a Buffer. An object with any other key stays as it is.
  */
 export function decodeAnswer(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(decodeAnswer);
   if (typeof value !== "object" || value === null) return value;
-  const entries = Object.entries(value);
-  if (entries.length === 1) {
-    const [key, inner] = entries[0]!;
-    if (key === NON_FINITE_KEY && typeof inner === "string") return Number(inner);
-    if (key === BYTES_KEY && typeof inner === "string") {
-      return Uint8Array.from(atob(inner), (c) => c.charCodeAt(0));
+  if (!Array.isArray(value)) {
+    const keys = Object.keys(value);
+    if (keys.length === 1) {
+      const inner = (value as Record<string, unknown>)[keys[0]!];
+      if (keys[0] === NON_FINITE_KEY && typeof inner === "string") return Number(inner);
+      if (keys[0] === BYTES_KEY && typeof inner === "string") {
+        return Uint8Array.from(atob(inner), (c) => c.charCodeAt(0));
+      }
     }
   }
-  return Object.fromEntries(entries.map(([k, v]) => [k, decodeAnswer(v)]));
+  return mapChildren(value, decodeAnswer);
 }
 
 export const tauriTransport: Transport = <T>(channel: string, args: Record<string, unknown>) =>

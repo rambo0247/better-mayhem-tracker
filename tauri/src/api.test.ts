@@ -172,6 +172,42 @@ describe("tauriTransport, answers JSON cannot carry", () => {
     expect(value.rows).toEqual([-Infinity, 3]);
   });
 
+  test("sentinels deep in an answer are decoded and every key keeps its place", async () => {
+    answering({
+      season: "s1",
+      groups: [
+        { id: 1, members: [{ name: "a", score: { $bmtNum: "NaN" }, kills: 3 }], tags: ["x"] },
+        { id: 2, members: [{ name: "b", score: 9, kills: 1 }], tags: [] },
+      ],
+      card: { blob: { $bytes: "AAEC/w==" }, title: "t" },
+      total: { $bmtNum: "Infinity" },
+    });
+    const value = (await createApi(tauriTransport).getGlobalChampionDetail(1)) as unknown as {
+      groups: { members: { score: number }[] }[];
+      card: { blob: Uint8Array };
+    };
+    expect(value).toEqual({
+      season: "s1",
+      groups: [
+        { id: 1, members: [{ name: "a", score: NaN, kills: 3 }], tags: ["x"] },
+        { id: 2, members: [{ name: "b", score: 9, kills: 1 }], tags: [] },
+      ],
+      card: { blob: new Uint8Array([0, 1, 2, 255]), title: "t" },
+      total: Infinity,
+    } as never);
+    expect(value.card.blob).toBeInstanceOf(Uint8Array);
+    expect(Object.keys(value)).toEqual(["season", "groups", "card", "total"]);
+    expect(Object.keys(value.groups[0]!.members[0]!)).toEqual(["name", "score", "kills"]);
+    expect(Object.keys(value.card)).toEqual(["blob", "title"]);
+  });
+
+  test("an answer with no sentinels reads back as sent", async () => {
+    const answer = { rows: [{ id: 1, name: "a", nested: { list: [1, null, "z"] } }], empty: {} };
+    answering(structuredClone(answer));
+    const value: unknown = await createApi(tauriTransport).getGlobalChampionDetail(1);
+    expect(value).toEqual(answer as never);
+  });
+
   test("an object with other keys beside the sentinel stays an object", async () => {
     answering({ $bytes: "AA==", other: 1 });
     const value: unknown = await createApi(tauriTransport).getSetting("x");
