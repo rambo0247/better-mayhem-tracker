@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import {
   dumpGeometry,
@@ -9,6 +10,7 @@ import {
   type Engine,
   type Target,
 } from "./drive.ts";
+import { isScenario, RELEASES_PATH, startFakeGithub, type FakeGithub } from "./fake-github.ts";
 import { copyDataTree, PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
 import { gameRunning, waitForNoGame } from "./lib/no-game.ts";
 import { claimRunFolder, DEFAULT_VIEWPORT, FIXED_TIME, TIME_ZONE } from "./run-electron.ts";
@@ -299,8 +301,9 @@ interface Resolved {
 
 /**
  * Finds a target in the page with Playwright's rules for the selectors the states use: CSS,
- * `text=` (case-insensitive substring, innermost element), a trailing `:has-text("...")`,
- * `filter({ hasText })`, first or nth.
+ * `text=` (case-insensitive substring, innermost element), a trailing `:has-text("...")` or
+ * `:focus`, a trailing `>> nth=<n>` (from the end when negative), `filter({ hasText })`, first
+ * or nth.
  * Scrolls it into view and returns its center.
  */
 function resolveInPage(target: {
@@ -313,6 +316,9 @@ function resolveInPage(target: {
 }) {
   const normalize = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
   const all = (selector: string): Element[] => {
+    // WebKit matches :focus only in the active window, which the driver never makes it
+    const focused = selector.match(/^(.+):focus$/);
+    if (focused) return all(focused[1]!).filter((el) => el === document.activeElement);
     const hasText = selector.match(/^(.+):has-text\((["'])(.*)\2\)$/);
     if (hasText) {
       const wanted = normalize(hasText[3]!);
@@ -327,7 +333,12 @@ function resolveInPage(target: {
       (el) => has(el) && ![...el.children].some(has),
     );
   };
-  let list = all(target.selector);
+  const nth = target.selector.match(/^(.+?)\s*>>\s*nth=(-?\d+)$/);
+  let list = all(nth ? nth[1]! : target.selector);
+  if (nth) {
+    const picked = list.at(Number(nth[2]));
+    list = picked ? [picked] : [];
+  }
   if (target.text !== undefined) {
     const text = normalize(target.text);
     list = list.filter((el) => normalize(el.textContent ?? "").includes(text));
@@ -389,12 +400,11 @@ export class TauriEngine implements Engine {
     }
   }
 
-  async click(target: Target, button?: "left" | "right") {
-    if (button === "right") throw new Error("the parity driver sends only the left button");
+  async click(target: Target, button: "left" | "right" = "left") {
     const { x, y } = await this.resolve(target);
     await this.mouseMove(x, y);
-    await this.driver.call("mouse", { kind: "down", x, y });
-    await this.driver.call("mouse", { kind: "up", x, y });
+    await this.driver.call("mouse", { kind: "down", button, x, y });
+    await this.driver.call("mouse", { kind: "up", button, x, y });
   }
 
   async hover(target: Target) {
@@ -615,6 +625,79 @@ export class TauriEngine implements Engine {
   }
 }
 
+const { compareVersions, toReleaseNote } = createRequire(import.meta.url)(
+  "./seam-overlays.cjs",
+) as {
+  compareVersions: (a: string, b: string) => number;
+  toReleaseNote: (release: unknown) => unknown;
+};
+
+/**
+ * The `main` step's calls in a Tauri run. Each does through the Rust app's own state what
+ * seam-overlays.cjs does in Electron's main process: the driver's channel answers stand in for
+ * an overridden handler, its emitter for `webContents.send`, and the fake GitHub's scenario for
+ * the seam's rewritten release URL.
+ */
+export function tauriMainHooks(options: {
+  driver: TauriDriver;
+  engine: Engine;
+  github: FakeGithub;
+  channels: Record<string, string>;
+}): (call: string, arg?: unknown) => Promise<unknown> {
+  const { driver, engine, github, channels } = options;
+  const channelOf = (method: string) => {
+    const channel = channels[method];
+    if (!channel) throw new Error(`no channel known for ${method}`);
+    return channel;
+  };
+  const answer = (method: string, value: unknown) =>
+    driver.call("answer", { channel: channelOf(method), value });
+  const api = <R>(method: string) =>
+    engine.evaluate<R, string>((name) => (window.api as any)[name](), method);
+  const hooks: Record<string, (arg: any) => Promise<unknown>> = {
+    async reset() {
+      github.setScenario("up-to-date");
+      await driver.call("reset-answers");
+    },
+    async github(name: string) {
+      if (!isScenario(name)) throw new Error(`fake GitHub has no scenario ${name}`);
+      github.setScenario(name);
+    },
+    value: ({ method, value }: { method: string; value: unknown }) => answer(method, value),
+    hold: ({ method }: { method: string }) => driver.call("hold", { channel: channelOf(method) }),
+    async launchInstall() {
+      const info = await api("checkForUpdate");
+      await answer("getLaunchInstall", info);
+      return info;
+    },
+    async notes({ from, scenario }: { from: string; scenario: string }) {
+      const url = `${github.url}${RELEASES_PATH}?per_page=20&scenario=${scenario}`;
+      const page = (await (await fetch(url)).json()) as any[];
+      const to = await api<string>("getVersion");
+      const value = {
+        from,
+        to,
+        url: `https://github.com/rambo0247/better-mayhem-tracker/releases/tag/v${to}`,
+        releases: page
+          .filter((r) => r && !r.draft && !r.prerelease && typeof r.tag_name === "string")
+          .filter(
+            (r) => compareVersions(r.tag_name, from) > 0 && compareVersions(r.tag_name, to) <= 0,
+          )
+          .map(toReleaseNote),
+      };
+      await answer("getUpdateNotes", value);
+      return value;
+    },
+    emit: ({ channel, payload }: { channel: string; payload?: unknown }) =>
+      driver.call("emit", { event: channel, payload }),
+  };
+  return async (call, arg) => {
+    const hook = hooks[call];
+    if (!hook) throw new Error(`the Tauri runner has no main hook ${call}`);
+    await hook(arg);
+  };
+}
+
 export interface StartTauriOptions {
   /** The data root the app reads its asset cache and data folder from, as a copy. */
   data?: string;
@@ -641,6 +724,8 @@ export interface StartTauriOptions {
   args?: string[];
   /** Extra environment, such as the shell's stand-ins in `parity_shell.rs`. */
   env?: Record<string, string>;
+  /** Script for every page load, after the clock and the API. */
+  init?: string;
 }
 
 export interface RunningTauri {
@@ -741,6 +826,88 @@ export async function stopApp(child: ChildProcess, quit?: () => Promise<unknown>
     console.error(`run-tauri: quit failed: ${quitError}`);
     throw new Error(`quit failed, so the app was stopped by signal: ${quitError}`);
   }
+}
+
+/**
+ * The processes `pid` started, and theirs, on Windows. WebView2's browser process and its
+ * helpers are the app's children, inherit its working directory (the run folder), and hold the
+ * profile under it. They outlive the app by a moment after it exits, so the run folder stays
+ * busy until they are gone. Elsewhere the webview's processes are not the app's to wait on.
+ */
+export function processTree(pid: number): number[] {
+  if (process.platform !== "win32") return [];
+  const listed = Bun.spawnSync([
+    "powershell",
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId)" }',
+  ]);
+  if (listed.exitCode !== 0)
+    throw new Error(`could not list processes: ${listed.stderr.toString()}`);
+  return descendants(pid, listed.stdout.toString());
+}
+
+/** Every pid under `root` in `<pid> <parent pid>` lines, children before grandchildren. */
+export function descendants(root: number, lines: string): number[] {
+  const children = new Map<number, number[]>();
+  for (const line of lines.split(/\r?\n/)) {
+    const [pid, parent] = line.trim().split(/\s+/).map(Number);
+    if (!pid || parent === undefined || Number.isNaN(parent) || pid === parent) continue;
+    children.set(parent, [...(children.get(parent) ?? []), pid]);
+  }
+  const found: number[] = [];
+  const queue = [root];
+  while (queue.length > 0) {
+    for (const child of children.get(queue.shift()!) ?? []) {
+      if (found.includes(child)) continue;
+      found.push(child);
+      queue.push(child);
+    }
+  }
+  return found;
+}
+
+const isRunning = (pid: number) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Waits for the app's process tree, taken before it was stopped, to exit. One still running
+ * after `timeoutMs` is ended, and the stop fails, since it would keep the run folder.
+ */
+export async function waitForTree(pids: number[], timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  let left = pids.filter(isRunning);
+  while (left.length > 0 && Date.now() < deadline) {
+    await Bun.sleep(50);
+    left = left.filter(isRunning);
+  }
+  if (left.length === 0) return;
+  for (const pid of left) {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      // It exited between the last check and this one
+    }
+  }
+  throw new Error(`the app's processes ${left.join(", ")} outlived it by ${timeoutMs} ms`);
+}
+
+/** {@link stopApp}, then waits for the processes the app started, so the run folder is free. */
+export async function stopAppAndTree(child: ChildProcess, quit?: () => Promise<unknown>) {
+  const tree = child.pid !== undefined && child.exitCode === null ? processTree(child.pid) : [];
+  const stopped = await stopApp(child, quit).then(
+    () => undefined,
+    (error: unknown) => ({ error }),
+  );
+  await waitForTree(tree);
+  if (stopped) throw stopped.error;
 }
 
 function waitForReadyLine(child: ChildProcess, log: fs.WriteStream, timeoutMs: number) {
@@ -847,7 +1014,7 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     });
   }
   const init = path.join(runDir, "init.js");
-  fs.writeFileSync(init, initScript(bundle, api));
+  fs.writeFileSync(init, [initScript(bundle, api), options.init ?? ""].join("\n"));
   env.BMT_PARITY_INIT = init;
   if (process.platform === "win32") {
     env.BMT_PARITY_BROWSER_ARGS = WEBVIEW2_ARGS.join(" ");
@@ -860,6 +1027,9 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
   }
   const token = crypto.randomBytes(16).toString("hex");
   env.BMT_PARITY_TOKEN = token;
+  // Every launch has a fake GitHub, as run-electron.ts gives Electron's seam one
+  const github = startFakeGithub();
+  env.BMT_PARITY_GITHUB = github.url;
   Object.assign(env, options.env);
 
   // NSUserDefaults' argument domain, so AppKit and WebKit take en-US whatever the system says
@@ -870,11 +1040,17 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     ...(options.args ?? []),
   ];
   const started = Date.now();
-  const child = spawn(binary, args, {
-    cwd: runDir,
-    env: childEnv(process.env, env),
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  let child: ChildProcess;
+  try {
+    child = spawn(binary, args, {
+      cwd: runDir,
+      env: childEnv(process.env, env),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    github.close();
+    throw error;
+  }
   const log = fs.createWriteStream(path.join(runDir, "tauri.log"));
   try {
     const port = await waitForReadyLine(child, log, options.readyTimeoutMs ?? 60_000);
@@ -882,9 +1058,10 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     const engine = new TauriEngine(driver);
     const close = async () => {
       try {
-        await stopApp(child, () => driver.call("quit"));
+        await stopAppAndTree(child, () => driver.call("quit"));
       } finally {
         log.end();
+        github.close();
       }
     };
     await engine.waitForFunction(
@@ -908,11 +1085,16 @@ export async function startTauri(options: StartTauriOptions): Promise<RunningTau
     const info = await driver.json<Record<string, unknown>>("info");
     const facts = { renderer, binary, launchMs: Date.now() - started, page, window: info };
     fs.writeFileSync(path.join(runDir, "facts.json"), JSON.stringify(facts, null, 1));
-    const ctx: DriveContext = { engine, viewport, touchedSettings: new Map() };
+    const main = tauriMainHooks({ driver, engine, github, channels: readInvokeChannels(repo) });
+    const ctx: DriveContext = { engine, main, viewport, touchedSettings: new Map() };
     return { child, driver, engine, runDir, token, env, args, ctx, facts, close };
   } catch (error) {
-    await stopApp(child);
-    log.end();
+    try {
+      await stopAppAndTree(child);
+    } finally {
+      log.end();
+      github.close();
+    }
     throw error;
   }
 }

@@ -151,6 +151,40 @@ describe("cross-engine policy", () => {
     expect(declared.differing).toBe(0);
   });
 
+  test("a dialog panel inside a blur region stays in the page count, and the backdrop around it does not", () => {
+    // A full-viewport backdrop, as DialogFrame's, with its panel in the middle
+    const backdrop = {
+      x: 0,
+      y: 0,
+      w: WIDTH / 2,
+      h: HEIGHT / 2,
+      keep: [{ x: 440, y: 250, w: 400, h: 300 }],
+    };
+    const changedAt = (x0: number, y0: number) => {
+      const a = page();
+      const b = copy(a);
+      for (let y = y0; y < y0 + 150; y++) {
+        for (let x = x0; x < x0 + 150; x++) {
+          const i = (y * WIDTH + x) * 4;
+          b.data[i] = 255 - a.data[i]!;
+        }
+      }
+      return diffPngs(a, b, {
+        policy: "cross-engine",
+        geometryA: boxes(),
+        geometryB: boxes(),
+        blurRegions: [backdrop],
+      });
+    };
+    const budget = (r: { reasons: string[] }) => r.reasons.some((x) => x.startsWith("page budget"));
+    const inPanel = changedAt(1000, 600);
+    expect(inPanel.differing).toBeGreaterThan(0.003 * WIDTH * HEIGHT);
+    expect(budget(inPanel)).toBe(true);
+    const outside = changedAt(100, 100);
+    expect(outside.differing).toBe(0);
+    expect(budget(outside)).toBe(false);
+  });
+
   test("missing geometry fails the layout gate", () => {
     const a = page();
     expect(diffPngs(a, copy(a), { policy: "cross-engine" }).pass).toBe(false);

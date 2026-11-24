@@ -5,12 +5,14 @@ import os from "node:os";
 import path from "node:path";
 import {
   childEnv,
+  descendants,
   PARITY_IDENTIFIER,
   PRODUCTION_IDENTIFIER,
   startTauri,
   stopApp,
   TauriEngine,
   type TauriDriver,
+  waitForTree,
 } from "../run-tauri.ts";
 
 const scratch = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "bmt-tauri-")));
@@ -63,6 +65,35 @@ describe("stopping the app", () => {
     const child = spawn("sleep", ["30"]);
     await stopApp(child, async () => child.kill("SIGINT"));
     expect(child.signalCode).toBe("SIGINT");
+  });
+});
+
+describe("the app's process tree", () => {
+  test("is every process under the app, through its children", () => {
+    const lines = ["4 1", "10 4", "11 10", "12 10", "13 11", "20 5", "21 20", "0 0", ""].join(
+      "\r\n",
+    );
+    expect(descendants(4, lines)).toEqual([10, 11, 12, 13]);
+    expect(descendants(99, lines)).toEqual([]);
+  });
+
+  const lingering = () => spawn(process.execPath, ["-e", "setTimeout(() => {}, 30000)"]);
+
+  test("a tree that exits is waited for", async () => {
+    const child = lingering();
+    setTimeout(() => child.kill(), 200);
+    const started = Date.now();
+    await waitForTree([child.pid!]);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(150);
+    expect(alive(child.pid!)).toBe(false);
+  });
+
+  test("a process that outlives the wait is ended, and the wait fails", async () => {
+    const child = lingering();
+    const exited = new Promise((resolve) => child.once("exit", resolve));
+    await expect(waitForTree([child.pid!], 300)).rejects.toThrow(/outlived it by 300 ms/);
+    await exited;
+    expect(alive(child.pid!)).toBe(false);
   });
 });
 

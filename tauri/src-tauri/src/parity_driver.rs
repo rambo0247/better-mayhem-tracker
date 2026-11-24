@@ -14,6 +14,7 @@
 compile_error!("the parity-driver feature is for debug builds only");
 
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Component, Path, PathBuf};
@@ -22,6 +23,7 @@ use std::sync::{Condvar, Mutex, OnceLock};
 use std::time::Duration;
 
 use serde_json::{Value, json};
+use tauri::ipc::{Invoke, InvokeResolver};
 use tauri::webview::PageLoadEvent;
 use tauri::{
     Builder, DynRuntime, LogicalPosition, LogicalSize, Manager, Url, WebviewUrl, WebviewWindow,
@@ -169,11 +171,82 @@ pub fn install(builder: Builder<DynRuntime>) -> Builder<DynRuntime> {
         std::process::exit(2);
     });
     let _ = CONFIG.set(config);
+    reset_answers();
     let builder = builder
-        .register_uri_scheme_protocol("parity", |_ctx, request| serve_renderer(request.uri()));
+        .register_uri_scheme_protocol("parity", |_ctx, request| serve_renderer(request.uri()))
+        // A builder keeps one handler, so this replaces lib.rs's with the same one behind the
+        // answers a state sets. Golden replay builds its app without the driver.
+        .invoke_handler(answering(crate::commands::handler()));
     #[cfg(target_os = "macos")]
     let builder = builder.activate_ignoring_other_apps(false);
     builder
+}
+
+/// What a channel answers in place of its command, as Electron's seam overrides a handler
+/// (`parity/seam-overlays.cjs`), so an overlay state gets update, recovery or export data
+/// without the real data or network behind it.
+#[derive(Debug, Clone, PartialEq)]
+enum Answer {
+    Value(Value),
+    /// Never answers, so the page stays in its busy state
+    Hold,
+}
+
+static ANSWERS: Mutex<BTreeMap<String, Answer>> = Mutex::new(BTreeMap::new());
+/// The calls a held channel took. Kept, so their promises stay pending in the page.
+static HELD: Mutex<Vec<InvokeResolver<DynRuntime>>> = Mutex::new(Vec::new());
+
+/// The two channels that write the clipboard or open a save dialog answer as the seam's
+/// defaults do, unless a state sets another answer.
+const EXPORT_CHANNELS: [&str; 2] = ["export:card-image", "export:copy-card-image"];
+
+fn reset_answers() {
+    let mut answers = ANSWERS.lock().expect("the answers lock");
+    answers.clear();
+    let refusal = json!({ "success": false, "error": "Exports are off in parity runs" });
+    for channel in EXPORT_CHANNELS {
+        answers.insert(channel.to_owned(), Answer::Value(refusal.clone()));
+    }
+    HELD.lock().expect("the held calls lock").clear();
+}
+
+fn set_answer(channel: &str, answer: Answer) -> Result<(), String> {
+    if !crate::commands::registry()
+        .iter()
+        .any(|spec| spec.channel == channel)
+    {
+        return Err(format!("no command answers {channel:?}"));
+    }
+    ANSWERS
+        .lock()
+        .expect("the answers lock")
+        .insert(channel.to_owned(), answer);
+    Ok(())
+}
+
+fn answering(
+    handler: impl Fn(Invoke<DynRuntime>) -> bool + Send + Sync + 'static,
+) -> impl Fn(Invoke<DynRuntime>) -> bool + Send + Sync + 'static {
+    move |invoke| {
+        let answer = ANSWERS
+            .lock()
+            .expect("the answers lock")
+            .get(invoke.message.command())
+            .cloned();
+        match answer {
+            None => handler(invoke),
+            Some(Answer::Value(value)) => {
+                invoke.resolver.resolve(value);
+                true
+            }
+            Some(Answer::Hold) => {
+                HELD.lock()
+                    .expect("the held calls lock")
+                    .push(invoke.resolver);
+                true
+            }
+        }
+    }
 }
 
 /// Runs in setup, before the window exists. A parity launch never shows in the
@@ -521,6 +594,20 @@ enum MouseKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MouseButton {
+    Left,
+    Right,
+}
+
+fn mouse_button(body: &Value) -> Result<MouseButton, String> {
+    match body["button"].as_str() {
+        None | Some("left") => Ok(MouseButton::Left),
+        Some("right") => Ok(MouseButton::Right),
+        Some(other) => Err(format!("no mouse button {other:?}")),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum KeyKind {
     Down,
     Up,
@@ -643,7 +730,7 @@ fn dispatch(window: &WebviewWindow, body: &Value) -> Result<Response, String> {
                 other => return Err(format!("no mouse event {other:?}")),
             };
             let (x, y) = (number(body, "x")?, number(body, "y")?);
-            let path = platform::mouse(window, kind, x, y)?;
+            let path = platform::mouse(window, kind, mouse_button(body)?, x, y)?;
             Ok(Response::json(200, &json!({ "path": path })))
         }
         "wheel" => {
@@ -758,6 +845,19 @@ fn dispatch(window: &WebviewWindow, body: &Value) -> Result<Response, String> {
             let payload = body.get("payload").cloned().unwrap_or(Value::Null);
             crate::events::emit_by_name(window.app_handle(), event, payload)?;
             Ok(Response::json(200, &json!({ "emitted": event })))
+        }
+        "answer" => {
+            let value = body.get("value").cloned().unwrap_or(Value::Null);
+            set_answer(text(body, "channel")?, Answer::Value(value))?;
+            Ok(Response::json(200, &json!({})))
+        }
+        "hold" => {
+            set_answer(text(body, "channel")?, Answer::Hold)?;
+            Ok(Response::json(200, &json!({})))
+        }
+        "reset-answers" => {
+            reset_answers();
+            Ok(Response::json(200, &json!({})))
         }
         "quit" => Ok(Response {
             status: 200,
@@ -923,7 +1023,7 @@ mod mac {
     use objc2_web_kit::{WKContentWorld, WKWebView};
     use tauri::WebviewWindow;
 
-    use super::{Key, KeyKind, MouseKind, json_returning_body, wait};
+    use super::{Key, KeyKind, MouseButton, MouseKind, json_returning_body, wait};
 
     /// Keeps App Nap from slowing timers while the window sits behind others,
     /// and the display from idling to sleep mid-run: WebKit stops painting a
@@ -1038,6 +1138,7 @@ mod mac {
     pub fn mouse(
         window: &WebviewWindow,
         kind: MouseKind,
+        button: MouseButton,
         x: f64,
         y: f64,
     ) -> Result<&'static str, String> {
@@ -1050,10 +1151,12 @@ mod mac {
                     let _ = tx.send(Err("the webview has no window".into()));
                     return;
                 };
-                let event_type = match kind {
-                    MouseKind::Move => NSEventType::MouseMoved,
-                    MouseKind::Down => NSEventType::LeftMouseDown,
-                    MouseKind::Up => NSEventType::LeftMouseUp,
+                let event_type = match (kind, button) {
+                    (MouseKind::Move, _) => NSEventType::MouseMoved,
+                    (MouseKind::Down, MouseButton::Left) => NSEventType::LeftMouseDown,
+                    (MouseKind::Up, MouseButton::Left) => NSEventType::LeftMouseUp,
+                    (MouseKind::Down, MouseButton::Right) => NSEventType::RightMouseDown,
+                    (MouseKind::Up, MouseButton::Right) => NSEventType::RightMouseUp,
                 };
                 let event = NSEvent::mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure(
                 event_type,
@@ -1070,10 +1173,12 @@ mod mac {
                     let _ = tx.send(Err("AppKit made no mouse event".into()));
                     return;
                 };
-                match kind {
-                    MouseKind::Move => web.mouseMoved(&event),
-                    MouseKind::Down => web.mouseDown(&event),
-                    MouseKind::Up => web.mouseUp(&event),
+                match (kind, button) {
+                    (MouseKind::Move, _) => web.mouseMoved(&event),
+                    (MouseKind::Down, MouseButton::Left) => web.mouseDown(&event),
+                    (MouseKind::Up, MouseButton::Left) => web.mouseUp(&event),
+                    (MouseKind::Down, MouseButton::Right) => web.rightMouseDown(&event),
+                    (MouseKind::Up, MouseButton::Right) => web.rightMouseUp(&event),
                 }
                 let _ = tx.send(Ok("native"));
             },
@@ -1247,7 +1352,7 @@ mod win {
     use serde_json::{Value, json};
     use tauri::WebviewWindow;
 
-    use super::{Key, KeyKind, MouseKind, json_returning_body, wait};
+    use super::{Key, KeyKind, MouseButton, MouseKind, json_returning_body, wait};
     use crate::snapshot::win::cdp;
 
     fn call(
@@ -1296,13 +1401,18 @@ mod win {
     pub fn mouse(
         window: &WebviewWindow,
         kind: MouseKind,
+        button: MouseButton,
         x: f64,
         y: f64,
     ) -> Result<&'static str, String> {
+        let pressed = match button {
+            MouseButton::Left => "left",
+            MouseButton::Right => "right",
+        };
         let (kind, button, clicks) = match kind {
             MouseKind::Move => ("mouseMoved", "none", 0),
-            MouseKind::Down => ("mousePressed", "left", 1),
-            MouseKind::Up => ("mouseReleased", "left", 1),
+            MouseKind::Down => ("mousePressed", pressed, 1),
+            MouseKind::Up => ("mouseReleased", pressed, 1),
         };
         call(
             window,
@@ -1447,14 +1557,20 @@ mod other {
 
     use tauri::WebviewWindow;
 
-    use super::{Key, KeyKind, MouseKind};
+    use super::{Key, KeyKind, MouseButton, MouseKind};
 
     const NONE: &str = "the parity driver is built for macOS and Windows only";
 
     pub fn eval(_: &WebviewWindow, _: &str, _: Duration) -> Result<String, String> {
         Err(NONE.into())
     }
-    pub fn mouse(_: &WebviewWindow, _: MouseKind, _: f64, _: f64) -> Result<&'static str, String> {
+    pub fn mouse(
+        _: &WebviewWindow,
+        _: MouseKind,
+        _: MouseButton,
+        _: f64,
+        _: f64,
+    ) -> Result<&'static str, String> {
         Err(NONE.into())
     }
     pub fn wheel(
@@ -1515,6 +1631,24 @@ mod tests {
 
     fn bearer(token: &str) -> Vec<(String, String)> {
         vec![("authorization".into(), format!("Bearer {token}"))]
+    }
+
+    #[test]
+    fn answers_take_only_known_channels_and_reset_to_the_export_refusals() {
+        assert!(set_answer("app:check-update", Answer::Hold).is_ok());
+        assert!(set_answer("app:no-such-channel", Answer::Hold).is_err());
+        assert_eq!(
+            mouse_button(&json!({ "button": "middle" })),
+            Err("no mouse button \"middle\"".into())
+        );
+        reset_answers();
+        let answers = ANSWERS.lock().unwrap();
+        assert_eq!(answers.get("app:check-update"), None);
+        for channel in EXPORT_CHANNELS {
+            assert!(
+                matches!(answers.get(channel), Some(Answer::Value(v)) if v["success"] == false)
+            );
+        }
     }
 
     #[test]

@@ -3,7 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { PNG } from "pngjs";
-import { compareLayout, CROSS_ENGINE, diffPngs, type GeometryRow } from "../diff.ts";
+import {
+  compareLayout,
+  CROSS_ENGINE,
+  diffPngs,
+  type FocusMeta,
+  type GeometryRow,
+} from "../diff.ts";
 
 const tolerance = CROSS_ENGINE.layoutToleranceCss;
 
@@ -405,6 +411,141 @@ describe("rule E: images both engines draw scaled at the same box", () => {
   test("negative control: changed text beside the image, inside an exempted tile, fails", () => {
     const result = diff(page(185, { strokes: "h" }), rows(92.5));
     expect(result.scaledImages).toEqual([expect.objectContaining({ path: "b/0", exempt: true })]);
+    expect(tileFails(result)).toBe(true);
+    expect(result.pass).toBe(false);
+  });
+});
+
+describe("rule F: a focus ring Tauri's never-active window cannot draw", () => {
+  // overlay-dialog-escape: Escape hands focus back to the update button, and Electron rings it.
+  // WebKit matches :focus-visible only in the active window, which the driver never makes it.
+  const width = 2560;
+  const height = 1600;
+  const button = { x: 12, y: 656.75, w: 40, h: 24 };
+  const outline = { width: 4, offset: -4 };
+  const text = { x: 56, y: 658, w: 40, h: 24 };
+
+  const page = (opts: { ring?: boolean; strokes?: "v" | "h" } = {}) => {
+    const png = new PNG({ width, height });
+    for (let i = 0; i < width * height; i++) png.data.set([24, 26, 32, 255], i * 4);
+    const fill = (
+      r: { x: number; y: number; w: number; h: number },
+      keep: (x: number, y: number) => boolean,
+      rgb: number[],
+    ) => {
+      for (let y = Math.round(r.y * 2); y < Math.round((r.y + r.h) * 2); y++)
+        for (let x = Math.round(r.x * 2); x < Math.round((r.x + r.w) * 2); x++)
+          if (keep(x, y)) png.data.set([...rgb, 255], (y * width + x) * 4);
+    };
+    fill(button, () => true, [60, 52, 30]);
+    if (opts.ring) {
+      const band = -outline.offset * 2;
+      const [x0, y0] = [Math.round(button.x * 2), Math.round(button.y * 2)];
+      const [x1, y1] = [
+        Math.round((button.x + button.w) * 2),
+        Math.round((button.y + button.h) * 2),
+      ];
+      fill(
+        button,
+        (x, y) => x < x0 + band || x >= x1 - band || y < y0 + band || y >= y1 - band,
+        [240, 210, 140],
+      );
+    }
+    fill(text, (x, y) => ((opts.strokes ?? "v") === "v" ? x % 4 < 2 : y % 4 < 2), [230, 230, 230]);
+    return png;
+  };
+  const rows = [
+    ["b", "BODY", 0, 0, width / 2, height / 2],
+    ["b/0", "BUTTON", button.x, button.y, button.w, button.h],
+    ["b/1", "SPAN", text.x, text.y, text.w, text.h],
+  ] as GeometryRow[];
+  const electron: FocusMeta = {
+    path: "b/0",
+    box: { ...button },
+    outline,
+    focusVisible: true,
+    focusMatches: true,
+    documentHasFocus: true,
+  };
+  const tauri: FocusMeta = {
+    path: "b/0",
+    box: { ...button },
+    outline: null,
+    focusVisible: false,
+    focusMatches: false,
+    documentHasFocus: false,
+  };
+  const diff = (b: PNG, focus?: [FocusMeta | null, FocusMeta | null]) =>
+    diffPngs(page({ ring: true }), b, {
+      policy: "cross-engine",
+      geometryA: rows,
+      geometryB: rows,
+      ...(focus ? { focus } : {}),
+    });
+  const tileFails = (result: ReturnType<typeof diff>) =>
+    result.reasons.some((reason) => reason.startsWith("tile rule"));
+
+  test("the ring alone fails the tile rule without the rule", () => {
+    const result = diff(page());
+    expect(result.layout?.pass).toBe(true);
+    expect(result.unfocusedRing).toBeUndefined();
+    expect(tileFails(result)).toBe(true);
+  });
+
+  test("with the rule the tile passes and the page still counts the ring's pixels", () => {
+    const without = diff(page());
+    const result = diff(page(), [electron, tauri]);
+    expect(result.unfocusedRing).toEqual({ path: "b/0", region: button });
+    expect(tileFails(result)).toBe(false);
+    expect(result.differing).toBe(without.differing);
+    expect(result.differing).toBeGreaterThan(0);
+    expect(result.pass).toBe(true);
+  });
+
+  test("the left-out box is grown by an outline drawn outside the element", () => {
+    const outside = { ...electron, outline: { width: 2, offset: 1 } };
+    expect(diff(page(), [outside, tauri]).unfocusedRing?.region).toEqual({
+      x: button.x - 3,
+      y: button.y - 3,
+      w: button.w + 6,
+      h: button.h + 6,
+    });
+  });
+
+  test("negative control: a different element focused in Tauri fails the tile rule", () => {
+    const result = diff(page(), [electron, { ...tauri, path: "b/1", box: { ...text } }]);
+    expect(result.unfocusedRing).toBeUndefined();
+    expect(tileFails(result)).toBe(true);
+  });
+
+  test("negative control: no element focused in Tauri fails the tile rule", () => {
+    const result = diff(page(), [electron, null]);
+    expect(result.unfocusedRing).toBeUndefined();
+    expect(tileFails(result)).toBe(true);
+  });
+
+  test("negative control: a focused Tauri window that draws no ring fails the tile rule", () => {
+    const result = diff(page(), [electron, { ...tauri, documentHasFocus: true }]);
+    expect(result.unfocusedRing).toBeUndefined();
+    expect(tileFails(result)).toBe(true);
+  });
+
+  test("negative control: Electron's focus without a ring exempts nothing", () => {
+    const result = diff(page(), [{ ...electron, focusVisible: false }, tauri]);
+    expect(result.unfocusedRing).toBeUndefined();
+    expect(tileFails(result)).toBe(true);
+  });
+
+  test("negative control: the focused element moved 2 px fails the tile rule", () => {
+    const moved = { ...tauri, box: { ...button, x: button.x + 2 } };
+    const result = diff(page(), [electron, moved]);
+    expect(result.unfocusedRing).toBeUndefined();
+    expect(tileFails(result)).toBe(true);
+  });
+
+  test("negative control: changed text beside the ring, inside the same tile, fails", () => {
+    const result = diff(page({ strokes: "h" }), [electron, tauri]);
+    expect(result.unfocusedRing?.path).toBe("b/0");
     expect(tileFails(result)).toBe(true);
     expect(result.pass).toBe(false);
   });

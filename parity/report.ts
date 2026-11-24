@@ -48,6 +48,8 @@ export interface StateLine {
   widthExempt?: number;
   /** Scaled images whose boxes the tile rule left out (register rule E). */
   imageExempt?: number;
+  /** The focused element whose ring box the tile rule left out (register rule F). */
+  ringExempt?: string;
   reasons: string[];
   sideBySide?: string;
 }
@@ -406,7 +408,7 @@ export function renderReport(report: Report, command: string): string {
     "",
   );
   for (const d of report.deviations) lines.push(`- **${d.name}.** ${d.where} ${d.rule}`);
-  const applied = (count: (s: StateLine) => number | undefined) =>
+  const applied = (count: (s: StateLine) => number | string | undefined) =>
     [mac, win].flatMap(
       (run) =>
         run?.states
@@ -420,6 +422,11 @@ export function renderReport(report: Report, command: string): string {
   if (imageExempt.length > 0)
     lines.push(
       `- Rule E applied, scaled images left out of the tile rule: ${imageExempt.join(", ")}.`,
+    );
+  const ringExempt = applied((s) => s.ringExempt);
+  if (ringExempt.length > 0)
+    lines.push(
+      `- Rule F applied, focus rings left out of the tile rule: ${ringExempt.join(", ")}.`,
     );
   lines.push("");
   return lines.join("\n");
@@ -607,6 +614,7 @@ interface CrossEngineReport {
     worstTile?: { pct: number };
     layout?: { widthExempt?: number };
     scaledImages?: { exempt: boolean }[];
+    unfocusedRing?: { path: string };
     blurRegions?: { region: { x: number; y: number; w: number; h: number } }[];
   }[];
 }
@@ -674,6 +682,7 @@ export function stateLines(
       worstTilePct: c.worstTile?.pct,
       widthExempt: c.layout?.widthExempt || undefined,
       imageExempt: c.scaledImages?.filter((image) => image.exempt).length || undefined,
+      ringExempt: c.unfocusedRing?.path,
       reasons: c.reasons,
       sideBySide: path.relative(
         REPO_DIR,
@@ -715,7 +724,7 @@ function contactSheet(states: StateLine[], target: string): string | undefined {
  * region the policy judges apart; nothing else in the tree masks a state.
  */
 export const BLUR_REASON =
-  "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count";
+  "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it";
 
 async function runPlatform(argv: string[]) {
   const opt = flags(argv, [

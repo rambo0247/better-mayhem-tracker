@@ -7,7 +7,8 @@ import {
   readGeometry,
   type DiffResult,
   type GeometryRow,
-  type Region,
+  type BlurRegion,
+  type FocusMeta,
 } from "./diff.ts";
 import { dumpGeometry, type DriveContext } from "./drive.ts";
 import { isDataSource, PARITY_DIR } from "./lib/data.ts";
@@ -81,6 +82,8 @@ function parse(argv: string[]) {
     repo: undefined as string | undefined,
     golden: undefined as string | undefined,
     compare: undefined as string | undefined,
+    /** What answers Electron's renderer in the Tauri driver: the goldens, or the Rust commands. */
+    api: undefined as "replay" | "tauri" | undefined,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
@@ -94,7 +97,12 @@ function parse(argv: string[]) {
     else if (arg === "--repo") out.repo = argv[++i];
     else if (arg === "--golden") out.golden = argv[++i];
     else if (arg === "--compare") out.compare = argv[++i];
-    else throw new Error(`unknown flag ${arg}`);
+    else if (arg === "--api") {
+      const api = argv[++i];
+      if (api !== "replay" && api !== "tauri")
+        throw new Error(`--api takes replay or tauri, not ${api}`);
+      out.api = api;
+    } else throw new Error(`unknown flag ${arg}`);
   }
   return out;
 }
@@ -198,6 +206,7 @@ async function start(
       data,
       repo: args.repo,
       renderer: args.renderer,
+      api: args.api,
       goldenDir: args.golden,
       runDir,
     }),
@@ -227,6 +236,7 @@ async function startClientApp(
       data,
       repo: args.repo,
       renderer: args.renderer,
+      api: args.api,
       goldenDir: args.golden,
       runDir,
       viewport,
@@ -332,9 +342,13 @@ export function compareBaselines(electronDir: string, tauriDir: string, ids: str
     if (!fs.existsSync(a) || !fs.existsSync(b)) {
       return { id, pass: false, cause: "capture" as Cause, reasons: ["missing capture"] };
     }
-    const blurRegions: Region[] = [
+    const blurRegions: BlurRegion[] = [
       ...(electronMeta.blurRegions ?? []),
       ...(tauriMeta.blurRegions ?? []),
+    ];
+    const focus: [FocusMeta | null, FocusMeta | null] = [
+      electronMeta.focused ?? null,
+      tauriMeta.focused ?? null,
     ];
     const geometry: [string, string] = [
       path.join(electronDir, `${id}.geometry.json`),
@@ -345,6 +359,7 @@ export function compareBaselines(electronDir: string, tauriDir: string, ids: str
       geometry,
       scale,
       blurRegions,
+      focus,
       outPrefix: path.join(out, id),
     });
     const at = result.diffImage ? locateWorstWindow(result.diffImage, scale) : undefined;
@@ -544,22 +559,53 @@ async function main() {
           await dumpGeometry(session.ctx.engine),
         );
         // WebKit snapshots draw no backdrop blur (Appendix A), so every element that asks for
-        // one is a blur region, judged by the 0.2 threshold tile rule
-        const blurRegions = await session.ctx.engine.evaluate(() =>
-          [...document.querySelectorAll("body *")].flatMap((el) => {
-            const style = getComputedStyle(el);
-            const filter =
-              style.getPropertyValue("backdrop-filter") ||
-              style.getPropertyValue("-webkit-backdrop-filter");
-            if (!filter || filter === "none") return [];
+        // one is a blur region, judged by the 0.2 threshold tile rule. A dialog panel inside
+        // one draws no blur itself, so the page count keeps it
+        const blurRegions = await session.ctx.engine.evaluate(() => {
+          const clip = (el: Element) => {
             const box = el.getBoundingClientRect();
             const x = Math.max(0, box.left);
             const y = Math.max(0, box.top);
             const w = Math.min(innerWidth, box.right) - x;
             const h = Math.min(innerHeight, box.bottom) - y;
             return w > 0 && h > 0 ? [{ x, y, w, h }] : [];
-          }),
-        );
+          };
+          return [...document.querySelectorAll("body *")].flatMap((el) => {
+            const style = getComputedStyle(el);
+            const filter =
+              style.getPropertyValue("backdrop-filter") ||
+              style.getPropertyValue("-webkit-backdrop-filter");
+            if (!filter || filter === "none") return [];
+            const keep = [...el.querySelectorAll('[role="dialog"]')].flatMap(clip);
+            return clip(el).map((region) => ({ ...region, keep }));
+          });
+        });
+        // Register rule F: the focused element, and whether this window can draw its ring
+        const focused = await session.ctx.engine.evaluate((): FocusMeta | null => {
+          const el = document.activeElement;
+          if (!el || el === document.body || el === document.documentElement) return null;
+          let at = "";
+          for (let node: Element = el; node !== document.body; node = node.parentElement!) {
+            if (!node.parentElement) return null;
+            at = `/${[...node.parentElement.children].indexOf(node)}${at}`;
+          }
+          const box = el.getBoundingClientRect();
+          const style = getComputedStyle(el);
+          return {
+            path: `b${at}`,
+            box: { x: box.left, y: box.top, w: box.width, h: box.height },
+            outline:
+              style.outlineStyle === "none"
+                ? null
+                : {
+                    width: parseFloat(style.outlineWidth) || 0,
+                    offset: parseFloat(style.outlineOffset) || 0,
+                  },
+            focusVisible: el.matches(":focus-visible"),
+            focusMatches: el.matches(":focus"),
+            documentHasFocus: document.hasFocus(),
+          };
+        });
         await session.ctx.engine.screenshot(path.join(dir, `${state.id}.png`), {
           fullPage: state.card === true,
         });
@@ -575,6 +621,7 @@ async function main() {
               card: outcome.card,
               settle: outcome.settle,
               blurRegions,
+              focused,
               ...meta,
             },
             null,

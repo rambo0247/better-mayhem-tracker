@@ -19,6 +19,25 @@ export interface Region {
   h: number;
 }
 
+/**
+ * An element with a backdrop blur, which WebKit snapshots do not draw. `keep` holds the dialog
+ * panels inside it: they draw no blur of their own, so the page count still covers them.
+ */
+export interface BlurRegion extends Region {
+  keep?: Region[];
+}
+
+/** The focused element as `capture.ts` records it, with what decides whether it shows a ring. */
+export interface FocusMeta {
+  /** The element's path in `geometry.js`'s walk. */
+  path: string;
+  box: Region;
+  outline: { width: number; offset: number } | null;
+  focusVisible: boolean;
+  focusMatches: boolean;
+  documentHasFocus: boolean;
+}
+
 export const SAME_ENGINE = { threshold: 0.03, includeAA: true, allowedPixels: 0 };
 export const CROSS_ENGINE = {
   threshold: 0.1,
@@ -58,6 +77,8 @@ export interface DiffResult {
   blurRegions: { region: Region; worstTilePct: number; pass: boolean }[];
   /** Register rule E: scaled images whose box the tile rule leaves out when their crops agree. */
   scaledImages: { path: string; region: Region; displacedTilePct: number; exempt: boolean }[];
+  /** Register rule F: the focus ring box the tile rule leaves out, when Tauri's window can't draw it. */
+  unfocusedRing?: { path: string; region: Region };
   layout?: LayoutResult;
   diffImage?: PNG;
 }
@@ -66,7 +87,9 @@ export interface DiffOptions {
   policy: Policy;
   geometryA?: GeometryRow[];
   geometryB?: GeometryRow[];
-  blurRegions?: Region[];
+  blurRegions?: BlurRegion[];
+  /** The focused element in each capture, Electron's first. */
+  focus?: [FocusMeta | null, FocusMeta | null];
   /** Device pixels per CSS pixel in both images. */
   scale?: number;
 }
@@ -143,6 +166,29 @@ export function scaledImages(
 }
 
 /**
+ * Register rule F. WebKit matches `:focus-visible` only in the active window, and the driver
+ * never activates Tauri's, so a ring Electron draws on the element both captures focus is
+ * missing from Tauri's pixels. The ring's box, grown by its outline, is what the tile rule
+ * leaves out, when the two boxes agree within one device px.
+ */
+export function unfocusedRing(
+  focus: [FocusMeta | null, FocusMeta | null] | undefined,
+  scale: number,
+): { path: string; region: Region } | undefined {
+  const [a, b] = focus ?? [];
+  if (!a?.focusVisible || !a.outline || !b || b.documentHasFocus || a.path !== b.path) return;
+  if ((["x", "y", "w", "h"] as const).some((k) => Math.abs(a.box[k] - b.box[k]) * scale > 1)) {
+    return;
+  }
+  const grow = Math.max(0, a.outline.width + a.outline.offset);
+  const { x, y, w, h } = a.box;
+  return {
+    path: a.path,
+    region: { x: x - grow, y: y - grow, w: w + 2 * grow, h: h + 2 * grow },
+  };
+}
+
+/**
  * Pixels of one crop that no pixel of the other comes near: every channel must fall within the
  * other crop's range over the neighbours `reach` device px away, give or take `tolerance` levels.
  * A resampling one row apart passes. Another image, a recolour or a shift does not.
@@ -207,6 +253,24 @@ function regionMask(width: number, height: number, regions: Region[], scale: num
     const y1 = Math.min(height, Math.ceil((r.y + r.h) * scale));
     for (let y = y0; y < y1; y++) mask.fill(1, y * width + x0, y * width + x1);
   }
+  return mask;
+}
+
+/** The blur regions' pixels the page count leaves out: each region but the panels it keeps. */
+function blurPageMask(
+  width: number,
+  height: number,
+  blur: BlurRegion[],
+  scale: number,
+): Uint8Array {
+  const mask = regionMask(width, height, blur, scale);
+  const keep = regionMask(
+    width,
+    height,
+    blur.flatMap((r) => r.keep ?? []),
+    scale,
+  );
+  for (let i = 0; i < mask.length; i++) if (keep[i]) mask[i] = 0;
   return mask;
 }
 
@@ -289,7 +353,10 @@ export function diffPngs(a: PNG, b: PNG, options: DiffOptions): DiffResult {
     includeAA: CROSS_ENGINE.includeAA,
     ...(ignore ? { ignoreMask: ignore } : {}),
   };
-  result.differing = pixelmatch(a.data, b.data, diff.data, width, height, base);
+  result.differing = pixelmatch(a.data, b.data, diff.data, width, height, {
+    ...base,
+    ...(blur.length ? { ignoreMask: blurPageMask(width, height, blur, scale) } : {}),
+  });
   result.differingPct = +((100 * result.differing) / total).toFixed(4);
   result.diffImage = diff;
   if (result.differing / total > CROSS_ENGINE.pageBudget) {
@@ -323,7 +390,11 @@ export function diffPngs(a: PNG, b: PNG, options: DiffOptions): DiffResult {
       exempt: pct / 100 <= CROSS_ENGINE.tileBudget,
     });
   }
-  const exempt = result.scaledImages.filter((s) => s.exempt).map((s) => s.region);
+  result.unfocusedRing = unfocusedRing(options.focus, scale);
+  const exempt = [
+    ...result.scaledImages.filter((s) => s.exempt).map((s) => s.region),
+    ...(result.unfocusedRing ? [result.unfocusedRing.region] : []),
+  ];
   const tileIgnore =
     exempt.length > 0 ? regionMask(width, height, [...blur, ...exempt], scale) : ignore;
   const worstCount = pixelmatch(a.data, b.data, null, width, height, {
