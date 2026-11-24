@@ -158,7 +158,10 @@ pub async fn get_match_history<R: Runtime>(
 ) -> CommandResult<MatchPage> {
     let (limit, offset) = (whole(&limit)?, whole(&offset)?);
     let filters = filters.unwrap_or_default();
-    db::of(&ctx)?.with(|conn| matches::get_match_history(conn, limit, offset, &filters))
+    db::run(&ctx, move |conn| {
+        matches::get_match_history(conn, limit, offset, &filters)
+    })
+    .await
 }
 
 pub async fn get_match_sessions<R: Runtime>(
@@ -167,7 +170,10 @@ pub async fn get_match_sessions<R: Runtime>(
 ) -> CommandResult<Vec<MatchSession>> {
     let filters = filters.unwrap_or_default();
     let week_start = week::first_day_of_week(crate::locale::system_locale().as_deref());
-    db::of(&ctx)?.with(|conn| matches::get_match_sessions(conn, &filters, week_start))
+    db::run(&ctx, move |conn| {
+        matches::get_match_sessions(conn, &filters, week_start)
+    })
+    .await
 }
 
 pub async fn get_match_filter_options<R: Runtime>(
@@ -175,11 +181,14 @@ pub async fn get_match_filter_options<R: Runtime>(
     filters: Option<MatchScope>,
 ) -> CommandResult<MatchFilterOptions> {
     let scope = filters.unwrap_or_default();
-    db::of(&ctx)?.with(|conn| matches::get_match_filter_options(conn, &scope))
+    db::run(&ctx, move |conn| {
+        matches::get_match_filter_options(conn, &scope)
+    })
+    .await
 }
 
 pub async fn get_stored_queues<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Vec<i64>> {
-    db::of(&ctx)?.with(filters::get_stored_queues)
+    db::run(&ctx, filters::get_stored_queues).await
 }
 
 pub async fn get_match_detail<R: Runtime>(
@@ -187,12 +196,12 @@ pub async fn get_match_detail<R: Runtime>(
     game_id: Js<i64>,
 ) -> CommandResult<Option<MatchDetail>> {
     let game_id = whole(&game_id)?;
-    db::of(&ctx)?.with(|conn| matches::get_match_detail(conn, game_id))
+    db::run(&ctx, move |conn| matches::get_match_detail(conn, game_id)).await
 }
 
 pub async fn toggle_favorite<R: Runtime>(ctx: Ctx<R>, game_id: Js<i64>) -> CommandResult<bool> {
     let game_id = whole(&game_id)?;
-    db::of(&ctx)?.with(|conn| matches::toggle_favorite(conn, game_id))
+    db::run(&ctx, move |conn| matches::toggle_favorite(conn, game_id)).await
 }
 
 pub async fn get_champion_match_history<R: Runtime>(
@@ -210,7 +219,7 @@ pub async fn get_champion_match_history<R: Runtime>(
         queue.typed().flatten(),
         season.typed().flatten(),
     );
-    db::of(&ctx)?.with(|conn| {
+    db::run(&ctx, move |conn| {
         matches::get_champion_match_history(
             conn,
             champion_id,
@@ -221,14 +230,15 @@ pub async fn get_champion_match_history<R: Runtime>(
             season.as_deref(),
         )
     })
+    .await
 }
 
 pub async fn get_all_summoner_puuids<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Vec<String>> {
-    db::of(&ctx)?.with(summoner::get_all_puuids)
+    db::run(&ctx, summoner::get_all_puuids).await
 }
 
 pub async fn get_profile<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Profile> {
-    db::of(&ctx)?.with(summoner::get_profile)
+    db::run(&ctx, summoner::get_profile).await
 }
 
 #[cfg(test)]

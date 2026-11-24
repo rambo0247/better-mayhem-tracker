@@ -100,14 +100,15 @@ async fn champion_data<R: Runtime>(ctx: &Ctx<R>) -> Option<ChampionData> {
 
 /// `defaultFileName`'s inputs: the game's date and champion from
 /// `getMatchDetail`, and the clock for a season.
-fn file_name<R: Runtime>(
+async fn file_name<R: Runtime>(
     ctx: &Ctx<R>,
     card: &CardSpec,
     champions: Option<&ChampionData>,
 ) -> CommandResult<String> {
     let detail = match card {
         CardSpec::Game { game_id } => {
-            db::of(ctx)?.with(|conn| matches::get_match_detail(conn, *game_id))?
+            let game_id = *game_id;
+            db::run(ctx, move |conn| matches::get_match_detail(conn, game_id)).await?
         }
         CardSpec::Season { .. } => None,
     };
@@ -131,7 +132,7 @@ pub async fn export_card_image<R: Runtime>(
     card: CardSpec,
 ) -> CommandResult<ExportCardResult> {
     let champions = champion_data(&ctx).await;
-    let name = file_name(&ctx, &card, champions.as_ref())?;
+    let name = file_name(&ctx, &card, champions.as_ref()).await?;
     Ok(export_image::export_card_image(&ctx.app, &ctx.window, &card, name).await)
 }
 

@@ -671,6 +671,37 @@ mod tests {
     }
 
     #[test]
+    fn a_database_run_rejects_as_its_body_would() {
+        use tauri::async_runtime::block_on;
+        let ctx = mock_ctx(None);
+        let closed = block_on(crate::db::run(&ctx, |_| Ok(()))).expect_err("no database");
+        assert_eq!(
+            (closed.name.as_str(), closed.message.as_str()),
+            ("TypeError", "The database connection is not open")
+        );
+
+        let dir = std::env::temp_dir().join(format!("bmt-db-run-{}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        std::fs::create_dir_all(&dir).expect("a scratch folder");
+        ctx.app
+            .manage(crate::db::Database::open(&dir, 0).expect("open the scratch database"));
+        let panicked: CommandResult<()> =
+            block_on(crate::db::run(&ctx, |_| panic!("row 3 is missing")));
+        assert_eq!(panicked, Err(CommandError::thrown("row 3 is missing")));
+        let failed = block_on(crate::db::run(&ctx, |conn| {
+            conn.execute("SELECT * FROM nowhere", [])
+        }))
+        .expect_err("no such table");
+        assert_eq!(failed.name, "SqliteError");
+        let answer = block_on(crate::db::run(&ctx, |conn| {
+            conn.query_row("SELECT 2 + 2", [], |row| row.get::<_, i64>(0))
+        }));
+        assert_eq!(answer, Ok(4), "the connection outlives a panic");
+        ctx.app.state::<crate::db::Database>().close();
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
     fn a_sqlite_failure_keeps_its_class() {
         let conn = rusqlite::Connection::open_in_memory().expect("an in-memory database");
         let error: CommandError = conn
