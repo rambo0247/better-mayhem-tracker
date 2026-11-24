@@ -342,7 +342,7 @@ export function renderReport(report: Report, command: string): string {
 
   lines.push("## Before and after", "");
   lines.push(
-    "Electron 1.2.1 is the before, the Tauri head the after. Download size is the release asset a player downloads. Idle memory counts every process of the app: on macOS the de-duplicated footprint of the app and its WebKit or Electron helpers, attributed by process tree and bundle; on Windows the private working set of the app and its WebView2 or Electron children. Each timed number is the median of interleaved runs with its range and spread.",
+    "Electron 1.2.1 is the before, the Tauri head the after. Download size is the release asset a player downloads. Idle memory counts every process of the app: on macOS the de-duplicated footprint of the app and its WebKit or Electron helpers, attributed by process tree and bundle; on Windows the private working set of the app and its WebView2 or Electron children. Each timed number is the median of that app's own valid runs, with its range and spread. The two apps were measured in separate sessions on the same Mac, so a gap smaller than either spread reads as on par.",
     "",
   );
   for (const platform of ["mac", "win"] as const) {
