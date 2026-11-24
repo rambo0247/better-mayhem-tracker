@@ -201,6 +201,21 @@ function subscriber(listen: Listen) {
     };
 }
 
+/**
+ * Callers in one task share one request, since they would each have read the same state.
+ * A later caller always sends its own: it may be asking because that state changed.
+ */
+function sharedWithinTask<T>(command: () => Promise<T>): () => Promise<T> {
+  let pending: Promise<T> | undefined;
+  return () => {
+    if (!pending) {
+      pending = command();
+      queueMicrotask(() => (pending = undefined));
+    }
+    return pending;
+  };
+}
+
 export function createApi(
   transport: Transport = tauriTransport,
   listen: Listen = windowListen,
@@ -215,6 +230,10 @@ export function createApi(
     platform: boot.platform,
     locale: boot.locale ?? undefined,
     ...commands,
+    // Header, ActivityToast and Match History each read these as the app starts
+    getProfile: sharedWithinTask(commands.getProfile),
+    isBackfillRunning: sharedWithinTask(commands.isBackfillRunning),
+    getLcuStatus: sharedWithinTask(commands.getLcuStatus),
     onBackfillDone: subscribe("lcu:backfill-done"),
     onBackfillProgress: subscribe("lcu:backfill-progress"),
     onLiveGame: subscribe("live:changed"),

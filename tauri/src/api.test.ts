@@ -295,3 +295,56 @@ describe("tauriTransport, numbers JSON cannot carry", () => {
     ]);
   });
 });
+
+describe("startup reads", () => {
+  let sent: string[];
+  let answers: (() => void)[];
+  // Answers a request only when the test says so, with its channel and place in line
+  const transport: Transport = <T>(channel: string) => {
+    sent.push(channel);
+    const n = sent.length;
+    return new Promise<T>((resolve) => answers.push(() => resolve({ channel, n } as T)));
+  };
+  const answerAll = () => answers.splice(0).forEach((answer) => answer());
+  beforeEach(() => {
+    sent = [];
+    answers = [];
+    globalThis.window = { __BMT_BOOT__: { platform: "darwin", locale: null } } as never;
+  });
+  afterEach(() => {
+    globalThis.window = pageWindow;
+  });
+
+  for (const [method, channel] of [
+    ["getProfile", "db:profile"],
+    ["isBackfillRunning", "lcu:backfill-running"],
+    ["getLcuStatus", "lcu:status"],
+  ] as const) {
+    test(`${method} asked for twice at once sends one request, and both get its answer`, async () => {
+      const api = createApi(transport);
+      const both = Promise.all([api[method](), api[method]()]);
+      answerAll();
+      expect(await both).toEqual([
+        { channel, n: 1 },
+        { channel, n: 1 },
+      ] as never);
+      expect(sent).toEqual([channel]);
+    });
+
+    test(`${method} asked for again later sends its own request, in flight or not`, async () => {
+      const api = createApi(transport);
+      const first = api[method]();
+      await tick();
+      const second = api[method]();
+      answerAll();
+      expect(await Promise.all([first, second])).toEqual([
+        { channel, n: 1 },
+        { channel, n: 2 },
+      ] as never);
+      const third = api[method]();
+      answerAll();
+      expect(await third).toEqual({ channel, n: 3 } as never);
+      expect(sent).toEqual([channel, channel, channel]);
+    });
+  }
+});
