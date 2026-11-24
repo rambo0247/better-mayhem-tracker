@@ -60,13 +60,13 @@ impl EventSocket {
     /// is also what answers the client's pings.
     pub async fn next(&mut self) -> Option<Value> {
         loop {
-            let text = match self.ws.next().await? {
-                Ok(Message::Text(text)) => text.to_string(),
-                Ok(Message::Binary(bytes)) => String::from_utf8_lossy(&bytes).into_owned(),
+            let event = match self.ws.next().await? {
+                Ok(Message::Text(text)) => payload(&text),
+                Ok(Message::Binary(bytes)) => payload(&String::from_utf8_lossy(&bytes)),
                 Ok(_) => continue,
                 Err(_) => return None,
             };
-            if let Some(event) = payload(&text) {
+            if let Some(event) = event {
                 return Some(event);
             }
         }
