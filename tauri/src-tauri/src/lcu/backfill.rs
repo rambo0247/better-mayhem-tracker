@@ -145,7 +145,7 @@ fn sgp_url(host: &str, puuid: &str, start: usize, count: usize, tags: &str) -> S
 fn match_id_number(id: &Value) -> Option<f64> {
     let text = template(Some(id));
     let last = text.rsplit('_').next().unwrap_or_default();
-    Some(super::sync::js_number_of_str(last)).filter(|n| n.is_finite())
+    Some(js::string_to_number(last)).filter(|n| n.is_finite())
 }
 
 /// A `Set` of numbers, keyed as SameValueZero compares them.

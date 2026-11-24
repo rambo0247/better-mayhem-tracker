@@ -500,48 +500,6 @@ pub(crate) fn template(value: Option<&Value>) -> String {
     }
 }
 
-/// `Number(text)`: whitespace trimmed, empty is 0, and the hex, octal, and
-/// binary prefixes a JavaScript numeric literal takes.
-pub(crate) fn js_number_of_str(text: &str) -> f64 {
-    let s = text.trim_matches(|c: char| c.is_whitespace() || c == '\u{feff}');
-    if s.is_empty() {
-        return 0.0;
-    }
-    for (prefix, radix) in [
-        ("0x", 16),
-        ("0X", 16),
-        ("0o", 8),
-        ("0O", 8),
-        ("0b", 2),
-        ("0B", 2),
-    ] {
-        if let Some(digits) = s.strip_prefix(prefix) {
-            if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
-                return f64::NAN;
-            }
-            return digits.chars().fold(0.0, |acc, c| {
-                acc * f64::from(radix) + f64::from(c.to_digit(radix).unwrap_or(0))
-            });
-        }
-    }
-    let body = s.strip_prefix(['+', '-']).unwrap_or(s);
-    if body == "Infinity" {
-        return if s.starts_with('-') {
-            f64::NEG_INFINITY
-        } else {
-            f64::INFINITY
-        };
-    }
-    // Rust also reads "inf", "nan", and the like, which JavaScript does not
-    let literal = body
-        .chars()
-        .all(|c| c.is_ascii_digit() || matches!(c, '.' | 'e' | 'E' | '+' | '-'));
-    if !literal {
-        return f64::NAN;
-    }
-    s.parse().unwrap_or(f64::NAN)
-}
-
 /// `Number(value)` for a JSON value, `None` being `undefined`.
 pub(crate) fn js_number(value: Option<&Value>) -> f64 {
     match value {
@@ -549,8 +507,8 @@ pub(crate) fn js_number(value: Option<&Value>) -> f64 {
         Some(Value::Null) => 0.0,
         Some(Value::Bool(b)) => f64::from(u8::from(*b)),
         Some(Value::Number(n)) => n.as_f64().unwrap_or(f64::NAN),
-        Some(Value::String(s)) => js_number_of_str(s),
-        Some(array @ Value::Array(_)) => js_number_of_str(&template(Some(array))),
+        Some(Value::String(s)) => js::string_to_number(s),
+        Some(array @ Value::Array(_)) => js::string_to_number(&template(Some(array))),
         Some(Value::Object(_)) => f64::NAN,
     }
 }
@@ -1551,13 +1509,6 @@ mod tests {
 
     #[test]
     fn numbers_read_as_javascript_reads_them() {
-        assert_eq!(js_number_of_str("0b101"), 5.0);
-        assert_eq!(js_number_of_str("0o17"), 15.0);
-        assert_eq!(js_number_of_str("-0x10").to_bits(), f64::NAN.to_bits());
-        assert_eq!(js_number_of_str("1e3"), 1000.0);
-        assert_eq!(js_number_of_str("-Infinity"), f64::NEG_INFINITY);
-        assert!(js_number_of_str("infinity").is_nan());
-        assert!(js_number_of_str("NaN").is_nan());
         assert_eq!(js_number(Some(&json!([7]))), 7.0);
         assert_eq!(template(Some(&json!([1, null, "a"]))), "1,,a");
         assert_eq!(template(Some(&summoner())), "[object Object]");

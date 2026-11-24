@@ -113,6 +113,8 @@ sha2 = "=0.10.9"
 tokio = { version = "=1.54.1", features = ["macros", "rt", "rt-multi-thread", "sync", "test-util"] }
 # The menu's accelerator parser, which Tauri does not re-export
 muda = "=0.20.0"
+# RuntimeInitArgs, for tests/handle_threads.rs's real Wry runtime
+tauri-runtime = "=3.0.0-alpha.5"
 rcgen = { version = "=0.14.10", default-features = false, features = ["crypto", "pem", "ring"] }
 tokio-rustls = { version = "=0.26.6", default-features = false, features = [
   "logging",
@@ -228,3 +230,8 @@ opt-level = 3
 
 [profile.release.package.libsqlite3-sys]
 opt-level = 3
+
+# tauri-runtime-wry 3.0.0-alpha.6 with its runtime context's main-thread half behind an Arc, so a
+# handle cloned on a tokio worker no longer races tao's Windows Rc<EventLoopRunner> (vendor/README.md)
+[patch.crates-io]
+tauri-runtime-wry = { path = "vendor/tauri-runtime-wry" }

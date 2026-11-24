@@ -336,6 +336,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
+ "tauri-runtime",
  "tauri-runtime-wry",
  "tokio",
  "tokio-rustls",
@@ -4903,8 +4904,6 @@ dependencies = [
 [[package]]
 name = "tauri-runtime-wry"
 version = "3.0.0-alpha.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f9bf76d9a937d43f15b2f048f5e5bed39cf71f1be21114a303ad4c9f2f0f28f"
 dependencies = [
  "gtk",
  "http",
