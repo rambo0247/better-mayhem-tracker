@@ -81,7 +81,7 @@ fn longest_streak(days: &[SeasonDay], tz: &TimeZone) -> Option<DayStreak> {
 fn team_shares(conn: &Connection, w: &Where) -> rusqlite::Result<(Option<f64>, Option<f64>)> {
     conn.prepare_cached(&format!(
         "
-      WITH mine AS (
+      WITH mine AS MATERIALIZED (
         SELECT mp.game_id, mp.team_id, mp.kills, mp.assists, mp.total_damage_dealt
         FROM games g
         JOIN player_stats ps ON ps.game_id = g.game_id
