@@ -172,6 +172,42 @@ describe("tauriTransport, answers JSON cannot carry", () => {
     expect(value.rows).toEqual([-Infinity, 3]);
   });
 
+  test("sentinels deep in an answer are decoded and every key keeps its place", async () => {
+    answering({
+      season: "s1",
+      groups: [
+        { id: 1, members: [{ name: "a", score: { $bmtNum: "NaN" }, kills: 3 }], tags: ["x"] },
+        { id: 2, members: [{ name: "b", score: 9, kills: 1 }], tags: [] },
+      ],
+      card: { blob: { $bytes: "AAEC/w==" }, title: "t" },
+      total: { $bmtNum: "Infinity" },
+    });
+    const value = (await createApi(tauriTransport).getGlobalChampionDetail(1)) as unknown as {
+      groups: { members: { score: number }[] }[];
+      card: { blob: Uint8Array };
+    };
+    expect(value).toEqual({
+      season: "s1",
+      groups: [
+        { id: 1, members: [{ name: "a", score: NaN, kills: 3 }], tags: ["x"] },
+        { id: 2, members: [{ name: "b", score: 9, kills: 1 }], tags: [] },
+      ],
+      card: { blob: new Uint8Array([0, 1, 2, 255]), title: "t" },
+      total: Infinity,
+    } as never);
+    expect(value.card.blob).toBeInstanceOf(Uint8Array);
+    expect(Object.keys(value)).toEqual(["season", "groups", "card", "total"]);
+    expect(Object.keys(value.groups[0]!.members[0]!)).toEqual(["name", "score", "kills"]);
+    expect(Object.keys(value.card)).toEqual(["blob", "title"]);
+  });
+
+  test("an answer with no sentinels reads back as sent", async () => {
+    const answer = { rows: [{ id: 1, name: "a", nested: { list: [1, null, "z"] } }], empty: {} };
+    answering(structuredClone(answer));
+    const value: unknown = await createApi(tauriTransport).getGlobalChampionDetail(1);
+    expect(value).toEqual(answer as never);
+  });
+
   test("an object with other keys beside the sentinel stays an object", async () => {
     answering({ $bytes: "AA==", other: 1 });
     const value: unknown = await createApi(tauriTransport).getSetting("x");
@@ -258,4 +294,57 @@ describe("tauriTransport, numbers JSON cannot carry", () => {
       '{"seasonId":"s1","queue":{"$bmtNum":"-Infinity"}}',
     ]);
   });
+});
+
+describe("startup reads", () => {
+  let sent: string[];
+  let answers: (() => void)[];
+  // Answers a request only when the test says so, with its channel and place in line
+  const transport: Transport = <T>(channel: string) => {
+    sent.push(channel);
+    const n = sent.length;
+    return new Promise<T>((resolve) => answers.push(() => resolve({ channel, n } as T)));
+  };
+  const answerAll = () => answers.splice(0).forEach((answer) => answer());
+  beforeEach(() => {
+    sent = [];
+    answers = [];
+    globalThis.window = { __BMT_BOOT__: { platform: "darwin", locale: null } } as never;
+  });
+  afterEach(() => {
+    globalThis.window = pageWindow;
+  });
+
+  for (const [method, channel] of [
+    ["getProfile", "db:profile"],
+    ["isBackfillRunning", "lcu:backfill-running"],
+    ["getLcuStatus", "lcu:status"],
+  ] as const) {
+    test(`${method} asked for twice at once sends one request, and both get its answer`, async () => {
+      const api = createApi(transport);
+      const both = Promise.all([api[method](), api[method]()]);
+      answerAll();
+      expect(await both).toEqual([
+        { channel, n: 1 },
+        { channel, n: 1 },
+      ] as never);
+      expect(sent).toEqual([channel]);
+    });
+
+    test(`${method} asked for again later sends its own request, in flight or not`, async () => {
+      const api = createApi(transport);
+      const first = api[method]();
+      await tick();
+      const second = api[method]();
+      answerAll();
+      expect(await Promise.all([first, second])).toEqual([
+        { channel, n: 1 },
+        { channel, n: 2 },
+      ] as never);
+      const third = api[method]();
+      answerAll();
+      expect(await third).toEqual({ channel, n: 3 } as never);
+      expect(sent).toEqual([channel, channel, channel]);
+    });
+  }
 });

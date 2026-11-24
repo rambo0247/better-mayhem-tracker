@@ -42,6 +42,8 @@ const RARITY_TAGS: Record<string, { label: string; tone: string }> = {
 
 // Portraits shown in the collapsed row, before the rest fold into a count
 const TOP_CHAMPIONS = 5;
+// The order localeCompare gives with no arguments
+const NAME_ORDER = new Intl.Collator();
 
 export default function Augments() {
   const champData = useChampionData();
@@ -85,20 +87,21 @@ export default function Augments() {
     const aug = augmentData();
     const key = sort.sortKey();
     const dir = sort.sortDir();
+    const names = new Map<number, string>();
     const filtered = d.augments.filter((a) => {
-      if (!matchesSearch(getAugmentName(aug, a.augment_id), search())) return false;
+      const name = getAugmentName(aug, a.augment_id);
+      if (!matchesSearch(name, search())) return false;
       if (rarityFilter() !== "all" && aug[a.augment_id]?.rarity !== rarityFilter()) return false;
       const min = minPicks();
       if (min !== undefined && a.picks < min) return false;
+      names.set(a.augment_id, name);
       return true;
     });
 
     filtered.sort((a, b) => {
       let av: number, bv: number;
       if (key === "name") {
-        const cmp = getAugmentName(aug, a.augment_id).localeCompare(
-          getAugmentName(aug, b.augment_id),
-        );
+        const cmp = NAME_ORDER.compare(names.get(a.augment_id)!, names.get(b.augment_id)!);
         return dir === "asc" ? cmp : -cmp;
       } else if (key === "winRate") {
         av = a.picks > 0 ? a.wins / a.picks : 0;
