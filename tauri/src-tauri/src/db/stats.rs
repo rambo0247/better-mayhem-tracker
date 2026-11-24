@@ -639,6 +639,7 @@ pub fn get_global_champion_detail(
                SUM(mp.kills) as team_kills
         FROM match_participants mp
         WHERE {mp_sql}
+          AND mp.game_id IN (SELECT game_id FROM match_participants WHERE champion_id = ?)
         GROUP BY mp.game_id, mp.team_id
       )
       SELECT COUNT(*) as games,
@@ -666,6 +667,7 @@ pub fn get_global_champion_detail(
         params_from_iter(
             mp.params
                 .iter()
+                .chain(std::iter::once(&champion))
                 .chain(&mp.params)
                 .chain(std::iter::once(&champion)),
         ),

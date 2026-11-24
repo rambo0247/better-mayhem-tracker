@@ -29,7 +29,8 @@ pub async fn get_setting<R: Runtime>(ctx: Ctx<R>, key: Js<String>) -> CommandRes
     let Some(key) = renderer_key(&key) else {
         return Ok(Cell::Null);
     };
-    db::of(&ctx)?.with(|conn| settings::get_setting(conn, key))
+    let key = key.to_owned();
+    db::run(&ctx, move |conn| settings::get_setting(conn, &key)).await
 }
 
 pub async fn is_auto_start_supported<R: Runtime>(_ctx: Ctx<R>) -> CommandResult<bool> {
@@ -45,8 +46,9 @@ pub async fn set_setting<R: Runtime>(
         eprintln!("Refused to write non-renderer setting: {}", js_text(&key));
         return Ok(());
     };
+    let key = key.to_owned();
     // better-sqlite3 binds the value as the page sent it
-    db::of(&ctx)?.with(|conn| {
+    db::run(&ctx, move |conn| {
         conn.prepare_cached("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)")?
             .execute(params![key, js::bind_js(value.value())?])?;
         // The one setting with a home outside the database: the login item
@@ -61,6 +63,7 @@ pub async fn set_setting<R: Runtime>(
         }
         Ok(())
     })
+    .await
 }
 
 /// How `console.warn` prints the refused key.

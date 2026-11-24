@@ -255,7 +255,10 @@ pub async fn get_game_recap<R: Runtime>(
     let game_id = game_id.typed().flatten();
     let tz = TimeZone::system();
     let locale = intl::system_locale();
-    db::of(&ctx)?.with(|conn| recap::get_game_recap(conn, game_id, locale.as_deref(), &tz))
+    db::run(&ctx, move |conn| {
+        recap::get_game_recap(conn, game_id, locale.as_deref(), &tz)
+    })
+    .await
 }
 
 pub async fn get_game_card<R: Runtime>(
@@ -263,7 +266,7 @@ pub async fn get_game_card<R: Runtime>(
     game_id: Js<i64>,
 ) -> CommandResult<Option<GameCardData>> {
     let game_id = whole(&game_id)?;
-    db::of(&ctx)?.with(|conn| recap::get_game_card(conn, game_id))
+    db::run(&ctx, move |conn| recap::get_game_card(conn, game_id)).await
 }
 
 pub async fn get_season_recap<R: Runtime>(
@@ -277,7 +280,7 @@ pub async fn get_season_recap<R: Runtime>(
     let account = account.typed().flatten();
     let now = ctx.now_ms()?;
     let tz = TimeZone::system();
-    db::of(&ctx)?.with(|conn| {
+    db::run(&ctx, move |conn| {
         season::get_season_recap(
             conn,
             season_id.as_deref(),
@@ -287,9 +290,10 @@ pub async fn get_season_recap<R: Runtime>(
             &tz,
         )
     })
+    .await
 }
 
 pub async fn get_seasons<R: Runtime>(ctx: Ctx<R>) -> CommandResult<Vec<SeasonSummary>> {
     let now = ctx.now_ms()?;
-    db::of(&ctx)?.with(|conn| season::get_seasons(conn, now))
+    db::run(&ctx, move |conn| season::get_seasons(conn, now)).await
 }

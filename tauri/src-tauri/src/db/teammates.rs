@@ -345,7 +345,8 @@ fn group_sides(
     // Rows are newest-first, so the first hit carries the current name and icon
     let mut players: Vec<GroupCandidate> = Vec::new();
     let mut index: HashMap<String, usize> = HashMap::new();
-    for row in teammate_rows(conn, puuids, &CareerFilter::default())? {
+    let every_game = teammate_rows(conn, puuids, &CareerFilter::default())?;
+    for row in &every_game {
         let name = row.name();
         let key = row.key(&name);
         match index.get(&key) {
@@ -369,7 +370,12 @@ fn group_sides(
     // Keyed by side rather than game: two of our accounts can meet on
     // opposite teams, and those are two rosters
     let mut sides: JsMap<(i64, i64), Vec<(usize, TeammateRow)>> = JsMap::new();
-    for row in teammate_rows(conn, puuids, filter)? {
+    let filtered = if *filter == CareerFilter::default() {
+        every_game
+    } else {
+        teammate_rows(conn, puuids, filter)?
+    };
+    for row in filtered {
         let name = row.name();
         let Some(&i) = index.get(&row.key(&name)) else {
             continue;

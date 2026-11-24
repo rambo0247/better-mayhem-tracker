@@ -114,7 +114,10 @@ pub async fn get_teammate_stats<R: Runtime>(
 ) -> CommandResult<Vec<TeammateStats>> {
     let season = season.typed().flatten();
     let filter = season_filter(season.as_deref());
-    db::of(&ctx)?.with(|conn| teammates::get_teammate_stats(conn, &filter, 1))
+    db::run(&ctx, move |conn| {
+        teammates::get_teammate_stats(conn, &filter, 1)
+    })
+    .await
 }
 
 pub async fn get_teammate_groups<R: Runtime>(
@@ -123,7 +126,10 @@ pub async fn get_teammate_groups<R: Runtime>(
 ) -> CommandResult<Vec<TeammateGroup>> {
     let season = season.typed().flatten();
     let filter = season_filter(season.as_deref());
-    db::of(&ctx)?.with(|conn| teammates::get_teammate_groups(conn, &filter))
+    db::run(&ctx, move |conn| {
+        teammates::get_teammate_groups(conn, &filter)
+    })
+    .await
 }
 
 pub async fn get_teammate_group_detail<R: Runtime>(
@@ -135,8 +141,10 @@ pub async fn get_teammate_group_detail<R: Runtime>(
         return Ok(None);
     };
     let classes = champion_classes(&ctx).await;
-    let db = db::of(&ctx)?;
-    db.with(|conn| teammates::get_teammate_group_detail(conn, &key, &classes))
+    db::run(&ctx, move |conn| {
+        teammates::get_teammate_group_detail(conn, &key, &classes)
+    })
+    .await
 }
 
 pub async fn get_teammate_detail<R: Runtime>(
@@ -148,8 +156,10 @@ pub async fn get_teammate_detail<R: Runtime>(
         return Ok(None);
     };
     let classes = champion_classes(&ctx).await;
-    let db = db::of(&ctx)?;
-    db.with(|conn| teammates::get_teammate_detail(conn, &key, &classes))
+    db::run(&ctx, move |conn| {
+        teammates::get_teammate_detail(conn, &key, &classes)
+    })
+    .await
 }
 
 /// `seasonWindow(season)` as a career filter.

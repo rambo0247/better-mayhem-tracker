@@ -185,9 +185,10 @@ pub async fn get_champion_stats<R: Runtime>(
     let patch = patch.typed().flatten();
     let queue = queue.typed().flatten();
     let season = season.typed().flatten();
-    db::of(&ctx)?.with(|conn| {
+    db::run(&ctx, move |conn| {
         stats::get_champion_stats_all(conn, patch.as_deref(), queue, season.as_deref())
     })
+    .await
 }
 
 pub async fn get_augment_stats<R: Runtime>(
@@ -201,7 +202,7 @@ pub async fn get_augment_stats<R: Runtime>(
     let patch = patch.typed().flatten();
     let queue = queue.typed().flatten();
     let season = season.typed().flatten();
-    db::of(&ctx)?.with(|conn| {
+    db::run(&ctx, move |conn| {
         stats::get_augment_stats_all(
             conn,
             champion_id,
@@ -210,6 +211,7 @@ pub async fn get_augment_stats<R: Runtime>(
             season.as_deref(),
         )
     })
+    .await
 }
 
 pub async fn get_augment_stats_detailed<R: Runtime>(
@@ -221,16 +223,20 @@ pub async fn get_augment_stats_detailed<R: Runtime>(
     let patch = patch.typed().flatten();
     let queue = queue.typed().flatten();
     let season = season.typed().flatten();
-    db::of(&ctx)?.with(|conn| {
+    db::run(&ctx, move |conn| {
         stats::get_augment_stats_with_champions(conn, patch.as_deref(), queue, season.as_deref())
     })
+    .await
 }
 
 pub async fn get_dashboard<R: Runtime>(
     ctx: Ctx<R>,
     filters: Option<MatchScope>,
 ) -> CommandResult<DashboardData> {
-    db::of(&ctx)?.with(|conn| stats::get_dashboard_data(conn, filters.as_ref()))
+    db::run(&ctx, move |conn| {
+        stats::get_dashboard_data(conn, filters.as_ref())
+    })
+    .await
 }
 
 pub async fn get_champion_item_stats<R: Runtime>(
@@ -244,7 +250,7 @@ pub async fn get_champion_item_stats<R: Runtime>(
     let patch = patch.typed().flatten();
     let queue = queue.typed().flatten();
     let season = season.typed().flatten();
-    db::of(&ctx)?.with(|conn| {
+    db::run(&ctx, move |conn| {
         stats::get_champion_item_stats(
             conn,
             champion_id,
@@ -253,6 +259,7 @@ pub async fn get_champion_item_stats<R: Runtime>(
             season.as_deref(),
         )
     })
+    .await
 }
 
 pub async fn get_global_stats<R: Runtime>(
@@ -262,7 +269,10 @@ pub async fn get_global_stats<R: Runtime>(
 ) -> CommandResult<GlobalStats> {
     let patch = patch.typed().flatten();
     let queue = queue.typed().flatten();
-    db::of(&ctx)?.with(|conn| stats::get_global_stats(conn, patch.as_deref(), queue))
+    db::run(&ctx, move |conn| {
+        stats::get_global_stats(conn, patch.as_deref(), queue)
+    })
+    .await
 }
 
 pub async fn get_global_champion_detail<R: Runtime>(
@@ -274,8 +284,10 @@ pub async fn get_global_champion_detail<R: Runtime>(
     let champion_id = whole(&champion_id)?;
     let patch = patch.typed().flatten();
     let queue = queue.typed().flatten();
-    db::of(&ctx)?
-        .with(|conn| stats::get_global_champion_detail(conn, champion_id, patch.as_deref(), queue))
+    db::run(&ctx, move |conn| {
+        stats::get_global_champion_detail(conn, champion_id, patch.as_deref(), queue)
+    })
+    .await
 }
 
 pub async fn get_trends<R: Runtime>(
@@ -283,7 +295,7 @@ pub async fn get_trends<R: Runtime>(
     queue: Js<Option<i64>>,
 ) -> CommandResult<TrendsData> {
     let queue = queue.typed().flatten();
-    db::of(&ctx)?.with(|conn| stats::get_trends_data(conn, queue))
+    db::run(&ctx, move |conn| stats::get_trends_data(conn, queue)).await
 }
 
 pub async fn get_records<R: Runtime>(
@@ -293,5 +305,5 @@ pub async fn get_records<R: Runtime>(
 ) -> CommandResult<RecordsData> {
     let queue = queue.typed().flatten();
     let account = account.typed().flatten();
-    db::of(&ctx)?.with(|conn| records::get_records(conn, queue, account))
+    db::run(&ctx, move |conn| records::get_records(conn, queue, account)).await
 }

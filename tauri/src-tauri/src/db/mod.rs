@@ -109,6 +109,17 @@ pub fn of<R: Runtime>(ctx: &Ctx<R>) -> CommandResult<tauri::State<'_, Database>>
     ctx.app.try_state::<Database>().ok_or_else(not_open)
 }
 
+/// [`Database::with`] from a command body, run on the blocking pool so a
+/// call queued behind a repair or an import parks no async worker.
+pub async fn run<R: Runtime, T: Send + 'static>(
+    ctx: &Ctx<R>,
+    f: impl FnOnce(&Connection) -> rusqlite::Result<T> + Send + 'static,
+) -> CommandResult<T> {
+    let app = ctx.app.clone();
+    ctx.blocking(move || app.try_state::<Database>().ok_or_else(not_open)?.with(f))
+        .await
+}
+
 /// better-sqlite3's error for a closed connection.
 fn not_open() -> CommandError {
     CommandError {
