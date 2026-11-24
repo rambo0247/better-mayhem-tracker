@@ -10,6 +10,7 @@ import {
   type FocusMeta,
   type GeometryRow,
 } from "../diff.ts";
+import { applyRuleH, attributeLayout, type StateLine } from "../report.ts";
 
 const tolerance = CROSS_ENGINE.layoutToleranceCss;
 
@@ -548,5 +549,151 @@ describe("rule F: a focus ring Tauri's never-active window cannot draw", () => {
     expect(result.unfocusedRing?.path).toBe("b/0");
     expect(tileFails(result)).toBe(true);
     expect(result.pass).toBe(false);
+  });
+});
+
+describe("rule H: Chromium versions on Windows, judged against Electron's renderer in WebView2", () => {
+  const dirs = { electron: "/e", tauri: "/t", reference: "/r" };
+  const at = (dir: string, ext: string) => path.join(dir, `a.${ext}`);
+  // The match-history header: a subtitle Edge 157 lays out taller than Chromium 152
+  const app: GeometryRow[] = [
+    ["b/0", "DIV", 260, 40, 988, 104],
+    ["b/0/0", "DIV", 260, 103, 191.87, 21],
+    ["b/1", "DIV", 260, 168, 988, 199],
+  ];
+  const moved = (rows: GeometryRow[], where: string, dy: number) => set(rows, where, 3, dy);
+  const image = (width = 40, height = 40, changed = 0) => {
+    const png = new PNG({ width, height });
+    png.data.fill(30);
+    for (let i = 0; i < changed; i++) {
+      png.data[i * 4] = 250;
+      png.data[i * 4 + 3] = 255;
+    }
+    for (let i = 3; i < png.data.length; i += 4) png.data[i] = 255;
+    return png;
+  };
+  const crossFailed = (reasons: string[]): StateLine => ({
+    id: "a",
+    pass: false,
+    cause: "page-budget",
+    differingPct: 2.1,
+    reasons,
+  });
+  const layoutReason = "layout gate: 3 against 3 elements, 1 boxes moved more than 1 CSS px";
+  const judge = (options: {
+    tauri?: GeometryRow[];
+    reference?: GeometryRow[];
+    tauriPng?: PNG;
+    referencePng?: PNG;
+    reasons?: string[];
+    platform?: "win" | "mac";
+    referenceOk?: boolean;
+  }) => {
+    const geometry: Record<string, GeometryRow[]> = {
+      [at(dirs.electron, "geometry.json")]: app,
+      [at(dirs.tauri, "geometry.json")]: options.tauri ?? app,
+      [at(dirs.reference, "geometry.json")]: options.reference ?? options.tauri ?? app,
+    };
+    const pngs: Record<string, PNG> = {
+      [at(dirs.tauri, "png")]: options.tauriPng ?? image(),
+      [at(dirs.reference, "png")]: options.referencePng ?? image(),
+    };
+    const timing = JSON.stringify({
+      timings: [{ id: "a", ok: options.referenceOk ?? true, error: "Error: boom" }],
+    });
+    const [state] = applyRuleH(
+      options.platform ?? "win",
+      [crossFailed(options.reasons ?? [layoutReason, "page budget: 2.1% of pixels differ"])],
+      dirs,
+      {
+        text: (f) => (f === path.join(dirs.reference, "timing.json") ? timing : undefined),
+        png: (f) => pngs[f],
+        geometry: (f) => geometry[f],
+      },
+    );
+    return state!;
+  };
+  const engineShift = moved(moved(app, "b/0/0", 1.5), "b/1", 1.5);
+
+  test("a shift Electron's renderer in WebView2 makes the same way passes, page budget and all", () => {
+    const state = judge({ tauri: engineShift, reference: engineShift });
+    expect(state.pass).toBe(true);
+    expect(state.ruleH?.crossGates).toEqual([
+      expect.objectContaining({ reason: layoutReason, attributed: true }),
+    ]);
+    expect(state.ruleH?.crossReasons).toContain(layoutReason);
+    expect(state.differingPct).toBe(2.1);
+    expect(state.ruleH?.sameEngine.differingPct).toBe(0);
+  });
+
+  test("within 1 CSS px of the renderer's own move still counts as the same way", () => {
+    const state = judge({ tauri: engineShift, reference: moved(engineShift, "b/1", 0.75) });
+    expect(state.pass).toBe(true);
+  });
+
+  test("negative control: a port shift in WebView2 the renderer does not make fails", () => {
+    const state = judge({ tauri: moved(app, "b/1", 2), reference: app });
+    expect(state.pass).toBe(false);
+    expect(state.cause).toBe("layout");
+    expect(state.reasons[0]).toContain("not reproduced: b/1");
+  });
+
+  test("negative control: a box the renderer moves the other way fails", () => {
+    const state = judge({ tauri: moved(app, "b/1", 2), reference: moved(app, "b/1", -2) });
+    expect(state.pass).toBe(false);
+    expect(state.cause).toBe("layout");
+  });
+
+  test("negative control: an extra element only the port has fails", () => {
+    const extra: GeometryRow[] = [...app, ["b/2", "SPAN", 260, 380, 10, 10]];
+    const state = judge({ tauri: extra, reference: app });
+    expect(state.pass).toBe(false);
+    expect(state.reasons[0]).toContain("from Electron's renderer in WebView2");
+  });
+
+  test("negative control: pixels over 0.3% against the renderer fail, with no E1", () => {
+    // 40 by 40 is 1600 pixels: 8 is 0.5%, 4 is 0.25%
+    const over = judge({ tauriPng: image(40, 40, 8), reasons: ["page budget: 0.5% of pixels"] });
+    expect(over.pass).toBe(false);
+    expect(over.cause).toBe("same-engine");
+    expect(over.ruleH?.sameEngine.differingPct).toBe(0.5);
+    const within = judge({ tauriPng: image(40, 40, 4), reasons: ["page budget: 0.25%"] });
+    expect(within.pass).toBe(true);
+  });
+
+  test("a size the renderer shares passes, and negative control: one it does not share fails", () => {
+    const sizeReason = "image sizes differ: 40x40 against 40x41";
+    const shared = judge({
+      tauriPng: image(40, 41),
+      referencePng: image(40, 41),
+      reasons: [sizeReason],
+    });
+    expect(shared.pass).toBe(true);
+    const own = judge({
+      tauriPng: image(40, 41),
+      referencePng: image(40, 40),
+      reasons: [sizeReason],
+    });
+    expect(own.pass).toBe(false);
+    expect(own.cause).toBe("same-engine");
+    expect(own.reasons.join(" ")).toContain("image sizes differ");
+  });
+
+  test("a state whose reference did not capture fails as a capture", () => {
+    const state = judge({ referenceOk: false });
+    expect(state.pass).toBe(false);
+    expect(state.cause).toBe("capture");
+  });
+
+  test("negative control: rule H never applies on macOS", () => {
+    const state = judge({ platform: "mac", tauri: engineShift, reference: engineShift });
+    expect(state.pass).toBe(false);
+    expect(state.cause).toBe("page-budget");
+    expect(state.ruleH).toBeUndefined();
+  });
+
+  test("attribution compares boxes by path, so the renderer's element list may differ only if the port's does too", () => {
+    expect(attributeLayout(app, engineShift, engineShift).attributed).toBe(true);
+    expect(attributeLayout(app, engineShift, app).attributed).toBe(false);
   });
 });

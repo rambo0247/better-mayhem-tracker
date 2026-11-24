@@ -3,13 +3,16 @@
  *
  *   bun parity/report.ts run [--data fixture] [--out parity/out/report] [--binary <driver build>]
  *     [--electron-baseline <dir>] [--tauri-capture <dir>] [--golden-dir <dir>] [--skip-golden] [--tools <dir>]
+ *     [--webview2-reference <dir>]
  *   bun parity/report.ts render --run <report-mac.json> [--run <report-win.json>]
  *     [--perf <perf.json> ...] [--out docs/tauri-port/parity-report.md]
  *
  * `run` captures every state in `states.ts` for this platform in trunk Electron and in the head
  * Tauri app on its own Solid UI and Rust commands, diffs each pair with the cross-engine policy
  * (the side-by-side lands in `<out>/tauri-<platform>/cross-engine/`), replays the goldens, runs
- * the React-ism scan and the contract check, and writes `<out>/report-<platform>.json`.
+ * the React-ism scan and the contract check, and writes `<out>/report-<platform>.json`. On Windows
+ * it also captures Electron's built renderer in the WebView2 driver and judges each state by
+ * register rule H (`applyRuleH`).
  * `render` merges one or both platforms' JSON with perf.ts sweeps into the markdown report and
  * exits 1 when the run failed. Windows runs `run` in the `report-windows` job of parity.yml.
  */
@@ -17,7 +20,9 @@ import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { CROSS_ENGINE } from "./diff.ts";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
+import { CROSS_ENGINE, SAME_ENGINE, type GeometryRow } from "./diff.ts";
 import { PARITY_DIR, REPO_DIR, resolveDataRoot } from "./lib/data.ts";
 import { selectStates } from "./states.ts";
 
@@ -52,6 +57,32 @@ export interface StateLine {
   ringExempt?: string;
   reasons: string[];
   sideBySide?: string;
+  /** Register rule H, on Windows: the verdict's own numbers, beside the cross-engine ones above. */
+  ruleH?: RuleH;
+}
+
+/**
+ * Register rule H (Windows): Electron 1.2.1's Chromium and the WebView2 runtime are different
+ * Chromium versions, which lay some line boxes out half a CSS px apart with the same CSS and
+ * fonts. So a state's pixel verdict compares the Tauri capture with Electron's own built renderer
+ * in the same WebView2, on the same Rust commands, at pixelmatch threshold 0.03 with anti-aliasing counted, within 0.3% of
+ * the page (no E1). The cross-engine layout and size gates against the Electron app still run,
+ * and a failure of either is the engine's only when Electron's renderer in WebView2 fails it the
+ * same way.
+ */
+export const RULE_H = {
+  threshold: SAME_ENGINE.threshold,
+  includeAA: SAME_ENGINE.includeAA,
+  pageBudget: CROSS_ENGINE.pageBudget,
+};
+
+export interface RuleH {
+  /** The Tauri capture against Electron's renderer in this WebView2. */
+  sameEngine: { pass: boolean; differing: number; differingPct: number; reasons: string[] };
+  /** Each cross-engine layout or size failure, and whether Electron's renderer shows it too. */
+  crossGates: { reason: string; attributed: boolean; detail: string }[];
+  /** What the cross-engine policy said against the Electron app, which rule H judges again. */
+  crossReasons: string[];
 }
 
 export interface GoldenSummary {
@@ -263,7 +294,7 @@ function stateCell(run: PlatformRun | undefined, id: string) {
   const numbers =
     state.differingPct === undefined
       ? ""
-      : ` ${state.differingPct.toFixed(3)}%, tile ${(state.worstTilePct ?? 0).toFixed(2)}%`;
+      : ` ${state.differingPct.toFixed(3)}%, tile ${(state.worstTilePct ?? 0).toFixed(2)}%${state.ruleH ? `, rule H same engine ${state.ruleH.sameEngine.differingPct.toFixed(3)}%` : ""}`;
   return state.pass ? `PASS${numbers}` : `FAIL ${state.cause ?? ""}${numbers}`.trimEnd();
 }
 
@@ -298,6 +329,8 @@ export function renderReport(report: Report, command: string): string {
   lines.push("## States", "");
   lines.push(
     `Cross-engine policy: layout gate within ${CROSS_ENGINE.layoutToleranceCss} CSS px, pixelmatch threshold ${CROSS_ENGINE.threshold} without anti-aliasing, at most ${E1_PAGE_BUDGET_PCT}% of the page (decision E1, set by the operator on 2026-11-23; \`diff.ts\` gates at ${pct(CROSS_ENGINE.pageBudget)}, and the report passes a state whose only failure is that gate when it stays within ${E1_PAGE_BUDGET_PCT}%) and ${pct(CROSS_ENGINE.tileBudget)} of any ${CROSS_ENGINE.tileCss} px tile. A cell gives the share of pixels differing and the worst tile.`,
+    "",
+    `Windows is judged by register rule H: its pixels against Electron's own renderer in the same WebView2, at pixelmatch threshold ${RULE_H.threshold} with anti-aliasing counted and at most ${pct(RULE_H.pageBudget)} of the page, and its cross-engine layout and size gates against the Electron app, a failure of which counts as the engine's only when Electron's renderer in WebView2 fails it the same way. A Windows cell adds the rule H number.`,
     "",
   );
   const passed = (name: string, run?: PlatformRun) =>
@@ -427,6 +460,11 @@ export function renderReport(report: Report, command: string): string {
   if (ringExempt.length > 0)
     lines.push(
       `- Rule F applied, focus rings left out of the tile rule: ${ringExempt.join(", ")}.`,
+    );
+  const engineGates = applied((s) => s.ruleH?.crossGates.filter((g) => g.attributed).length);
+  if (engineGates.length > 0)
+    lines.push(
+      `- Rule H applied, cross-engine layout or size failures Electron's renderer in WebView2 shows the same way: ${engineGates.join(", ")}.`,
     );
   lines.push("");
   return lines.join("\n");
@@ -693,6 +731,210 @@ export function stateLines(
   return { states, blur };
 }
 
+/** The boxes `b` moves more than the layout tolerance from `a`, by path, as `compareLayout` keys them. */
+export function movedBoxes(a: GeometryRow[], b: GeometryRow[]): Map<string, number[]> {
+  const inB = new Map(b.map((row) => [row[0], row]));
+  const moved = new Map<string, number[]>();
+  for (const rowA of a) {
+    const rowB = inB.get(rowA[0]);
+    if (!rowB) continue;
+    const delta = ([2, 3, 4, 5] as const).map((k) => rowB[k] - rowA[k]);
+    // Rule B compares a row both engines mark "ellipsis" without its width
+    if (rowA[6] === "ellipsis" && rowB[6] === "ellipsis") delta[2] = 0;
+    if (Math.max(...delta.map(Math.abs)) > CROSS_ENGINE.layoutToleranceCss)
+      moved.set(rowA[0], delta);
+  }
+  return moved;
+}
+
+/**
+ * Rule H's attribution of a cross-engine layout failure: the engine's only when Electron's
+ * renderer in WebView2 (`reference`) has the Tauri capture's elements and moves every box the
+ * Tauri capture moves past the tolerance, in the same direction within 1 CSS px.
+ */
+export function attributeLayout(
+  electron: GeometryRow[],
+  tauri: GeometryRow[],
+  reference: GeometryRow[],
+): { attributed: boolean; detail: string } {
+  const paths = (rows: GeometryRow[]) => rows.map((row) => row[0]).join("\n");
+  const structural = paths(tauri) !== paths(electron);
+  const sameElements = paths(tauri) === paths(reference);
+  const movedTauri = movedBoxes(electron, tauri);
+  const movedReference = movedBoxes(electron, reference);
+  const tol = CROSS_ENGINE.layoutToleranceCss;
+  const unattributed = [...movedTauri].filter(([at, delta]) => {
+    const seen = movedReference.get(at);
+    return !seen || delta.some((value, k) => Math.abs(value - seen[k]!) > tol);
+  });
+  const shown = (rows: [string, number[]][]) =>
+    rows
+      .slice(0, 3)
+      .map(([at, d]) => `${at} (${d.map((v) => +v.toFixed(2)).join(",")})`)
+      .join(", ");
+  const parts = [
+    `${movedTauri.size} boxes beyond ${tol} CSS px, ${movedTauri.size - unattributed.length} moved the same way by Electron's renderer in WebView2`,
+  ];
+  if (unattributed.length > 0) parts.push(`not reproduced: ${shown(unattributed)}`);
+  if (structural) {
+    parts.push(
+      sameElements
+        ? "the element list differs from the Electron app's as Electron's renderer in WebView2 does"
+        : "the element list differs from the Electron app's and from Electron's renderer in WebView2",
+    );
+  }
+  return {
+    attributed: unattributed.length === 0 && (!structural || sameElements),
+    detail: parts.join("; "),
+  };
+}
+
+/** An RGBA image as pngjs decodes one. */
+export interface RuleHImage {
+  width: number;
+  height: number;
+  data: Uint8Array;
+}
+
+export interface RuleHFiles {
+  text: (file: string) => string | undefined;
+  png: (file: string) => RuleHImage | undefined;
+  geometry: (file: string) => GeometryRow[] | undefined;
+}
+
+const defaultRuleHFiles: RuleHFiles = {
+  text: (file) => (fs.existsSync(file) ? fs.readFileSync(file, "utf8") : undefined),
+  png: (file) => (fs.existsSync(file) ? PNG.sync.read(fs.readFileSync(file)) : undefined),
+  geometry: (file) =>
+    fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf8")) as GeometryRow[]) : undefined,
+};
+
+/**
+ * Register rule H. On Windows each captured state is judged again: its pixels against Electron's
+ * own renderer in the same WebView2 (`dirs.reference`), and each cross-engine layout or size
+ * failure against the Electron app kept unless that renderer shows it the same way. On any other
+ * platform the states come back as they are.
+ */
+export function applyRuleH(
+  platform: PlatformId,
+  states: StateLine[],
+  dirs: { electron: string; tauri: string; reference: string },
+  files: RuleHFiles = defaultRuleHFiles,
+  sideBySideDir?: string,
+): StateLine[] {
+  if (platform !== "win") return states;
+  const timingText = files.text(path.join(dirs.reference, "timing.json"));
+  const referenceTiming = new Map(
+    (timingText
+      ? (JSON.parse(timingText).timings as { id: string; ok: boolean; error?: string }[])
+      : []
+    ).map((t) => [t.id, t]),
+  );
+  return states.map((state): StateLine => {
+    if (state.cause === "capture") return state;
+    const failed = (reason: string): StateLine => ({
+      ...state,
+      pass: false,
+      cause: "capture",
+      reasons: [reason],
+    });
+    const timing = referenceTiming.get(state.id);
+    if (!timing?.ok) {
+      return failed(
+        `rule H: Electron's renderer in WebView2 ${timing ? timing.error : "did not capture"}`,
+      );
+    }
+    const file = (dir: string, ext: string) => path.join(dir, `${state.id}.${ext}`);
+    const tauriPng = files.png(file(dirs.tauri, "png"));
+    const referencePng = files.png(file(dirs.reference, "png"));
+    if (!tauriPng || !referencePng) return failed("rule H: a capture has no PNG");
+
+    const sameEngine: RuleH["sameEngine"] = {
+      pass: true,
+      differing: 0,
+      differingPct: 0,
+      reasons: [],
+    };
+    if (tauriPng.width !== referencePng.width || tauriPng.height !== referencePng.height) {
+      sameEngine.pass = false;
+      sameEngine.reasons.push(
+        `same engine: image sizes differ: ${referencePng.width}x${referencePng.height} against ${tauriPng.width}x${tauriPng.height}`,
+      );
+    } else {
+      const { width, height } = tauriPng;
+      const diff = new PNG({ width, height });
+      sameEngine.differing = pixelmatch(
+        referencePng.data,
+        tauriPng.data,
+        diff.data,
+        width,
+        height,
+        { threshold: RULE_H.threshold, includeAA: RULE_H.includeAA },
+      );
+      sameEngine.differingPct = +((100 * sameEngine.differing) / (width * height)).toFixed(4);
+      if (sameEngine.differing / (width * height) > RULE_H.pageBudget) {
+        sameEngine.pass = false;
+        sameEngine.reasons.push(
+          `same engine: ${sameEngine.differingPct}% of pixels differ from Electron's renderer in WebView2 at threshold ${RULE_H.threshold}, budget ${RULE_H.pageBudget * 100}%`,
+        );
+      }
+      if (sideBySideDir && !sameEngine.pass) {
+        fs.mkdirSync(sideBySideDir, { recursive: true });
+        const out = new PNG({ width: width * 3, height });
+        out.data.fill(255);
+        [referencePng, tauriPng, diff].forEach((image, i) =>
+          PNG.bitblt(image, out, 0, 0, width, height, width * i, 0),
+        );
+        fs.writeFileSync(
+          path.join(sideBySideDir, `${state.id}.side-by-side.png`),
+          PNG.sync.write(out),
+        );
+      }
+    }
+
+    const crossGates: RuleH["crossGates"] = [];
+    for (const reason of state.reasons) {
+      if (reason.startsWith("image sizes differ")) {
+        const same =
+          tauriPng.width === referencePng.width && tauriPng.height === referencePng.height;
+        crossGates.push({
+          reason,
+          attributed: same,
+          detail: same
+            ? "Electron's renderer in WebView2 has the same size"
+            : `Electron's renderer in WebView2 is ${referencePng.width}x${referencePng.height}`,
+        });
+      } else if (reason.startsWith("layout gate")) {
+        const rows = [dirs.electron, dirs.tauri, dirs.reference].map((dir) =>
+          files.geometry(file(dir, "geometry.json")),
+        );
+        const [electron, tauri, reference] = rows;
+        crossGates.push({
+          reason,
+          ...(electron && tauri && reference
+            ? attributeLayout(electron, tauri, reference)
+            : { attributed: false, detail: "a capture has no geometry" }),
+        });
+      }
+    }
+    const kept = crossGates.filter((gate) => !gate.attributed);
+    const pass = sameEngine.pass && kept.length === 0;
+    return {
+      ...state,
+      pass,
+      cause: pass
+        ? undefined
+        : !sameEngine.pass
+          ? "same-engine"
+          : kept[0]!.reason.startsWith("image sizes")
+            ? "size"
+            : "layout",
+      reasons: [...sameEngine.reasons, ...kept.map((gate) => `${gate.reason} (${gate.detail})`)],
+      ruleH: { sameEngine, crossGates, crossReasons: state.reasons },
+    };
+  });
+}
+
 function contactSheet(states: StateLine[], target: string): string | undefined {
   const images = states.map((s) => s.sideBySide && path.join(REPO_DIR, s.sideBySide));
   const present = images.filter((f): f is string => !!f && fs.existsSync(f));
@@ -736,6 +978,7 @@ async function runPlatform(argv: string[]) {
     "--golden-dir",
     "--tools",
     "--trunk",
+    "--webview2-reference",
   ]);
   const skipGolden = argv.includes("--skip-golden");
   const t = tools(opt["--tools"]);
@@ -795,11 +1038,53 @@ async function runPlatform(argv: string[]) {
       build.env,
     );
   }
-  const { states, blur } = stateLines(expected, { electron: electronDir, tauri: tauriDir });
+  const goldenDir = path.resolve(opt["--golden-dir"] ?? path.join(PARITY_DIR, "out", "golden"));
+  const crossLines = stateLines(expected, { electron: electronDir, tauri: tauriDir });
+  const blur = crossLines.blur;
+  let states = crossLines.states;
+  // Register rule H: Windows judges pixels against Electron's own renderer in the same WebView2,
+  // on the Rust commands the port reads. The goldens' day-bucketed answers differ on Windows from
+  // what the Electron app shows (trends' days played, match history's day groups).
+  if (platform === "win") {
+    const referenceDir = path.resolve(
+      opt["--webview2-reference"] ?? path.join(out, `webview2-electron-${platform}`),
+    );
+    if (!opt["--webview2-reference"]) {
+      launchApp(
+        t,
+        [
+          "bun",
+          "parity/capture.ts",
+          "--app",
+          "tauri",
+          "--renderer",
+          "electron",
+          "--api",
+          "tauri",
+          "--data",
+          data,
+          ...all,
+          "--out",
+          referenceDir,
+          "--compare",
+          electronDir,
+          ...build.args,
+        ],
+        path.join(out, `webview2-electron-${platform}.log`),
+        build.env,
+      );
+    }
+    states = applyRuleH(
+      platform,
+      states,
+      { electron: electronDir, tauri: tauriDir, reference: referenceDir },
+      undefined,
+      path.join(tauriDir, "same-engine"),
+    );
+  }
 
   let golden: GoldenSummary | undefined;
   if (!skipGolden) {
-    const goldenDir = path.resolve(opt["--golden-dir"] ?? path.join(PARITY_DIR, "out", "golden"));
     const manifest = JSON.parse(fs.readFileSync(path.join(goldenDir, "manifest.json"), "utf8"));
     const result = run(
       t.build(["cargo", "test", "--features", "parity-driver", "--test", "golden"]),
@@ -943,7 +1228,7 @@ function flags(argv: string[], known: string[]) {
 }
 
 const USAGE = `usage:
-  bun parity/report.ts run [--data fixture] [--out <dir>] [--binary <driver build>] [--electron-baseline <dir>] [--tauri-capture <dir>] [--golden-dir <dir>] [--skip-golden] [--tools <dir>] [--trunk <rev>]
+  bun parity/report.ts run [--data fixture] [--out <dir>] [--binary <driver build>] [--electron-baseline <dir>] [--tauri-capture <dir>] [--golden-dir <dir>] [--skip-golden] [--tools <dir>] [--trunk <rev>] [--webview2-reference <dir>]
   bun parity/report.ts render --run <report-<platform>.json> ... [--perf <perf.json> ...] [--out <file.md>]
   bun parity/report.ts check <report-<platform>.json>`;
 
