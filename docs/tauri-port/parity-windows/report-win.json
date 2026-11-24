@@ -1,0 +1,2638 @@
+{
+  "platform": "win",
+  "head": "d6fbd062d80fc774a3c370c5f288869544e34486",
+  "trunk": "abe473f5359a2d1b0d0f611a233bbd811e7304d2",
+  "fixtureSha256": "32f91f0a88b50ea3f53bc1970b9d7247443a1a389bfe5c0f73a4a35ee7641136",
+  "startedAt": "2026-11-24T01:47:14.959Z",
+  "finishedAt": "2026-11-24T02:28:19.911Z",
+  "expected": [
+    "match-history-default",
+    "live-game-default",
+    "champions-default",
+    "augments-default",
+    "trends-default",
+    "global-stats-default",
+    "global-champion-detail-default",
+    "friends-default",
+    "friend-detail-default",
+    "group-detail-default",
+    "records-default",
+    "season-recap-default",
+    "challenges-default",
+    "settings-default",
+    "game-card-default",
+    "season-card-default",
+    "season-card-numbered",
+    "match-history-rail-1179",
+    "match-history-narrow-900",
+    "match-history-expanded",
+    "match-history-sorted-score",
+    "match-history-favorites",
+    "match-history-no-matches",
+    "match-history-grouped-week",
+    "match-history-grouped-none",
+    "match-history-oldest",
+    "match-history-sorted-score-ascending",
+    "match-history-multikills-pressed",
+    "match-history-filter-menu",
+    "match-history-hide-remakes",
+    "champions-expanded",
+    "global-stats-augments",
+    "global-stats-items",
+    "trends-weekly",
+    "match-history-empty-waiting",
+    "status-connected",
+    "status-ingame",
+    "status-connecting",
+    "status-disconnected",
+    "status-connected-rail",
+    "status-ingame-rail",
+    "live-champ-select",
+    "live-loading",
+    "live-in-game",
+    "live-waiting",
+    "live-results-late",
+    "live-game-over-recorded",
+    "live-standby-connected",
+    "live-standby-connecting",
+    "live-standby-offline-empty",
+    "live-standby-connected-empty",
+    "match-history-empty-offline",
+    "match-history-empty-connecting",
+    "match-history-empty-connected",
+    "match-history-empty-importing",
+    "match-history-empty-walking",
+    "match-history-eog-captured",
+    "backfill-toast-running",
+    "backfill-toast-done",
+    "backfill-toast-error",
+    "challenges-loaded",
+    "challenges-offline-empty",
+    "challenges-offline-stored",
+    "overlay-update-button",
+    "overlay-update-button-rail",
+    "overlay-update-dialog",
+    "overlay-update-dialog-multi",
+    "overlay-update-dialog-many",
+    "overlay-update-dialog-no-asset",
+    "overlay-update-downloading",
+    "overlay-update-installing",
+    "overlay-update-install-failed",
+    "overlay-update-error-not-installed",
+    "overlay-dialog-escape",
+    "overlay-dialog-mouse-close",
+    "overlay-whats-new-single",
+    "overlay-whats-new-multi",
+    "overlay-whats-new-unavailable",
+    "overlay-recovery-missing-restored-kept",
+    "overlay-recovery-missing-restored-unkept",
+    "overlay-recovery-missing-empty-kept",
+    "overlay-recovery-missing-empty-unkept",
+    "overlay-recovery-corrupt-restored-kept",
+    "overlay-recovery-corrupt-restored-unkept",
+    "overlay-recovery-corrupt-empty-kept",
+    "overlay-recovery-corrupt-empty-unkept",
+    "overlay-toast-importing",
+    "overlay-toast-imported",
+    "overlay-toast-stopped",
+    "overlay-toast-failed",
+    "overlay-hover-augment-gold",
+    "overlay-hover-augment-prismatic",
+    "overlay-hover-item",
+    "overlay-hover-flips-above",
+    "overlay-score-breakdown",
+    "overlay-hover-nav-link",
+    "overlay-hover-trends-chart",
+    "overlay-filter-menu-match-history",
+    "overlay-filter-menu-champions",
+    "overlay-filter-menu-augments",
+    "overlay-filter-menu-friends",
+    "overlay-context-menu",
+    "overlay-context-menu-favorite",
+    "overlay-records-modal",
+    "overlay-export-copied",
+    "overlay-export-saved",
+    "overlay-export-failed",
+    "overlay-export-busy-copy",
+    "overlay-export-busy-save"
+  ],
+  "states": [
+    {
+      "id": "match-history-default",
+      "pass": true,
+      "differingPct": 2.1367,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1367% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "live-game-default",
+      "pass": true,
+      "differingPct": 0.8852,
+      "worstTilePct": 6.5,
+      "imageExempt": 14,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\live-game-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 1069 against 1069 elements, 9 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "9 boxes beyond 1 CSS px, 9 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 1069 against 1069 elements, 9 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 0.8852% of pixels differ, budget 0.3%"
+        ]
+      }
+    },
+    {
+      "id": "champions-default",
+      "pass": true,
+      "differingPct": 1.5726,
+      "worstTilePct": 15.3,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\champions-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.5726% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 15.3% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "augments-default",
+      "pass": true,
+      "differingPct": 2.0983,
+      "worstTilePct": 17.3,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\augments-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 2,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.0983% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 17.3% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "trends-default",
+      "pass": true,
+      "differingPct": 1.85,
+      "worstTilePct": 10.55,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\trends-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 217,
+          "differingPct": 0.0052,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 939 against 939 elements, 22 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "22 boxes beyond 1 CSS px, 22 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 939 against 939 elements, 22 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 1.85% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 10.55% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "global-stats-default",
+      "pass": true,
+      "differingPct": 2.2403,
+      "worstTilePct": 20.13,
+      "widthExempt": 6,
+      "imageExempt": 2,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\global-stats-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 51,
+          "differingPct": 0.0012,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.2403% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 20.13% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "global-champion-detail-default",
+      "pass": true,
+      "differingPct": 0.5101,
+      "worstTilePct": 3.78,
+      "imageExempt": 10,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\global-champion-detail-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 62,
+          "differingPct": 0.0015,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.5101% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "friends-default",
+      "pass": true,
+      "differingPct": 1.7192,
+      "worstTilePct": 16.78,
+      "imageExempt": 11,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\friends-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.7192% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 16.78% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "friend-detail-default",
+      "pass": true,
+      "differingPct": 2.6066,
+      "worstTilePct": 23.04,
+      "imageExempt": 2,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\friend-detail-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 514,
+          "differingPct": 0.0122,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.6066% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 23.04% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "group-detail-default",
+      "pass": true,
+      "differingPct": 1.0565,
+      "worstTilePct": 11.11,
+      "imageExempt": 5,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\group-detail-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.0565% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 11.11% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "records-default",
+      "pass": true,
+      "differingPct": 2.1487,
+      "worstTilePct": 16.2,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\records-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1487% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 16.2% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "season-recap-default",
+      "pass": true,
+      "differingPct": 2.2679,
+      "worstTilePct": 25.15,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\season-recap-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 871 against 871 elements, 608 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "608 boxes beyond 1 CSS px, 608 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 871 against 871 elements, 608 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 2.2679% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 25.15% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "challenges-default",
+      "pass": true,
+      "differingPct": 0.7215,
+      "worstTilePct": 8.59,
+      "imageExempt": 14,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\challenges-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 0.7215% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 8.59% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "settings-default",
+      "pass": true,
+      "differingPct": 0.9919,
+      "worstTilePct": 7.33,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\settings-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 710,
+          "differingPct": 0.0169,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.9919% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "game-card-default",
+      "pass": true,
+      "differingPct": 2.2664,
+      "worstTilePct": 7.29,
+      "imageExempt": 129,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\game-card-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 7,
+          "differingPct": 0.0002,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 2.2664% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "season-card-default",
+      "pass": true,
+      "differingPct": 0.8311,
+      "worstTilePct": 9.6,
+      "imageExempt": 12,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\season-card-default.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 4171,
+          "differingPct": 0.0486,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 0.8311% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 9.6% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "season-card-numbered",
+      "pass": true,
+      "differingPct": 0.8802,
+      "worstTilePct": 10.1,
+      "imageExempt": 13,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\season-card-numbered.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 4742,
+          "differingPct": 0.0567,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 0.8802% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 10.1% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-rail-1179",
+      "pass": true,
+      "differingPct": 1.8772,
+      "worstTilePct": 21.39,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-rail-1179.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.8772% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.39% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-narrow-900",
+      "pass": true,
+      "differingPct": 1.9904,
+      "worstTilePct": 21.64,
+      "widthExempt": 2,
+      "imageExempt": 44,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-narrow-900.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.9904% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.64% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-expanded",
+      "pass": true,
+      "differingPct": 2.3575,
+      "worstTilePct": 21.56,
+      "imageExempt": 43,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-expanded.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 3,
+          "differingPct": 0.0001,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.3575% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-sorted-score",
+      "pass": true,
+      "differingPct": 2.3435,
+      "worstTilePct": 21.56,
+      "imageExempt": 59,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-sorted-score.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.3435% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-favorites",
+      "pass": true,
+      "differingPct": 1.6073,
+      "worstTilePct": 23.64,
+      "imageExempt": 23,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-favorites.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.6073% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 23.64% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-no-matches",
+      "pass": true,
+      "differingPct": 1.2788,
+      "worstTilePct": 21.62,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-no-matches.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.2788% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.62% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-grouped-week",
+      "pass": true,
+      "differingPct": 2.136,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-grouped-week.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.136% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-grouped-none",
+      "pass": true,
+      "differingPct": 2.3418,
+      "worstTilePct": 21.56,
+      "imageExempt": 61,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-grouped-none.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.3418% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-oldest",
+      "pass": true,
+      "differingPct": 2.0703,
+      "worstTilePct": 21.56,
+      "imageExempt": 45,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-oldest.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.0703% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-sorted-score-ascending",
+      "pass": true,
+      "differingPct": 2.1911,
+      "worstTilePct": 21.56,
+      "imageExempt": 51,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-sorted-score-ascending.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1911% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-multikills-pressed",
+      "pass": true,
+      "differingPct": 2.154,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-multikills-pressed.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.154% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-filter-menu",
+      "pass": true,
+      "differingPct": 2.524,
+      "worstTilePct": 21.56,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-filter-menu.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.524% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-hide-remakes",
+      "pass": true,
+      "differingPct": 2.1367,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-hide-remakes.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1367% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "champions-expanded",
+      "pass": true,
+      "differingPct": 1.7713,
+      "worstTilePct": 22.7,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\champions-expanded.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 2689,
+          "differingPct": 0.064,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.7713% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 22.7% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "global-stats-augments",
+      "pass": true,
+      "differingPct": 2.3077,
+      "worstTilePct": 17.48,
+      "widthExempt": 6,
+      "imageExempt": 2,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\global-stats-augments.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 51,
+          "differingPct": 0.0012,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.3077% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 17.48% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "global-stats-items",
+      "pass": true,
+      "differingPct": 2.4408,
+      "worstTilePct": 21.88,
+      "widthExempt": 6,
+      "imageExempt": 2,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\global-stats-items.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 51,
+          "differingPct": 0.0012,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.4408% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.88% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "trends-weekly",
+      "pass": true,
+      "differingPct": 1.8494,
+      "worstTilePct": 10.25,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\trends-weekly.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 217,
+          "differingPct": 0.0052,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 1048 against 1048 elements, 28 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "28 boxes beyond 1 CSS px, 28 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 1048 against 1048 elements, 28 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 1.8494% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 10.25% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "match-history-empty-waiting",
+      "pass": true,
+      "differingPct": 0.3468,
+      "worstTilePct": 7.65,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-empty-waiting.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.3468% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "status-connected",
+      "pass": true,
+      "differingPct": 2.1367,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\status-connected.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1367% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "status-ingame",
+      "pass": true,
+      "differingPct": 2.1367,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\status-ingame.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1367% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "status-connecting",
+      "pass": true,
+      "differingPct": 2.1367,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\status-connecting.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1367% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "status-disconnected",
+      "pass": true,
+      "differingPct": 2.1367,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\status-disconnected.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1367% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "status-connected-rail",
+      "pass": true,
+      "differingPct": 1.8772,
+      "worstTilePct": 21.39,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\status-connected-rail.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.8772% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.39% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "status-ingame-rail",
+      "pass": true,
+      "differingPct": 1.8801,
+      "worstTilePct": 21.39,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\status-ingame-rail.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.8801% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.39% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "live-champ-select",
+      "pass": true,
+      "differingPct": 0.9086,
+      "worstTilePct": 6.33,
+      "imageExempt": 14,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\live-champ-select.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 1070 against 1070 elements, 9 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "9 boxes beyond 1 CSS px, 9 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 1070 against 1070 elements, 9 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 0.9086% of pixels differ, budget 0.3%"
+        ]
+      }
+    },
+    {
+      "id": "live-loading",
+      "pass": true,
+      "differingPct": 0.324,
+      "worstTilePct": 6.88,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\live-loading.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.324% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "live-in-game",
+      "pass": true,
+      "differingPct": 1.4717,
+      "worstTilePct": 6.86,
+      "imageExempt": 54,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\live-in-game.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 6,
+          "differingPct": 0.0001,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 1.4717% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "live-waiting",
+      "pass": true,
+      "differingPct": 0.3214,
+      "worstTilePct": 7.15,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\live-waiting.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.3214% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "live-results-late",
+      "pass": true,
+      "differingPct": 0.8062,
+      "worstTilePct": 6.59,
+      "imageExempt": 11,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\live-results-late.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 996 against 996 elements, 4 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "4 boxes beyond 1 CSS px, 4 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 996 against 996 elements, 4 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 0.8062% of pixels differ, budget 0.3%"
+        ]
+      }
+    },
+    {
+      "id": "live-game-over-recorded",
+      "pass": true,
+      "differingPct": 0.8062,
+      "worstTilePct": 6.59,
+      "imageExempt": 11,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\live-game-over-recorded.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 996 against 996 elements, 4 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "4 boxes beyond 1 CSS px, 4 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 996 against 996 elements, 4 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 0.8062% of pixels differ, budget 0.3%"
+        ]
+      }
+    },
+    {
+      "id": "live-standby-connected",
+      "pass": true,
+      "differingPct": 0.9086,
+      "worstTilePct": 6.33,
+      "imageExempt": 14,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\live-standby-connected.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 1070 against 1070 elements, 9 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "9 boxes beyond 1 CSS px, 9 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 1070 against 1070 elements, 9 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 0.9086% of pixels differ, budget 0.3%"
+        ]
+      }
+    },
+    {
+      "id": "live-standby-connecting",
+      "pass": true,
+      "differingPct": 0.9066,
+      "worstTilePct": 6.33,
+      "imageExempt": 14,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\live-standby-connecting.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 1070 against 1070 elements, 9 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "9 boxes beyond 1 CSS px, 9 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 1070 against 1070 elements, 9 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 0.9066% of pixels differ, budget 0.3%"
+        ]
+      }
+    },
+    {
+      "id": "live-standby-offline-empty",
+      "pass": true,
+      "differingPct": 0.3816,
+      "worstTilePct": 7.1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\live-standby-offline-empty.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.3816% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "live-standby-connected-empty",
+      "pass": true,
+      "differingPct": 0.4109,
+      "worstTilePct": 6.87,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\live-standby-connected-empty.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.4109% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "match-history-empty-offline",
+      "pass": true,
+      "differingPct": 0.3468,
+      "worstTilePct": 7.65,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-empty-offline.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.3468% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "match-history-empty-connecting",
+      "pass": true,
+      "differingPct": 0.3468,
+      "worstTilePct": 7.65,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-empty-connecting.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.3468% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "match-history-empty-connected",
+      "pass": true,
+      "differingPct": 0.3425,
+      "worstTilePct": 7.65,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-empty-connected.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.3425% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "match-history-empty-importing",
+      "pass": true,
+      "differingPct": 0.3524,
+      "worstTilePct": 7.65,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-empty-importing.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.3524% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "match-history-empty-walking",
+      "pass": true,
+      "differingPct": 0.3423,
+      "worstTilePct": 7.65,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-empty-walking.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.3423% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "match-history-eog-captured",
+      "pass": true,
+      "differingPct": 2.2124,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\match-history-eog-captured.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.2124% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "backfill-toast-running",
+      "pass": true,
+      "differingPct": 2.0305,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\backfill-toast-running.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.0305% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "backfill-toast-done",
+      "pass": true,
+      "differingPct": 2.069,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\backfill-toast-done.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.069% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "backfill-toast-error",
+      "pass": true,
+      "differingPct": 2.0738,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\backfill-toast-error.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.0738% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "challenges-loaded",
+      "pass": true,
+      "differingPct": 0.5704,
+      "worstTilePct": 8.15,
+      "imageExempt": 13,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\challenges-loaded.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 0.5704% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 8.15% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "challenges-offline-empty",
+      "pass": true,
+      "differingPct": 0.1975,
+      "worstTilePct": 3.4,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\challenges-offline-empty.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": []
+      }
+    },
+    {
+      "id": "challenges-offline-stored",
+      "pass": true,
+      "differingPct": 0.5704,
+      "worstTilePct": 8.15,
+      "imageExempt": 13,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\challenges-offline-stored.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 0.5704% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 8.15% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-update-button",
+      "pass": true,
+      "differingPct": 2.1367,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-update-button.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1367% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-update-button-rail",
+      "pass": true,
+      "differingPct": 1.8847,
+      "worstTilePct": 21.39,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-update-button-rail.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.8847% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.39% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-update-dialog",
+      "pass": true,
+      "differingPct": 0.3206,
+      "worstTilePct": 0,
+      "imageExempt": 46,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-update-dialog.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 0.3206% of pixels differ, budget 0.3%",
+          "blur region {\"x\":0,\"y\":0,\"w\":1280,\"h\":820,\"keep\":[{\"x\":368,\"y\":222.25,\"w\":544,\"h\":375.5}]}: tile 8.14% at threshold 0.2",
+          "blur region {\"x\":0,\"y\":0,\"w\":1280,\"h\":820,\"keep\":[{\"x\":368,\"y\":222.25,\"w\":544,\"h\":375.5}]}: tile 8.14% at threshold 0.2"
+        ]
+      }
+    },
+    {
+      "id": "overlay-update-dialog-multi",
+      "pass": true,
+      "differingPct": 0.1686,
+      "worstTilePct": 0,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-update-dialog-multi.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": []
+      }
+    },
+    {
+      "id": "overlay-update-dialog-many",
+      "pass": true,
+      "differingPct": 0.3209,
+      "worstTilePct": 0,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-update-dialog-many.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.3209% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "overlay-update-dialog-no-asset",
+      "pass": true,
+      "differingPct": 0.318,
+      "worstTilePct": 0,
+      "imageExempt": 46,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-update-dialog-no-asset.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 0.318% of pixels differ, budget 0.3%",
+          "blur region {\"x\":0,\"y\":0,\"w\":1280,\"h\":820,\"keep\":[{\"x\":368,\"y\":222.25,\"w\":544,\"h\":375.5}]}: tile 8.14% at threshold 0.2",
+          "blur region {\"x\":0,\"y\":0,\"w\":1280,\"h\":820,\"keep\":[{\"x\":368,\"y\":222.25,\"w\":544,\"h\":375.5}]}: tile 8.14% at threshold 0.2"
+        ]
+      }
+    },
+    {
+      "id": "overlay-update-downloading",
+      "pass": true,
+      "differingPct": 0.1803,
+      "worstTilePct": 0,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-update-downloading.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": []
+      }
+    },
+    {
+      "id": "overlay-update-installing",
+      "pass": true,
+      "differingPct": 0.1702,
+      "worstTilePct": 0,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-update-installing.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": []
+      }
+    },
+    {
+      "id": "overlay-update-install-failed",
+      "pass": true,
+      "differingPct": 0.3131,
+      "worstTilePct": 0,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-update-install-failed.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.3131% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "overlay-update-error-not-installed",
+      "pass": true,
+      "differingPct": 0.3227,
+      "worstTilePct": 0,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-update-error-not-installed.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": ["page budget: 0.3227% of pixels differ, budget 0.3%"]
+      }
+    },
+    {
+      "id": "overlay-dialog-escape",
+      "pass": true,
+      "differingPct": 2.1367,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-dialog-escape.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1367% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-dialog-mouse-close",
+      "pass": true,
+      "differingPct": 2.1367,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-dialog-mouse-close.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1367% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-whats-new-single",
+      "pass": true,
+      "differingPct": 0.2251,
+      "worstTilePct": 0,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-whats-new-single.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": []
+      }
+    },
+    {
+      "id": "overlay-whats-new-multi",
+      "pass": true,
+      "differingPct": 0.3144,
+      "worstTilePct": 0,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-whats-new-multi.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 0.3144% of pixels differ, budget 0.3%",
+          "blur region {\"x\":0,\"y\":0,\"w\":1280,\"h\":820,\"keep\":[{\"x\":368,\"y\":142.25,\"w\":544,\"h\":535.5}]}: tile 8.19% at threshold 0.2",
+          "blur region {\"x\":0,\"y\":0,\"w\":1280,\"h\":820,\"keep\":[{\"x\":368,\"y\":142.25,\"w\":544,\"h\":535.5}]}: tile 8.19% at threshold 0.2"
+        ]
+      }
+    },
+    {
+      "id": "overlay-whats-new-unavailable",
+      "pass": true,
+      "differingPct": 0.1645,
+      "worstTilePct": 0,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-whats-new-unavailable.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": []
+      }
+    },
+    {
+      "id": "overlay-recovery-missing-restored-kept",
+      "pass": true,
+      "differingPct": 1.8727,
+      "worstTilePct": 16.23,
+      "imageExempt": 26,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-recovery-missing-restored-kept.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 1082,
+          "differingPct": 0.0258,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.8727% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 16.23% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-recovery-missing-restored-unkept",
+      "pass": true,
+      "differingPct": 2.0944,
+      "worstTilePct": 21.56,
+      "imageExempt": 31,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-recovery-missing-restored-unkept.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 1024,
+          "differingPct": 0.0244,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.0944% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-recovery-missing-empty-kept",
+      "pass": true,
+      "differingPct": 1.846,
+      "worstTilePct": 15.67,
+      "imageExempt": 26,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-recovery-missing-empty-kept.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 864,
+          "differingPct": 0.0206,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.846% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 15.67% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-recovery-missing-empty-unkept",
+      "pass": true,
+      "differingPct": 2.0753,
+      "worstTilePct": 21.56,
+      "imageExempt": 31,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-recovery-missing-empty-unkept.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 696,
+          "differingPct": 0.0166,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.0753% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-recovery-corrupt-restored-kept",
+      "pass": true,
+      "differingPct": 1.885,
+      "worstTilePct": 15.82,
+      "imageExempt": 26,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-recovery-corrupt-restored-kept.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 1455,
+          "differingPct": 0.0347,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.885% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 15.82% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-recovery-corrupt-restored-unkept",
+      "pass": true,
+      "differingPct": 2.097,
+      "worstTilePct": 21.56,
+      "imageExempt": 31,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-recovery-corrupt-restored-unkept.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 924,
+          "differingPct": 0.022,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.097% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-recovery-corrupt-empty-kept",
+      "pass": true,
+      "differingPct": 1.8571,
+      "worstTilePct": 15.67,
+      "imageExempt": 26,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-recovery-corrupt-empty-kept.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 1312,
+          "differingPct": 0.0313,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.8571% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 15.67% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-recovery-corrupt-empty-unkept",
+      "pass": true,
+      "differingPct": 2.079,
+      "worstTilePct": 21.56,
+      "imageExempt": 31,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-recovery-corrupt-empty-unkept.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 1209,
+          "differingPct": 0.0288,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.079% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-toast-importing",
+      "pass": true,
+      "differingPct": 2.0318,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-toast-importing.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.0318% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-toast-imported",
+      "pass": true,
+      "differingPct": 2.063,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-toast-imported.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.063% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-toast-stopped",
+      "pass": true,
+      "differingPct": 2.068,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-toast-stopped.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.068% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-toast-failed",
+      "pass": true,
+      "differingPct": 2.0723,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-toast-failed.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.0723% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-hover-augment-gold",
+      "pass": true,
+      "differingPct": 2.2272,
+      "worstTilePct": 21.56,
+      "imageExempt": 44,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-hover-augment-gold.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 3,
+          "differingPct": 0.0001,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.2272% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-hover-augment-prismatic",
+      "pass": true,
+      "differingPct": 2.2259,
+      "worstTilePct": 21.56,
+      "imageExempt": 44,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-hover-augment-prismatic.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 3,
+          "differingPct": 0.0001,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.2259% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-hover-item",
+      "pass": true,
+      "differingPct": 2.107,
+      "worstTilePct": 21.56,
+      "imageExempt": 43,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-hover-item.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 3,
+          "differingPct": 0.0001,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.107% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-hover-flips-above",
+      "pass": true,
+      "differingPct": 0,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-hover-flips-above.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "image sizes differ: 2560x1202 against 2560x1200",
+            "attributed": true,
+            "detail": "Electron's renderer in WebView2 has the same size"
+          }
+        ],
+        "crossReasons": ["image sizes differ: 2560x1202 against 2560x1200"]
+      }
+    },
+    {
+      "id": "overlay-score-breakdown",
+      "pass": true,
+      "differingPct": 2.4347,
+      "worstTilePct": 21.56,
+      "imageExempt": 43,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-score-breakdown.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 3,
+          "differingPct": 0.0001,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 2237 against 2237 elements, 18 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "18 boxes beyond 1 CSS px, 18 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 2237 against 2237 elements, 18 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 2.4347% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-hover-nav-link",
+      "pass": true,
+      "differingPct": 2.1367,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-hover-nav-link.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1367% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-hover-trends-chart",
+      "pass": true,
+      "differingPct": 1.8777,
+      "worstTilePct": 10.55,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-hover-trends-chart.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 217,
+          "differingPct": 0.0052,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 946 against 946 elements, 22 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "22 boxes beyond 1 CSS px, 22 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 946 against 946 elements, 22 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 1.8777% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 10.55% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-filter-menu-match-history",
+      "pass": true,
+      "differingPct": 2.524,
+      "worstTilePct": 21.56,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-filter-menu-match-history.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.524% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-filter-menu-champions",
+      "pass": true,
+      "differingPct": 1.8344,
+      "worstTilePct": 15.3,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-filter-menu-champions.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.8344% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 15.3% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-filter-menu-augments",
+      "pass": true,
+      "differingPct": 2.1559,
+      "worstTilePct": 17.3,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-filter-menu-augments.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 1,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1559% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 17.3% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-filter-menu-friends",
+      "pass": true,
+      "differingPct": 1.7585,
+      "worstTilePct": 16.78,
+      "imageExempt": 11,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-filter-menu-friends.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 1.7585% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 16.78% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-context-menu",
+      "pass": true,
+      "differingPct": 2.1426,
+      "worstTilePct": 21.56,
+      "imageExempt": 47,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-context-menu.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1426% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-context-menu-favorite",
+      "pass": true,
+      "differingPct": 2.1468,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-context-menu-favorite.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1468% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-records-modal",
+      "pass": true,
+      "differingPct": 0,
+      "worstTilePct": 0,
+      "imageExempt": 114,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-records-modal.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 1,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "blur region {\"x\":0,\"y\":0,\"w\":1280,\"h\":820,\"keep\":[]}: tile 11.96% at threshold 0.2",
+          "blur region {\"x\":0,\"y\":0,\"w\":1280,\"h\":820,\"keep\":[]}: tile 11.96% at threshold 0.2"
+        ]
+      }
+    },
+    {
+      "id": "overlay-export-copied",
+      "pass": true,
+      "differingPct": 2.1527,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-export-copied.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1527% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-export-saved",
+      "pass": true,
+      "differingPct": 2.1586,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-export-saved.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1586% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-export-failed",
+      "pass": true,
+      "differingPct": 2.1716,
+      "worstTilePct": 21.56,
+      "imageExempt": 49,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-export-failed.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [],
+        "crossReasons": [
+          "page budget: 2.1716% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 21.56% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-export-busy-copy",
+      "pass": true,
+      "differingPct": 2.2618,
+      "worstTilePct": 25.15,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-export-busy-copy.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 871 against 871 elements, 608 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "608 boxes beyond 1 CSS px, 608 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 871 against 871 elements, 608 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 2.2618% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 25.15% differing, budget 8%"
+        ]
+      }
+    },
+    {
+      "id": "overlay-export-busy-save",
+      "pass": true,
+      "differingPct": 2.2601,
+      "worstTilePct": 25.15,
+      "imageExempt": 1,
+      "reasons": [],
+      "sideBySide": "parity\\out\\report-final\\tauri-win\\cross-engine\\overlay-export-busy-save.side-by-side.png",
+      "ruleH": {
+        "sameEngine": {
+          "pass": true,
+          "differing": 0,
+          "differingPct": 0,
+          "reasons": []
+        },
+        "crossGates": [
+          {
+            "reason": "layout gate: 871 against 871 elements, 608 boxes moved more than 1 CSS px, 0 path mismatches",
+            "attributed": true,
+            "detail": "608 boxes beyond 1 CSS px, 608 moved the same way by Electron's renderer in WebView2"
+          }
+        ],
+        "crossReasons": [
+          "layout gate: 871 against 871 elements, 608 boxes moved more than 1 CSS px, 0 path mismatches",
+          "page budget: 2.2601% of pixels differ, budget 0.3%",
+          "tile rule: a 64 CSS px tile has 25.15% differing, budget 8%"
+        ]
+      }
+    }
+  ],
+  "golden": {
+    "pass": 61,
+    "fail": 0,
+    "notPorted": 0,
+    "noGolden": 0,
+    "exitCode": 0,
+    "completed": true,
+    "failing": [],
+    "log": "parity\\out\\report-final\\golden-win.log"
+  },
+  "checks": [
+    {
+      "name": "react-isms.ts",
+      "pass": true,
+      "detail": "8 patterns, every count in tauri/src is 0."
+    },
+    {
+      "name": "export_bindings --check",
+      "pass": true,
+      "detail": "exit 0, last line:      Running `target\\debug\\export_bindings.exe --check`"
+    },
+    {
+      "name": "contract-check.ts",
+      "pass": true,
+      "detail": "exit 0, last line: contract matches, 61 commands, 11 events"
+    }
+  ],
+  "masks": [
+    {
+      "state": "global-champion-detail-default",
+      "region": "blur 1090,119,129,50",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "group-detail-default",
+      "region": "blur 256,656,996,66",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "group-detail-default",
+      "region": "blur 256,657,996,66",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-update-dialog",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-update-dialog-multi",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-update-dialog-many",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-update-dialog-no-asset",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-update-downloading",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-update-installing",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-update-install-failed",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-update-error-not-installed",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-whats-new-single",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-whats-new-multi",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-whats-new-unavailable",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    },
+    {
+      "state": "overlay-records-modal",
+      "region": "blur 0,0,1280,820",
+      "reason": "backdrop blur, which WebKit snapshots do not draw (Appendix A); judged by the tile rule at threshold 0.2 and left out of the page count, but for a dialog panel inside it"
+    }
+  ]
+}
