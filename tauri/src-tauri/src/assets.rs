@@ -119,6 +119,7 @@ impl PublicWeb {
         reqwest::Client::builder()
             .tls_backend_preconfigured(public_tls_config().map_err(|err| err.to_string())?)
             .http1_only()
+            .gzip(true)
             .user_agent(USER_AGENT)
             .timeout(REQUEST_TIMEOUT)
             .build()
@@ -181,6 +182,7 @@ pub mod parity_web {
         reqwest::Client::builder()
             .tls_backend_preconfigured(tls)
             .no_proxy()
+            .gzip(true)
             .user_agent(USER_AGENT)
             .timeout(REQUEST_TIMEOUT)
             // A redirect could name any host; the fake has no need to send one
@@ -1946,6 +1948,79 @@ pub(crate) mod tests {
                 .any(|name| name.as_ref().windows(riot.len()).any(|w| w == riot))
         );
         assert!(PublicWeb::new().is_ok());
+    }
+
+    /// The public web over plain http to a loopback listener, which answers
+    /// every request gzip-encoded as the CDNs do when asked.
+    struct GzipHost {
+        web: PublicWeb,
+        base: String,
+    }
+
+    impl Web for GzipHost {
+        fn get<'a>(&'a self, url: &'a str) -> BoxFuture<'a, WebAnswer> {
+            let local = format!("{}/{}", self.base, url.strip_prefix("https://").unwrap());
+            async move { self.web.get(&local).await }.boxed()
+        }
+    }
+
+    #[tokio::test]
+    async fn a_gzip_encoded_answer_is_filed_and_parsed_as_the_plain_bytes() {
+        use std::io::Write;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let plain = serde_json::json!({ "items": [{ "id": 1001, "name": "Boots" }] })
+            .to_string()
+            .into_bytes();
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(&plain).unwrap();
+        let gzipped = encoder.finish().unwrap();
+        assert_ne!(gzipped, plain);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let requests = Arc::new(Mutex::new(Vec::<String>::new()));
+        let seen = requests.clone();
+        tokio::spawn(async move {
+            loop {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut request = [0u8; 4096];
+                let read = socket.read(&mut request).await.unwrap();
+                seen.lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(&request[..read]).to_lowercase());
+                let head = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-encoding: gzip\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                    gzipped.len()
+                );
+                socket.write_all(head.as_bytes()).await.unwrap();
+                socket.write_all(&gzipped).await.unwrap();
+            }
+        });
+        let root = temp_dir("gzip");
+        let web = Arc::new(GzipHost {
+            web: PublicWeb::new().unwrap(),
+            base: format!("http://127.0.0.1:{port}"),
+        });
+        let assets = GameAssets::new(
+            root.join("asset-cache"),
+            web,
+            Arc::new(FakeClient::default()),
+        );
+        let data = assets.load_game_data("16.20", "v1/items.json").await;
+        assets.settle().await;
+        let on_disk = std::fs::read(assets.cache().file("16.20", "v1/items.json"));
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(
+            data.unwrap(),
+            serde_json::from_slice::<Value>(&plain).unwrap()
+        );
+        assert_eq!(on_disk.unwrap(), plain);
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert!(
+            requests[0].contains("\r\naccept-encoding: gzip\r\n"),
+            "{}",
+            requests[0]
+        );
     }
 
     #[test]

@@ -1089,6 +1089,7 @@ impl Github {
     fn with_route(route: Route) -> Self {
         let mut builder = reqwest::Client::builder()
             .http1_only()
+            .no_gzip()
             .user_agent(USER_AGENT);
         if let Ok(tls) = crate::assets::public_tls_config() {
             builder = builder.tls_backend_preconfigured(tls);

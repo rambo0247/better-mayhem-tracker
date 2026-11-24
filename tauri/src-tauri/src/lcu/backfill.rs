@@ -734,6 +734,7 @@ impl HttpSgp {
             .and_then(|tls| {
                 let builder = reqwest::Client::builder()
                     .tls_backend_preconfigured(tls)
+                    .no_gzip()
                     .no_proxy();
                 // A redirect would carry the request off the fake's origin
                 #[cfg(feature = "parity-ca")]

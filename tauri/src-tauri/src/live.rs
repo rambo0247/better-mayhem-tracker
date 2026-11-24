@@ -291,6 +291,7 @@ impl HttpGameApi {
             reqwest::Client::builder()
                 .tls_backend_preconfigured(tls)
                 .http1_only()
+                .no_gzip()
                 // A connection the game closed while idle fails the next
                 // request, and the updater reads a failure as a game running
                 .pool_max_idle_per_host(0)

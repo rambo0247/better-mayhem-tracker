@@ -35,6 +35,7 @@ impl Session {
                 tls::config_with_anchors(anchors, Alpn::Http1).map_err(tls_error)?,
             )
             .http1_only()
+            .no_gzip()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .build()
