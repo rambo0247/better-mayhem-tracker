@@ -4,38 +4,45 @@ Built on [mayhem-tracker](https://github.com/Yhprum/mayhem-tracker) by [Yhprum](
 
 Desktop app for tracking ARAM Mayhem match history in League of Legends. Connects to the League Client (LCU) to automatically record matches and display stats.
 
+Since 1.3.0 it is a native app with a Rust backend, built on [Tauri](https://tauri.app), in place of the original Electron app: a download of about 8 MB on macOS and 17 MB on Windows, down from over 90 MB. Every page and feature carried over, and so does your data when you update.
+
 ## Features
 
-- Automatic match detection via League Client API
+- Records every ARAM Mayhem game automatically through the League client, and imports your past ones the first time you connect
 - Supports the limited-time ARAM Mayhem Classic-ish game mode
-- Match history with detailed game breakdowns
-- Live scoreboard while a game is running, and a post-game recap when it ends
-- Export any game as a shareable PNG from the recap or the match list
-- Season recaps for each Mayhem set (or all time), shareable as an image the same way
-- Champion, augment, and friend stats with win rates
+- Match history with a full scoreboard for every game, filters, sorting, favorites, and sessions grouped by day, week or patch
+- Live scoreboard while a game is running, and a recap when it ends
+- Champion, augment, and friend stats with win rates, trends over time, and personal records
 - Aggregate statistics from all players in your games
-- Local SQLite database
+- Season recaps for each Mayhem set (or all time), and Mayhem challenge progress
+- Export any game or season recap as a shareable PNG, or copy it to the clipboard
+- Everything stays on your computer in a local SQLite database, with automatic backups
+- Updates itself, in the background if you let it
 
 ## Download
 
-**Windows:** grab `BetterMayhemTracker.exe` from the [latest release](https://github.com/rambo0247/better-mayhem-tracker/releases/latest) and run it. It's a portable Windows build with no installer, so it can live anywhere.
+**Windows:** grab `BetterMayhemTracker.exe` from the [latest release](https://github.com/rambo0247/better-mayhem-tracker/releases/latest) and run it. It's a portable Windows build with no installer, so it can live anywhere. It uses Microsoft's WebView2 runtime, which Windows 10 and 11 already have; on a machine without it, the app says where to get it.
 
 **macOS:** grab `BetterMayhemTracker-mac-arm64.dmg` (Apple silicon) or `BetterMayhemTracker-mac-x64.dmg` (Intel) from the same release, open it, and drag Better Mayhem Tracker into Applications. The app is not notarized by Apple, so the first time you open it macOS will refuse. Close that dialog, open **System Settings → Privacy & Security**, scroll down to **Security**, click **Open Anyway** next to Better Mayhem Tracker, and confirm. You only do this once; updates the app installs itself open normally. If macOS instead says the app "is damaged", clear the download quarantine flag with `xattr -cr "/Applications/Better Mayhem Tracker.app"`.
 
 ## Usage
 
 1. Start the League client and sign in. The app talks to the client's local API, so the client has to be running for it to detect your account, import history, or record new games.
-2. Launch Better Mayhem Tracker. On macOS it finds the client in `/Applications/League of Legends.app` (or wherever the Riot Client recorded it). The dot beside Settings at the top of the window turns green once it finds the client.
+2. Launch Better Mayhem Tracker. On macOS it finds the client in `/Applications/League of Legends.app` (or wherever the Riot Client recorded it). The status under your name at the bottom of the sidebar reads **Connected** once it finds the client.
 3. The first time an account connects it automatically imports your past Mayhem games. Riot only serves an account's last 1000 matches across all queues, so that window is how far back the import can reach. A large one takes a few minutes and fills the app in as it runs.
 4. After that it records each game as you finish it, so leave it running while you play.
 
-You can re-run the import at any time from **Settings → Backfill match history**, which is also how you finish one you cancelled. Games already stored stay readable with the client closed; only importing and recording need it open.
+You can re-run the import at any time from **Settings → Match Data → Backfill**, which is also how you finish one you cancelled. Games already stored stay readable with the client closed; only importing and recording need it open.
 
-Match data lives in `%APPDATA%\better-mayhem-tracker\data` on Windows and `~/Library/Application Support/better-mayhem-tracker/data` on macOS, with automatic backups alongside it. The app checks GitHub for new releases and offers to update itself when one lands. On macOS that needs the app to be in your Applications folder (not running from the disk image or Downloads).
+Match data lives in `%APPDATA%\better-mayhem-tracker\data` on Windows and `~/Library/Application Support/better-mayhem-tracker/data` on macOS, with automatic backups alongside it (**Settings → Backups**). These are the same folders earlier versions used, so updating keeps your history. If something goes wrong, **Settings → Troubleshooting** opens the folder with the log file to attach to a bug report.
+
+The app checks GitHub for new releases and shows an **Update available** card in the sidebar when one lands. With **Settings → Updates → Install updates automatically** on, it installs them by itself while the app sits in the tray or is minimized, never during champion select or a game. On macOS updating needs the app to be in your Applications folder (not running from the disk image or Downloads).
 
 ## Tech Stack
 
-Tauri 3 with a Rust backend and a Solid 2 UI in TypeScript, bundled by Vite. It uses Tailwind CSS for styling, SQLite for local storage, and the League client's local API for match detection.
+Tauri 3 with a Rust backend (`tauri/src-tauri`) and a Solid 2 UI in TypeScript (`tauri/src`), bundled by Vite. It uses Tailwind CSS for styling, SQLite through rusqlite for local storage, and the League client's local API and event socket for match detection.
+
+Up to 1.2.1 the app was Electron + React + TypeScript. 1.3.0 replaced it with this port, checked page by page and call by call against the Electron app before the cutover. The results are in [`docs/tauri-port/parity-report.md`](docs/tauri-port/parity-report.md).
 
 ## Development
 
