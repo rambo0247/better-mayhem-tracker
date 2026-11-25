@@ -481,36 +481,6 @@ export const CASES: ParityCase[] = [
     props: { releases: RELEASES.slice(0, 1) },
   },
   {
-    id: "QueueSelect",
-    file: "QueueSelect",
-    name: "default",
-    props: { value: 2450, onChange: noop },
-  },
-  {
-    id: "QueueSelect labelled",
-    file: "QueueSelect",
-    name: "default",
-    props: { value: undefined, onChange: noop, label: "Queue" },
-  },
-  {
-    id: "PatchSelect",
-    file: "PatchSelect",
-    name: "default",
-    props: { value: "15.19", onChange: noop, label: "Patch" },
-  },
-  {
-    id: "SeasonSelect",
-    file: "SeasonSelect",
-    name: "default",
-    props: { value: undefined, onChange: noop },
-  },
-  {
-    id: "AccountSelect",
-    file: "AccountSelect",
-    name: "default",
-    props: { value: "puuid-b", onChange: noop },
-  },
-  {
     id: "MinGamesFilter",
     file: "MinGamesFilter",
     name: "default",

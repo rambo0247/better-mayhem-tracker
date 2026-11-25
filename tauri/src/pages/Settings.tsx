@@ -16,6 +16,7 @@ import {
   type SessionGrouping,
 } from "../shared/session";
 import PageHeader from "../components/PageHeader";
+import Select from "../components/Select";
 import BrandMark from "../components/BrandMark";
 import { DownloadIcon, RefreshIcon } from "../components/icons";
 import {
@@ -521,176 +522,115 @@ export default function Settings() {
           subtitle="How the tracker runs, what it shows, and where your match data lives"
         />
 
-        <div class="xl:grid xl:grid-cols-[200px_minmax(0,1fr)] xl:items-start xl:gap-8">
-          <SectionNav />
+        <SectionNav />
 
-          <div class="space-y-6">
-            <Section id="general">
-              <Row
-                title={IS_MAC ? "Open at login" : "Start with Windows"}
-                // WebKit shapes each text node on its own, which made this line wrap a word earlier
-                // than Chromium, so the description is a single text node
-                description={`Open the program in the ${IS_MAC ? "menu bar" : "system tray"} when you sign in to ${IS_MAC ? "your Mac" : "Windows"}, so your games are recorded without having to remember to start it.${packaged() ? "" : NOT_INSTALLED_NOTE}`}
-                control={
-                  <Switch
-                    label={IS_MAC ? "Open at login" : "Start with Windows"}
-                    checked={autoStart()}
-                    onChange={toggle("auto_start", autoStart, setAutoStart)}
-                    disabled={!packaged()}
-                    lockedNote={NOT_INSTALLED_NOTE.trim()}
-                    unavailable
-                    shortNote={NOT_INSTALLED_SHORT}
-                  />
-                }
-              />
-              <Row
-                title={
-                  IS_MAC ? "Keep running in the menu bar on close" : "Minimize to tray on close"
-                }
-                description={
-                  <>
-                    When enabled, the program can keep storing your games even when the window is
-                    closed. You can still close the program from the{" "}
-                    {IS_MAC ? "menu bar icon or with ⌘Q" : "system tray"}.
-                  </>
-                }
-                control={
-                  <Switch
-                    label={
-                      IS_MAC ? "Keep running in the menu bar on close" : "Minimize to tray on close"
-                    }
-                    checked={minimizeToTray()}
-                    onChange={toggle("minimize_to_tray", minimizeToTray, setMinimizeToTray)}
-                  />
-                }
-              />
-              <Row
-                title="Remember filters and sorting"
-                description="Reopen every page with the filters, search, and sort order you last used. When off, each page starts on its defaults again every time the program opens."
-                control={
-                  <Switch
-                    label="Remember filters and sorting"
-                    checked={rememberFilters()}
-                    onChange={toggle(
-                      "remember_filters",
-                      rememberFilters,
-                      setRememberFilters,
-                      setRemembering,
-                    )}
-                  />
-                }
-              />
-              <Row
-                title="Hide remakes"
-                description="Leave remade games out of the match history. They are still recorded, and were never counted toward your stats either way."
-                control={
-                  <Switch
-                    label="Hide remakes"
-                    checked={hideRemakes()}
-                    onChange={toggle("hide_remakes", hideRemakes, setHideRemakes)}
-                  />
-                }
-              />
-              <Row
-                title="Group match history by"
-                description="Break the match list into sessions, each under a heading with its own record and averages. Days start at 5am."
-                control={
-                  <select
-                    class="select w-[148px]"
-                    aria-label="Group match history by"
-                    value={sessionGrouping()}
-                    onChange={(e) =>
-                      void handleSessionGroupingChange(e.currentTarget.value as SessionGrouping)
-                    }
-                  >
-                    <For each={SESSION_GROUPING_OPTIONS}>
-                      {(option) => <option value={option.value}>{option.label}</option>}
-                    </For>
-                  </select>
-                }
-              />
-              {/* A single queue has nothing to choose between, so the whole block
+        <div class="mt-4 space-y-6">
+          <Section id="general">
+            <Row
+              title={IS_MAC ? "Open at login" : "Start with Windows"}
+              // WebKit shapes each text node on its own, which made this line wrap a word earlier
+              // than Chromium, so the description is a single text node
+              description={`Open the program in the ${IS_MAC ? "menu bar" : "system tray"} when you sign in to ${IS_MAC ? "your Mac" : "Windows"}, so your games are recorded without having to remember to start it.${packaged() ? "" : NOT_INSTALLED_NOTE}`}
+              control={
+                <Switch
+                  label={IS_MAC ? "Open at login" : "Start with Windows"}
+                  checked={autoStart()}
+                  onChange={toggle("auto_start", autoStart, setAutoStart)}
+                  disabled={!packaged()}
+                  lockedNote={NOT_INSTALLED_NOTE.trim()}
+                  unavailable
+                  shortNote={NOT_INSTALLED_SHORT}
+                />
+              }
+            />
+            <Row
+              title={IS_MAC ? "Keep running in the menu bar on close" : "Minimize to tray on close"}
+              description={
+                <>
+                  When enabled, the program can keep storing your games even when the window is
+                  closed. You can still close the program from the{" "}
+                  {IS_MAC ? "menu bar icon or with ⌘Q" : "system tray"}.
+                </>
+              }
+              control={
+                <Switch
+                  label={
+                    IS_MAC ? "Keep running in the menu bar on close" : "Minimize to tray on close"
+                  }
+                  checked={minimizeToTray()}
+                  onChange={toggle("minimize_to_tray", minimizeToTray, setMinimizeToTray)}
+                />
+              }
+            />
+            <Row
+              title="Remember filters and sorting"
+              description="Reopen every page with the filters, search, and sort order you last used. When off, each page starts on its defaults again every time the program opens."
+              control={
+                <Switch
+                  label="Remember filters and sorting"
+                  checked={rememberFilters()}
+                  onChange={toggle(
+                    "remember_filters",
+                    rememberFilters,
+                    setRememberFilters,
+                    setRemembering,
+                  )}
+                />
+              }
+            />
+            <Row
+              title="Hide remakes"
+              description="Leave remade games out of the match history. They are still recorded, and were never counted toward your stats either way."
+              control={
+                <Switch
+                  label="Hide remakes"
+                  checked={hideRemakes()}
+                  onChange={toggle("hide_remakes", hideRemakes, setHideRemakes)}
+                />
+              }
+            />
+            <Row
+              title="Group match history by"
+              description="Break the match list into sessions, each under a heading with its own record and averages. Days start at 5am."
+              control={
+                <Select
+                  class="w-[148px]"
+                  aria-label="Group match history by"
+                  value={sessionGrouping()}
+                  options={SESSION_GROUPING_OPTIONS}
+                  onChange={(next) => void handleSessionGroupingChange(next)}
+                />
+              }
+            />
+            {/* A single queue has nothing to choose between, so the whole block
                   waits until a second one shows up in the database */}
-              <Show when={queues().length > 1}>
-                <Row
-                  title="Queues to include"
-                  description="Stats and match history only count the queues switched on here. Games from the others are still recorded, and can be counted again by switching their queue back on."
-                >
-                  <div class="mt-3 divide-y divide-lol-line overflow-hidden rounded-lg border border-lol-line bg-black/15">
-                    <For each={queues()}>
-                      {(q) => {
-                        const shown = () => !hiddenQueues().has(q);
-                        return (
-                          <div class="flex h-11 items-center justify-between gap-6 px-4">
-                            <span
-                              class={[
-                                "text-[14px] font-medium",
-                                shown() ? "text-lol-text-bright" : "text-lol-text",
-                              ]}
-                            >
-                              {queueLabel(q)}
-                            </span>
-                            {/* Switching off the last one would empty every page */}
-                            <Switch
-                              label={queueLabel(q)}
-                              checked={shown()}
-                              disabled={shown() && shownQueueCount() === 1}
-                              lockedNote="At least one queue has to stay on"
-                              shortNote="Last one on"
-                              onChange={() => void handleQueueToggle(q)}
-                            />
-                          </div>
-                        );
-                      }}
-                    </For>
-                  </div>
-                </Row>
-              </Show>
-            </Section>
-
-            <Section id="sidebar">
+            <Show when={queues().length > 1}>
               <Row
-                title="Pages in the sidebar"
-                description="Switch off the pages you never visit. A hidden page keeps recording, and Match History always stays since it's where the app opens."
+                title="Queues to include"
+                description="Stats and match history only count the queues switched on here. Games from the others are still recorded, and can be counted again by switching their queue back on."
               >
-                <div class="mt-4 grid gap-2 sm:grid-cols-2">
-                  <For each={NAV_LINKS}>
-                    {(link) => {
-                      const shown = () => !hiddenNavLinks().has(link.to);
+                <div class="mt-3 divide-y divide-lol-line overflow-hidden rounded-lg border border-lol-line bg-black/15">
+                  <For each={queues()}>
+                    {(q) => {
+                      const shown = () => !hiddenQueues().has(q);
                       return (
-                        <div
-                          class={[
-                            "flex h-12 items-center gap-3 rounded-lg border px-3 transition-colors",
-                            shown()
-                              ? "border-lol-line bg-white/[0.025]"
-                              : "border-dashed border-lol-border/70 bg-transparent",
-                          ]}
-                        >
+                        <div class="flex h-11 items-center justify-between gap-6 px-4">
                           <span
                             class={[
-                              "flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors",
-                              shown()
-                                ? "bg-lol-gold/10 text-lol-gold"
-                                : "bg-white/[0.04] text-lol-text/75",
-                            ]}
-                          >
-                            <link.icon class="h-4 w-4" />
-                          </span>
-                          <span
-                            class={[
-                              "min-w-0 flex-1 truncate text-[14px] font-medium",
+                              "text-[14px] font-medium",
                               shown() ? "text-lol-text-bright" : "text-lol-text",
                             ]}
                           >
-                            {link.label}
+                            {queueLabel(q)}
                           </span>
+                          {/* Switching off the last one would empty every page */}
                           <Switch
-                            label={link.label}
+                            label={queueLabel(q)}
                             checked={shown()}
-                            disabled={link.to === HOME_PATH}
-                            lockedNote="Match History is where the app opens, so it always stays"
-                            shortNote="Always shown"
-                            onChange={() => void toggleNavLink(link.to)}
+                            disabled={shown() && shownQueueCount() === 1}
+                            lockedNote="At least one queue has to stay on"
+                            shortNote="Last one on"
+                            onChange={() => void handleQueueToggle(q)}
                           />
                         </div>
                       );
@@ -698,276 +638,336 @@ export default function Settings() {
                   </For>
                 </div>
               </Row>
-            </Section>
+            </Show>
+          </Section>
 
-            <Section id="updates">
-              <Row
-                title="Install updates automatically"
-                description={
-                  <>
-                    Install new versions on their own: when the program starts, and while it sits in
-                    the tray or minimized. Never while you're using it, in champion select or in a
-                    game. When it's off, new versions show up in the sidebar to install yourself.
-                    {!packaged() && NOT_INSTALLED_NOTE}
-                  </>
-                }
-                control={
-                  <Switch
-                    label="Install updates automatically"
-                    checked={autoUpdate()}
-                    onChange={toggle("auto_update", autoUpdate, setAutoUpdate)}
-                    disabled={!packaged()}
-                    lockedNote={NOT_INSTALLED_NOTE.trim()}
-                    unavailable
-                    shortNote={NOT_INSTALLED_SHORT}
-                  />
-                }
-              />
-              <Row
-                title="Show what's new after updating"
-                description="Open the release notes for the versions you just got the first time the program starts on a new version."
-                control={
-                  <Switch
-                    label="Show what's new after updating"
-                    checked={showReleaseNotes()}
-                    onChange={toggle("show_release_notes", showReleaseNotes, setShowReleaseNotes)}
-                  />
-                }
-              />
-            </Section>
-
-            <Section id="data">
-              <Row
-                title="Backfill match history"
-                description="Pull your older Mayhem games from Riot and add any that aren't stored yet. This runs automatically the first time an account connects; use this to run it again, or to finish an import you cancelled."
-                control={
-                  <button
-                    onClick={() => void handleBackfill()}
-                    disabled={backfilling()}
-                    class="btn w-[124px]"
-                  >
-                    <RefreshIcon class={backfilling() ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
-                    {backfilling() ? "Working..." : "Backfill"}
-                  </button>
-                }
-              >
-                <Status text={backfillLine()} running={backfilling()} />
-              </Row>
-              <Row
-                title="Export data"
-                description="Save all match data to a JSON file for backup"
-                control={
-                  <button onClick={() => void handleExport()} class="btn w-[124px]">
-                    <UploadIcon class="h-4 w-4" />
-                    Export
-                  </button>
-                }
-              >
-                <Status text={exportStatus()} />
-              </Row>
-              <Row
-                title="Import data"
-                description="Load match data from a previously exported file"
-                control={
-                  <button
-                    onClick={() => void handleImport()}
-                    disabled={importing()}
-                    class="btn w-[124px]"
-                  >
-                    <DownloadIcon class="h-4 w-4" />
-                    {importing() ? "Working..." : "Import"}
-                  </button>
-                }
-              >
-                <Status text={importLine()} running={importing()} />
-              </Row>
-              <Row
-                title="Repair account data"
-                description="Re-detect which accounts are yours by analyzing game history, then rebuild stored stats, augments, and performance scores from the raw game data. Use this if games are attributed to the wrong account or scores look stale."
-                control={
-                  <button onClick={() => void handleRepair()} class="btn w-[124px]">
-                    <WrenchIcon class="h-4 w-4" />
-                    Repair
-                  </button>
-                }
-              >
-                <Status text={repairStatus()} />
-              </Row>
-            </Section>
-
-            <Section
-              id="backups"
-              actions={
-                <>
-                  <button onClick={() => void api.openBackupFolder()} class="btn btn-sm btn-ghost">
-                    <FolderOpenIcon class="h-3.5 w-3.5" />
-                    Open folder
-                  </button>
-                  <button
-                    onClick={() => void handleBackupNow()}
-                    disabled={backupBusy()}
-                    class="btn btn-sm"
-                  >
-                    <ArchiveIcon class="h-3.5 w-3.5" />
-                    {backupBusy() ? "Working..." : "Back up now"}
-                  </button>
-                </>
-              }
+          <Section id="sidebar">
+            <Row
+              title="Pages in the sidebar"
+              description="Switch off the pages you never visit. A hidden page keeps recording, and Match History always stays since it's where the app opens."
             >
-              <Row
-                title="Automatic backups"
-                description="Keep a daily copy of your database on this computer, plus one before any import or repair. Older copies thin out to weekly and monthly. If the database ever goes missing or won't open, the newest working copy is restored on startup."
-                control={
-                  <Switch
-                    label="Automatic backups"
-                    checked={autoBackup()}
-                    onChange={toggle("auto_backup", autoBackup, setAutoBackup)}
-                  />
-                }
-              >
-                <Status text={backupStatus()} running={backupBusy()} />
-              </Row>
-
-              <div>
-                <div class="flex items-center gap-2 bg-black/15 px-5 py-2.5">
-                  <span class="label">Saved copies</span>
-                  <span class="font-num text-[13px] text-lol-text">{backups().length}</span>
-                </div>
-                <Show
-                  when={backups().length > 0}
-                  fallback={
-                    <p class="border-t border-lol-line px-5 py-4 text-[13px] text-lol-text">
-                      No backups yet.
-                    </p>
-                  }
-                >
-                  <For each={backups()}>
-                    {(backup) => (
+              <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                <For each={NAV_LINKS}>
+                  {(link) => {
+                    const shown = () => !hiddenNavLinks().has(link.to);
+                    return (
                       <div
                         class={[
-                          "flex min-h-[56px] items-center gap-4 border-t border-lol-line px-5 py-2.5 transition-colors",
-                          confirmRestore() === backup.file
-                            ? "bg-lol-loss/[0.05]"
-                            : "hover:bg-white/[0.02]",
+                          "flex h-12 items-center gap-3 rounded-lg border px-3 transition-colors",
+                          shown()
+                            ? "border-lol-line bg-white/[0.025]"
+                            : "border-dashed border-lol-border/70 bg-transparent",
                         ]}
                       >
-                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-lol-text">
-                          <HistoryIcon class="h-4 w-4" />
-                        </span>
-                        <div class="min-w-0 flex-1">
-                          <p
-                            class="font-num text-[15px] font-semibold leading-5 text-lol-text-bright"
-                            title={formatDateTime(backup.created)}
-                          >
-                            {formatTaken(backup.created)}
-                          </p>
-                          <p class="mt-0.5 flex items-center gap-1.5 text-[13px] text-lol-text">
-                            <span>{BACKUP_REASONS[backup.reason] ?? backup.reason}</span>
-                            <span class="text-lol-text/50">·</span>
-                            <Show
-                              when={backup.games !== null}
-                              fallback={<span class="text-lol-loss">unreadable</span>}
-                            >
-                              <span class="font-num text-[13px]">
-                                {backup.games?.toLocaleString(LOCALE)} games
-                              </span>
-                            </Show>
-                            <span class="text-lol-text/50">·</span>
-                            <span class="font-num text-[13px]">{formatSize(backup.size)}</span>
-                          </p>
-                        </div>
-                        <Show
-                          when={confirmRestore() === backup.file}
-                          fallback={
-                            <button
-                              onClick={() => setConfirmRestore(backup.file)}
-                              disabled={backupBusy() || backup.games === null}
-                              class="btn btn-sm shrink-0"
-                            >
-                              Restore
-                            </button>
-                          }
+                        <span
+                          class={[
+                            "flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors",
+                            shown()
+                              ? "bg-lol-gold/10 text-lol-gold"
+                              : "bg-white/[0.04] text-lol-text/75",
+                          ]}
                         >
-                          <div class="flex shrink-0 items-center gap-2">
-                            <span class="mr-1 text-[13px] text-lol-text-bright">
-                              Replace current data?
-                            </span>
-                            <button
-                              onClick={() => setConfirmRestore(null)}
-                              class="btn btn-sm btn-ghost"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={() => void handleRestore(backup.file)}
-                              disabled={backupBusy()}
-                              class="btn btn-sm btn-danger"
-                            >
-                              Restore
-                            </button>
-                          </div>
-                        </Show>
+                          <link.icon class="h-4 w-4" />
+                        </span>
+                        <span
+                          class={[
+                            "min-w-0 flex-1 truncate text-[14px] font-medium",
+                            shown() ? "text-lol-text-bright" : "text-lol-text",
+                          ]}
+                        >
+                          {link.label}
+                        </span>
+                        <Switch
+                          label={link.label}
+                          checked={shown()}
+                          disabled={link.to === HOME_PATH}
+                          lockedNote="Match History is where the app opens, so it always stays"
+                          shortNote="Always shown"
+                          onChange={() => void toggleNavLink(link.to)}
+                        />
                       </div>
-                    )}
-                  </For>
-                </Show>
+                    );
+                  }}
+                </For>
               </div>
-            </Section>
+            </Row>
+          </Section>
 
-            <Section id="troubleshooting">
-              <Row
-                title="Log file"
-                description="A record of what the program does in the background, like connecting to the client and recording games. If something goes wrong, main.log is the file to attach to a bug report."
-                control={
-                  <button onClick={() => void api.openLogsFolder()} class="btn w-[124px]">
-                    <FolderOpenIcon class="h-4 w-4" />
-                    Open folder
-                  </button>
+          <Section id="updates">
+            <Row
+              title="Install updates automatically"
+              description={
+                <>
+                  Install new versions on their own: when the program starts, and while it sits in
+                  the tray or minimized. Never while you're using it, in champion select or in a
+                  game. When it's off, new versions show up in the sidebar to install yourself.
+                  {!packaged() && NOT_INSTALLED_NOTE}
+                </>
+              }
+              control={
+                <Switch
+                  label="Install updates automatically"
+                  checked={autoUpdate()}
+                  onChange={toggle("auto_update", autoUpdate, setAutoUpdate)}
+                  disabled={!packaged()}
+                  lockedNote={NOT_INSTALLED_NOTE.trim()}
+                  unavailable
+                  shortNote={NOT_INSTALLED_SHORT}
+                />
+              }
+            />
+            <Row
+              title="Show what's new after updating"
+              description="Open the release notes for the versions you just got the first time the program starts on a new version."
+              control={
+                <Switch
+                  label="Show what's new after updating"
+                  checked={showReleaseNotes()}
+                  onChange={toggle("show_release_notes", showReleaseNotes, setShowReleaseNotes)}
+                />
+              }
+            />
+          </Section>
+
+          <Section id="data">
+            <Row
+              title="Backfill match history"
+              description="Pull your older Mayhem games from Riot and add any that aren't stored yet. This runs automatically the first time an account connects; use this to run it again, or to finish an import you cancelled."
+              control={
+                <button
+                  onClick={() => void handleBackfill()}
+                  disabled={backfilling()}
+                  class="btn w-[124px]"
+                >
+                  <RefreshIcon class={backfilling() ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+                  {backfilling() ? "Working..." : "Backfill"}
+                </button>
+              }
+            >
+              <Status text={backfillLine()} running={backfilling()} />
+            </Row>
+            <Row
+              title="Export data"
+              description="Save all match data to a JSON file for backup"
+              control={
+                <button onClick={() => void handleExport()} class="btn w-[124px]">
+                  <UploadIcon class="h-4 w-4" />
+                  Export
+                </button>
+              }
+            >
+              <Status text={exportStatus()} />
+            </Row>
+            <Row
+              title="Import data"
+              description="Load match data from a previously exported file"
+              control={
+                <button
+                  onClick={() => void handleImport()}
+                  disabled={importing()}
+                  class="btn w-[124px]"
+                >
+                  <DownloadIcon class="h-4 w-4" />
+                  {importing() ? "Working..." : "Import"}
+                </button>
+              }
+            >
+              <Status text={importLine()} running={importing()} />
+            </Row>
+            <Row
+              title="Repair account data"
+              description="Re-detect which accounts are yours by analyzing game history, then rebuild stored stats, augments, and performance scores from the raw game data. Use this if games are attributed to the wrong account or scores look stale."
+              control={
+                <button onClick={() => void handleRepair()} class="btn w-[124px]">
+                  <WrenchIcon class="h-4 w-4" />
+                  Repair
+                </button>
+              }
+            >
+              <Status text={repairStatus()} />
+            </Row>
+          </Section>
+
+          <Section
+            id="backups"
+            actions={
+              <>
+                <button onClick={() => void api.openBackupFolder()} class="btn btn-sm btn-ghost">
+                  <FolderOpenIcon class="h-3.5 w-3.5" />
+                  Open folder
+                </button>
+                <button
+                  onClick={() => void handleBackupNow()}
+                  disabled={backupBusy()}
+                  class="btn btn-sm"
+                >
+                  <ArchiveIcon class="h-3.5 w-3.5" />
+                  {backupBusy() ? "Working..." : "Back up now"}
+                </button>
+              </>
+            }
+          >
+            <Row
+              title="Automatic backups"
+              description="Keep a daily copy of your database on this computer, plus one before any import or repair. Older copies thin out to weekly and monthly. If the database ever goes missing or won't open, the newest working copy is restored on startup."
+              control={
+                <Switch
+                  label="Automatic backups"
+                  checked={autoBackup()}
+                  onChange={toggle("auto_backup", autoBackup, setAutoBackup)}
+                />
+              }
+            >
+              <Status text={backupStatus()} running={backupBusy()} />
+            </Row>
+
+            <div>
+              <div class="flex items-center gap-2 bg-black/15 px-5 py-2.5">
+                <span class="label">Saved copies</span>
+                <span class="font-num text-[13px] text-lol-text">{backups().length}</span>
+              </div>
+              <Show
+                when={backups().length > 0}
+                fallback={
+                  <p class="border-t border-lol-line px-5 py-4 text-[13px] text-lol-text">
+                    No backups yet.
+                  </p>
                 }
-              />
-            </Section>
-
-            <Section id="about">
-              <div class="flex flex-wrap items-center justify-between gap-6 px-5 py-5">
-                <div class="flex items-center gap-4">
-                  <BrandMark class="h-12 w-12 shrink-0 drop-shadow-[0_4px_14px_rgb(212_178_115/0.25)]" />
-                  <div>
-                    <p class="font-display text-[20px] font-extrabold uppercase italic leading-none tracking-[0.03em] text-lol-text-bright">
-                      Better Mayhem Tracker
-                    </p>
-                    <p class="mt-1.5 flex items-center gap-2 text-[13px] text-lol-text">
-                      <span class="chip bg-lol-gold/12 font-num normal-case text-lol-gold">
-                        v{version()}
+              >
+                <For each={backups()}>
+                  {(backup) => (
+                    <div
+                      class={[
+                        "flex min-h-[56px] items-center gap-4 border-t border-lol-line px-5 py-2.5 transition-colors",
+                        confirmRestore() === backup.file
+                          ? "bg-lol-loss/[0.05]"
+                          : "hover:bg-white/[0.02]",
+                      ]}
+                    >
+                      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-lol-text">
+                        <HistoryIcon class="h-4 w-4" />
                       </span>
-                      Your ARAM Mayhem games, kept on this computer
-                    </p>
-                  </div>
-                </div>
-                <div class="flex shrink-0 items-center gap-2">
-                  <button onClick={() => void api.openUrl(REPO_URL)} class="btn">
-                    <GithubIcon class="h-4 w-4" />
-                    GitHub
-                  </button>
-                  <button
-                    onClick={() => void api.openUrl(`${REPO_URL}/releases/tag/v${version()}`)}
-                    class="btn"
-                  >
-                    <ExternalLinkIcon class="h-4 w-4" />
-                    Release notes
-                  </button>
+                      <div class="min-w-0 flex-1">
+                        <p
+                          class="font-num text-[15px] font-semibold leading-5 text-lol-text-bright"
+                          title={formatDateTime(backup.created)}
+                        >
+                          {formatTaken(backup.created)}
+                        </p>
+                        <p class="mt-0.5 flex items-center gap-1.5 text-[13px] text-lol-text">
+                          <span>{BACKUP_REASONS[backup.reason] ?? backup.reason}</span>
+                          <span class="text-lol-text/50">·</span>
+                          <Show
+                            when={backup.games !== null}
+                            fallback={<span class="text-lol-loss">unreadable</span>}
+                          >
+                            <span class="font-num text-[13px]">
+                              {backup.games?.toLocaleString(LOCALE)} games
+                            </span>
+                          </Show>
+                          <span class="text-lol-text/50">·</span>
+                          <span class="font-num text-[13px]">{formatSize(backup.size)}</span>
+                        </p>
+                      </div>
+                      <Show
+                        when={confirmRestore() === backup.file}
+                        fallback={
+                          <button
+                            onClick={() => setConfirmRestore(backup.file)}
+                            disabled={backupBusy() || backup.games === null}
+                            class="btn btn-sm shrink-0"
+                          >
+                            Restore
+                          </button>
+                        }
+                      >
+                        <div class="flex shrink-0 items-center gap-2">
+                          <span class="mr-1 text-[13px] text-lol-text-bright">
+                            Replace current data?
+                          </span>
+                          <button
+                            onClick={() => setConfirmRestore(null)}
+                            class="btn btn-sm btn-ghost"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => void handleRestore(backup.file)}
+                            disabled={backupBusy()}
+                            class="btn btn-sm btn-danger"
+                          >
+                            Restore
+                          </button>
+                        </div>
+                      </Show>
+                    </div>
+                  )}
+                </For>
+              </Show>
+            </div>
+          </Section>
+
+          <Section id="troubleshooting">
+            <Row
+              title="Log file"
+              description="A record of what the program does in the background, like connecting to the client and recording games. If something goes wrong, main.log is the file to attach to a bug report."
+              control={
+                <button onClick={() => void api.openLogsFolder()} class="btn w-[124px]">
+                  <FolderOpenIcon class="h-4 w-4" />
+                  Open folder
+                </button>
+              }
+            />
+          </Section>
+
+          <Section id="about">
+            <div class="flex flex-wrap items-center justify-between gap-6 px-5 py-5">
+              <div class="flex items-center gap-4">
+                <BrandMark class="h-12 w-12 shrink-0 drop-shadow-[0_4px_14px_rgb(212_178_115/0.25)]" />
+                <div>
+                  <p class="font-display text-[20px] font-extrabold uppercase italic leading-none tracking-[0.03em] text-lol-text-bright">
+                    Better Mayhem Tracker
+                  </p>
+                  <p class="mt-1.5 flex items-center gap-2 text-[13px] text-lol-text">
+                    <span class="chip bg-lol-gold/12 font-num normal-case text-lol-gold">
+                      v{version()}
+                    </span>
+                    Your ARAM Mayhem games, kept on this computer
+                  </p>
                 </div>
               </div>
-            </Section>
-          </div>
+              <div class="flex shrink-0 items-center gap-2">
+                <button onClick={() => void api.openUrl(REPO_URL)} class="btn">
+                  <GithubIcon class="h-4 w-4" />
+                  GitHub
+                </button>
+                <button
+                  onClick={() => void api.openUrl(`${REPO_URL}/releases/tag/v${version()}`)}
+                  class="btn"
+                >
+                  <ExternalLinkIcon class="h-4 w-4" />
+                  Release notes
+                </button>
+              </div>
+            </div>
+          </Section>
         </div>
       </div>
     </Show>
   );
 }
 
-// Jump links down the side of a wide window, marking the section in view
+// Jump links across the top, held in view while the sections scroll under
+// them, marking the section in view
 function SectionNav() {
   const [active, setActive] = createSignal<SectionId>("general");
+  // Clear at rest; a backdrop only once it is pinned with settings scrolling
+  // behind it
+  const [pinned, setPinned] = createSignal(false);
+  let bar: HTMLElement | undefined;
+  // A clicked link stays marked even when its section can't reach the top of
+  // a page too short to scroll that far, until the player scrolls by hand
+  let picked: SectionId | null = null;
 
   onSettled(() => {
     const scroller = document.getElementById(sectionDomId("general"))?.closest("main");
@@ -975,6 +975,12 @@ function SectionNav() {
     // The section in view is the last one whose top has passed a line a little
     // below the top of the page, or the last section once the page bottoms out
     const update = () => {
+      // Pinned with something behind it: the cards have slid up under the bar
+      const cards = document.getElementById(sectionDomId(SECTIONS[0].id));
+      setPinned(
+        !!bar && !!cards && cards.getBoundingClientRect().top < bar.getBoundingClientRect().bottom,
+      );
+      if (picked) return;
       const top = scroller.getBoundingClientRect().top + 120;
       const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4;
       let current: SectionId = SECTIONS[0].id;
@@ -984,34 +990,53 @@ function SectionNav() {
       }
       setActive(atBottom ? SECTIONS[SECTIONS.length - 1].id : current);
     };
+    const release = () => {
+      if (!picked) return;
+      picked = null;
+      update();
+    };
+    const byHand = ["wheel", "touchmove", "keydown", "mousedown"] as const;
     update();
     scroller.addEventListener("scroll", update, { passive: true });
-    return () => scroller.removeEventListener("scroll", update);
+    for (const name of byHand) scroller.addEventListener(name, release, { passive: true });
+    return () => {
+      scroller.removeEventListener("scroll", update);
+      for (const name of byHand) scroller.removeEventListener(name, release);
+    };
   });
 
   return (
-    <nav class="sticky top-4 hidden xl:block" aria-label="Settings sections">
-      <div class="space-y-0.5">
+    <nav
+      ref={(el) => (bar = el)}
+      class={[
+        "sticky -top-2 z-10 -mx-3 flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 transition-colors",
+        pinned() && "bg-[#0e142b] shadow-[0_1px_0_var(--color-lol-line)]",
+      ]}
+      aria-label="Settings sections"
+    >
+      <div class="flex flex-wrap gap-0.5">
         <For each={SECTIONS}>
           {(section) => {
             const isActive = () => active() === section.id;
             return (
               <button
-                onClick={() =>
+                onClick={() => {
+                  picked = section.id;
+                  setActive(section.id);
                   document
                     .getElementById(sectionDomId(section.id))
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
                 aria-current={isActive() ? "true" : undefined}
                 class={[
-                  "relative flex h-9 w-full items-center gap-3 rounded-md px-3 text-left text-[14px] font-medium transition-colors",
+                  "relative flex h-9 items-center gap-2.5 rounded-md px-3 text-[14px] font-medium whitespace-nowrap transition-colors",
                   isActive()
-                    ? "bg-gradient-to-r from-lol-gold/16 to-lol-gold/[0.03] text-lol-text-bright"
+                    ? "bg-gradient-to-t from-lol-gold/16 to-lol-gold/[0.03] text-lol-text-bright"
                     : "text-lol-text hover:bg-white/[0.04] hover:text-lol-text-bright",
                 ]}
               >
                 <Show when={isActive()}>
-                  <span class="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-sm bg-lol-gold shadow-[0_0_10px_rgb(212_178_115/0.7)]" />
+                  <span class="absolute right-1.5 bottom-0 left-1.5 h-[3px] rounded-t-sm bg-lol-gold shadow-[0_0_10px_rgb(212_178_115/0.7)]" />
                 </Show>
                 <section.icon
                   class={isActive() ? "h-4 w-4 shrink-0 text-lol-gold" : "h-4 w-4 shrink-0"}
@@ -1022,9 +1047,7 @@ function SectionNav() {
           }}
         </For>
       </div>
-      <p class="mt-4 border-t border-lol-line px-3 pt-3.5 text-[12px] text-lol-text">
-        Changes save automatically
-      </p>
+      <p class="ml-auto pr-1 text-[12px] text-lol-text">Changes save automatically</p>
     </nav>
   );
 }

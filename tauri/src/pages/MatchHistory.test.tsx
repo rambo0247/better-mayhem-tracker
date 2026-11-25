@@ -3,6 +3,7 @@ import { createRouter, memoryHistory } from "@solidjs/router";
 import { fake } from "../../test/fakeApi";
 import { FAKE_API } from "../../test/parity-cases";
 import { mount, settle } from "../../test/render";
+import { dropdown, pick } from "../../test/select";
 import MatchHistory from "./MatchHistory";
 
 let view: ReturnType<typeof mount> | undefined;
@@ -153,12 +154,8 @@ test("a filter that leaves nothing says so, and Clear filters brings the other m
   });
   view = page();
   await settle();
-  const champion = [...view.container.querySelectorAll("select")].find((s) =>
-    s.textContent?.includes("All Champions"),
-  )!;
-  champion.value = "1";
-  champion.dispatchEvent(new Event("change", { bubbles: true }));
-  await settle();
+  const champion = dropdown(view.container, "All Champions");
+  await pick(champion, champion.querySelectorAll('[aria-hidden="true"]')[1]!.textContent!);
   expect(text()).toContain("No games match the current filters.");
 
   [...view.container.querySelectorAll("button")]

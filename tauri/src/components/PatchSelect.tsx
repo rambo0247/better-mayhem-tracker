@@ -1,7 +1,8 @@
-import { createEffect, For, Show } from "solid-js";
+import { createEffect, Show } from "solid-js";
 import { useFilterOptions } from "../hooks/useFilterOptions";
 import { formatPatch } from "../lib/format";
 import { FilterField } from "./FilterMenu";
+import Select from "./Select";
 
 export default function PatchSelect(props: {
   value: string | undefined;
@@ -22,25 +23,16 @@ export default function PatchSelect(props: {
     },
   );
 
-  // Each option says whether it is the one chosen: the value can arrive before
-  // the options it names do
   const select = () => (
-    <select
-      value={props.value ?? ""}
-      onChange={(e) =>
-        props.onChange(e.currentTarget.value === "" ? undefined : e.currentTarget.value)
-      }
-      class={props.label ? "select w-full" : "select"}
-    >
-      <option value="">All Patches</option>
-      <For each={patches()}>
-        {(p) => (
-          <option value={p} selected={props.value === p}>
-            Patch {formatPatch(p)}
-          </option>
-        )}
-      </For>
-    </select>
+    <Select
+      value={props.value}
+      options={[
+        { value: undefined, label: "All Patches" },
+        ...patches().map((p) => ({ value: p, label: `Patch ${formatPatch(p)}` })),
+      ]}
+      onChange={props.onChange}
+      class={props.label ? "w-full" : undefined}
+    />
   );
 
   return (

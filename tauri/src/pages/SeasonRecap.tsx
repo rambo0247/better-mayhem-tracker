@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { useSearchParams } from "@solidjs/router";
 import { CARD_WIDTH, type CardSpec } from "../shared/card";
@@ -11,6 +11,7 @@ import { LOCALE } from "../lib/format";
 import { reportFirstContent } from "../lib/perf";
 import SeasonRecapCard from "../components/SeasonRecapCard";
 import PageHeader from "../components/PageHeader";
+import Select from "../components/Select";
 import QueueSelect from "../components/QueueSelect";
 import AccountSelect from "../components/AccountSelect";
 import { ExportImageButton, ExportImageMessage, useImageExport } from "../components/ExportImage";
@@ -102,22 +103,15 @@ export default function SeasonRecap() {
               subtitle="Your season on one card, ready to copy or save as an image"
               actions={
                 <>
-                  <select
+                  <Select
                     value={recap().season.id}
-                    onChange={(e) => setSeasonId(e.currentTarget.value)}
-                    class="select"
-                  >
-                    <For each={recap().seasons}>
-                      {(season) => (
-                        <option
-                          value={season.id}
-                          disabled={season.games === 0 && season.id !== recap().season.id}
-                        >
-                          {seasonOption(season)}
-                        </option>
-                      )}
-                    </For>
-                  </select>
+                    options={recap().seasons.map((season) => ({
+                      value: season.id,
+                      label: seasonOption(season),
+                      disabled: season.games === 0 && season.id !== recap().season.id,
+                    }))}
+                    onChange={setSeasonId}
+                  />
                   <AccountSelect value={account()} onChange={setAccount} />
                   <QueueSelect value={queue()} onChange={setQueue} />
                   <Show when={recap().friends.length > 0}>

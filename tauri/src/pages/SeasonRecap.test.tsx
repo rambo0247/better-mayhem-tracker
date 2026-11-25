@@ -3,6 +3,7 @@ import { createRouter, memoryHistory } from "@solidjs/router";
 import { fake } from "../../test/fakeApi";
 import { FAKE_API } from "../../test/parity-cases";
 import { mount, settle } from "../../test/render";
+import { dropdown, pick } from "../../test/select";
 import SeasonRecap from "./SeasonRecap";
 
 let view: ReturnType<typeof mount> | undefined;
@@ -155,12 +156,7 @@ test("a season with no games under the queue filter says the filter is why", asy
   view = page();
   await settle();
   fake.returns.set("getSeasonRecap", recap({ games: 0, wins: 0, days: [] }));
-  const queue = [...view.container.querySelectorAll("select")].find((s) =>
-    s.textContent?.includes("All Queues"),
-  )!;
-  queue.value = "2400";
-  queue.dispatchEvent(new Event("change", { bubbles: true }));
-  await settle();
+  await pick(dropdown(view.container, "All Queues"), "ARAM Mayhem");
   expect(text()).toContain("No games in this season match this filter.");
   const last = fake.calls.filter((c) => c.method === "getSeasonRecap").at(-1)!;
   expect(last.args).toEqual([undefined, 2400, undefined]);

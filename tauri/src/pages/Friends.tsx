@@ -30,6 +30,7 @@ import {
 import { matchesSearch } from "../lib/search";
 import Kda from "../components/Kda";
 import PageHeader from "../components/PageHeader";
+import Select from "../components/Select";
 import { TaggedRiotId } from "../components/SharedStats";
 import { ChevronRightIcon, UsersIcon } from "../components/icons";
 import SearchInput from "../components/SearchInput";
@@ -219,18 +220,18 @@ export default function Friends() {
         <SeasonSelect value={season()} onChange={(s) => setSeason(s)} label="Set" />
         <Show when={showGroups()}>
           <FilterField label="Group size">
-            <select
-              value={size()?.toString() ?? ""}
-              onChange={(e) =>
-                setSize(e.currentTarget.value === "" ? undefined : Number(e.currentTarget.value))
-              }
-              class="select w-full"
-            >
-              <option value="">All sizes</option>
-              <For each={Object.entries(GROUP_SIZES)}>
-                {([value, label]) => <option value={value}>{label}</option>}
-              </For>
-            </select>
+            <Select
+              value={size()}
+              options={[
+                { value: undefined, label: "All sizes" },
+                ...Object.entries(GROUP_SIZES).map(([value, label]) => ({
+                  value: Number(value),
+                  label,
+                })),
+              ]}
+              onChange={setSize}
+              class="w-full"
+            />
           </FilterField>
         </Show>
         <MinGamesFilter value={minGames()} onChange={(m) => setMinGames(m)} max={maxGames()} />

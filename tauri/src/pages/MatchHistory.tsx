@@ -37,6 +37,7 @@ import PageHeader from "../components/PageHeader";
 import SummonerIcon from "../components/SummonerIcon";
 import SummonerSpellIcon from "../components/SummonerSpellIcon";
 import WinRateBar from "../components/WinRateBar";
+import Select from "../components/Select";
 import {
   ArrowDownIcon,
   ChevronDownIcon,
@@ -522,110 +523,67 @@ export default function MatchHistory() {
         {/* A single-account database doesn't need an account dropdown */}
         <Show when={filterOptions().accounts.length > 1 || accountFilter() !== undefined}>
           <FilterField label="Account">
-            <select
-              value={accountFilter() ?? ""}
-              onChange={(e) =>
-                setAccountFilter(e.currentTarget.value === "" ? undefined : e.currentTarget.value)
-              }
-              class="select w-full"
-            >
-              <option value="" selected={accountFilter() === undefined}>
-                All Accounts
-              </option>
-              <For each={filterOptions().accounts}>
-                {(a) => (
-                  <option value={a.puuid} selected={accountFilter() === a.puuid}>
-                    {a.name ?? "Unknown account"}
-                  </option>
-                )}
-              </For>
-            </select>
+            <Select
+              value={accountFilter()}
+              options={[
+                { value: undefined, label: "All Accounts" },
+                ...filterOptions().accounts.map((a) => ({
+                  value: a.puuid,
+                  label: a.name ?? "Unknown account",
+                })),
+              ]}
+              onChange={setAccountFilter}
+              class="w-full"
+            />
           </FilterField>
         </Show>
         <FilterField label="Champion">
-          <select
-            value={championFilter() ?? ""}
-            onChange={(e) =>
-              setChampionFilter(
-                e.currentTarget.value === "" ? undefined : Number(e.currentTarget.value),
-              )
-            }
-            class="select w-full"
-          >
-            <option value="" selected={championFilter() === undefined}>
-              All Champions
-            </option>
-            <For each={championOptions()}>
-              {({ id, name }) => (
-                <option value={id} selected={championFilter() === id}>
-                  {name}
-                </option>
-              )}
-            </For>
-          </select>
+          <Select
+            value={championFilter()}
+            options={[
+              { value: undefined, label: "All Champions" },
+              ...championOptions().map(({ id, name }) => ({ value: id, label: name })),
+            ]}
+            onChange={setChampionFilter}
+            class="w-full"
+          />
         </FilterField>
         <FilterField label="Set">
-          <select
-            value={seasonFilter() ?? ""}
-            onChange={(e) =>
-              setSeasonFilter(e.currentTarget.value === "" ? undefined : e.currentTarget.value)
-            }
-            class="select w-full"
-          >
-            <option value="" selected={seasonFilter() === undefined}>
-              All Sets
-            </option>
-            <For each={filterOptions().seasons}>
-              {(s) => (
-                <option value={s} selected={seasonFilter() === s}>
-                  {seasonName(s)}
-                </option>
-              )}
-            </For>
-          </select>
+          <Select
+            value={seasonFilter()}
+            options={[
+              { value: undefined, label: "All Sets" },
+              ...filterOptions().seasons.map((s) => ({ value: s, label: seasonName(s) })),
+            ]}
+            onChange={setSeasonFilter}
+            class="w-full"
+          />
         </FilterField>
         <FilterField label="Patch">
-          <select
-            value={patchFilter() ?? ""}
-            onChange={(e) =>
-              setPatchFilter(e.currentTarget.value === "" ? undefined : e.currentTarget.value)
-            }
-            class="select w-full"
-          >
-            <option value="" selected={patchFilter() === undefined}>
-              All Patches
-            </option>
-            <For each={filterOptions().patches}>
-              {(p) => (
-                <option value={p} selected={patchFilter() === p}>
-                  Patch {formatPatch(p)}
-                </option>
-              )}
-            </For>
-          </select>
+          <Select
+            value={patchFilter()}
+            options={[
+              { value: undefined, label: "All Patches" },
+              ...filterOptions().patches.map((p) => ({
+                value: p,
+                label: `Patch ${formatPatch(p)}`,
+              })),
+            ]}
+            onChange={setPatchFilter}
+            class="w-full"
+          />
         </FilterField>
         <Show when={filterOptions().queues.length > 1 || queueFilter() !== undefined}>
           <FilterField label="Queue">
-            <select
-              value={queueFilter() ?? ""}
-              onChange={(e) =>
-                setQueueFilter(
-                  e.currentTarget.value === "" ? undefined : Number(e.currentTarget.value),
-                )
-              }
-              class="select w-full"
-            >
-              <option value="" selected={queueFilter() === undefined}>
-                All Queues
-              </option>
-              <For each={filterOptions().queues}>
-                {(q) => (
-                  <option value={q} selected={queueFilter() === q}>
-                    {queueLabel(q)}
-                  </option>
-                )}
-              </For>
-            </select>
+            <Select
+              value={queueFilter()}
+              options={[
+                { value: undefined, label: "All Queues" },
+                ...filterOptions().queues.map((q) => ({ value: q, label: queueLabel(q) })),
+              ]}
+              onChange={setQueueFilter}
+              class="w-full"
+            />
           </FilterField>
         </Show>
         <FilterField label="Multikills">
@@ -663,27 +621,16 @@ export default function MatchHistory() {
         </Show>
       </FilterMenu>
       <div class="flex items-center">
-        <select
-          value={sort() ?? ""}
-          onChange={(e) => {
-            const picked = e.currentTarget.value;
-            setSort(picked === "" ? undefined : (picked as MatchSort));
+        <Select
+          value={sort()}
+          options={[{ value: undefined, label: "Newest" }, ...SORT_OPTIONS]}
+          onChange={(picked) => {
+            setSort(picked);
             setSortDir("desc");
           }}
-          class="select relative rounded-r-none hover:z-10 focus:z-10"
+          class="relative rounded-r-none hover:z-10 focus:z-10"
           aria-label="Sort by"
-        >
-          <option value="" selected={!sort()}>
-            Newest
-          </option>
-          <For each={SORT_OPTIONS}>
-            {({ value, label }) => (
-              <option value={value} selected={sort() === value}>
-                {label}
-              </option>
-            )}
-          </For>
-        </select>
+        />
         <button
           onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
           title={

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { fake } from "../../test/fakeApi";
 import { mount, settle } from "../../test/render";
+import { dropdowns } from "../../test/select";
+import { formatPatch } from "../lib/format";
 import PatchSelect from "../components/PatchSelect";
 import { EMPTY_FILTER_OPTIONS } from "./useFilterOptions";
 
@@ -13,10 +15,15 @@ afterEach(() => {
 
 const noop = () => {};
 const requests = () => fake.calls.filter((c) => c.method === "getMatchFilterOptions").length;
+// Every dropdown's patches, read from the labels its closed box is sized by,
+// so a check needs no list opened
 const patchesShown = (view: ReturnType<typeof mount>) =>
-  [...view.container.querySelectorAll("select")].map((select) =>
-    [...select.options].map((o) => o.value).filter(Boolean),
+  dropdowns(view.container).map((button) =>
+    [...button.querySelectorAll('[aria-hidden="true"]')]
+      .map((label) => label.textContent ?? "")
+      .filter((label) => label !== "All Patches"),
   );
+const patches = (...ids: string[]) => ids.map((id) => `Patch ${formatPatch(id)}`);
 
 function answerLater() {
   let answer!: (patches: string[]) => void;
@@ -47,11 +54,8 @@ test("dropdowns mounted while the options are on their way share one request", a
   answer(["16.2", "16.1"]);
   await settle();
   expect(views.map(patchesShown)).toEqual([
-    [
-      ["16.2", "16.1"],
-      ["16.2", "16.1"],
-    ],
-    [["16.2", "16.1"]],
+    [patches("16.2", "16.1"), patches("16.2", "16.1")],
+    [patches("16.2", "16.1")],
   ]);
 });
 
@@ -69,7 +73,7 @@ test("a dropdown mounted after new games land never gets the options read before
   await settle();
   after(["16.2", "16.1"]);
   await settle();
-  expect(views.map(patchesShown)).toEqual([[["16.2", "16.1"]], [["16.2", "16.1"]]]);
+  expect(views.map(patchesShown)).toEqual([[patches("16.2", "16.1")], [patches("16.2", "16.1")]]);
 });
 
 test("a dropdown mounted after the answer asks again, starting from no options", async () => {
@@ -84,5 +88,5 @@ test("a dropdown mounted after the answer asks again, starting from no options",
   later(["16.2"]);
   await settle();
   expect(requests()).toBe(2);
-  expect(patchesShown(view)).toEqual([["16.2"]]);
+  expect(patchesShown(view)).toEqual([patches("16.2")]);
 });

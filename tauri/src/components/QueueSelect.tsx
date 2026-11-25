@@ -1,7 +1,8 @@
-import { createEffect, For, Show } from "solid-js";
+import { createEffect, Show } from "solid-js";
 import { QUEUE_LABELS } from "../shared/queues";
 import { useFilterOptions } from "../hooks/useFilterOptions";
 import { FilterField } from "./FilterMenu";
+import Select from "./Select";
 
 export function queueLabel(queueId: number): string {
   return QUEUE_LABELS[queueId] ?? `Queue ${queueId}`;
@@ -26,25 +27,16 @@ export default function QueueSelect(props: {
     },
   );
 
-  // Each option says whether it is the one chosen: the value can arrive before
-  // the options it names do
   const select = () => (
-    <select
-      value={String(props.value ?? "")}
-      onChange={(e) =>
-        props.onChange(e.currentTarget.value === "" ? undefined : Number(e.currentTarget.value))
-      }
-      class={props.label ? "select w-full" : "select"}
-    >
-      <option value="">All Queues</option>
-      <For each={queues()}>
-        {(q) => (
-          <option value={q} selected={props.value === q}>
-            {queueLabel(q)}
-          </option>
-        )}
-      </For>
-    </select>
+    <Select
+      value={props.value}
+      options={[
+        { value: undefined, label: "All Queues" },
+        ...queues().map((q) => ({ value: q, label: queueLabel(q) })),
+      ]}
+      onChange={props.onChange}
+      class={props.label ? "w-full" : undefined}
+    />
   );
 
   // A queue dropdown is noise while the database only holds one queue

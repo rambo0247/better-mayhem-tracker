@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { fake } from "../../test/fakeApi";
 import { FAKE_API } from "../../test/parity-cases";
 import { mount, settle } from "../../test/render";
+import { dropdowns, pick } from "../../test/select";
 import Records from "./Records";
 
 let view: ReturnType<typeof mount> | undefined;
@@ -101,12 +102,9 @@ test("says no games match when a filter leaves nothing, and keeps the filter on 
   fake.returns.set("getRecords", { ...LOADED, totalGames: 0, bests: NO_BESTS });
   view = mount(() => <Records />);
   await settle();
-  const select = view.container.querySelector("select")!;
-  select.value = "2400";
-  select.dispatchEvent(new Event("change", { bubbles: true }));
-  await settle();
+  await pick(dropdowns(view.container)[0]!, "ARAM Mayhem");
   expect(text()).toContain("No games match this filter.");
-  expect(view.container.querySelector("select")).not.toBeNull();
+  expect(dropdowns(view.container)).toHaveLength(1);
   expect(fake.calls.filter((c) => c.method === "getRecords").at(-1)!.args).toEqual([
     2400,
     undefined,

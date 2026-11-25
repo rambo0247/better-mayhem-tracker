@@ -1,7 +1,8 @@
-import { createEffect, For, Show } from "solid-js";
+import { createEffect, Show } from "solid-js";
 import { findSeason } from "../shared/seasons";
 import { useFilterOptions } from "../hooks/useFilterOptions";
 import { FilterField } from "./FilterMenu";
+import Select from "./Select";
 
 export function seasonName(id: string): string {
   return findSeason(id)?.name ?? id;
@@ -27,25 +28,16 @@ export default function SeasonSelect(props: {
     },
   );
 
-  // Each option says whether it is the one chosen: the value can arrive before
-  // the options it names do
   const select = () => (
-    <select
-      value={props.value ?? ""}
-      onChange={(e) =>
-        props.onChange(e.currentTarget.value === "" ? undefined : e.currentTarget.value)
-      }
-      class={props.label ? "select w-full" : "select"}
-    >
-      <option value="">All Sets</option>
-      <For each={seasons()}>
-        {(s) => (
-          <option value={s} selected={props.value === s}>
-            {seasonName(s)}
-          </option>
-        )}
-      </For>
-    </select>
+    <Select
+      value={props.value}
+      options={[
+        { value: undefined, label: "All Sets" },
+        ...seasons().map((s) => ({ value: s, label: seasonName(s) })),
+      ]}
+      onChange={props.onChange}
+      class={props.label ? "w-full" : undefined}
+    />
   );
 
   return (

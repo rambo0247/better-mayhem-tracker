@@ -1,5 +1,6 @@
-import { createEffect, For, Show } from "solid-js";
+import { createEffect, Show } from "solid-js";
 import { useFilterOptions } from "../hooks/useFilterOptions";
+import Select from "./Select";
 
 export default function AccountSelect(props: {
   value: string | undefined;
@@ -21,22 +22,14 @@ export default function AccountSelect(props: {
   // A single-account database doesn't need an account dropdown
   return (
     <Show when={accounts().length >= 2}>
-      <select
-        value={props.value ?? ""}
-        onChange={(e) =>
-          props.onChange(e.currentTarget.value === "" ? undefined : e.currentTarget.value)
-        }
-        class="select"
-      >
-        <option value="">All Accounts</option>
-        <For each={accounts()}>
-          {(a) => (
-            <option value={a.puuid} selected={props.value === a.puuid}>
-              {a.name ?? "Unknown account"}
-            </option>
-          )}
-        </For>
-      </select>
+      <Select
+        value={props.value}
+        options={[
+          { value: undefined, label: "All Accounts" },
+          ...accounts().map((a) => ({ value: a.puuid, label: a.name ?? "Unknown account" })),
+        ]}
+        onChange={props.onChange}
+      />
     </Show>
   );
 }
