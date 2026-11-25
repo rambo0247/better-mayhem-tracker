@@ -214,7 +214,13 @@ jobs:
           if [ "$RUNNER_OS" = Windows ]; then exe="$exe.exe"; fi
           BMT_DATA_ROOT="$RUNNER_TEMP/bmt-data" "$exe" > window.log 2>&1 &
           pid=$!
-          sleep 10
+          # Waits for the window line rather than a fixed time: a busy Windows
+          # runner has taken more than 10 s to build it. A crash ends the wait
+          for _ in $(seq 60); do
+            if grep -qF ' title="Better Mayhem Tracker" ' window.log; then break; fi
+            if ! kill -0 "$pid"; then break; fi
+            sleep 1
+          done
           alive=0
           if kill -0 "$pid"; then alive=1; fi
           if [ "$alive" -eq 1 ]; then kill "$pid"; fi
