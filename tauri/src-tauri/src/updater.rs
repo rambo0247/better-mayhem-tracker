@@ -455,8 +455,10 @@ fn has_durable_install(host: &dyn Host) -> bool {
     host.install_target().is_some()
 }
 
+/// Off until the user turns it on, so nothing restarts the program unasked:
+/// with it off, a new version only shows in the sidebar.
 fn auto_update_on(host: &dyn Host) -> bool {
-    host.setting("auto_update").as_deref() != Some("false")
+    host.setting("auto_update").as_deref() == Some("true")
 }
 
 fn window_in_use(host: &dyn Host) -> bool {
@@ -2038,7 +2040,7 @@ mod tests {
                     length: Some(bytes.len() as u64),
                     chunks: bytes.chunks(4_000).map(<[u8]>::to_vec).collect(),
                 }),
-                settings: Mutex::new(HashMap::new()),
+                settings: Mutex::new(HashMap::from([("auto_update".into(), "true".into())])),
                 target: Some(InstallTarget::MacBundle(
                     "/scratch/Better Mayhem Tracker.app".into(),
                 )),
@@ -2426,6 +2428,13 @@ mod tests {
             .insert("auto_update".into(), "false".into());
         Updater::new().install_on_launch(fake.host()).await;
         assert!(fake.fetches.lock().unwrap().is_empty());
+        let never_set = Fake::new();
+        never_set.settings.lock().unwrap().remove("auto_update");
+        Updater::new().install_on_launch(never_set.host()).await;
+        assert!(
+            never_set.fetches.lock().unwrap().is_empty(),
+            "off by default"
+        );
         let mut bare = Arc::into_inner(Fake::new()).unwrap();
         bare.target = None;
         let bare = Arc::new(bare);

@@ -332,7 +332,7 @@ export default function Settings() {
       ]) => {
         setAutoStart(startup === "true");
         setPackaged(isPackaged);
-        setAutoUpdate(update !== "false");
+        setAutoUpdate(update === "true");
         setShowReleaseNotes(notes !== "false");
         setMinimizeToTray(tray !== "false");
         setHiddenQueues(parseHiddenQueues(hidden));
